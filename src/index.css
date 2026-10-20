@@ -1808,14 +1808,14 @@ body {
    ========================================================================== */
 @keyframes marqueePingPong {
   0%,
-  22% {
+  30% {
     transform: translateX(0);
   }
   48%,
-  72% {
+  78% {
     transform: translateX(var(--marquee-dist, -40px));
   }
-  95%,
+  96%,
   100% {
     transform: translateX(0);
   }
@@ -1837,7 +1837,7 @@ body {
 .marquee-text-content.is-scrolling {
   display: inline-block;
   will-change: transform;
-  animation: marqueePingPong var(--marquee-duration, 5s) ease-in-out infinite;
+  animation: marqueePingPong var(--marquee-duration, 14s) ease-in-out var(--marquee-delay, 0s) infinite;
 }
 
 /* Pause animation on mouse hover so user can read comfortably or click */

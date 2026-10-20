@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 
 interface MarqueeTextProps {
   text: string;
@@ -48,8 +48,18 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
   }, [text]);
 
   const isOverflowing = scrollDist > 0;
-  // Natural reading duration: base 3.5s pause + 25px/s reading speed
-  const duration = Math.max(4.5, 3.5 + scrollDist / 25);
+  // Much slower and relaxing duration: generous base pauses + calm ~10px/s glide speed
+  const duration = Math.max(12.0, 9.0 + scrollDist / 10);
+
+  // Subtle deterministic delay (0.5s - 2.0s) so multiple rows don't move in simultaneous lockstep
+  const delay = useMemo(() => {
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      hash = (hash << 5) - hash + text.charCodeAt(i);
+      hash |= 0;
+    }
+    return 0.5 + ((Math.abs(hash) % 15) / 10);
+  }, [text]);
 
   return (
     <div
@@ -76,6 +86,7 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
             ? ({
                 '--marquee-dist': `-${scrollDist}px`,
                 '--marquee-duration': `${duration}s`,
+                '--marquee-delay': `${delay}s`,
               } as React.CSSProperties)
             : {}),
         }}
