@@ -1462,7 +1462,6 @@ body {
   color: var(--text-muted);
   flex-wrap: wrap;
   gap: 8px;
-  position: fixed;
   bottom: 0;
   width: 100%;
 }

@@ -224,12 +224,12 @@ export const App: React.FC = () => {
           </main>
 
           {/* Footer */}
-          <footer className="portal-footer">
+          <footer className="portal-footer mt-5 text-center">
             <div>
               <strong>Federazione Italiana Tennistavolo (FITeT)</strong> • Portale Non Ufficiale Regionale Calabria
-            </div>
-            <div>
-              CAM=1902 • ANNO=41 • Dati sincronizzati con portale.fitet.org
+              <div className="text-center">
+                Dati sincronizzati con portale.fitet.org
+              </div>
             </div>
           </footer>
         </>
