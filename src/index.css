@@ -684,234 +684,322 @@ body {
   grid-template-columns: 38px minmax(120px, 1fr) 90px 78px 64px;
 }
 
-/* 2. Calendario Grid & Responsive Match Cards */
-.calendario-grid {
+/* 2. Calendario Match Cards System */
+.calendario-cards-container {
   width: 100%;
+  padding: 12px 0 24px;
 }
 
-.grid-section-divider {
+.giornata-section {
+  margin-bottom: 24px;
+}
+
+.giornata-header-banner {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 36px;
-  padding: 0 18px;
+  padding: 10px 16px;
+  background: linear-gradient(90deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--color-primary-600, #2563eb);
+  border-radius: 8px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.giornata-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.giornata-badge-pill {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  background: var(--color-primary-600, #2563eb);
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.giornata-phase-text {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.giornata-meta-count {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Responsive Grid of Match Cards */
+.match-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .match-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+/* Individual Match Card */
+.match-card {
+  background: var(--bg-container, #ffffff);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+}
+
+.match-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  border-color: #cbd5e1;
+}
+
+/* Match Card Top */
+.match-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  flex-wrap: wrap;
+}
+
+.match-card-top-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.match-phase-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.match-phase-badge.phase-andata {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.match-phase-badge.phase-ritorno {
+  background: #f3e8ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+}
+
+.match-card-datetime {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.match-card-top-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.match-status-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.match-status-badge.status-disputato {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.match-status-badge.status-programmato {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+/* Teams Container */
+.match-card-teams {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.match-card-team-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.match-card-team-row:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.match-card-team-row.is-winner {
+  background: rgba(37, 99, 235, 0.04);
+}
+
+.match-card-team-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.team-role-tag {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.team-role-tag.role-casa {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #dbeafe;
+}
+
+.team-role-tag.role-ospite {
   background: #f8fafc;
-  border-top: 2px solid #cbd5e1;
-  border-bottom: 1px solid #cbd5e1;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
 }
 
-/* Desktop Calendario Layout (> 768px): Mathematical 7-Column Grid */
-@media (min-width: 769px) {
-  .calendario-grid {
-    min-width: 820px;
-  }
-
-  .calendario-grid .grid-header-row {
-    grid-template-columns: 75px 135px 1fr 75px 1fr 100px 70px;
-  }
-
-  .calendario-match-row {
-    display: grid;
-    grid-template-columns: 75px 135px 1fr 75px 1fr 100px 70px;
-    align-items: center;
-    height: 40px;
-    border-bottom: 1px solid var(--border-light);
-    transition: background-color 0.15s ease;
-  }
-
-  .calendario-match-row:hover {
-    background: var(--bg-hover);
-  }
-
-  .match-meta-group {
-    display: contents;
-  }
-
-  .match-meta-group>.badge {
-    grid-column: 1;
-    justify-self: center;
-  }
-
-  .match-datetime {
-    grid-column: 2;
-    text-align: center;
-    font-size: 12px;
-    color: #475569;
-    white-space: nowrap;
-    padding: 0 8px;
-  }
-
-  .mobile-meta-right {
-    display: none;
-  }
-
-  .match-team-casa {
-    grid-column: 3;
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    padding-right: 16px;
-    font-weight: 500;
-    cursor: pointer;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text-dark);
-  }
-
-  .match-team-casa.is-winner {
-    font-weight: 900;
-    text-decoration: dotted;
-  }
-
-  .match-score-desktop {
-    grid-column: 4;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-  }
-
-  .match-team-ospite {
-    grid-column: 5;
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    padding-left: 16px;
-    cursor: pointer;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--text-dark);
-  }
-
-  .match-team-ospite.is-winner {
-    font-weight: 700;
-  }
-
-  .match-status-desktop {
-    grid-column: 6;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .match-referto-desktop {
-    grid-column: 7;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
-
-  .mobile-score-val {
-    display: none;
-  }
+.match-card-name-wrapper {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13.5px;
 }
 
-/* Mobile & Tablet Calendario Layout (<= 768px): Wrapped, Card-Style Layout (Zero Horizontal Scroll) */
-@media (max-width: 768px) {
-  .calendario-grid-container {
-    overflow-x: visible;
-  }
+.winner-trophy {
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
 
-  .calendario-grid {
-    min-width: 0;
-    width: 100%;
-  }
+/* Score Box */
+.match-card-score-box {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
 
-  .calendario-grid .grid-header-row {
-    display: none;
-  }
+.match-card-score-box.score-winner {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+  box-shadow: 0 1px 2px rgba(22, 163, 74, 0.12);
+}
 
-  .calendario-match-row {
-    display: flex;
-    flex-direction: column;
-    padding: 11px 16px;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--bg-container);
-    gap: 8px;
-  }
+.match-card-score-box.score-played {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
 
-  .calendario-match-row:hover {
-    background: var(--bg-hover);
-  }
+.match-card-score-box.score-pending {
+  background: #f8fafc;
+  color: #94a3b8;
+  border: 1px dashed #cbd5e1;
+}
 
-  .match-meta-group {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 11.5px;
-    color: #64748b;
-    border-bottom: 1px solid #f1f5f9;
-    padding-bottom: 6px;
-    width: 100%;
-  }
+/* Card Bottom */
+.match-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
 
-  .match-datetime {
-    font-size: 11.5px;
-    color: #475569;
-    font-weight: 500;
-  }
+.match-card-summary {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-  .mobile-meta-right {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
+.btn-referto-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
 
-  .match-score-desktop,
-  .match-status-desktop,
-  .match-referto-desktop {
-    display: none;
-  }
+.btn-referto-link:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
 
-  .match-team-casa,
-  .match-team-ospite {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    padding: 3px 0;
-    font-size: 13.5px;
-    color: var(--text-dark);
-    cursor: pointer;
-  }
-
-  .match-team-casa.is-winner,
-  .match-team-ospite.is-winner {
-    font-weight: 700;
-  }
-
-  .team-name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    padding-right: 12px;
-    font-weight: 100;
-  }
-
-  .mobile-score-val {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-sans);
-    font-size: 13px;
-    font-weight: 800;
-    min-width: 24px;
-    height: 24px;
-    border-radius: 4px;
-    background: #f1f5f9;
-    color: #334155;
-    padding: 0 6px;
-  }
-
-  .is-winner .mobile-score-val {
-    background: #dcfce7;
-    font-weight: 900;
-    border: 1px solid #bbf7d0;
-  }
+/* Empty State */
+.no-matches-found {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--bg-container);
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 /* 3. Statistiche Grid: Full 11-column master grid */
@@ -1718,34 +1806,103 @@ body {
   color: #64748b;
 }
 
-[data-theme="dark"] .grid-section-divider {
+[data-theme="dark"] .giornata-header-banner {
   background: linear-gradient(90deg, #101d38 0%, #0b1426 100%);
-  border-bottom-color: #1a2d52;
+  border-color: #1a2d52;
+  border-left-color: #3b82f6;
 }
 
-[data-theme="dark"] .calendario-match-row {
+[data-theme="dark"] .match-card {
   background: #0b1426;
+  border-color: #1a2d52;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .match-card:hover {
+  border-color: #2563eb;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .match-phase-badge.phase-andata {
+  background: rgba(3, 105, 161, 0.25);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+[data-theme="dark"] .match-phase-badge.phase-ritorno {
+  background: rgba(126, 34, 206, 0.25);
+  color: #c084fc;
+  border-color: rgba(192, 132, 252, 0.4);
+}
+
+[data-theme="dark"] .match-status-badge.status-disputato {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+[data-theme="dark"] .match-status-badge.status-programmato {
+  background: #142342;
+  color: #8899b5;
+  border-color: #1c3258;
+}
+
+[data-theme="dark"] .match-card-teams {
+  border-color: #142342;
+}
+
+[data-theme="dark"] .match-card-team-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .match-card-team-row.is-winner {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+[data-theme="dark"] .team-role-tag.role-casa {
+  background: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+[data-theme="dark"] .team-role-tag.role-ospite {
+  background: #101d38;
+  color: #94a3b8;
+  border-color: #1e355f;
+}
+
+[data-theme="dark"] .match-card-score-box.score-winner {
+  background: rgba(34, 197, 94, 0.22);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.4);
+}
+
+[data-theme="dark"] .match-card-score-box.score-played {
+  background: #101d38;
+  color: #cbd5e1;
+  border-color: #1e355f;
+}
+
+[data-theme="dark"] .match-card-score-box.score-pending {
+  background: #091224;
+  color: #64748b;
   border-color: #1a2d52;
 }
 
-[data-theme="dark"] .match-meta-group {
-  background: #0e1a34;
-  border-bottom-color: #162748;
+[data-theme="dark"] .btn-referto-link {
+  background: #122244;
+  color: #93c5fd;
+  border-color: #1d4ed8;
 }
 
-[data-theme="dark"] .match-datetime {
-  color: #8899b5;
+[data-theme="dark"] .btn-referto-link:hover {
+  background: #2563eb;
+  color: #ffffff;
 }
 
-[data-theme="dark"] .mobile-score-val {
-  background: #101d38;
-  color: #cbd5e1;
-}
-
-[data-theme="dark"] .is-winner .mobile-score-val {
-  background: rgba(34, 197, 94, 0.22);
-  color: #4ade80;
-  border: 1px solid rgba(74, 222, 128, 0.4);
+[data-theme="dark"] .no-matches-found {
+  background: #0b1426;
+  border-color: #1a2d52;
 }
 
 [data-theme="dark"] .modal-card-simple {

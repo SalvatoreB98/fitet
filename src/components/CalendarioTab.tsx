@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { GiornataCalendario, PartitaCalendario } from '../types/fitet';
+import { MarqueeText } from './MarqueeText';
 
 interface CalendarioTabProps {
   calendario: GiornataCalendario[];
@@ -96,176 +97,226 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
         </div>
 
         <div className="controls-right text-muted" style={{ fontSize: '12px' }}>
-          Risultati ufficiali e referti federali
+          Risultati ufficiali e referti federali FITeT
         </div>
       </div>
 
-      {/* Calendar Grid Container (Responsive: Grid on Desktop, Wrapped Cards on Mobile) */}
-      <div className="grid-table-container calendario-grid-container">
-        <div className="grid-table calendario-grid">
-          {/* Desktop Header Row */}
-          <div className="grid-header-row">
-            <div className="grid-th text-center">Fase</div>
-            <div className="grid-th text-center">Data &amp; Ora</div>
-            <div className="grid-th text-right" style={{ paddingRight: '16px' }}>Squadra Casa</div>
-            <div className="grid-th text-center">Risultato</div>
-            <div className="grid-th text-left" style={{ paddingLeft: '16px' }}>Squadra Ospite</div>
-            <div className="grid-th text-center">Stato</div>
-            <div className="grid-th text-center">Referto</div>
-          </div>
+      {/* Calendario Match Cards Container */}
+      <div className="calendario-cards-container">
+        {displayedGiornate.map((giornata) => {
+          const matchesToDisplay: PartitaCalendario[] = [];
+          if (faseFilter === 'all' || faseFilter === 'andata') {
+            matchesToDisplay.push(...giornata.partiteAndata);
+          }
+          if (faseFilter === 'all' || faseFilter === 'ritorno') {
+            matchesToDisplay.push(...giornata.partiteRitorno);
+          }
 
-          {/* Giornate & Match Rows */}
-          {displayedGiornate.map((giornata) => {
-            const matchesToDisplay: PartitaCalendario[] = [];
-            if (faseFilter === 'all' || faseFilter === 'andata') {
-              matchesToDisplay.push(...giornata.partiteAndata);
-            }
-            if (faseFilter === 'all' || faseFilter === 'ritorno') {
-              matchesToDisplay.push(...giornata.partiteRitorno);
-            }
-
-            const filteredMatches = matchesToDisplay.filter((m) => {
-              if (!selectedTeamFilter) return true;
-              const filterNorm = selectedTeamFilter.toUpperCase();
-              return (
-                m.squadraCasa.toUpperCase().includes(filterNorm) ||
-                m.squadraOspite.toUpperCase().includes(filterNorm)
-              );
-            });
-
-            if (filteredMatches.length === 0) return null;
-            totalDisplayedMatches += filteredMatches.length;
-
+          const filteredMatches = matchesToDisplay.filter((m) => {
+            if (!selectedTeamFilter) return true;
+            const filterNorm = selectedTeamFilter.toUpperCase();
             return (
-              <React.Fragment key={giornata.numero}>
-                {/* Giornata Section Divider */}
-                <div className="grid-section-divider">
-                  <span style={{ fontFamily: 'var(--font-serif)', fontSize: '13.5px', fontWeight: '700', color: 'var(--color-primary-700)' }}>
-                    {giornata.titolo}
-                  </span>
-                  <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>
-                    {filteredMatches.length} incontri
-                  </span>
-                </div>
+              m.squadraCasa.toUpperCase().includes(filterNorm) ||
+              m.squadraOspite.toUpperCase().includes(filterNorm)
+            );
+          });
 
-                {/* Match Rows */}
+          if (filteredMatches.length === 0) return null;
+          totalDisplayedMatches += filteredMatches.length;
+
+          return (
+            <section key={giornata.numero} className="giornata-section">
+              {/* Giornata Header Banner */}
+              <div className="giornata-header-banner">
+                <div className="giornata-title-group">
+                  <span className="giornata-badge-pill">{giornata.numero}ª GIORNATA</span>
+                  <span className="giornata-phase-text">Incontri di Campionato</span>
+                </div>
+                <div className="giornata-meta-count">
+                  {filteredMatches.length} {filteredMatches.length === 1 ? 'incontro' : 'incontri'}
+                </div>
+              </div>
+
+              {/* Responsive Cards Grid */}
+              <div className="match-cards-grid">
                 {filteredMatches.map((m) => {
                   const isCasaWinner = m.vincitore === 'casa';
                   const isOspiteWinner = m.vincitore === 'ospite';
 
                   return (
-                    <div key={m.id} className="calendario-match-row">
-                      {/* Meta Group: Fase, Data&Ora, Mobile Stato & Referto */}
-                      <div className="match-meta-group">
-                        <span
-                          className={`badge ${m.tipo === 'andata' ? 'pct-high' : 'pct-mid'}`}
-                          style={{ fontSize: '10px' }}
-                        >
-                          {m.tipo.toUpperCase()}
-                        </span>
+                    <article key={m.id} className="match-card">
+                      {/* Card Top: Phase, Date, Time & Status */}
+                      <div className="match-card-top">
+                        <div className="match-card-top-left">
+                          <span
+                            className={`match-phase-badge ${
+                              m.tipo === 'andata' ? 'phase-andata' : 'phase-ritorno'
+                            }`}
+                          >
+                            {m.tipo.toUpperCase()}
+                          </span>
+                          <span className="match-card-datetime">
+                            📅 {m.data} • 🕒 {m.ora}
+                          </span>
+                        </div>
 
-                        <span className="match-datetime">
-                          {m.data} • {m.ora}
-                        </span>
-
-                        <div className="mobile-meta-right">
+                        <div className="match-card-top-right">
                           {m.disputato ? (
-                            <span className="badge pct-100" style={{ fontSize: '10px' }}>
-                              Disputato
+                            <span className="match-status-badge status-disputato">
+                              ✓ Disputato
                             </span>
                           ) : (
-                            <span className="badge pct-zero" style={{ fontSize: '10px' }}>
-                              In programma
+                            <span className="match-status-badge status-programmato">
+                              ⏳ In programma
                             </span>
-                          )}
-
-                          {m.refertoUrl && (
-                            <a
-                              href={m.refertoUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn-action"
-                              title="Visualizza referto di gara sul portale FITeT"
-                            >
-                              Apri ↗
-                            </a>
                           )}
                         </div>
                       </div>
 
-                      {/* Squadra Casa */}
-                      <div
-                        className={`match-team-casa ${isCasaWinner ? 'is-winner' : 'is-not-winner'}`}
-                        onClick={() => onSelectTeamFilter(m.squadraCasa)}
-                        title={`Filtra per ${m.squadraCasa}`}
-                      >
-                        <span className="team-name">{m.squadraCasa}</span>
-                        <span className="mobile-score-val">
-                          {m.disputato ? (m.puntiCasa !== null ? m.puntiCasa : '-') : '-'}
-                        </span>
+                      {/* Card Teams & Scores */}
+                      <div className="match-card-teams">
+                        {/* Squadra Casa */}
+                        <div
+                          className={`match-card-team-row ${isCasaWinner ? 'is-winner' : ''}`}
+                          onClick={() => onSelectTeamFilter(m.squadraCasa)}
+                          title={`Filtra incontri per ${m.squadraCasa}`}
+                        >
+                          <div className="match-card-team-left">
+                            <span className="team-role-tag role-casa">CASA</span>
+                            <div className="match-card-name-wrapper">
+                              <MarqueeText
+                                text={m.squadraCasa}
+                                style={{
+                                  fontSize: '13.5px',
+                                  fontWeight: isCasaWinner ? '700' : '600',
+                                  color: isCasaWinner ? 'var(--color-primary-700, #1d4ed8)' : 'var(--text-dark)',
+                                }}
+                              />
+                            </div>
+                            {isCasaWinner && (
+                              <span className="winner-trophy" title="Vincitore incontro">
+                                🏆
+                              </span>
+                            )}
+                          </div>
+
+                          <div
+                            className={`match-card-score-box ${
+                              isCasaWinner
+                                ? 'score-winner'
+                                : m.disputato
+                                ? 'score-played'
+                                : 'score-pending'
+                            }`}
+                          >
+                            {m.disputato ? (m.puntiCasa !== null ? m.puntiCasa : '-') : '-'}
+                          </div>
+                        </div>
+
+                        {/* Squadra Ospite */}
+                        <div
+                          className={`match-card-team-row ${isOspiteWinner ? 'is-winner' : ''}`}
+                          onClick={() => onSelectTeamFilter(m.squadraOspite)}
+                          title={`Filtra incontri per ${m.squadraOspite}`}
+                        >
+                          <div className="match-card-team-left">
+                            <span className="team-role-tag role-ospite">OSPITE</span>
+                            <div className="match-card-name-wrapper">
+                              <MarqueeText
+                                text={m.squadraOspite}
+                                style={{
+                                  fontSize: '13.5px',
+                                  fontWeight: isOspiteWinner ? '700' : '600',
+                                  color: isOspiteWinner ? 'var(--color-primary-700, #1d4ed8)' : 'var(--text-dark)',
+                                }}
+                              />
+                            </div>
+                            {isOspiteWinner && (
+                              <span className="winner-trophy" title="Vincitore incontro">
+                                🏆
+                              </span>
+                            )}
+                          </div>
+
+                          <div
+                            className={`match-card-score-box ${
+                              isOspiteWinner
+                                ? 'score-winner'
+                                : m.disputato
+                                ? 'score-played'
+                                : 'score-pending'
+                            }`}
+                          >
+                            {m.disputato ? (m.puntiOspite !== null ? m.puntiOspite : '-') : '-'}
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Desktop Center Score Box */}
-                      <div className="match-score-desktop">
-                        <span className={`score-box ${m.disputato ? 'played' : ''}`}>
-                          {m.risultato}
-                        </span>
-                      </div>
+                      {/* Card Bottom: Summary & Referto FITeT */}
+                      <div className="match-card-bottom">
+                        <div className="match-card-summary">
+                          {m.disputato ? (
+                            <span>
+                              Risultato: <strong style={{ color: 'var(--text-dark)' }}>{m.risultato}</strong>
+                              {isCasaWinner && ' • Vittoria Casa'}
+                              {isOspiteWinner && ' • Vittoria Ospite'}
+                              {m.vincitore === 'pareggio' && ' • Pareggio'}
+                            </span>
+                          ) : (
+                            <span>Incontro in programma alle ore {m.ora}</span>
+                          )}
+                        </div>
 
-                      {/* Squadra Ospite */}
-                      <div
-                        className={`match-team-ospite ${isOspiteWinner ? 'is-winner' : 'is-not-winner'}`}
-                        onClick={() => onSelectTeamFilter(m.squadraOspite)}
-                        title={`Filtra per ${m.squadraOspite}`}
-                      >
-                        <span className="team-name">{m.squadraOspite}</span>
-                        <span className="mobile-score-val">
-                          {m.disputato ? (m.puntiOspite !== null ? m.puntiOspite : '-') : '-'}
-                        </span>
-                      </div>
-
-                      {/* Desktop Status */}
-                      <div className="match-status-desktop">
-                        {m.disputato ? (
-                          <span className="badge pct-100" style={{ fontSize: '10.5px' }}>
-                            Disputato
-                          </span>
-                        ) : (
-                          <span className="badge pct-zero" style={{ fontSize: '10.5px' }}>
-                            In programma
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Desktop Referto Link */}
-                      <div className="match-referto-desktop">
-                        {m.refertoUrl ? (
+                        {m.refertoUrl && (
                           <a
                             href={m.refertoUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="btn-action"
+                            className="btn-referto-link"
                             title="Visualizza referto di gara sul portale FITeT"
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            Apri ↗
+                            <span>Referto FITeT</span>
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                              <polyline points="15 3 21 3 21 9"></polyline>
+                              <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
                           </a>
-                        ) : (
-                          <span style={{ color: '#94a3b8' }}>-</span>
                         )}
                       </div>
-                    </div>
+                    </article>
                   );
                 })}
-              </React.Fragment>
-            );
-          })}
+              </div>
+            </section>
+          );
+        })}
 
-          {totalDisplayedMatches === 0 && (
-            <div style={{ padding: '36px 16px', color: '#64748b', textAlign: 'center' }}>
-              Nessun incontro trovato con i filtri selezionati.
-            </div>
-          )}
-        </div>
+        {totalDisplayedMatches === 0 && (
+          <div className="no-matches-found">
+            <span style={{ fontSize: '32px' }}>🏓</span>
+            <p style={{ margin: '4px 0', fontWeight: 600 }}>Nessun incontro trovato con i filtri selezionati.</p>
+            {selectedTeamFilter && (
+              <button
+                className="btn-action"
+                onClick={onClearTeamFilter}
+                style={{ marginTop: '8px' }}
+              >
+                Rimuovi filtro ({selectedTeamFilter}) ✕
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
