@@ -1,12 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 import { FitetClient } from './fitetClient';
+import defaultMapping from '../data/athlete_mapping.json';
 
 export class AthleteResolver {
   private mappingFile: string;
-  private mapping: Record<string, string> = {};
+  private mapping: Record<string, string>;
 
   constructor() {
+    this.mapping = { ...defaultMapping };
     this.mappingFile = path.resolve(process.cwd(), 'server', 'data', 'athlete_mapping.json');
     this.loadMapping();
   }
@@ -15,21 +17,18 @@ export class AthleteResolver {
     try {
       if (fs.existsSync(this.mappingFile)) {
         const content = fs.readFileSync(this.mappingFile, 'utf8');
-        this.mapping = JSON.parse(content);
+        this.mapping = { ...defaultMapping, ...JSON.parse(content) };
       }
-    } catch (e) {
-      console.warn('Could not read athlete_mapping.json:', e);
-      this.mapping = {
-        'BUTERA SALVATORE': '829250',
-      };
+    } catch {
+      this.mapping = { ...defaultMapping };
     }
   }
 
   private saveMapping() {
     try {
       fs.writeFileSync(this.mappingFile, JSON.stringify(this.mapping, null, 2), 'utf8');
-    } catch (e) {
-      console.warn('Could not save athlete_mapping.json:', e);
+    } catch {
+      // Ignored in read-only serverless environment
     }
   }
 

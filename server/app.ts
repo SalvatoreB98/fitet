@@ -255,15 +255,17 @@ app.post('/api/refresh', async (req, res) => {
   }
 });
 
-// Serve static frontend files in production if dist exists (when running as standalone node server)
-const distPath = path.resolve(process.cwd(), 'dist');
-app.use(express.static(distPath));
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
-  const indexFile = path.join(distPath, 'index.html');
-  res.sendFile(indexFile, (err) => {
-    if (err) res.status(404).send('Not Found');
+// Serve static frontend files in production only when running as standalone node server (not on Vercel)
+if (!process.env.VERCEL) {
+  const distPath = path.resolve(process.cwd(), 'dist');
+  app.use(express.static(distPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    const indexFile = path.join(distPath, 'index.html');
+    res.sendFile(indexFile, (err) => {
+      if (err) res.status(404).send('Not Found');
+    });
   });
-});
+}
 
 export default app;
