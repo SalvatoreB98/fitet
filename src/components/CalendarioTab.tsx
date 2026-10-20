@@ -195,7 +195,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
 
                       {/* Squadra Casa */}
                       <div
-                        className={`match-team-casa ${isCasaWinner ? 'is-winner' : ''}`}
+                        className={`match-team-casa ${isCasaWinner ? 'is-winner' : 'is-not-winner'}`}
                         onClick={() => onSelectTeamFilter(m.squadraCasa)}
                         title={`Filtra per ${m.squadraCasa}`}
                       >
@@ -214,7 +214,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
 
                       {/* Squadra Ospite */}
                       <div
-                        className={`match-team-ospite ${isOspiteWinner ? 'is-winner' : ''}`}
+                        className={`match-team-ospite ${isOspiteWinner ? 'is-winner' : 'is-not-winner'}`}
                         onClick={() => onSelectTeamFilter(m.squadraOspite)}
                         title={`Filtra per ${m.squadraOspite}`}
                       >

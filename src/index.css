@@ -778,7 +778,6 @@ body {
     justify-content: flex-start;
     align-items: center;
     padding-left: 16px;
-    font-weight: 500;
     cursor: pointer;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -875,7 +874,6 @@ body {
     width: 100%;
     padding: 3px 0;
     font-size: 13.5px;
-    font-weight: 500;
     color: var(--text-dark);
     cursor: pointer;
   }
@@ -891,6 +889,7 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
     padding-right: 12px;
+    font-weight: 100;
   }
 
   .mobile-score-val {
@@ -1533,6 +1532,10 @@ body {
 
 .modal-body-simple {
   padding: 20px;
+}
+
+.is-not-winner {
+  opacity: 0.6;
 }
 
 /* ==========================================================================
