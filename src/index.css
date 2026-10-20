@@ -935,7 +935,7 @@ body {
 /* 3b-1: % Vittorie (Efficacia) */
 .stat-ranking-pct-grid .grid-header-row,
 .stat-ranking-pct-grid .grid-data-row {
-  grid-template-columns: 34px minmax(130px, 1.4fr) minmax(85px, 1fr) 46px 60px 74px;
+  grid-template-columns: 34px minmax(130px, 1.4fr) minmax(85px, 1fr) 46px 90px 74px;
 }
 
 /* 3b-2: Più Vincenti (Partite) */

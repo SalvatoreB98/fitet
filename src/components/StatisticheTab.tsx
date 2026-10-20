@@ -344,7 +344,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
             fontWeight: 600,
             whiteSpace: 'nowrap',
             justifyContent: 'center',
-            minWidth: '60px',
+            minWidth: '20px',
           }}
           onClick={(e) => {
             e.stopPropagation();
@@ -352,7 +352,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
           }}
           title={`Apri scheda federale di ${a.atleta}`}
         >
-          Scheda ↗
+          ↗
         </button>
       ) : (
         <span style={{ color: '#94a3b8' }}>-</span>
@@ -493,7 +493,6 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
                   >
                     % Vittorie {renderSortIndicator('percentualeVittorie', pctSortField, pctSortAsc)}
                   </div>
-                  <div className="grid-th text-center" style={{ cursor: 'default' }}>Scheda</div>
                 </div>
 
                 {sortedPctAthletes.map((a, i) => (
@@ -525,7 +524,6 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
                         {a.percentualeVittorie.toFixed(1)}%
                       </span>
                     </div>
-                    {renderSchedaButton(a)}
                   </div>
                 ))}
               </div>

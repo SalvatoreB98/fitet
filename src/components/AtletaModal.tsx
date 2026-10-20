@@ -64,7 +64,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({ atletaId, athleteName,
             onClick={onClose}
             style={{ padding: '4px 9px', fontSize: '13px' }}
           >
-            Chiudi ✕
+            ✕
           </button>
         </div>
 
