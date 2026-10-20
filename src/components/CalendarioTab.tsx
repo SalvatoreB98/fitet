@@ -15,7 +15,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
   onSelectTeamFilter,
 }) => {
   const [selectedGiornata, setSelectedGiornata] = useState<number | 'all'>('all');
-  const [faseFilter, setFaseFilter] = useState<'all' | 'andata' | 'ritorno'>('andata');
+  const [faseFilter, setFaseFilter] = useState<'all' | 'andata' | 'ritorno'>('all');
 
   const allTeams = Array.from(
     new Set(
