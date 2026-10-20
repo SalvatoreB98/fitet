@@ -258,12 +258,12 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                           {m.disputato ? (
                             <span>
                               Risultato: <strong style={{ color: 'var(--text-dark)' }}>{m.risultato}</strong>
-                              {isCasaWinner && ' • Vittoria Casa'}
-                              {isOspiteWinner && ' • Vittoria Ospite'}
+                              {isCasaWinner && ''}
+                              {isOspiteWinner && ''}
                               {m.vincitore === 'pareggio' && ' • Pareggio'}
                             </span>
                           ) : (
-                            <span>Incontro in programma alle ore {m.ora}</span>
+                            <span></span>
                           )}
                         </div>
 

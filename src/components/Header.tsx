@@ -39,7 +39,8 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Official Blue Top Header Bar */}
       <div className="portal-header">
         <div className="portal-title-block">
-          <h1>Serie D/1 — Girone Nord</h1>
+          <h1>D1 G.NORD </h1>
+          <small>CALABRIA</small>
         </div>
 
         <div className="portal-header-actions">
