@@ -676,12 +676,12 @@ body {
 
 .classifica-bilancio-grid .grid-header-row,
 .classifica-bilancio-grid .grid-data-row {
-  grid-template-columns: 38px minmax(120px, 1fr) 42px 42px 42px 96px;
+  grid-template-columns: 38px minmax(120px, 1fr) 42px 42px 42px 120px;
 }
 
 .classifica-differenziali-grid .grid-header-row,
 .classifica-differenziali-grid .grid-data-row {
-  grid-template-columns: 38px minmax(120px, 1fr) 78px 78px 64px;
+  grid-template-columns: 38px minmax(120px, 1fr) 90px 78px 64px;
 }
 
 /* 2. Calendario Grid & Responsive Match Cards */

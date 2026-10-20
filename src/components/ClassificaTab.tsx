@@ -220,7 +220,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
               onClick={() => setViewMode('responsive')}
               title="Classifica ufficiale e sezioni separate senza scroll"
             >
-              📱 Viste Separate (Zero Scroll)
+              📱 Classifiche separate
             </button>
             <button
               type="button"
