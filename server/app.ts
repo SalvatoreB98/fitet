@@ -242,6 +242,7 @@ app.get('/api/search-atleta', async (req, res) => {
 app.post('/api/refresh', async (req, res) => {
   try {
     cacheService.clear();
+    athleteResolver.reloadMapping();
     const [rawClassifica, calendario, statisticheAtleti] = await Promise.all([
       getClassifica(true),
       getCalendario(true),

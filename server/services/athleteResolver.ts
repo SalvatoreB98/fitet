@@ -33,7 +33,12 @@ export class AthleteResolver {
     }
   }
 
+  public reloadMapping() {
+    this.loadMapping();
+  }
+
   getMapping(): Record<string, string> {
+    this.loadMapping();
     return { ...this.mapping };
   }
 
