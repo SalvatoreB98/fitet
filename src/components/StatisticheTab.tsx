@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { StatisticaAtleta } from '../types/fitet';
+import { MarqueeText } from './MarqueeText';
 
 interface StatisticheTabProps {
   statistiche: StatisticaAtleta[];
@@ -510,9 +511,12 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
                     {renderAthleteNameCell(a)}
                     <div
                       className="grid-cell text-left"
-                      style={{ color: 'var(--text-muted)', fontSize: '11.5px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
+                      style={{ overflow: 'hidden', padding: '0 8px', minWidth: 0 }}
                     >
-                      {a.squadra}
+                      <MarqueeText
+                        text={a.squadra}
+                        style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}
+                      />
                     </div>
                     <div className="grid-cell text-center" style={{ fontWeight: '600', color: '#334155' }}>
                       <span style={{ color: '#15803d', fontWeight: '700' }}>{a.partiteVinte}</span>
@@ -619,9 +623,12 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
                       {renderAthleteNameCell(a)}
                       <div
                         className="grid-cell text-left"
-                        style={{ color: 'var(--text-muted)', fontSize: '11.5px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
+                        style={{ overflow: 'hidden', padding: '0 8px', minWidth: 0 }}
                       >
-                        {a.squadra}
+                        <MarqueeText
+                          text={a.squadra}
+                          style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}
+                        />
                       </div>
                       <div className="grid-cell text-center" style={{ color: '#15803d', fontWeight: '700' }}>
                         {a.partiteVinte}
@@ -705,9 +712,12 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
                       {renderAthleteNameCell(a)}
                       <div
                         className="grid-cell text-left"
-                        style={{ color: 'var(--text-muted)', fontSize: '11.5px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
+                        style={{ overflow: 'hidden', padding: '0 8px', minWidth: 0 }}
                       >
-                        {a.squadra}
+                        <MarqueeText
+                          text={a.squadra}
+                          style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}
+                        />
                       </div>
                       <div className="grid-cell text-center" style={{ color: '#334155', whiteSpace: 'nowrap', fontSize: '12px' }}>
                         <span style={{ fontWeight: '600' }}>{a.setVinti}-{a.setPersi}</span>
@@ -812,9 +822,12 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
                     {renderAthleteNameCell(a)}
                     <div
                       className="grid-cell text-left"
-                      style={{ color: 'var(--text-muted)', fontSize: '11.5px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}
+                      style={{ overflow: 'hidden', padding: '0 8px', minWidth: 0 }}
                     >
-                      {a.squadra}
+                      <MarqueeText
+                        text={a.squadra}
+                        style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}
+                      />
                     </div>
                     <div className="grid-cell text-center" style={{ color: '#475569' }}>
                       {a.incontriDisputati}

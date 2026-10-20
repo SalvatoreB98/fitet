@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { SquadraClassifica } from '../types/fitet';
+import { MarqueeText } from './MarqueeText';
 
 interface ClassificaTabProps {
   classifica: SquadraClassifica[];
@@ -290,18 +291,16 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
 
                     {/* Team */}
                     <div className="grid-cell text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-                        <span
-                          style={{
-                            fontWeight: '600',
-                            color: 'var(--text-dark)',
-                            whiteSpace: 'nowrap',
-                            textOverflow: 'ellipsis',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          {sq.nome}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
+                        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                          <MarqueeText
+                            text={sq.nome}
+                            style={{
+                              fontWeight: '600',
+                              color: 'var(--text-dark)',
+                            }}
+                          />
+                        </div>
                         {sq.isPromozione && (
                           <span className="badge pct-mid" style={{ fontSize: '10px', flexShrink: 0 }}>
                             1° Promozione
@@ -401,17 +400,13 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     </div>
 
                     <div className="grid-cell text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
-                      <span
+                      <MarqueeText
+                        text={sq.nome}
                         style={{
                           fontWeight: '600',
                           color: 'var(--text-dark)',
-                          whiteSpace: 'nowrap',
-                          textOverflow: 'ellipsis',
-                          overflow: 'hidden',
                         }}
-                      >
-                        {sq.nome}
-                      </span>
+                      />
                     </div>
 
                     <div className="grid-cell text-center" style={{ color: '#16a34a', fontWeight: '700' }}>
@@ -488,17 +483,13 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     </div>
 
                     <div className="grid-cell text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
-                      <span
+                      <MarqueeText
+                        text={sq.nome}
                         style={{
                           fontWeight: '600',
                           color: 'var(--text-dark)',
-                          whiteSpace: 'nowrap',
-                          textOverflow: 'ellipsis',
-                          overflow: 'hidden',
                         }}
-                      >
-                        {sq.nome}
-                      </span>
+                      />
                     </div>
 
                     <div className="grid-cell text-center" style={{ whiteSpace: 'nowrap' }}>
@@ -601,18 +592,16 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     </div>
 
                     <div className="grid-cell text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-                        <span
-                          style={{
-                            fontWeight: '600',
-                            color: 'var(--text-dark)',
-                            whiteSpace: 'nowrap',
-                            textOverflow: 'ellipsis',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          {sq.nome}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
+                        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                          <MarqueeText
+                            text={sq.nome}
+                            style={{
+                              fontWeight: '600',
+                              color: 'var(--text-dark)',
+                            }}
+                          />
+                        </div>
                         {sq.isPromozione && (
                           <span className="badge pct-mid" style={{ fontSize: '10px', flexShrink: 0 }}>
                             1° Promozione

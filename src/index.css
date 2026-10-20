@@ -1802,3 +1802,46 @@ body {
     padding: 10px 14px;
   }
 }
+
+/* ==========================================================================
+   MARQUEE PING-PONG AUTO-SCROLL (Nomi Squadre Scorrevoli Avanti e Indietro)
+   ========================================================================== */
+@keyframes marqueePingPong {
+  0%,
+  22% {
+    transform: translateX(0);
+  }
+  48%,
+  72% {
+    transform: translateX(var(--marquee-dist, -40px));
+  }
+  95%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.marquee-text-wrapper {
+  overflow: hidden;
+  white-space: nowrap;
+  min-width: 0;
+  width: 100%;
+  position: relative;
+}
+
+.marquee-text-wrapper.has-overflow {
+  mask-image: linear-gradient(to right, black calc(100% - 14px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 14px), transparent 100%);
+}
+
+.marquee-text-content.is-scrolling {
+  display: inline-block;
+  will-change: transform;
+  animation: marqueePingPong var(--marquee-duration, 5s) ease-in-out infinite;
+}
+
+/* Pause animation on mouse hover so user can read comfortably or click */
+.marquee-text-wrapper:hover .marquee-text-content.is-scrolling,
+.grid-data-row:hover .marquee-text-content.is-scrolling {
+  animation-play-state: paused;
+}
