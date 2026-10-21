@@ -226,54 +226,65 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
 
           {data && (
             <div>
-              {/* Summary Highlight Boxes using design system */}
-              <div className="modal-stat-boxes" style={{ marginBottom: '18px' }}>
-                <div className="modal-stat-box stat-box-blue">
-                  <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-primary-500, #0284c7)' }}>
-                    {data.atleti.filter((a) => !a.isDoppio).length}
+              {/* Summary Highlight Card in the exact style of overview-stats-card */}
+              <div className="overview-stats-card" style={{ marginBottom: '18px' }}>
+                <div className="overview-stats-row">
+                  {/* 1. Atleti Tesserati */}
+                  <div
+                    className="overview-stat-col"
+                    title={`Atleti Tesserati: ${data.atleti.filter((a) => !a.isDoppio).length} (Roster Ufficiale FITeT)`}
+                  >
+                    <span className="overview-stat-label">Atleti</span>
+                    <span className="overview-stat-value">
+                      {data.atleti.filter((a) => !a.isDoppio).length}
+                    </span>
+                    <span className="overview-stat-sub">Roster FITeT</span>
                   </div>
-                  <div style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: '700', color: 'var(--color-primary-600, #0369a1)' }}>
-                    Atleti Tesserati
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Roster Ufficiale FITeT
-                  </div>
-                </div>
 
-                <div className="modal-stat-box stat-box-green">
-                  <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-dark)' }}>
-                    <span style={{ color: '#16a34a' }}>{totalMatchesVinte}</span> -{' '}
-                    <span style={{ color: '#dc2626' }}>{totalMatchesPerse}</span>
-                  </div>
-                  <div style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: '700', color: '#16a34a' }}>
-                    Partite Vinte - Perse
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    {totalMatchesDisputate} partite totali
-                  </div>
-                </div>
+                  <div className="overview-stat-divider" aria-hidden="true" />
 
-                <div className="modal-stat-box stat-box-blue">
-                  <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-primary-500, #0284c7)' }}>
-                    {totalSetVinti} : {totalSetPersi}
+                  {/* 2. Partite Vinte - Perse */}
+                  <div
+                    className="overview-stat-col"
+                    title={`Partite Vinte: ${totalMatchesVinte}, Perse: ${totalMatchesPerse} (${totalMatchesDisputate} partite totali)`}
+                  >
+                    <span className="overview-stat-label">Partite V/P</span>
+                    <span className="overview-stat-value">
+                      <span style={{ color: '#4ade80' }}>{totalMatchesVinte}</span>{' '}
+                      <span className="overview-stat-slash">-</span>{' '}
+                      <span style={{ color: '#f87171' }}>{totalMatchesPerse}</span>
+                    </span>
+                    <span className="overview-stat-sub">{totalMatchesDisputate} totali</span>
                   </div>
-                  <div style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: '700', color: 'var(--color-primary-600, #0369a1)' }}>
-                    Set Vinti - Persi
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Diff: {setDiff > 0 ? `+${setDiff}` : setDiff}
-                  </div>
-                </div>
 
-                <div className="modal-stat-box stat-box-amber">
-                  <div style={{ fontSize: '22px', fontWeight: '800', color: '#d97706' }}>
-                    {teamWinRate}%
+                  <div className="overview-stat-divider" aria-hidden="true" />
+
+                  {/* 3. Set Vinti - Persi */}
+                  <div
+                    className="overview-stat-col"
+                    title={`Set Vinti: ${totalSetVinti}, Persi: ${totalSetPersi} (Diff: ${setDiff > 0 ? `+${setDiff}` : setDiff})`}
+                  >
+                    <span className="overview-stat-label">Set V/P</span>
+                    <span className="overview-stat-value">
+                      {totalSetVinti} <span className="overview-stat-slash">:</span> {totalSetPersi}
+                    </span>
+                    <span className="overview-stat-sub">
+                      Diff: {setDiff > 0 ? `+${setDiff}` : setDiff}
+                    </span>
                   </div>
-                  <div style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: '700', color: '#b45309' }}>
-                    % Vittorie Squadra
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Rendimento complessivo
+
+                  <div className="overview-stat-divider" aria-hidden="true" />
+
+                  {/* 4. % Vittorie Squadra */}
+                  <div
+                    className="overview-stat-col"
+                    title={`% Vittorie Squadra: ${teamWinRate}% (Rendimento complessivo)`}
+                  >
+                    <span className="overview-stat-label">% Vittorie</span>
+                    <span className="overview-stat-value" style={{ color: '#fbbf24' }}>
+                      {teamWinRate}%
+                    </span>
+                    <span className="overview-stat-sub">Rendimento</span>
                   </div>
                 </div>
               </div>
