@@ -3056,12 +3056,29 @@ body.modal-open {
     padding: 5px;
   }
 
+  .portal-title-block {
+    display: grid;
+    place-items: center;
+    grid-template-columns: 1fr 1fr;
+    gap: 0px;
+  }
+
   .portal-title-btn h1 {
     font-size: 16px;
   }
 
   .portal-title-btn small {
-    display: none;
+    font-size: 10px;
+  }
+
+  @media (max-width: 500px) {
+    .portal-title-btn small {
+      display: block;
+      font-size: 8px;
+      text-overflow: ellipsis;
+      max-width: 35px;
+      overflow: hidden;
+    }
   }
 
   .modal-backdrop-simple.modal-referto-backdrop {
