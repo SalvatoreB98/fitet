@@ -1087,7 +1087,7 @@ function parseDettaglioAtleta(html, atletaId) {
   const luogoNascita = dataNascitaRaw.replace(/.*?a\s*/i, "").trim();
   const settore = getFieldValue("Settore Agonistico") || "Seniores";
   const societa = getFieldValue("Societa' appartenenza") || getFieldValue("Societa") || "";
-  const regione = getFieldValue("Regione") || "Calabria";
+  const regione = getFieldValue("Regione") || "";
   const catRaw = getFieldValue("Categoria");
   let categoria = catRaw;
   let punti = 0;
@@ -1649,7 +1649,7 @@ app.get("/api/dashboard", async (req, res) => {
         anno,
         nome: champMeta?.nome || `Campionato ${cam}`,
         girone: champMeta?.nome || "",
-        regione: champMeta?.regione || "Calabria"
+        regione: champMeta?.regione || "Nazionale"
       }
     };
     res.json(payload);

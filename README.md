@@ -1,6 +1,6 @@
-# Dashboard Serie D/1 Girone Nord (CAM=1902, ANNO=41) & Scheda Ranking Atleta
+# FITeT Campionati Dashboard & Schede Ranking Atleti
 
-Applicazione web full-stack, reattiva e mobile-first dedicata al campionato FITeT di **Serie D/1 Girone Nord - Calabria (CAM=1902, ANNO=41)**, con navigazione integrata verso la **scheda ranking e lo storico punti dei singoli atleti**.
+Applicazione web full-stack, reattiva e mobile-first per la consultazione e il monitoraggio di tutti i campionati FITeT (Nazionali e Regionali), con navigazione integrata verso la **scheda ranking e lo storico punti dei singoli atleti**.
 
 ---
 

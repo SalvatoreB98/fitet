@@ -85,12 +85,12 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <div className="portal-title-block">
             <div className="portal-title-heading-row">
-              <h1>{championshipName || 'D1 G.NORD'}</h1>
+              <h1>{championshipName || 'CAMPIONATO'}</h1>
               <span className="championship-switcher-badge" aria-hidden="true">
                 <i className="bi bi-chevron-down"></i>
               </span>
             </div>
-            <small>{(championshipRegion || getCachedUserRegion()).toUpperCase()}</small>
+            <small>{(championshipRegion || getCachedUserRegion() || 'FITET').toUpperCase()}</small>
           </div>
         </button>
         <div>

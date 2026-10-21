@@ -9,6 +9,7 @@ import { StatisticheTab } from './components/StatisticheTab';
 import { AtletaModal } from './components/AtletaModal';
 import { ChampionshipModal } from './components/ChampionshipModal';
 import { SquadraModal } from './components/SquadraModal';
+import { IntroMotionGraphic } from './components/IntroMotionGraphic';
 import { registerTeamLogos } from './utils/teamLogos';
 
 export const App: React.FC = () => {
@@ -41,6 +42,25 @@ export const App: React.FC = () => {
   const [campionati, setCampionati] = useState<ChampionshipItem[]>([]);
   const [loadingCampionati, setLoadingCampionati] = useState<boolean>(false);
   const [isChampionshipModalOpen, setIsChampionshipModalOpen] = useState<boolean>(false);
+
+  // Motion Graphic Intro on first access only
+  const [showIntro, setShowIntro] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('intro') === '1') return true;
+      const completed = localStorage.getItem('fitet_intro_completed');
+      return !completed;
+    }
+    return false;
+  });
+
+  const handleIntroComplete = () => {
+    setShowIntro(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('fitet_intro_completed', 'true');
+    }
+    setIsChampionshipModalOpen(true);
+  };
 
   const [activeTab, setActiveTab] = useState<'classifica' | 'calendario' | 'statistiche'>('classifica');
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
@@ -223,6 +243,9 @@ export const App: React.FC = () => {
 
   return (
     <div className="portal-container">
+      {/* Motion Graphic Intro (first access only) */}
+      {showIntro && <IntroMotionGraphic onComplete={handleIntroComplete} />}
+
       {/* Top Header with integrated nav tabs */}
       <Header
         lastUpdated={data?.lastUpdated || null}
@@ -318,7 +341,9 @@ export const App: React.FC = () => {
           {/* Footer */}
           <footer className="portal-footer mt-5 text-center">
             <div>
-              <strong>Federazione Italiana Tennistavolo (FITeT)</strong> • {data?.championship.nome} ({data?.championship.regione})
+              <strong>Federazione Italiana Tennistavolo (FITeT)</strong>
+              {data?.championship?.nome && ` • ${data.championship.nome}`}
+              {data?.championship?.regione && ` (${data.championship.regione})`}
               <div>Progetto autonomo della community, dati sincronizzati da portale.fitet.org</div>
             </div>
           </footer>

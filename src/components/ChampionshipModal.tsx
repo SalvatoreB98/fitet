@@ -26,7 +26,9 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [userRegion, setUserRegion] = useState<string>(getCachedUserRegion);
-  const [selectedRegion, setSelectedRegion] = useState<string>(getCachedUserRegion);
+  const [selectedRegion, setSelectedRegion] = useState<string>(() => {
+    return getCachedUserRegion() || 'Tutti';
+  });
   const [hasGeoLocation, setHasGeoLocation] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return !!localStorage.getItem('fitet_detected_region');
@@ -54,7 +56,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
         setUserRegion((prevUserRegion) => {
           setSelectedRegion((prevSelected) => {
             // Keep selectedRegion in sync if user hasn't chosen another specific region
-            if (prevSelected === prevUserRegion || prevSelected === 'Calabria') {
+            if (prevSelected === prevUserRegion || prevSelected === 'Tutti' || !prevSelected) {
               return detected;
             }
             return prevSelected;
@@ -76,7 +78,10 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
       if (c.regione) set.add(c.regione);
     });
     const list = Array.from(set).sort((a, b) => a.localeCompare(b, 'it'));
-    return ['Tutti', userRegion, 'Nazionale', ...list.filter((r) => r !== userRegion && r !== 'Nazionale')];
+    if (userRegion) {
+      return ['Tutti', userRegion, 'Nazionale', ...list.filter((r) => r !== userRegion && r !== 'Nazionale')];
+    }
+    return ['Tutti', 'Nazionale', ...list.filter((r) => r !== 'Nazionale')];
   }, [campionati, userRegion]);
 
   // Filtered championships using tokenized search & normalization
@@ -169,7 +174,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
             <input
               type="text"
               className="championship-search-input"
-              placeholder="Cerca per girone, serie o regione (es. D1, C2, Calabria, A1)..."
+              placeholder="Cerca per girone, serie o regione (es. D1, C2, Serie A, Girone A)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -188,18 +193,20 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
 
         {/* Region Filter Tabs */}
         <div className="championship-regions-bar">
-          <button
-            type="button"
-            className={`region-pill ${selectedRegion === userRegion && !searchQuery ? 'active' : ''}`}
-            onClick={() => {
-              setSelectedRegion(userRegion);
-              setSearchQuery('');
-            }}
-            title={hasGeoLocation ? `Regione rilevata dalla posizione: ${userRegion}` : `Regione: ${userRegion}`}
-          >
-            <span className="pill-star">{hasGeoLocation ? '📍' : '⭐'}</span> {userRegion}
-            {countUserRegion > 0 && <span className="pill-badge">{countUserRegion}</span>}
-          </button>
+          {userRegion && (
+            <button
+              type="button"
+              className={`region-pill ${selectedRegion === userRegion && !searchQuery ? 'active' : ''}`}
+              onClick={() => {
+                setSelectedRegion(userRegion);
+                setSearchQuery('');
+              }}
+              title={hasGeoLocation ? `Regione rilevata dalla posizione: ${userRegion}` : `Regione: ${userRegion}`}
+            >
+              <span className="pill-star">{hasGeoLocation ? '📍' : '⭐'}</span> {userRegion}
+              {countUserRegion > 0 && <span className="pill-badge">{countUserRegion}</span>}
+            </button>
+          )}
 
           <button
             type="button"
@@ -228,7 +235,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
           <div className="region-select-wrapper">
             <select
               className="region-select-dropdown"
-              value={[userRegion, 'Nazionale', 'Tutti'].includes(selectedRegion) ? '' : selectedRegion}
+              value={[userRegion, 'Nazionale', 'Tutti'].filter(Boolean).includes(selectedRegion) ? '' : selectedRegion}
               onChange={(e) => {
                 if (e.target.value) {
                   setSelectedRegion(e.target.value);
@@ -241,7 +248,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
                 Altre regioni...
               </option>
               {regionsList
-                .filter((r) => r !== userRegion && r !== 'Nazionale' && r !== 'Tutti')
+                .filter((r) => (userRegion ? r !== userRegion : true) && r !== 'Nazionale' && r !== 'Tutti')
                 .map((r) => (
                   <option key={r} value={r}>
                     {r}

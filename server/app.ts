@@ -201,7 +201,7 @@ app.get('/api/dashboard', async (req, res) => {
         anno,
         nome: champMeta?.nome || `Campionato ${cam}`,
         girone: champMeta?.nome || '',
-        regione: champMeta?.regione || 'Calabria',
+        regione: champMeta?.regione || 'Nazionale',
       },
     };
 

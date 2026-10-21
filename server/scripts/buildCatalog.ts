@@ -4,8 +4,8 @@ async function main() {
   console.log('Fetching all championships from FITeT...');
   const res = await championshipCatalog.getAllCampionati(true);
   console.log(`Successfully indexed ${res.length} championships!`);
-  const cal = res.filter(c => c.regione === 'Calabria');
-  console.log(`Calabria has ${cal.length} championships:`, cal.map(c => c.nome).join(', '));
+  const regionsCount = new Set(res.map(c => c.regione)).size;
+  console.log(`Indexed across ${regionsCount} regions and national divisions.`);
   process.exit(0);
 }
 

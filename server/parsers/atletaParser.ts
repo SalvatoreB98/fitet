@@ -79,7 +79,7 @@ export function parseDettaglioAtleta(html: string, atletaId: string): DettaglioA
 
   const settore = getFieldValue('Settore Agonistico') || 'Seniores';
   const societa = getFieldValue("Societa' appartenenza") || getFieldValue('Societa') || '';
-  const regione = getFieldValue('Regione') || 'Calabria';
+  const regione = getFieldValue('Regione') || '';
 
   const catRaw = getFieldValue('Categoria');
   // Example catRaw: "6^ (*)    punti 166,00" o "6^    punti 2.510,40"

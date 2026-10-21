@@ -35,7 +35,7 @@ const REGION_CENTROIDS: { name: string; lat: number; lon: number }[] = [
  * Gets the closest Italian region name based on geometric distance to centroids.
  */
 export function getClosestItalianRegion(lat: number, lon: number): string {
-  let closest = 'Calabria';
+  let closest = REGION_CENTROIDS[0]?.name || 'Italia';
   let minDistanceSq = Infinity;
   for (const r of REGION_CENTROIDS) {
     const dLat = r.lat - lat;
@@ -93,7 +93,7 @@ export function matchCatalogRegion(rawName: string, adminDetails?: string[]): st
   if (norm.includes('umbria')) return 'Umbria';
   if (norm.includes('venet')) return 'Veneto';
 
-  return 'Calabria';
+  return '';
 }
 
 /**
@@ -153,7 +153,7 @@ export async function reverseGeocodeToRegion(lat: number, lon: number): Promise<
 }
 
 /**
- * Returns the cached detected region from localStorage, or 'Calabria' if not yet detected.
+ * Returns the cached detected region from localStorage, or empty string if not yet detected.
  */
 export function getCachedUserRegion(): string {
   if (typeof window !== 'undefined') {
@@ -164,7 +164,7 @@ export function getCachedUserRegion(): string {
       // Storage access error or private browsing
     }
   }
-  return 'Calabria';
+  return '';
 }
 
 /**
