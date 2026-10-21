@@ -226,7 +226,8 @@ var athlete_mapping_default = {
   "FERRARO LUIGI ANGELO": "824196",
   "MONTESANTO MARIO": "797038",
   "D'ANDREA MARCO": "817090",
-  "RENDE FEDELE": "743857"
+  "RENDE FEDELE": "743857",
+  "FILOGRANA G": "608787"
 };
 
 // server/services/athleteResolver.ts

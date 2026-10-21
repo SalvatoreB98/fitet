@@ -24,7 +24,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
   const [diffSortField, setDiffSortField] = useState<string>('pos');
   const [diffSortAsc, setDiffSortAsc] = useState<boolean>(true);
 
-  // Sorting state for 4. Tabellone Completo (11 Colonne)
+  // Sorting state for 4. Tabellone Completo (10 Colonne)
   const [completaSortField, setCompletaSortField] = useState<string>('pos');
   const [completaSortAsc, setCompletaSortAsc] = useState<boolean>(true);
 
@@ -112,8 +112,6 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
         return bilancioSortAsc ? a.nome.localeCompare(b.nome) : b.nome.localeCompare(a.nome);
       } else if (bilancioSortField === 'iv') {
         valA = a.incontriVinti; valB = b.incontriVinti;
-      } else if (bilancioSortField === 'ipa') {
-        valA = a.incontriPareggiati; valB = b.incontriPareggiati;
       } else if (bilancioSortField === 'ip') {
         valA = a.incontriPersi; valB = b.incontriPersi;
       } else if (bilancioSortField === 'forma') {
@@ -166,8 +164,6 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
         valA = a.incontriDisputati; valB = b.incontriDisputati;
       } else if (completaSortField === 'iv') {
         valA = a.incontriVinti; valB = b.incontriVinti;
-      } else if (completaSortField === 'ipa') {
-        valA = a.incontriPareggiati; valB = b.incontriPareggiati;
       } else if (completaSortField === 'ip') {
         valA = a.incontriPersi; valB = b.incontriPersi;
       } else if (completaSortField === 'diffPartite') {
@@ -235,9 +231,9 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
               type="button"
               className={`sub-pill-btn ${viewMode === 'completa' ? 'active' : ''}`}
               onClick={() => setViewMode('completa')}
-              title="Tabellone unico 11 colonne per schermi ampi"
+              title="Tabellone unico 10 colonne per schermi ampi"
             >
-              📑 Tabellone Completo (11 Col.)
+              📑 Tabellone Completo (10 Col.)
             </button>
           </div>
         </div>
@@ -379,7 +375,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                 <span className="secondary-tag">APPROFONDIMENTO 1</span>
                 <span>📊 Bilancio Gare &amp; Stato di Forma</span>
               </div>
-              <span className="section-badge">IV: Vinte • IPa: Pareggi • IP: Perse</span>
+              <span className="section-badge">IV: Vinte • IP: Perse</span>
             </div>
 
             <div className="grid-table-container">
@@ -393,9 +389,6 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                   </div>
                   <div className="grid-th text-center" title="Incontri vinti" onClick={() => handleBilancioSort('iv')}>
                     IV {renderSortIndicator('iv', bilancioSortField, bilancioSortAsc)}
-                  </div>
-                  <div className="grid-th text-center" title="Incontri pareggiati" onClick={() => handleBilancioSort('ipa')}>
-                    IPa {renderSortIndicator('ipa', bilancioSortField, bilancioSortAsc)}
                   </div>
                   <div className="grid-th text-center" title="Incontri persi" onClick={() => handleBilancioSort('ip')}>
                     IP {renderSortIndicator('ip', bilancioSortField, bilancioSortAsc)}
@@ -443,9 +436,6 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
 
                     <div className="grid-cell text-center" style={{ color: '#16a34a', fontWeight: '700' }}>
                       {sq.incontriVinti}
-                    </div>
-                    <div className="grid-cell text-center" style={{ color: '#64748b' }}>
-                      {sq.incontriPareggiati}
                     </div>
                     <div className="grid-cell text-center" style={{ color: '#dc2626' }}>
                       {sq.incontriPersi}
@@ -568,7 +558,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
           </div>
         </div>
       ) : (
-        /* ==================== TABELLONE COMPLETO (11 COLONNE) ==================== */
+        /* ==================== TABELLONE COMPLETO (10 COLONNE) ==================== */
         <div style={{ padding: '6px 0 16px 0' }}>
           <div className="ranking-card-block primary-official">
             <div className="ranking-section-header official-header">
@@ -577,7 +567,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                 <div>
                   <div className="official-main-title">TABELLONE GENERALE COMPLETO — TUTTE LE METRICHE</div>
                   <div className="official-main-sub">
-                    Vista orizzontale a 11 colonne: clicca sulle intestazioni per riordinare
+                    Vista orizzontale a 10 colonne: clicca sulle intestazioni per riordinare
                   </div>
                 </div>
               </div>
@@ -604,9 +594,6 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                   </div>
                   <div className="grid-th text-center" title="Incontri vinti" onClick={() => handleCompletaSort('iv')}>
                     IV {renderSortIndicator('iv', completaSortField, completaSortAsc)}
-                  </div>
-                  <div className="grid-th text-center" title="Incontri pareggiati" onClick={() => handleCompletaSort('ipa')}>
-                    IPa {renderSortIndicator('ipa', completaSortField, completaSortAsc)}
                   </div>
                   <div className="grid-th text-center" title="Incontri persi" onClick={() => handleCompletaSort('ip')}>
                     IP {renderSortIndicator('ip', completaSortField, completaSortAsc)}
@@ -684,9 +671,6 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     <div className="grid-cell text-center" style={{ color: '#16a34a', fontWeight: '700' }}>
                       {sq.incontriVinti}
                     </div>
-                    <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>
-                      {sq.incontriPareggiati}
-                    </div>
                     <div className="grid-cell text-center" style={{ color: '#dc2626' }}>
                       {sq.incontriPersi}
                     </div>
@@ -738,7 +722,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
             <div className="official-card-footer">
               <i className="bi bi-info-circle-fill" style={{ color: 'var(--color-primary-600)' }}></i>
               <span>
-                <strong>Legenda:</strong> ID: Incontri disputati • IV: Vinti • IPa: Pareggiati • IP: Persi • Diff: Differenziale
+                <strong>Legenda:</strong> ID: Incontri disputati • IV: Vinti • IP: Persi • Diff: Differenziale
               </span>
             </div>
           </div>
@@ -767,7 +751,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
           </span>
         </div>
         <div>
-          G: Gare disputate • IV: Vinte • IPa: Pareggi • IP: Perse • Diff: Differenziale
+          G: Gare disputate • IV: Vinte • IP: Perse • Diff: Differenziale
         </div>
       </div>
     </div>

@@ -651,14 +651,14 @@ body {
 
 /* Specific Grid Columns Layouts */
 
-/* 1. Classifica Grid: Master 11-column table */
+/* 1. Classifica Grid: Master 10-column table */
 .classifica-grid {
-  min-width: 860px;
+  min-width: 800px;
 }
 
 .classifica-grid .grid-header-row,
 .classifica-grid .grid-data-row {
-  grid-template-columns: 46px minmax(220px, 1fr) 58px 46px 46px 46px 46px 115px 105px 95px 105px;
+  grid-template-columns: 46px minmax(220px, 1fr) 58px 46px 46px 46px 115px 105px 95px 105px;
 }
 
 /* 1b. Responsive Classifica Sections (Zero Horizontal Scroll on any screen) */
@@ -676,7 +676,7 @@ body {
 
 .classifica-bilancio-grid .grid-header-row,
 .classifica-bilancio-grid .grid-data-row {
-  grid-template-columns: 38px minmax(120px, 1fr) 42px 42px 42px 120px;
+  grid-template-columns: 38px minmax(120px, 1fr) 48px 48px 125px;
 }
 
 .classifica-differenziali-grid .grid-header-row,
