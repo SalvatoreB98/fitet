@@ -14,6 +14,9 @@ interface HeaderProps {
     statistiche: number;
   };
   onSelectAthleteById: (id: string, name: string) => void;
+  championshipName?: string;
+  championshipRegion?: string;
+  onOpenChampionshipModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,6 +29,9 @@ export const Header: React.FC<HeaderProps> = ({
   onChangeTab,
   counts,
   onSelectAthleteById,
+  championshipName,
+  championshipRegion,
+  onOpenChampionshipModal,
 }) => {
   const navRef = useRef<HTMLDivElement>(null);
 
@@ -64,10 +70,23 @@ export const Header: React.FC<HeaderProps> = ({
     <>
       {/* Official Blue Top Header Bar */}
       <div className="portal-header">
-        <div className="portal-title-block">
-          <h1>D1 G.NORD </h1>
-          <small>CALABRIA</small>
-        </div>
+        <button
+          type="button"
+          className="portal-title-btn"
+          onClick={onOpenChampionshipModal}
+          title="Cambia campionato FITeT"
+          aria-label="Cambia campionato FITeT"
+        >
+          <div className="portal-title-block">
+            <div className="portal-title-heading-row">
+              <h1>{championshipName || 'D1 G.NORD'}</h1>
+              <span className="championship-switcher-badge" aria-hidden="true">
+                <i className="bi bi-chevron-down"></i>
+              </span>
+            </div>
+            <small>{(championshipRegion || 'CALABRIA').toUpperCase()}</small>
+          </div>
+        </button>
 
         <div className="portal-header-actions">
           {/* Compact Icon-Only Motion Graphic Toggle */}

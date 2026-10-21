@@ -1,9 +1,22 @@
-import { DashboardData, DettaglioAtleta, RefertoIncontro, DettaglioPartitaIndividuale } from '../types/fitet';
+import { DashboardData, DettaglioAtleta, RefertoIncontro, DettaglioPartitaIndividuale, ChampionshipItem } from '../types/fitet';
 
 const API_BASE = '/api';
 
-export async function fetchDashboard(refresh = false): Promise<DashboardData> {
-  const url = `${API_BASE}/dashboard${refresh ? '?refresh=true' : ''}`;
+export async function fetchCampionati(refresh = false): Promise<ChampionshipItem[]> {
+  const url = `${API_BASE}/campionati${refresh ? '?refresh=true' : ''}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Errore caricamento elenco campionati (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function fetchDashboard(cam = 1902, anno = 41, refresh = false): Promise<DashboardData> {
+  const params = new URLSearchParams();
+  if (cam) params.set('cam', String(cam));
+  if (anno) params.set('anno', String(anno));
+  if (refresh) params.set('refresh', 'true');
+  const url = `${API_BASE}/dashboard?${params.toString()}`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Errore caricamento dashboard (${res.status}): ${res.statusText}`);
@@ -46,8 +59,8 @@ export async function fetchDettaglioPartita(
   return res.json();
 }
 
-export async function refreshAll(): Promise<{ success: boolean; timestamp: string }> {
-  const res = await fetch(`${API_BASE}/refresh`, { method: 'POST' });
+export async function refreshAll(cam = 1902, anno = 41): Promise<{ success: boolean; timestamp: string }> {
+  const res = await fetch(`${API_BASE}/refresh?cam=${cam}&anno=${anno}`, { method: 'POST' });
   if (!res.ok) {
     throw new Error(`Errore refresh dati: ${res.statusText}`);
   }

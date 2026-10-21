@@ -1,18 +1,44 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
-import { DashboardData } from './types/fitet';
-import { fetchDashboard } from './services/api';
+import { DashboardData, ChampionshipItem } from './types/fitet';
+import { fetchDashboard, fetchCampionati } from './services/api';
 import { Header } from './components/Header';
 import { ClassificaTab } from './components/ClassificaTab';
 import { CalendarioTab } from './components/CalendarioTab';
 import { StatisticheTab } from './components/StatisticheTab';
 import { AtletaModal } from './components/AtletaModal';
+import { ChampionshipModal } from './components/ChampionshipModal';
 
 export const App: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Championship selection state
+  const [camId, setCamId] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlCam = urlParams.get('cam');
+      if (urlCam && /^\d+$/.test(urlCam)) return parseInt(urlCam, 10);
+      const savedCam = localStorage.getItem('fitet_selected_cam');
+      if (savedCam && /^\d+$/.test(savedCam)) return parseInt(savedCam, 10);
+    }
+    return 1902;
+  });
+
+  const [annoId, setAnnoId] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlAnno = urlParams.get('anno');
+      if (urlAnno && /^\d+$/.test(urlAnno)) return parseInt(urlAnno, 10);
+    }
+    return 41;
+  });
+
+  const [campionati, setCampionati] = useState<ChampionshipItem[]>([]);
+  const [loadingCampionati, setLoadingCampionati] = useState<boolean>(false);
+  const [isChampionshipModalOpen, setIsChampionshipModalOpen] = useState<boolean>(false);
 
   const [activeTab, setActiveTab] = useState<'classifica' | 'calendario' | 'statistiche'>('classifica');
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
@@ -100,14 +126,18 @@ export const App: React.FC = () => {
     }
   };
 
-  const loadDashboard = async (force = false) => {
+  const loadDashboard = async (targetCam = camId, targetAnno = annoId, force = false) => {
     if (force) setRefreshing(true);
     else setLoading(true);
     setError(null);
 
     try {
-      const result = await fetchDashboard(force);
+      const result = await fetchDashboard(targetCam, targetAnno, force);
       setData(result);
+
+      if (result.championship) {
+        document.title = `FITeT ${result.championship.nome} - ${result.championship.regione} | Risultati & Classifica`;
+      }
     } catch (err: any) {
       setError(err.message || 'Errore nel caricamento dei dati FITeT');
     } finally {
@@ -116,9 +146,43 @@ export const App: React.FC = () => {
     }
   };
 
+  // Pre-fetch championship catalog on mount
   useEffect(() => {
-    loadDashboard();
+    let active = true;
+    setLoadingCampionati(true);
+    fetchCampionati()
+      .then((items) => {
+        if (active) setCampionati(items);
+      })
+      .catch((err) => console.error('Errore caricamento campionati:', err))
+      .finally(() => {
+        if (active) setLoadingCampionati(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
+
+  // Fetch dashboard whenever camId or annoId changes
+  useEffect(() => {
+    loadDashboard(camId, annoId);
+
+    // Sync URL and localStorage
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('cam', String(camId));
+      if (annoId !== 41) url.searchParams.set('anno', String(annoId));
+      else url.searchParams.delete('anno');
+      window.history.replaceState({}, '', url.toString());
+      localStorage.setItem('fitet_selected_cam', String(camId));
+    }
+  }, [camId, annoId]);
+
+  const handleSelectChampionship = (newCam: number, newAnno = 41) => {
+    setSelectedTeamFilter(null);
+    setCamId(newCam);
+    setAnnoId(newAnno);
+  };
 
   const handleTabChange = (tab: 'classifica' | 'calendario' | 'statistiche') => {
     setActiveTab(tab);
@@ -151,17 +215,20 @@ export const App: React.FC = () => {
       <Header
         lastUpdated={data?.lastUpdated || null}
         isRefreshing={refreshing}
-        onRefresh={() => loadDashboard(true)}
+        onRefresh={() => loadDashboard(camId, annoId, true)}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         activeTab={activeTab}
         onChangeTab={handleTabChange}
         counts={{
-          classifica: data?.classifica.length || 10,
-          calendario: data?.calendario.length || 9,
-          statistiche: data?.statisticheAtleti.length || 35,
+          classifica: data?.classifica.length || 0,
+          calendario: data?.calendario.length || 0,
+          statistiche: data?.statisticheAtleti.length || 0,
         }}
         onSelectAthleteById={(id, name) => setSelectedAthlete({ id, name })}
+        championshipName={data?.championship.nome}
+        championshipRegion={data?.championship.regione}
+        onOpenChampionshipModal={() => setIsChampionshipModalOpen(true)}
       />
 
       {/* Loading Indicator */}
@@ -170,11 +237,11 @@ export const App: React.FC = () => {
           <div className="spinner-border text-primary mb-3" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
             <span className="visually-hidden">Caricamento...</span>
           </div>
-          <h3 style={{ fontFamily: 'var(--font-serif)', color: '#1e293b', marginBottom: '8px', fontSize: '1.25rem' }}>
+          <h3 style={{ fontFamily: 'var(--font-serif)', color: 'var(--text-main, #1e293b)', marginBottom: '8px', fontSize: '1.25rem' }}>
             Connessione a portale.fitet.org...
           </h3>
-          <p style={{ color: '#64748b', fontSize: '13px', margin: 0 }}>
-            Caricamento dati ufficiali Serie D/1 Girone Nord Calabria in corso
+          <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '13px', margin: 0 }}>
+            Caricamento dati campionato #{camId} in corso
           </p>
         </div>
       )}
@@ -185,7 +252,7 @@ export const App: React.FC = () => {
           <div>
             <strong>Errore di connessione a portale.fitet.org:</strong> {error}
           </div>
-          <button className="btn-action" onClick={() => loadDashboard(true)}>
+          <button className="btn-action" onClick={() => loadDashboard(camId, annoId, true)}>
             Riprova
           </button>
         </div>
@@ -216,6 +283,7 @@ export const App: React.FC = () => {
                 selectedTeamFilter={selectedTeamFilter}
                 statisticheAtleti={data.statisticheAtleti}
                 isSubmodalOpen={Boolean(selectedAthlete)}
+                currentCamId={camId}
                 onClearTeamFilter={() => setSelectedTeamFilter(null)}
                 onSelectTeamFilter={(team) => setSelectedTeamFilter(team)}
                 onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: true })}
@@ -237,14 +305,24 @@ export const App: React.FC = () => {
           {/* Footer */}
           <footer className="portal-footer mt-5 text-center">
             <div>
-              <strong>Federazione Italiana Tennistavolo (FITeT)</strong> • Portale Non Ufficiale Regionale Calabria
+              <strong>Federazione Italiana Tennistavolo (FITeT)</strong> • {data?.championship.nome} ({data?.championship.regione})
               <div className="text-center">
-                Dati sincronizzati con portale.fitet.org
+                Dati sincronizzati ufficialmente con portale.fitet.org
               </div>
             </div>
           </footer>
         </>
       )}
+
+      {/* Championship Picker Modal */}
+      <ChampionshipModal
+        isOpen={isChampionshipModalOpen}
+        currentCamId={camId}
+        campionati={campionati}
+        isLoadingCampionati={loadingCampionati}
+        onClose={() => setIsChampionshipModalOpen(false)}
+        onSelectChampionship={handleSelectChampionship}
+      />
 
       {/* Athlete Detail Profile Modal */}
       {selectedAthlete && (

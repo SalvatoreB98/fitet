@@ -1,0 +1,3204 @@
+[
+  {
+    "id": 1,
+    "nome": "Serie A - A/1 Gir.U",
+    "categoria": "Serie A",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 3,
+    "nome": "Serie A - A/2 Gir.A",
+    "categoria": "Serie A",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 4,
+    "nome": "Serie A - A/2 Gir.B",
+    "categoria": "Serie A",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2,
+    "nome": "Serie A - A/1 Gir.U",
+    "categoria": "Serie A",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 18,
+    "nome": "Serie A - A/2 Gir.A",
+    "categoria": "Serie A",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 19,
+    "nome": "Serie A - A/2 Gir.B",
+    "categoria": "Serie A",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 20,
+    "nome": "Serie A - A/2 Gir.C",
+    "categoria": "Serie A",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 21,
+    "nome": "Serie A - A/2 Gir.D",
+    "categoria": "Serie A",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 5,
+    "nome": "Serie B - B/1 Gir.A",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 6,
+    "nome": "Serie B - B/1 Gir.B",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 7,
+    "nome": "Serie B - B/1 Gir.C",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 8,
+    "nome": "Serie B - B/1 Gir.D",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 9,
+    "nome": "Serie B - B/2 Gir.A",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 10,
+    "nome": "Serie B - B/2 Gir.B",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 11,
+    "nome": "Serie B - B/2 Gir.C",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 12,
+    "nome": "Serie B - B/2 Gir.D",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 13,
+    "nome": "Serie B - B/2 Gir.E",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 14,
+    "nome": "Serie B - B/2 Gir.F",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 15,
+    "nome": "Serie B - B/2 Gir.G",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 16,
+    "nome": "Serie B - B/2 Gir.H",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 17,
+    "nome": "Serie B - B/2 Gir.I",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 22,
+    "nome": "Serie B - B Gir.A",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 23,
+    "nome": "Serie B - B Gir.B",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 24,
+    "nome": "Serie B - B Gir.C",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 25,
+    "nome": "Serie B - B Gir.D",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 26,
+    "nome": "Serie B - B Gir.E",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 27,
+    "nome": "Serie B - B Gir.F",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 28,
+    "nome": "Serie B - B Gir.G",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 29,
+    "nome": "Serie B - B Gir.H",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 30,
+    "nome": "Serie B - B Gir.I",
+    "categoria": "Serie B",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 31,
+    "nome": "Serie C1 - C/1 Gir.A",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 32,
+    "nome": "Serie C1 - C/1 Gir.B",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 33,
+    "nome": "Serie C1 - C/1 Gir.C",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 34,
+    "nome": "Serie C1 - C/1 Gir.D",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 35,
+    "nome": "Serie C1 - C/1 Gir.E",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 36,
+    "nome": "Serie C1 - C/1 Gir.F",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 37,
+    "nome": "Serie C1 - C/1 Gir.G",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 38,
+    "nome": "Serie C1 - C/1 Gir.H",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 39,
+    "nome": "Serie C1 - C/1 Gir.I",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 40,
+    "nome": "Serie C1 - C/1 Gir.L",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 41,
+    "nome": "Serie C1 - C/1 Gir.M",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 42,
+    "nome": "Serie C1 - C/1 Gir.N",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 43,
+    "nome": "Serie C1 - C/1 Gir.O",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 44,
+    "nome": "Serie C1 - C/1 Gir.P",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 45,
+    "nome": "Serie C1 - C/1 Gir.Q",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 46,
+    "nome": "Serie C1 - C/1 Gir.R",
+    "categoria": "Serie C1",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 51,
+    "nome": "Paralimpici Naz. - A gruppo 11 Gir.A",
+    "categoria": "Paralimpici Naz.",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 52,
+    "nome": "Paralimpici Naz. - A gruppo 11 Gir.B",
+    "categoria": "Paralimpici Naz.",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 49,
+    "nome": "Paralimpici Naz. - A/1 gruppo 1-5",
+    "categoria": "Paralimpici Naz.",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 50,
+    "nome": "Paralimpici Naz. - A/1 gruppo 6-10",
+    "categoria": "Paralimpici Naz.",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 53,
+    "nome": "Paralimpici Naz. - A/2 gruppo 1-5 Gir.A",
+    "categoria": "Paralimpici Naz.",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 54,
+    "nome": "Paralimpici Naz. - A/2 gruppo 1-5 Gir.B",
+    "categoria": "Paralimpici Naz.",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 55,
+    "nome": "Paralimpici Naz. - A/2 gruppo 1-5 Gir.C",
+    "categoria": "Paralimpici Naz.",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 56,
+    "nome": "Paralimpici Naz. - A/2 gruppo 1-5 Gir.D",
+    "categoria": "Paralimpici Naz.",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 57,
+    "nome": "Paralimpici Naz. - A/2 gruppo 6-10 Gir.A",
+    "categoria": "Paralimpici Naz.",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 58,
+    "nome": "Paralimpici Naz. - A/2 gruppo 6-10 Gir.B",
+    "categoria": "Paralimpici Naz.",
+    "regione": "Nazionale",
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1901,
+    "nome": "C/2",
+    "categoria": "C/2",
+    "regione": "Calabria",
+    "regioneId": 19,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1902,
+    "nome": "D/1 Gir. Nord",
+    "categoria": "D/1",
+    "regione": "Calabria",
+    "regioneId": 19,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1903,
+    "nome": "D/1 Gir. Sud",
+    "categoria": "D/1",
+    "regione": "Calabria",
+    "regioneId": 19,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1906,
+    "nome": "Serie C Master gir. Nord",
+    "categoria": "Regionale",
+    "regione": "Calabria",
+    "regioneId": 19,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1905,
+    "nome": "Serie C Master gir. Sud",
+    "categoria": "Regionale",
+    "regione": "Calabria",
+    "regioneId": 19,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1701,
+    "nome": "C/2",
+    "categoria": "C/2",
+    "regione": "Basilicata",
+    "regioneId": 17,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1609,
+    "nome": "C/2 Gir. A",
+    "categoria": "C/2",
+    "regione": "Campania",
+    "regioneId": 16,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1611,
+    "nome": "C/2 Gir. B",
+    "categoria": "C/2",
+    "regione": "Campania",
+    "regioneId": 16,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1610,
+    "nome": "C/2 Gir. C",
+    "categoria": "C/2",
+    "regione": "Campania",
+    "regioneId": 16,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1605,
+    "nome": "D/1 Gir. A",
+    "categoria": "D/1",
+    "regione": "Campania",
+    "regioneId": 16,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1606,
+    "nome": "D/1 Gir. B",
+    "categoria": "D/1",
+    "regione": "Campania",
+    "regioneId": 16,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1608,
+    "nome": "D/1 Gir. C",
+    "categoria": "D/1",
+    "regione": "Campania",
+    "regioneId": 16,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1607,
+    "nome": "D/1 Gir. D",
+    "categoria": "D/1",
+    "regione": "Campania",
+    "regioneId": 16,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1601,
+    "nome": "D/2 Gir. A",
+    "categoria": "D/2",
+    "regione": "Campania",
+    "regioneId": 16,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1602,
+    "nome": "D/2 Gir. B",
+    "categoria": "D/2",
+    "regione": "Campania",
+    "regioneId": 16,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1604,
+    "nome": "D/2 Gir. C",
+    "categoria": "D/2",
+    "regione": "Campania",
+    "regioneId": 16,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1603,
+    "nome": "D/2 Gir. D",
+    "categoria": "D/2",
+    "regione": "Campania",
+    "regioneId": 16,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 701,
+    "nome": "C2 Maschile",
+    "categoria": "C2",
+    "regione": "Alto Adige",
+    "regioneId": 7,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 703,
+    "nome": "D1 Maschile",
+    "categoria": "D1",
+    "regione": "Alto Adige",
+    "regioneId": 7,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 702,
+    "nome": "D2 Maschile",
+    "categoria": "D2",
+    "regione": "Alto Adige",
+    "regioneId": 7,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1401,
+    "nome": "C/2 MASCHILE",
+    "categoria": "C/2",
+    "regione": "Abruzzo",
+    "regioneId": 14,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1407,
+    "nome": "D/1 GIRONE A",
+    "categoria": "D/1",
+    "regione": "Abruzzo",
+    "regioneId": 14,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1406,
+    "nome": "D/1 GIRONE B",
+    "categoria": "D/1",
+    "regione": "Abruzzo",
+    "regioneId": 14,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1404,
+    "nome": "D/2 GIRONE A",
+    "categoria": "D/2",
+    "regione": "Abruzzo",
+    "regioneId": 14,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1405,
+    "nome": "D/2 GIRONE B",
+    "categoria": "D/2",
+    "regione": "Abruzzo",
+    "regioneId": 14,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 301,
+    "nome": "C/2",
+    "categoria": "C/2",
+    "regione": "Liguria",
+    "regioneId": 3,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 302,
+    "nome": "D/1 Girone A",
+    "categoria": "D/1",
+    "regione": "Liguria",
+    "regioneId": 3,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 303,
+    "nome": "D/1 Girone B",
+    "categoria": "D/1",
+    "regione": "Liguria",
+    "regioneId": 3,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 304,
+    "nome": "D/2 Girone A",
+    "categoria": "D/2",
+    "regione": "Liguria",
+    "regioneId": 3,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 305,
+    "nome": "D/2 Girone B",
+    "categoria": "D/2",
+    "regione": "Liguria",
+    "regioneId": 3,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 306,
+    "nome": "D/2 Girone C",
+    "categoria": "D/2",
+    "regione": "Liguria",
+    "regioneId": 3,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 307,
+    "nome": "D/2 Girone D",
+    "categoria": "D/2",
+    "regione": "Liguria",
+    "regioneId": 3,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 404,
+    "nome": "C FEMMINILE A",
+    "categoria": "C",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 405,
+    "nome": "C FEMMINILE B",
+    "categoria": "C",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 406,
+    "nome": "C2 GIR A",
+    "categoria": "C2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 407,
+    "nome": "C2 GIR B",
+    "categoria": "C2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 408,
+    "nome": "C2 GIR C",
+    "categoria": "C2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 409,
+    "nome": "C2 GIR D",
+    "categoria": "C2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 410,
+    "nome": "C2 GIR E",
+    "categoria": "C2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 411,
+    "nome": "C2 GIR F",
+    "categoria": "C2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 412,
+    "nome": "C2 GIR G",
+    "categoria": "C2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 413,
+    "nome": "C2 GIR H",
+    "categoria": "C2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 401,
+    "nome": "D1 FEMM A",
+    "categoria": "D1",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 402,
+    "nome": "D1 FEMM B",
+    "categoria": "D1",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 403,
+    "nome": "D1 FEMM C",
+    "categoria": "D1",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 414,
+    "nome": "D1 GIR A",
+    "categoria": "D1",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 415,
+    "nome": "D1 GIR B",
+    "categoria": "D1",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 416,
+    "nome": "D1 GIR C",
+    "categoria": "D1",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 417,
+    "nome": "D1 GIR D",
+    "categoria": "D1",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 418,
+    "nome": "D1 GIR E",
+    "categoria": "D1",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 419,
+    "nome": "D1 GIR F",
+    "categoria": "D1",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 420,
+    "nome": "D1 GIR G",
+    "categoria": "D1",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 421,
+    "nome": "D1 GIR H",
+    "categoria": "D1",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 422,
+    "nome": "D2 GIR A",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 423,
+    "nome": "D2 GIR B",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 424,
+    "nome": "D2 GIR C",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 425,
+    "nome": "D2 GIR D",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 426,
+    "nome": "D2 GIR E",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 427,
+    "nome": "D2 GIR F",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 428,
+    "nome": "D2 GIR G",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 429,
+    "nome": "D2 GIR H",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 430,
+    "nome": "D2 GIR I",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 431,
+    "nome": "D2 GIR J",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 432,
+    "nome": "D2 GIR K",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 433,
+    "nome": "D2 GIR L",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 434,
+    "nome": "D2 GIR M",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 435,
+    "nome": "D2 GIR N",
+    "categoria": "D2",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 436,
+    "nome": "D3 BERGAMO",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 437,
+    "nome": "D3 BRESCIA A",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 438,
+    "nome": "D3 BRESCIA B",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 439,
+    "nome": "D3 LECCO SONDRIO",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 440,
+    "nome": "D3 MANTOVA",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 441,
+    "nome": "D3 MILANO A",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 442,
+    "nome": "D3 MILANO B",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 443,
+    "nome": "D3 MILANO C",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 444,
+    "nome": "D3 MILANO D",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 445,
+    "nome": "D3 MILANO E",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 446,
+    "nome": "D3 MILANO F",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 447,
+    "nome": "D3 MILANO G",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 448,
+    "nome": "D3 MILANO H",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 449,
+    "nome": "D3 MILANO I",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 450,
+    "nome": "D3 PAVIA",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 451,
+    "nome": "D3 VARESE A",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 452,
+    "nome": "D3 VARESE B",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 453,
+    "nome": "D3 VARESE C",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 454,
+    "nome": "D3 VARESE D",
+    "categoria": "D3",
+    "regione": "Lombardia",
+    "regioneId": 4,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1311,
+    "nome": "C FEMMINILE GIR. A",
+    "categoria": "C",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1312,
+    "nome": "C FEMMINILE GIR. B",
+    "categoria": "C",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1301,
+    "nome": "C2 GIR. A",
+    "categoria": "C2",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1302,
+    "nome": "C2 GIR. B",
+    "categoria": "C2",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1303,
+    "nome": "D1 GIR. A",
+    "categoria": "D1",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1304,
+    "nome": "D1 GIR. B",
+    "categoria": "D1",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1305,
+    "nome": "D1 GIR. C",
+    "categoria": "D1",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1306,
+    "nome": "D1 GIR. D",
+    "categoria": "D1",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1307,
+    "nome": "D2 GIR. A",
+    "categoria": "D2",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1308,
+    "nome": "D2 GIR. B",
+    "categoria": "D2",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1309,
+    "nome": "D2 GIR. C",
+    "categoria": "D2",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1310,
+    "nome": "D2 GIR. D",
+    "categoria": "D2",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1313,
+    "nome": "D3 GIR. A",
+    "categoria": "D3",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1314,
+    "nome": "D3 GIR. B",
+    "categoria": "D3",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1315,
+    "nome": "D3 GIR. C",
+    "categoria": "D3",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1316,
+    "nome": "D3 GIR. D",
+    "categoria": "D3",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1317,
+    "nome": "D3 GIR. E",
+    "categoria": "D3",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1318,
+    "nome": "D3 GIR. F",
+    "categoria": "D3",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1319,
+    "nome": "D3 GIR. G",
+    "categoria": "D3",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1320,
+    "nome": "D3 GIR. H",
+    "categoria": "D3",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1321,
+    "nome": "D3 GIR. I",
+    "categoria": "D3",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1322,
+    "nome": "D3 GIR. L",
+    "categoria": "D3",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1323,
+    "nome": "D3 GIR. M",
+    "categoria": "D3",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1324,
+    "nome": "D3 GIR. N",
+    "categoria": "D3",
+    "regione": "Lazio",
+    "regioneId": 13,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 801,
+    "nome": "C/2",
+    "categoria": "C/2",
+    "regione": "Friuli Venezia Giulia",
+    "regioneId": 8,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 802,
+    "nome": "D/1 Gir.A",
+    "categoria": "D/1",
+    "regione": "Friuli Venezia Giulia",
+    "regioneId": 8,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 803,
+    "nome": "D/1 Gir.B",
+    "categoria": "D/1",
+    "regione": "Friuli Venezia Giulia",
+    "regioneId": 8,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 804,
+    "nome": "D/2 Gir.A",
+    "categoria": "D/2",
+    "regione": "Friuli Venezia Giulia",
+    "regioneId": 8,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 805,
+    "nome": "D/2 Gir.B",
+    "categoria": "D/2",
+    "regione": "Friuli Venezia Giulia",
+    "regioneId": 8,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 807,
+    "nome": "D/3 Gir.A",
+    "categoria": "D/3",
+    "regione": "Friuli Venezia Giulia",
+    "regioneId": 8,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 806,
+    "nome": "D/3 Gir.B",
+    "categoria": "D/3",
+    "regione": "Friuli Venezia Giulia",
+    "regioneId": 8,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 811,
+    "nome": "D/4 Gir.A",
+    "categoria": "D/4",
+    "regione": "Friuli Venezia Giulia",
+    "regioneId": 8,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 810,
+    "nome": "D/4 Gir.B",
+    "categoria": "D/4",
+    "regione": "Friuli Venezia Giulia",
+    "regioneId": 8,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 808,
+    "nome": "D/4 Gir.C",
+    "categoria": "D/4",
+    "regione": "Friuli Venezia Giulia",
+    "regioneId": 8,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 809,
+    "nome": "D/4 Gir.D",
+    "categoria": "D/4",
+    "regione": "Friuli Venezia Giulia",
+    "regioneId": 8,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 901,
+    "nome": "C2/A",
+    "categoria": "C2/A",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 902,
+    "nome": "C2/B",
+    "categoria": "C2/B",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 903,
+    "nome": "D1/A",
+    "categoria": "D1/A",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 904,
+    "nome": "D1/B",
+    "categoria": "D1/B",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 905,
+    "nome": "D1/C",
+    "categoria": "D1/C",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 906,
+    "nome": "D1/D",
+    "categoria": "D1/D",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 907,
+    "nome": "D2/A",
+    "categoria": "D2/A",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 908,
+    "nome": "D2/B",
+    "categoria": "D2/B",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 909,
+    "nome": "D2/C",
+    "categoria": "D2/C",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 910,
+    "nome": "D2/D",
+    "categoria": "D2/D",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 911,
+    "nome": "D2/E",
+    "categoria": "D2/E",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 912,
+    "nome": "D2/F",
+    "categoria": "D2/F",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 913,
+    "nome": "D3/A",
+    "categoria": "D3/A",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 914,
+    "nome": "D3/B",
+    "categoria": "D3/B",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 915,
+    "nome": "D3/C",
+    "categoria": "D3/C",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 916,
+    "nome": "D3/D",
+    "categoria": "D3/D",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 917,
+    "nome": "D3/E",
+    "categoria": "D3/E",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 918,
+    "nome": "D3/F",
+    "categoria": "D3/F",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 919,
+    "nome": "D3/G",
+    "categoria": "D3/G",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 920,
+    "nome": "D3/H",
+    "categoria": "D3/H",
+    "regione": "Emilia Romagna",
+    "regioneId": 9,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1801,
+    "nome": "C Femminile",
+    "categoria": "C",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1802,
+    "nome": "C/2 Gir. A",
+    "categoria": "C/2",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1804,
+    "nome": "C/2 Gir. B",
+    "categoria": "C/2",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1805,
+    "nome": "C/2 Gir. C",
+    "categoria": "C/2",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1806,
+    "nome": "D/1 Gir. A",
+    "categoria": "D/1",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1807,
+    "nome": "D/1 Gir. B",
+    "categoria": "D/1",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1808,
+    "nome": "D/1 Gir. C",
+    "categoria": "D/1",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1809,
+    "nome": "D/1 Gir. D",
+    "categoria": "D/1",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1810,
+    "nome": "D/2 Gir. A",
+    "categoria": "D/2",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1811,
+    "nome": "D/2 Gir. B",
+    "categoria": "D/2",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1812,
+    "nome": "D/2 Gir. C",
+    "categoria": "D/2",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1813,
+    "nome": "D/2 Gir. D",
+    "categoria": "D/2",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1814,
+    "nome": "D/2 Gir. E",
+    "categoria": "D/2",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1815,
+    "nome": "D/2 Gir. F",
+    "categoria": "D/2",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1816,
+    "nome": "D/2 Gir. G",
+    "categoria": "D/2",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1817,
+    "nome": "D/2 Gir. H",
+    "categoria": "D/2",
+    "regione": "Puglia",
+    "regioneId": 18,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2101,
+    "nome": "C/2",
+    "categoria": "C/2",
+    "regione": "Sardegna",
+    "regioneId": 21,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2102,
+    "nome": "D/1 girone A",
+    "categoria": "D/1",
+    "regione": "Sardegna",
+    "regioneId": 21,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2103,
+    "nome": "D/1 girone B",
+    "categoria": "D/1",
+    "regione": "Sardegna",
+    "regioneId": 21,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2104,
+    "nome": "D/2 girone A",
+    "categoria": "D/2",
+    "regione": "Sardegna",
+    "regioneId": 21,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2105,
+    "nome": "D/2 girone B",
+    "categoria": "D/2",
+    "regione": "Sardegna",
+    "regioneId": 21,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2106,
+    "nome": "D/2 girone C",
+    "categoria": "D/2",
+    "regione": "Sardegna",
+    "regioneId": 21,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2107,
+    "nome": "D/2 girone D",
+    "categoria": "D/2",
+    "regione": "Sardegna",
+    "regioneId": 21,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2108,
+    "nome": "D/2 girone E",
+    "categoria": "D/2",
+    "regione": "Sardegna",
+    "regioneId": 21,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2109,
+    "nome": "D/2 girone F",
+    "categoria": "D/2",
+    "regione": "Sardegna",
+    "regioneId": 21,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2110,
+    "nome": "D/2 girone G",
+    "categoria": "D/2",
+    "regione": "Sardegna",
+    "regioneId": 21,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1101,
+    "nome": "C/2",
+    "categoria": "C/2",
+    "regione": "Marche",
+    "regioneId": 11,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1102,
+    "nome": "D/1 Gir.A",
+    "categoria": "D/1",
+    "regione": "Marche",
+    "regioneId": 11,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1103,
+    "nome": "D/1 Gir.B",
+    "categoria": "D/1",
+    "regione": "Marche",
+    "regioneId": 11,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1104,
+    "nome": "D/2 Gir.A",
+    "categoria": "D/2",
+    "regione": "Marche",
+    "regioneId": 11,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1105,
+    "nome": "D/2 Gir.B",
+    "categoria": "D/2",
+    "regione": "Marche",
+    "regioneId": 11,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1106,
+    "nome": "D/2 Gir.C",
+    "categoria": "D/2",
+    "regione": "Marche",
+    "regioneId": 11,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1107,
+    "nome": "D/2 Gir.D",
+    "categoria": "D/2",
+    "regione": "Marche",
+    "regioneId": 11,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1108,
+    "nome": "D/3 Gir.A",
+    "categoria": "D/3",
+    "regione": "Marche",
+    "regioneId": 11,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1109,
+    "nome": "D/3 Gir.B",
+    "categoria": "D/3",
+    "regione": "Marche",
+    "regioneId": 11,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 240,
+    "nome": "C femm gir. A",
+    "categoria": "C",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 241,
+    "nome": "C femm gir. B",
+    "categoria": "C",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 233,
+    "nome": "C.I. C2D1 gir. A",
+    "categoria": "C.I.",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 235,
+    "nome": "C.I. C2D1 gir. B",
+    "categoria": "C.I.",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 234,
+    "nome": "C.I. C2D1 gir. C",
+    "categoria": "C.I.",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 236,
+    "nome": "C.I. D2D3 gir. A",
+    "categoria": "C.I.",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 237,
+    "nome": "C.I. D2D3 gir. B",
+    "categoria": "C.I.",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 238,
+    "nome": "C.I. D2D3 gir. C",
+    "categoria": "C.I.",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 239,
+    "nome": "C.I. D2D3 gir. D",
+    "categoria": "C.I.",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 201,
+    "nome": "C/2 Gir.A",
+    "categoria": "C/2",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 202,
+    "nome": "C/2 Gir.B",
+    "categoria": "C/2",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 203,
+    "nome": "C/2 Gir.C",
+    "categoria": "C/2",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 204,
+    "nome": "C/2 Gir.D",
+    "categoria": "C/2",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 205,
+    "nome": "D/1 Gir.A",
+    "categoria": "D/1",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 206,
+    "nome": "D/1 Gir.B",
+    "categoria": "D/1",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 207,
+    "nome": "D/1 Gir.C",
+    "categoria": "D/1",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 208,
+    "nome": "D/1 Gir.D",
+    "categoria": "D/1",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 209,
+    "nome": "D/1 Gir.E",
+    "categoria": "D/1",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 210,
+    "nome": "D/1 Gir.F",
+    "categoria": "D/1",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 211,
+    "nome": "D/1 Gir.G",
+    "categoria": "D/1",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 212,
+    "nome": "D/2 Gir.A",
+    "categoria": "D/2",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 213,
+    "nome": "D/2 Gir.B",
+    "categoria": "D/2",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 214,
+    "nome": "D/2 Gir.C",
+    "categoria": "D/2",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 215,
+    "nome": "D/2 Gir.D",
+    "categoria": "D/2",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 216,
+    "nome": "D/2 Gir.E",
+    "categoria": "D/2",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 217,
+    "nome": "D/2 Gir.F",
+    "categoria": "D/2",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 218,
+    "nome": "D/2 Gir.G",
+    "categoria": "D/2",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 219,
+    "nome": "D/2 Gir.H",
+    "categoria": "D/2",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 220,
+    "nome": "D/2 Gir.I",
+    "categoria": "D/2",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 221,
+    "nome": "D/3 Gir.A",
+    "categoria": "D/3",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 222,
+    "nome": "D/3 Gir.B",
+    "categoria": "D/3",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 223,
+    "nome": "D/3 Gir.C",
+    "categoria": "D/3",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 224,
+    "nome": "D/3 Gir.D",
+    "categoria": "D/3",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 225,
+    "nome": "D/3 Gir.E",
+    "categoria": "D/3",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 226,
+    "nome": "D/3 Gir.F",
+    "categoria": "D/3",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 227,
+    "nome": "D/3 Gir.G",
+    "categoria": "D/3",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 228,
+    "nome": "D/3 Gir.H",
+    "categoria": "D/3",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 229,
+    "nome": "D/3 Gir.I",
+    "categoria": "D/3",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 230,
+    "nome": "D/3 Gir.L",
+    "categoria": "D/3",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 231,
+    "nome": "D/3 Gir.M",
+    "categoria": "D/3",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 232,
+    "nome": "D/3 Gir.N",
+    "categoria": "D/3",
+    "regione": "Piemonte",
+    "regioneId": 2,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1501,
+    "nome": "C/2",
+    "categoria": "C/2",
+    "regione": "Molise",
+    "regioneId": 15,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1206,
+    "nome": "C Femminile",
+    "categoria": "C",
+    "regione": "Umbria",
+    "regioneId": 12,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1201,
+    "nome": "C/2",
+    "categoria": "C/2",
+    "regione": "Umbria",
+    "regioneId": 12,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1202,
+    "nome": "D/1 Gir.A",
+    "categoria": "D/1",
+    "regione": "Umbria",
+    "regioneId": 12,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1203,
+    "nome": "D/1 Gir.B",
+    "categoria": "D/1",
+    "regione": "Umbria",
+    "regioneId": 12,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1204,
+    "nome": "D/2 Gir.A",
+    "categoria": "D/2",
+    "regione": "Umbria",
+    "regioneId": 12,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1205,
+    "nome": "D/2 Gir.B",
+    "categoria": "D/2",
+    "regione": "Umbria",
+    "regioneId": 12,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1001,
+    "nome": "C/2 Gir.A",
+    "categoria": "C/2",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1002,
+    "nome": "C/2 Gir.B",
+    "categoria": "C/2",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1003,
+    "nome": "C/2 Gir.C",
+    "categoria": "C/2",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1004,
+    "nome": "C/2 Gir.D",
+    "categoria": "C/2",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1005,
+    "nome": "D/1 Gir.A",
+    "categoria": "D/1",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1006,
+    "nome": "D/1 Gir.B",
+    "categoria": "D/1",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1007,
+    "nome": "D/1 Gir.C",
+    "categoria": "D/1",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1008,
+    "nome": "D/1 Gir.D",
+    "categoria": "D/1",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1009,
+    "nome": "D/2 Gir.A",
+    "categoria": "D/2",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1010,
+    "nome": "D/2 Gir.B",
+    "categoria": "D/2",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1011,
+    "nome": "D/2 Gir.C",
+    "categoria": "D/2",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1012,
+    "nome": "D/2 Gir.D",
+    "categoria": "D/2",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1013,
+    "nome": "D/2 Gir.E",
+    "categoria": "D/2",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 1014,
+    "nome": "D/2 Gir.F",
+    "categoria": "D/2",
+    "regione": "Toscana",
+    "regioneId": 10,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 608,
+    "nome": "C Master Gir. A",
+    "categoria": "C",
+    "regione": "Trentino",
+    "regioneId": 6,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 609,
+    "nome": "C Master Gir. B",
+    "categoria": "C",
+    "regione": "Trentino",
+    "regioneId": 6,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 610,
+    "nome": "C Master Gir. C",
+    "categoria": "C",
+    "regione": "Trentino",
+    "regioneId": 6,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 611,
+    "nome": "C Master Gir. D",
+    "categoria": "C",
+    "regione": "Trentino",
+    "regioneId": 6,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 601,
+    "nome": "C/2",
+    "categoria": "C/2",
+    "regione": "Trentino",
+    "regioneId": 6,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 603,
+    "nome": "D/1",
+    "categoria": "D/1",
+    "regione": "Trentino",
+    "regioneId": 6,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 605,
+    "nome": "D/2 Gir.A",
+    "categoria": "D/2",
+    "regione": "Trentino",
+    "regioneId": 6,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 604,
+    "nome": "D/2 Gir.B",
+    "categoria": "D/2",
+    "regione": "Trentino",
+    "regioneId": 6,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 602,
+    "nome": "D/2 Gir.C",
+    "categoria": "D/2",
+    "regione": "Trentino",
+    "regioneId": 6,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 606,
+    "nome": "TT Trentino Fase A GirA",
+    "categoria": "TT",
+    "regione": "Trentino",
+    "regioneId": 6,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 607,
+    "nome": "TT Trentino Fase A GirB",
+    "categoria": "TT",
+    "regione": "Trentino",
+    "regioneId": 6,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2021,
+    "nome": "C FEMMINILE Gir.A",
+    "categoria": "C",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2022,
+    "nome": "C FEMMINILE Gir.B",
+    "categoria": "C",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2024,
+    "nome": "C MASTER Gir. A",
+    "categoria": "C",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2025,
+    "nome": "C MASTER Gir. B",
+    "categoria": "C",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2026,
+    "nome": "C MASTER Gir. C",
+    "categoria": "C",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2001,
+    "nome": "C/2 GIR.A",
+    "categoria": "C/2",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2002,
+    "nome": "C/2 GIR.B",
+    "categoria": "C/2",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2003,
+    "nome": "C/2 GIR.C",
+    "categoria": "C/2",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2004,
+    "nome": "C/2 GIR.D",
+    "categoria": "C/2",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2027,
+    "nome": "Coppa Italia Regionale Gir. A",
+    "categoria": "Regionale",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2029,
+    "nome": "Coppa Italia Regionale Gir. B",
+    "categoria": "Regionale",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2028,
+    "nome": "Coppa Italia Regionale GIR. C",
+    "categoria": "Regionale",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2005,
+    "nome": "D/1 Gir.A",
+    "categoria": "D/1",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2006,
+    "nome": "D/1 Gir.B",
+    "categoria": "D/1",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2007,
+    "nome": "D/1 Gir.C",
+    "categoria": "D/1",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2008,
+    "nome": "D/1 Gir.D",
+    "categoria": "D/1",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2009,
+    "nome": "D/1 Gir.E",
+    "categoria": "D/1",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2010,
+    "nome": "D/2 Gir.A",
+    "categoria": "D/2",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2011,
+    "nome": "D/2 Gir.B",
+    "categoria": "D/2",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2012,
+    "nome": "D/2 Gir.C",
+    "categoria": "D/2",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2013,
+    "nome": "D/2 Gir.D",
+    "categoria": "D/2",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2014,
+    "nome": "D/2 Gir.E",
+    "categoria": "D/2",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2015,
+    "nome": "D/3 Gir.A",
+    "categoria": "D/3",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2016,
+    "nome": "D/3 Gir.B",
+    "categoria": "D/3",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2017,
+    "nome": "D/3 Gir.C",
+    "categoria": "D/3",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2018,
+    "nome": "D/3 Gir.D",
+    "categoria": "D/3",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2019,
+    "nome": "D/3 Gir.E",
+    "categoria": "D/3",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 2020,
+    "nome": "D/3 Gir.F",
+    "categoria": "D/3",
+    "regione": "Sicilia",
+    "regioneId": 20,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 525,
+    "nome": "C Master",
+    "categoria": "C",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 501,
+    "nome": "C2 Gir.A",
+    "categoria": "C2",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 502,
+    "nome": "C2 Gir.B",
+    "categoria": "C2",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 503,
+    "nome": "C2 Gir.C",
+    "categoria": "C2",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 526,
+    "nome": "Coppa Italia Reg.Gir.A",
+    "categoria": "Regionale",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 527,
+    "nome": "Coppa Italia Reg.Gir.B",
+    "categoria": "Regionale",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 528,
+    "nome": "Coppa Italia Reg.Gir.C",
+    "categoria": "Regionale",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 529,
+    "nome": "Coppa Italia Reg.Gir.D",
+    "categoria": "Regionale",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 504,
+    "nome": "D1 Gir.A",
+    "categoria": "D1",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 505,
+    "nome": "D1 Gir.B",
+    "categoria": "D1",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 506,
+    "nome": "D1 Gir.C",
+    "categoria": "D1",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 507,
+    "nome": "D1 Gir.D",
+    "categoria": "D1",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 508,
+    "nome": "D1 Gir.E",
+    "categoria": "D1",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 509,
+    "nome": "D1 Gir.F",
+    "categoria": "D1",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 510,
+    "nome": "D2 Gir.A",
+    "categoria": "D2",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 511,
+    "nome": "D2 Gir.B",
+    "categoria": "D2",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 512,
+    "nome": "D2 Gir.C",
+    "categoria": "D2",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 513,
+    "nome": "D2 Gir.D",
+    "categoria": "D2",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 514,
+    "nome": "D2 Gir.E",
+    "categoria": "D2",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 515,
+    "nome": "D2 Gir.F",
+    "categoria": "D2",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 524,
+    "nome": "D3 GIOVANILE",
+    "categoria": "D3",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 516,
+    "nome": "D3 Gir.A",
+    "categoria": "D3",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 517,
+    "nome": "D3 Gir.B",
+    "categoria": "D3",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 518,
+    "nome": "D3 Gir.C",
+    "categoria": "D3",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 519,
+    "nome": "D3 Gir.D",
+    "categoria": "D3",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 520,
+    "nome": "D3 Gir.E",
+    "categoria": "D3",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 521,
+    "nome": "D3 Gir.F",
+    "categoria": "D3",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 522,
+    "nome": "D3 Gir.G",
+    "categoria": "D3",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  },
+  {
+    "id": 523,
+    "nome": "D3 Gir.H",
+    "categoria": "D3",
+    "regione": "Veneto",
+    "regioneId": 5,
+    "anno": 41,
+    "formula": 19
+  }
+]

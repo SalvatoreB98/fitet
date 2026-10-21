@@ -1,7 +1,7 @@
 // server/app.ts
 import express from "express";
 import cors from "cors";
-import path3 from "path";
+import path4 from "path";
 
 // server/services/fitetClient.ts
 var BASE_URL = "https://portale.fitet.org";
@@ -291,10 +291,172 @@ var AthleteResolver = class {
 };
 var athleteResolver = new AthleteResolver();
 
-// server/parsers/classificaParser.ts
+// server/services/championshipCatalog.ts
+import fs3 from "fs";
+import path3 from "path";
 import * as cheerio from "cheerio";
+var REGIONI = [
+  { id: 19, nome: "Calabria" },
+  { id: 14, nome: "Abruzzo" },
+  { id: 7, nome: "Alto Adige" },
+  { id: 17, nome: "Basilicata" },
+  { id: 16, nome: "Campania" },
+  { id: 9, nome: "Emilia Romagna" },
+  { id: 8, nome: "Friuli Venezia Giulia" },
+  { id: 13, nome: "Lazio" },
+  { id: 3, nome: "Liguria" },
+  { id: 4, nome: "Lombardia" },
+  { id: 11, nome: "Marche" },
+  { id: 15, nome: "Molise" },
+  { id: 2, nome: "Piemonte" },
+  { id: 18, nome: "Puglia" },
+  { id: 21, nome: "Sardegna" },
+  { id: 20, nome: "Sicilia" },
+  { id: 10, nome: "Toscana" },
+  { id: 6, nome: "Trentino" },
+  { id: 12, nome: "Umbria" },
+  { id: 1, nome: "Valle d'Aosta" },
+  { id: 5, nome: "Veneto" }
+];
+var NAZIONALI = [
+  { cid: 2, nome: "Serie A" },
+  { cid: 3, nome: "Serie B" },
+  { cid: 4, nome: "Serie C1" },
+  { cid: 6, nome: "Master Naz." },
+  { cid: 7, nome: "Paralimpici Naz." }
+];
+var ChampionshipCatalog = class {
+  cacheFilePath = path3.resolve(process.cwd(), "server", "data", "campionati.json");
+  memoryCache = null;
+  lastFetched = 0;
+  TTL = 24 * 60 * 60 * 1e3;
+  // 24 hours
+  constructor() {
+    this.loadFromDisk();
+  }
+  loadFromDisk() {
+    try {
+      if (fs3.existsSync(this.cacheFilePath)) {
+        const raw = fs3.readFileSync(this.cacheFilePath, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.memoryCache = parsed;
+          const stat = fs3.statSync(this.cacheFilePath);
+          this.lastFetched = stat.mtimeMs;
+        }
+      }
+    } catch (e) {
+      console.error("Error loading campionati.json from disk:", e);
+    }
+  }
+  saveToDisk(data) {
+    try {
+      const dir = path3.dirname(this.cacheFilePath);
+      if (!fs3.existsSync(dir)) fs3.mkdirSync(dir, { recursive: true });
+      fs3.writeFileSync(this.cacheFilePath, JSON.stringify(data, null, 2), "utf-8");
+    } catch (e) {
+      console.error("Error saving campionati.json to disk:", e);
+    }
+  }
+  async getAllCampionati(forceRefresh = false) {
+    if (!forceRefresh && this.memoryCache && Date.now() - this.lastFetched < this.TTL) {
+      return this.memoryCache;
+    }
+    try {
+      const items = await this.scrapeFromFitet();
+      if (items.length > 0) {
+        this.memoryCache = items;
+        this.lastFetched = Date.now();
+        this.saveToDisk(items);
+        return items;
+      }
+    } catch (e) {
+      console.error("Failed to scrape championships from FITeT:", e);
+    }
+    return this.memoryCache || [];
+  }
+  async getChampionship(id) {
+    const list = await this.getAllCampionati();
+    return list.find((c) => c.id === id);
+  }
+  async scrapeFromFitet() {
+    const all = [];
+    for (const nat of NAZIONALI) {
+      try {
+        const res = await fetch(`https://portale.fitet.org/risultati/campionati/elenco_campionati.php?ID_CAMP=${nat.cid}`, {
+          headers: { "User-Agent": "Mozilla/5.0" }
+        });
+        const text = new TextDecoder("iso-8859-1").decode(await res.arrayBuffer());
+        const $ = cheerio.load(text);
+        $('a[href*="CAM="]').each((_, el) => {
+          const href = $(el).attr("href") || "";
+          const m = href.match(/CAM=(\d+)/i);
+          if (m) {
+            const id = parseInt(m[1], 10);
+            const name = $(el).text().replace(/\s+/g, " ").trim();
+            if (id && name) {
+              all.push({
+                id,
+                nome: `${nat.nome} - ${name}`,
+                categoria: nat.nome,
+                regione: "Nazionale",
+                anno: 41,
+                formula: 19
+              });
+            }
+          }
+        });
+      } catch (e) {
+        console.error(`Error scraping national ${nat.nome}:`, e);
+      }
+    }
+    for (let i = 0; i < REGIONI.length; i += 5) {
+      const batch = REGIONI.slice(i, i + 5);
+      await Promise.all(batch.map(async (reg) => {
+        try {
+          const res = await fetch(`https://portale.fitet.org/risultati/regioni/menu_reg.php?REG=${reg.id}`, {
+            headers: { "User-Agent": "Mozilla/5.0" }
+          });
+          const text = new TextDecoder("iso-8859-1").decode(await res.arrayBuffer());
+          const $ = cheerio.load(text);
+          $('a[href*="CAM="]').each((_, el) => {
+            const href = $(el).attr("href") || "";
+            const m = href.match(/CAM=(\d+)/i);
+            if (m) {
+              const id = parseInt(m[1], 10);
+              const name = $(el).text().replace(/\s+/g, " ").trim();
+              if (id && name) {
+                let cat = "Regionale";
+                const firstPart = name.split(" ")[0];
+                if (firstPart.includes("/") || firstPart.length <= 4) {
+                  cat = firstPart;
+                }
+                all.push({
+                  id,
+                  nome: name,
+                  categoria: cat,
+                  regione: reg.nome,
+                  regioneId: reg.id,
+                  anno: 41,
+                  formula: 19
+                });
+              }
+            }
+          });
+        } catch (e) {
+          console.error(`Error scraping region ${reg.nome}:`, e);
+        }
+      }));
+    }
+    return all;
+  }
+};
+var championshipCatalog = new ChampionshipCatalog();
+
+// server/parsers/classificaParser.ts
+import * as cheerio2 from "cheerio";
 function parseClassifica(html) {
-  const $ = cheerio.load(html);
+  const $ = cheerio2.load(html);
   const squadre = [];
   $("table tr").each((_, row) => {
     const $row = $(row);
@@ -362,9 +524,9 @@ function parseClassifica(html) {
 }
 
 // server/parsers/calendarioParser.ts
-import * as cheerio2 from "cheerio";
+import * as cheerio3 from "cheerio";
 function parseCalendario(html) {
-  const $ = cheerio2.load(html);
+  const $ = cheerio3.load(html);
   const giornate = [];
   $("table").each((_, table) => {
     const $table = $(table);
@@ -393,9 +555,12 @@ function parseCalendario(html) {
       const parseMatch = (tipo, data, ora, casa, ospite, $cell, rawRis, matchIdx) => {
         const link = $cell.find("a[href]").attr("href") || null;
         let incontroId = null;
+        let formula = void 0;
         if (link) {
           const m = link.match(/INCONTRO=(\d+)/i);
           if (m) incontroId = m[1];
+          const f = link.match(/FORMULA=(\d+)/i);
+          if (f) formula = parseInt(f[1], 10);
         }
         const scoreMatch = rawRis.match(/(\d+)\s*[-:]\s*(\d+)/);
         const disputato = Boolean(scoreMatch);
@@ -422,7 +587,8 @@ function parseCalendario(html) {
           disputato,
           refertoUrl: fullRefertoUrl,
           incontroId,
-          vincitore
+          vincitore,
+          formula
         };
       };
       partiteAndata.push(
@@ -445,9 +611,9 @@ function parseCalendario(html) {
 }
 
 // server/parsers/statisticheParser.ts
-import * as cheerio3 from "cheerio";
+import * as cheerio4 from "cheerio";
 function parseStatisticheAtleti(html, athleteMapping = {}) {
-  const $ = cheerio3.load(html);
+  const $ = cheerio4.load(html);
   const atleti = [];
   $("table tr").each((_, row) => {
     const $row = $(row);
@@ -496,7 +662,7 @@ function parseStatisticheAtleti(html, athleteMapping = {}) {
 }
 
 // server/parsers/atletaParser.ts
-import * as cheerio4 from "cheerio";
+import * as cheerio5 from "cheerio";
 function parseItalianNumber(val) {
   if (!val) return 0;
   const clean = val.trim();
@@ -513,7 +679,7 @@ function parseItalianNumber(val) {
   return parseFloat(clean) || 0;
 }
 function parseDettaglioAtleta(html, atletaId) {
-  const $ = cheerio4.load(html);
+  const $ = cheerio5.load(html);
   const $titolo = $("p.titolo").first();
   const nomeRaw = $titolo.text().replace(/\s+/g, " ").trim();
   const flagImg = $titolo.find("img.immagine").first();
@@ -646,7 +812,7 @@ function parseDettaglioAtleta(html, atletaId) {
 }
 
 // server/parsers/refertoParser.ts
-import * as cheerio5 from "cheerio";
+import * as cheerio6 from "cheerio";
 function resolveFitetUrl(src) {
   if (!src) return void 0;
   if (src.startsWith("http")) return src;
@@ -654,7 +820,7 @@ function resolveFitetUrl(src) {
   return `https://portale.fitet.org/${clean}`;
 }
 function parseRefertoIncontro(html, incontroId, camId, formulaId) {
-  const $ = cheerio5.load(html);
+  const $ = cheerio6.load(html);
   const $incontri = $("p.incontro");
   let casaNome = "";
   let ospiteNome = "";
@@ -793,7 +959,7 @@ function parseRefertoIncontro(html, incontroId, camId, formulaId) {
   };
 }
 function parseDettaglioPartita(html, partitaId) {
-  const $ = cheerio5.load(html);
+  const $ = cheerio6.load(html);
   const rows = $('table[width="716"] > tr, table[width="716"] > tbody > tr');
   let headerRow = rows.eq(0);
   let detailRow = rows.eq(1);
@@ -906,8 +1072,8 @@ function parseDettaglioPartita(html, partitaId) {
 var app = express();
 app.use(cors());
 app.use(express.json());
-var CAM_ID = 1902;
-var ANNO_ID = 41;
+var DEFAULT_CAM_ID = 1902;
+var DEFAULT_ANNO_ID = 41;
 var TTL_CLASSIFICA = 30 * 60 * 1e3;
 var TTL_CALENDARIO = 30 * 60 * 1e3;
 var TTL_STATISTICHE = 60 * 60 * 1e3;
@@ -952,47 +1118,60 @@ function computeTeamForm(classifica, calendario) {
     };
   });
 }
-async function getClassifica(forceRefresh = false) {
-  const cacheKey = `classifica_${CAM_ID}`;
+async function getClassifica(camId = DEFAULT_CAM_ID, forceRefresh = false) {
+  const cacheKey = `classifica_${camId}`;
   if (!forceRefresh) {
     const cached = cacheService.get(cacheKey);
     if (cached) return cached;
   }
-  const html = await FitetClient.fetchClassifica(CAM_ID);
+  const html = await FitetClient.fetchClassifica(camId);
   const data = parseClassifica(html);
   cacheService.set(cacheKey, data, TTL_CLASSIFICA);
   return data;
 }
-async function getCalendario(forceRefresh = false) {
-  const cacheKey = `calendario_${CAM_ID}_${ANNO_ID}`;
+async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, forceRefresh = false) {
+  const cacheKey = `calendario_${camId}_${annoId}`;
   if (!forceRefresh) {
     const cached = cacheService.get(cacheKey);
     if (cached) return cached;
   }
-  const html = await FitetClient.fetchCalendario(CAM_ID, ANNO_ID);
+  const html = await FitetClient.fetchCalendario(camId, annoId);
   const data = parseCalendario(html);
   cacheService.set(cacheKey, data, TTL_CALENDARIO);
   return data;
 }
-async function getStatistiche(forceRefresh = false) {
-  const cacheKey = `statistiche_${CAM_ID}`;
+async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false) {
+  const cacheKey = `statistiche_${camId}`;
   if (!forceRefresh) {
     const cached = cacheService.get(cacheKey);
     if (cached) return cached;
   }
-  const html = await FitetClient.fetchStatisticheAtleti(CAM_ID);
+  const html = await FitetClient.fetchStatisticheAtleti(camId);
   const mapping = athleteResolver.getMapping();
   const data = parseStatisticheAtleti(html, mapping);
   cacheService.set(cacheKey, data, TTL_STATISTICHE);
   return data;
 }
-app.get("/api/dashboard", async (req, res) => {
+app.get("/api/campionati", async (req, res) => {
   const forceRefresh = req.query.refresh === "true";
   try {
-    const [rawClassifica, calendario, statisticheAtleti] = await Promise.all([
-      getClassifica(forceRefresh),
-      getCalendario(forceRefresh),
-      getStatistiche(forceRefresh)
+    const campionati = await championshipCatalog.getAllCampionati(forceRefresh);
+    res.json(campionati);
+  } catch (error) {
+    console.error("Error fetching championship catalog:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+app.get("/api/dashboard", async (req, res) => {
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  const forceRefresh = req.query.refresh === "true";
+  try {
+    const [rawClassifica, calendario, statisticheAtleti, champMeta] = await Promise.all([
+      getClassifica(cam, forceRefresh),
+      getCalendario(cam, anno, forceRefresh),
+      getStatistiche(cam, forceRefresh),
+      championshipCatalog.getChampionship(cam)
     ]);
     const classifica = computeTeamForm(rawClassifica, calendario);
     const payload = {
@@ -1001,41 +1180,45 @@ app.get("/api/dashboard", async (req, res) => {
       statisticheAtleti,
       lastUpdated: (/* @__PURE__ */ new Date()).toISOString(),
       championship: {
-        id: CAM_ID,
-        anno: ANNO_ID,
-        nome: "Serie D/1",
-        girone: "Girone Nord",
-        regione: "Calabria"
+        id: cam,
+        anno,
+        nome: champMeta?.nome || `Campionato ${cam}`,
+        girone: champMeta?.nome || "",
+        regione: champMeta?.regione || "Calabria"
       }
     };
     res.json(payload);
   } catch (error) {
-    console.error("Error fetching dashboard data:", error);
+    console.error(`Error fetching dashboard data for CAM=${cam}:`, error);
     res.status(500).json({ error: "Errore durante il recupero dei dati FITeT", details: error.message });
   }
 });
 app.get("/api/classifica", async (req, res) => {
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const forceRefresh = req.query.refresh === "true";
   try {
-    const data = await getClassifica(forceRefresh);
+    const data = await getClassifica(cam, forceRefresh);
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 app.get("/api/calendario", async (req, res) => {
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
   const forceRefresh = req.query.refresh === "true";
   try {
-    const data = await getCalendario(forceRefresh);
+    const data = await getCalendario(cam, anno, forceRefresh);
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 app.get("/api/statistiche", async (req, res) => {
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const forceRefresh = req.query.refresh === "true";
   try {
-    const data = await getStatistiche(forceRefresh);
+    const data = await getStatistiche(cam, forceRefresh);
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1085,7 +1268,7 @@ app.get("/api/search-atleta", async (req, res) => {
 });
 app.get("/api/referto/:incontroId", async (req, res) => {
   const { incontroId } = req.params;
-  const cam = req.query.cam ? parseInt(req.query.cam, 10) : CAM_ID;
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const formula = req.query.formula ? parseInt(req.query.formula, 10) : 19;
   const forceRefresh = req.query.refresh === "true";
   const cacheKey = `referto_${incontroId}_${cam}_${formula}`;
@@ -1138,13 +1321,15 @@ app.get("/api/partita/:partitaId", async (req, res) => {
   }
 });
 app.post("/api/refresh", async (req, res) => {
+  const cam = req.query.cam || req.body?.cam ? parseInt(req.query.cam || req.body?.cam, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno || req.body?.anno ? parseInt(req.query.anno || req.body?.anno, 10) : DEFAULT_ANNO_ID;
   try {
     cacheService.clear();
     athleteResolver.reloadMapping();
     const [rawClassifica, calendario, statisticheAtleti] = await Promise.all([
-      getClassifica(true),
-      getCalendario(true),
-      getStatistiche(true)
+      getClassifica(cam, true),
+      getCalendario(cam, anno, true),
+      getStatistiche(cam, true)
     ]);
     const classifica = computeTeamForm(rawClassifica, calendario);
     res.json({ success: true, timestamp: (/* @__PURE__ */ new Date()).toISOString(), classifica, calendario, statisticheAtleti });
@@ -1153,11 +1338,11 @@ app.post("/api/refresh", async (req, res) => {
   }
 });
 if (!process.env.VERCEL) {
-  const distPath = path3.resolve(process.cwd(), "dist");
+  const distPath = path4.resolve(process.cwd(), "dist");
   app.use(express.static(distPath));
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
-    const indexFile = path3.join(distPath, "index.html");
+    const indexFile = path4.join(distPath, "index.html");
     res.sendFile(indexFile, (err) => {
       if (err) res.status(404).send("Not Found");
     });

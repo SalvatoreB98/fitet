@@ -50,9 +50,12 @@ export function parseCalendario(html: string): GiornataCalendario[] {
       ): PartitaCalendario => {
         const link = $cell.find('a[href]').attr('href') || null;
         let incontroId: string | null = null;
+        let formula: number | undefined = undefined;
         if (link) {
           const m = link.match(/INCONTRO=(\d+)/i);
           if (m) incontroId = m[1];
+          const f = link.match(/FORMULA=(\d+)/i);
+          if (f) formula = parseInt(f[1], 10);
         }
 
         const scoreMatch = rawRis.match(/(\d+)\s*[-:]\s*(\d+)/);
@@ -88,6 +91,7 @@ export function parseCalendario(html: string): GiornataCalendario[] {
           refertoUrl: fullRefertoUrl,
           incontroId,
           vincitore,
+          formula,
         };
       };
 

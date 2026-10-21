@@ -38,6 +38,17 @@ export interface PartitaCalendario {
   refertoUrl: string | null;
   incontroId: string | null;
   vincitore: 'casa' | 'ospite' | 'pareggio' | null;
+  formula?: number;
+}
+
+export interface ChampionshipItem {
+  id: number;
+  nome: string;
+  categoria: string;
+  regione: string;
+  regioneId?: number;
+  anno?: number;
+  formula?: number;
 }
 
 export interface GiornataCalendario {

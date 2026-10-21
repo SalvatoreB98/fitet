@@ -4,6 +4,7 @@ import path from 'path';
 import { FitetClient } from './services/fitetClient';
 import { cacheService } from './services/cacheService';
 import { athleteResolver } from './services/athleteResolver';
+import { championshipCatalog } from './services/championshipCatalog';
 import { parseClassifica } from './parsers/classificaParser';
 import { parseCalendario } from './parsers/calendarioParser';
 import { parseStatisticheAtleti } from './parsers/statisticheParser';
@@ -16,9 +17,9 @@ export const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Championship constants
-const CAM_ID = 1902;
-const ANNO_ID = 41;
+// Championship defaults
+const DEFAULT_CAM_ID = 1902;
+const DEFAULT_ANNO_ID = 41;
 
 // Cache TTLs (ms)
 const TTL_CLASSIFICA = 30 * 60 * 1000; // 30 min
@@ -85,14 +86,14 @@ function computeTeamForm(classifica: SquadraClassifica[], calendario: GiornataCa
 /**
  * Fetch and parse Classifica
  */
-async function getClassifica(forceRefresh = false): Promise<SquadraClassifica[]> {
-  const cacheKey = `classifica_${CAM_ID}`;
+async function getClassifica(camId = DEFAULT_CAM_ID, forceRefresh = false): Promise<SquadraClassifica[]> {
+  const cacheKey = `classifica_${camId}`;
   if (!forceRefresh) {
     const cached = cacheService.get<SquadraClassifica[]>(cacheKey);
     if (cached) return cached;
   }
 
-  const html = await FitetClient.fetchClassifica(CAM_ID);
+  const html = await FitetClient.fetchClassifica(camId);
   const data = parseClassifica(html);
   cacheService.set(cacheKey, data, TTL_CLASSIFICA);
   return data;
@@ -101,14 +102,14 @@ async function getClassifica(forceRefresh = false): Promise<SquadraClassifica[]>
 /**
  * Fetch and parse Calendario
  */
-async function getCalendario(forceRefresh = false): Promise<GiornataCalendario[]> {
-  const cacheKey = `calendario_${CAM_ID}_${ANNO_ID}`;
+async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, forceRefresh = false): Promise<GiornataCalendario[]> {
+  const cacheKey = `calendario_${camId}_${annoId}`;
   if (!forceRefresh) {
     const cached = cacheService.get<GiornataCalendario[]>(cacheKey);
     if (cached) return cached;
   }
 
-  const html = await FitetClient.fetchCalendario(CAM_ID, ANNO_ID);
+  const html = await FitetClient.fetchCalendario(camId, annoId);
   const data = parseCalendario(html);
   cacheService.set(cacheKey, data, TTL_CALENDARIO);
   return data;
@@ -117,14 +118,14 @@ async function getCalendario(forceRefresh = false): Promise<GiornataCalendario[]
 /**
  * Fetch and parse Statistiche Atleti
  */
-async function getStatistiche(forceRefresh = false): Promise<StatisticaAtleta[]> {
-  const cacheKey = `statistiche_${CAM_ID}`;
+async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false): Promise<StatisticaAtleta[]> {
+  const cacheKey = `statistiche_${camId}`;
   if (!forceRefresh) {
     const cached = cacheService.get<StatisticaAtleta[]>(cacheKey);
     if (cached) return cached;
   }
 
-  const html = await FitetClient.fetchStatisticheAtleti(CAM_ID);
+  const html = await FitetClient.fetchStatisticheAtleti(camId);
   const mapping = athleteResolver.getMapping();
   const data = parseStatisticheAtleti(html, mapping);
   cacheService.set(cacheKey, data, TTL_STATISTICHE);
@@ -133,14 +134,30 @@ async function getStatistiche(forceRefresh = false): Promise<StatisticaAtleta[]>
 
 // ======================== API ROUTES ========================
 
-// 1. Full Dashboard Endpoint
-app.get('/api/dashboard', async (req, res) => {
+// 0. All Championships Catalog
+app.get('/api/campionati', async (req, res) => {
   const forceRefresh = req.query.refresh === 'true';
   try {
-    const [rawClassifica, calendario, statisticheAtleti] = await Promise.all([
-      getClassifica(forceRefresh),
-      getCalendario(forceRefresh),
-      getStatistiche(forceRefresh),
+    const campionati = await championshipCatalog.getAllCampionati(forceRefresh);
+    res.json(campionati);
+  } catch (error: any) {
+    console.error('Error fetching championship catalog:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 1. Full Dashboard Endpoint
+app.get('/api/dashboard', async (req, res) => {
+  const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
+  const forceRefresh = req.query.refresh === 'true';
+
+  try {
+    const [rawClassifica, calendario, statisticheAtleti, champMeta] = await Promise.all([
+      getClassifica(cam, forceRefresh),
+      getCalendario(cam, anno, forceRefresh),
+      getStatistiche(cam, forceRefresh),
+      championshipCatalog.getChampionship(cam),
     ]);
 
     const classifica = computeTeamForm(rawClassifica, calendario);
@@ -151,26 +168,27 @@ app.get('/api/dashboard', async (req, res) => {
       statisticheAtleti,
       lastUpdated: new Date().toISOString(),
       championship: {
-        id: CAM_ID,
-        anno: ANNO_ID,
-        nome: 'Serie D/1',
-        girone: 'Girone Nord',
-        regione: 'Calabria',
+        id: cam,
+        anno,
+        nome: champMeta?.nome || `Campionato ${cam}`,
+        girone: champMeta?.nome || '',
+        regione: champMeta?.regione || 'Calabria',
       },
     };
 
     res.json(payload);
   } catch (error: any) {
-    console.error('Error fetching dashboard data:', error);
+    console.error(`Error fetching dashboard data for CAM=${cam}:`, error);
     res.status(500).json({ error: 'Errore durante il recupero dei dati FITeT', details: error.message });
   }
 });
 
 // 2. Classifica standalone
 app.get('/api/classifica', async (req, res) => {
+  const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
   const forceRefresh = req.query.refresh === 'true';
   try {
-    const data = await getClassifica(forceRefresh);
+    const data = await getClassifica(cam, forceRefresh);
     res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -179,9 +197,11 @@ app.get('/api/classifica', async (req, res) => {
 
 // 3. Calendario standalone
 app.get('/api/calendario', async (req, res) => {
+  const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
   const forceRefresh = req.query.refresh === 'true';
   try {
-    const data = await getCalendario(forceRefresh);
+    const data = await getCalendario(cam, anno, forceRefresh);
     res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -190,9 +210,10 @@ app.get('/api/calendario', async (req, res) => {
 
 // 4. Statistiche Atleti standalone
 app.get('/api/statistiche', async (req, res) => {
+  const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
   const forceRefresh = req.query.refresh === 'true';
   try {
-    const data = await getStatistiche(forceRefresh);
+    const data = await getStatistiche(cam, forceRefresh);
     res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -255,7 +276,7 @@ app.get('/api/search-atleta', async (req, res) => {
 // 7. Referto Incontro Gara
 app.get('/api/referto/:incontroId', async (req, res) => {
   const { incontroId } = req.params;
-  const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : CAM_ID;
+  const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
   const formula = req.query.formula ? parseInt(req.query.formula as string, 10) : 19;
   const forceRefresh = req.query.refresh === 'true';
   const cacheKey = `referto_${incontroId}_${cam}_${formula}`;
@@ -321,13 +342,16 @@ app.get('/api/partita/:partitaId', async (req, res) => {
 
 // 7. Force refresh all caches
 app.post('/api/refresh', async (req, res) => {
+  const cam = req.query.cam || req.body?.cam ? parseInt((req.query.cam || req.body?.cam) as string, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno || req.body?.anno ? parseInt((req.query.anno || req.body?.anno) as string, 10) : DEFAULT_ANNO_ID;
+
   try {
     cacheService.clear();
     athleteResolver.reloadMapping();
     const [rawClassifica, calendario, statisticheAtleti] = await Promise.all([
-      getClassifica(true),
-      getCalendario(true),
-      getStatistiche(true),
+      getClassifica(cam, true),
+      getCalendario(cam, anno, true),
+      getStatistiche(cam, true),
     ]);
     const classifica = computeTeamForm(rawClassifica, calendario);
     res.json({ success: true, timestamp: new Date().toISOString(), classifica, calendario, statisticheAtleti });

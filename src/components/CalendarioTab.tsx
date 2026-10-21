@@ -12,6 +12,7 @@ interface CalendarioTabProps {
   onClearTeamFilter: () => void;
   onSelectTeamFilter: (team: string) => void;
   onOpenAtletaModal?: (id: string, name: string) => void;
+  currentCamId?: number;
 }
 
 /**
@@ -58,6 +59,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
   onClearTeamFilter,
   onSelectTeamFilter,
   onOpenAtletaModal,
+  currentCamId = 1902,
 }) => {
   const [selectedGiornata, setSelectedGiornata] = useState<number | 'all'>('all');
   const [faseFilter, setFaseFilter] = useState<'all' | 'andata' | 'ritorno'>('all');
@@ -71,8 +73,8 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
 
   const handleOpenReferto = (m: PartitaCalendario) => {
     let incontroId = m.incontroId;
-    let camId = '1902';
-    let formulaId = '19';
+    let camId = String(currentCamId);
+    let formulaId = m.formula ? String(m.formula) : '19';
 
     if (m.refertoUrl) {
       const incMatch = m.refertoUrl.match(/INCONTRO=(\d+)/i);
