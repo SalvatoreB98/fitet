@@ -267,7 +267,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                           )}
                         </div>
 
-                        {m.refertoUrl && (
+                        {m.refertoUrl && Date.now() > new Date(m.data).getTime() && (
                           <a
                             href={m.refertoUrl}
                             target="_blank"
@@ -276,7 +276,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                             title="Visualizza referto di gara sul portale FITeT"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <span>Referto FITeT</span>
+                            <span>Dettaglio partita</span>
                             <svg
                               width="12"
                               height="12"
