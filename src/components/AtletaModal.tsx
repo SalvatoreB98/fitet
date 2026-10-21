@@ -63,16 +63,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({ atletaId, athleteName,
         {/* Simple Blue Header */}
         <div className="modal-header-simple">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {returnLabel && (
-              <button
-                type="button"
-                className="btn-modal-back"
-                onClick={onClose}
-                title="Torna alla schermata precedente"
-              >
-                ← {returnLabel}
-              </button>
-            )}
             <div>
               <h3>Scheda Ranking FITeT — {atleta?.anagrafica?.nome || athleteName || 'Atleta'}</h3>
               <div style={{ fontSize: '11px', color: '#bfdbfe', marginTop: '2px' }}>
@@ -82,10 +72,10 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({ atletaId, athleteName,
           </div>
           <button
             type="button"
-            className="btn-header"
+            className="modal-close-btn-red"
             onClick={onClose}
-            style={{ padding: '4px 9px', fontSize: '13px' }}
-            title="Chiudi"
+            title="Chiudi finestra (ESC)"
+            aria-label="Chiudi finestra"
           >
             ✕
           </button>

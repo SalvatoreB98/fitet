@@ -192,10 +192,10 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
 
             <button
               type="button"
-              className="btn-header"
+              className="modal-close-btn-red"
               onClick={onClose}
-              style={{ padding: '4px 9px', fontSize: '13px', cursor: 'pointer' }}
-              title="Chiudi (ESC)"
+              title="Chiudi finestra (ESC)"
+              aria-label="Chiudi finestra"
             >
               ✕
             </button>

@@ -1651,31 +1651,62 @@ body.modal-open {
 
 .modal-athlete-backdrop {
   z-index: 1200 !important;
-  background: rgba(8, 18, 36, 0.75);
-  backdrop-filter: blur(5px);
+  background: rgba(8, 18, 36, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
-.btn-modal-back {
+/* ==========================================================================
+   UNIFIED RED-ACCENT MODAL CLOSE BUTTON ("X")
+   ========================================================================== */
+.modal-close-btn-red,
+.championship-modal-close {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #ffffff;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  font-weight: 600;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 8px;
+  background: #dc2626;
+  border: 1px solid #b91c1c;
+  color: #ffffff !important;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
-  transition: all 0.15s ease;
-  font-family: inherit;
-  white-space: nowrap;
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
+  margin: 0;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.32);
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
-.btn-modal-back:hover {
-  background: rgba(255, 255, 255, 0.28);
-  border-color: rgba(255, 255, 255, 0.55);
-  transform: translateX(-1px);
+/* Inside dark gradient headers (.modal-header-simple) */
+.modal-header-simple .modal-close-btn-red {
+  background: #dc2626;
+  border-color: #ef4444;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.45);
+}
+
+.modal-close-btn-red:hover,
+.championship-modal-close:hover {
+  background: #b91c1c !important;
+  border-color: #991b1b !important;
+  color: #ffffff !important;
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.45);
+}
+
+.modal-close-btn-red:active,
+.championship-modal-close:active {
+  transform: scale(0.92);
+  background: #991b1b !important;
+  border-color: #7f1d1d !important;
 }
 
 @keyframes backdropIn {
@@ -1690,16 +1721,23 @@ body.modal-open {
 
 .modal-card-simple {
   background: #ffffff;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid #cbd5e1;
-  box-shadow: 0 20px 35px -10px rgba(10, 25, 47, 0.25);
+  box-shadow: 0 20px 45px -10px rgba(10, 25, 47, 0.35);
   max-width: 780px;
   width: 100%;
   max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  animation: modalScaleIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  animation: modalScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes modalScaleIn {
@@ -1710,7 +1748,7 @@ body.modal-open {
 
   to {
     opacity: 1;
-    transform: scale(1) translateY(0);
+    transform: none;
   }
 }
 
@@ -3332,6 +3370,26 @@ body.modal-open {
    CHAMPIONSHIP PICKER MODAL (MULTI-LEAGUE FITET)
    ========================================================================== */
 
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalScaleUp {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .championship-modal-backdrop {
   position: fixed;
   inset: 0;
@@ -3358,7 +3416,7 @@ body.modal-open {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: modalScaleUp 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: modalScaleUp 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Modal Header */
@@ -3406,26 +3464,6 @@ body.modal-open {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.championship-modal-close {
-  background: transparent;
-  border: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted, #64748b);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  font-size: 16px;
-}
-
-.championship-modal-close:hover {
-  background: rgba(0, 0, 0, 0.06);
-  color: var(--text-main, #0f172a);
 }
 
 /* Search Bar Section */
@@ -3844,15 +3882,26 @@ body.modal-open {
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .championship-modal-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+[data-theme="dark"] .championship-modal-close,
+[data-theme="dark"] .modal-close-btn-red {
+  background: #dc2626;
+  border-color: #ef4444;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.45);
+}
+
+[data-theme="dark"] .championship-modal-close:hover,
+[data-theme="dark"] .modal-close-btn-red:hover {
+  background: #b91c1c !important;
+  border-color: #991b1b !important;
+  color: #ffffff !important;
 }
 
 /* Mobile Responsiveness for Championship Modal */
 @media (max-width: 640px) {
   .championship-modal-dialog {
     max-height: 94vh;
+    max-height: 94dvh;
     border-radius: 12px;
   }
 
@@ -3881,4 +3930,62 @@ body.modal-open {
   .championship-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ==========================================================================
+   MOBILE & iOS CRISPNESS AND AUTO-ZOOM PREVENTION
+   ========================================================================== */
+@media screen and (max-width: 768px) {
+  /* Font size >= 16px strictly prevents iOS Safari / Chrome from auto-zooming on focus */
+  input,
+  select,
+  textarea,
+  .championship-search-input,
+  .custom-cam-input,
+  .controls input,
+  .controls select {
+    font-size: 16px !important;
+  }
+
+  .modal-backdrop-simple,
+  .championship-modal-backdrop {
+    padding: 8px !important;
+    padding-top: max(8px, env(safe-area-inset-top)) !important;
+    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .modal-card-simple,
+  .championship-modal-dialog,
+  .referto-modal-card {
+    max-height: 94vh !important;
+    max-height: 94dvh !important;
+    border-radius: 14px !important;
+  }
+
+  .modal-header-simple {
+    padding: 12px 14px !important;
+  }
+
+  .modal-body-simple {
+    padding: 14px 12px !important;
+  }
+}
+
+/* Crisp rendering across mobile/Retina/iOS screens */
+*,
+*::before,
+*::after {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.modal-card-simple,
+.championship-modal-dialog,
+.referto-modal-card {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }

@@ -130,8 +130,9 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
             className="championship-modal-close"
             onClick={onClose}
             aria-label="Chiudi finestra"
+            title="Chiudi finestra (ESC)"
           >
-            <i className="bi bi-x-lg"></i>
+            ✕
           </button>
         </div>
 
@@ -145,7 +146,6 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
               placeholder="Cerca per girone, serie o regione (es. D1, C2, Calabria, A1)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              autoFocus
             />
             {searchQuery && (
               <button

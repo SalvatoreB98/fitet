@@ -173,10 +173,10 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
               {refreshing ? 'Aggiornamento...' : '🔄'}
             </button>            <button
               type="button"
-              className="btn-header"
+              className="modal-close-btn-red"
               onClick={onClose}
-              style={{ padding: '4px 9px', fontSize: '13px' }}
-              title="Chiudi finestra"
+              title="Chiudi finestra (ESC)"
+              aria-label="Chiudi finestra"
             >
               ✕
             </button>
