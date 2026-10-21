@@ -8,6 +8,7 @@ import { CalendarioTab } from './components/CalendarioTab';
 import { StatisticheTab } from './components/StatisticheTab';
 import { AtletaModal } from './components/AtletaModal';
 import { ChampionshipModal } from './components/ChampionshipModal';
+import { SquadraModal } from './components/SquadraModal';
 import { registerTeamLogos } from './utils/teamLogos';
 
 export const App: React.FC = () => {
@@ -44,6 +45,7 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'classifica' | 'calendario' | 'statistiche'>('classifica');
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
   const [selectedAthlete, setSelectedAthlete] = useState<{ id: string; name: string; fromReferto?: boolean } | null>(null);
+  const [selectedSquadra, setSelectedSquadra] = useState<{ id: string; name: string } | null>(null);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
@@ -208,9 +210,15 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleSelectTeamFromClassifica = (teamName: string) => {
-    setSelectedTeamFilter(teamName);
-    handleTabChange('calendario');
+  const handleOpenSquadra = (teamName: string, squadraId?: string) => {
+    let resolvedId = squadraId;
+    if (!resolvedId && data?.classifica) {
+      const match = data.classifica.find(
+        (sq) => sq.nome.toUpperCase().trim() === teamName.toUpperCase().trim()
+      );
+      if (match) resolvedId = match.squadraId;
+    }
+    setSelectedSquadra({ id: resolvedId || teamName, name: teamName });
   };
 
   return (
@@ -273,7 +281,7 @@ export const App: React.FC = () => {
             >
               <ClassificaTab
                 classifica={data.classifica}
-                onSelectTeam={handleSelectTeamFromClassifica}
+                onSelectTeam={handleOpenSquadra}
               />
             </div>
 
@@ -286,10 +294,11 @@ export const App: React.FC = () => {
                 calendario={data.calendario}
                 selectedTeamFilter={selectedTeamFilter}
                 statisticheAtleti={data.statisticheAtleti}
-                isSubmodalOpen={Boolean(selectedAthlete)}
+                isSubmodalOpen={Boolean(selectedAthlete) || Boolean(selectedSquadra)}
                 currentCamId={camId}
                 onClearTeamFilter={() => setSelectedTeamFilter(null)}
                 onSelectTeamFilter={(team) => setSelectedTeamFilter(team)}
+                onOpenSquadraModal={handleOpenSquadra}
                 onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: true })}
               />
             </div>
@@ -335,6 +344,22 @@ export const App: React.FC = () => {
           athleteName={selectedAthlete.name}
           returnLabel={selectedAthlete.fromReferto ? 'Torna al referto' : 'Indietro'}
           onClose={() => setSelectedAthlete(null)}
+        />
+      )}
+
+      {/* Team Details & Athletes Modal */}
+      {selectedSquadra && (
+        <SquadraModal
+          squadraId={selectedSquadra.id}
+          squadraNome={selectedSquadra.name}
+          camId={camId}
+          annoId={annoId}
+          onClose={() => setSelectedSquadra(null)}
+          onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+          onFilterCalendario={(teamName) => {
+            setSelectedTeamFilter(teamName);
+            handleTabChange('calendario');
+          }}
         />
       )}
     </div>

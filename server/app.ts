@@ -10,6 +10,7 @@ import { parseClassifica } from './parsers/classificaParser';
 import { parseCalendario } from './parsers/calendarioParser';
 import { parseStatisticheAtleti } from './parsers/statisticheParser';
 import { parseDettaglioAtleta } from './parsers/atletaParser';
+import { parseDettaglioSquadra } from './parsers/squadraParser';
 import { parseRefertoIncontro, parseDettaglioPartita } from './parsers/refertoParser';
 import { DashboardData, SquadraClassifica, GiornataCalendario, StatisticaAtleta } from '../src/types/fitet';
 
@@ -370,6 +371,71 @@ app.get('/api/partita/:partitaId', async (req, res) => {
     res.status(500).json({ error: 'Errore nel recupero del dettaglio partita', details: error.message });
   }
 });
+
+// 8. Dettaglio Squadra & Percentuali Atleti
+app.get('/api/squadra/:squadraId', async (req, res) => {
+  const { squadraId } = req.params;
+  const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
+  const forceRefresh = req.query.refresh === 'true';
+
+  if (!squadraId || squadraId === 'null' || squadraId === 'undefined') {
+    return res.status(400).json({ error: 'ID squadra non valido' });
+  }
+
+  try {
+    let targetSquadraId = squadraId;
+
+    // Se l'ID non è numerico, cerchiamo nella classifica per nome squadra
+    if (!/^\d+$/.test(targetSquadraId)) {
+      const decodedName = decodeURIComponent(targetSquadraId).trim().toUpperCase();
+      let rawClassifica = cacheService.get(`classifica_${cam}_${anno}`);
+      if (!rawClassifica) {
+        rawClassifica = await getClassifica(cam, anno);
+      }
+      if (Array.isArray(rawClassifica)) {
+        const found = rawClassifica.find((sq: any) =>
+          sq.nome.toUpperCase().trim() === decodedName ||
+          sq.nome.toUpperCase().includes(decodedName) ||
+          decodedName.includes(sq.nome.toUpperCase())
+        );
+        if (found && found.squadraId) {
+          targetSquadraId = found.squadraId;
+        }
+      }
+    }
+
+    const cacheKey = `squadra_${targetSquadraId}_${cam}_${anno}`;
+
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      if (cached) return res.json(cached);
+    }
+
+    const url = `https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${targetSquadraId}&CAM=${cam}`;
+    const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const buffer = await response.arrayBuffer();
+    const html = new TextDecoder('iso-8859-1').decode(buffer);
+
+    // Parse team and players
+    const parsed = parseDettaglioSquadra(html, targetSquadraId, cam);
+
+    // Resolve logo
+    let logoUrl = teamResolver.getLogo(parsed.nome);
+    if (!logoUrl && targetSquadraId) {
+      const resolved = await teamResolver.resolveLogosForTeams([{ nome: parsed.nome, squadraId: targetSquadraId }], cam, anno);
+      logoUrl = resolved[parsed.nome.toUpperCase().trim()] || teamResolver.getLogo(parsed.nome);
+    }
+    parsed.logoUrl = logoUrl;
+
+    cacheService.set(cacheKey, parsed, 60 * 60 * 1000); // 1 hour
+    res.json(parsed);
+  } catch (error: any) {
+    console.error(`Error fetching team ${squadraId} in CAM ${cam}:`, error);
+    res.status(500).json({ error: 'Errore nel recupero della scheda squadra', details: error.message });
+  }
+});
+
 
 // 7. Force refresh all caches
 app.post('/api/refresh', async (req, res) => {

@@ -4,6 +4,8 @@ import { RefertoIncontro, DettaglioPartitaIndividuale, PartitaRefertoIndividuale
 import { fetchReferto, fetchDettaglioPartita } from '../services/api';
 import { getTeamLogoUrl } from '../utils/teamLogos';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { TeamLogo } from './TeamLogo';
+import { AthleteAvatar } from './AthleteAvatar';
 
 interface RefertoModalProps {
   incontroId: string;
@@ -223,19 +225,11 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                 {/* Squadra Casa */}
                 <div className={`referto-team-box ${isCasaWinner ? 'is-winner' : ''}`}>
                   <div className="referto-logo-wrapper">
-                    {logoCasa ? (
-                      <img
-                        src={logoCasa}
-                        alt={referto.squadraCasa.nome}
-                        className="referto-club-logo"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-
-                        }}
-                      />
-                    ) : (
-                      <div className="referto-logo-fallback">🏓</div>
-                    )}
+                    <TeamLogo
+                      teamName={referto.squadraCasa.nome}
+                      logoUrl={logoCasa}
+                      className="referto-club-logo"
+                    />
                   </div>
                   <div className="referto-team-name-group">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -296,19 +290,11 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                     </h4>
                   </div>
                   <div className="referto-logo-wrapper">
-                    {logoOspite ? (
-                      <img
-                        src={logoOspite}
-                        alt={referto.squadraOspite.nome}
-                        className="referto-club-logo"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-
-                        }}
-                      />
-                    ) : (
-                      <div className="referto-logo-fallback">🏓</div>
-                    )}
+                    <TeamLogo
+                      teamName={referto.squadraOspite.nome}
+                      logoUrl={logoOspite}
+                      className="referto-club-logo"
+                    />
                   </div>
                 </div>
               </div>
@@ -356,16 +342,11 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                 <div className="referto-grid-header">
                   <div className="r-th r-th-num">#</div>
                   <div className="r-th r-th-casa">
-                    {logoCasa && (
-                      <img
-                        src={logoCasa}
-                        alt=""
-                        className="r-th-society-img"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-                        }}
-                      />
-                    )}
+                    <TeamLogo
+                      teamName={referto.squadraCasa.nome}
+                      logoUrl={logoCasa}
+                      className="r-th-society-img"
+                    />
                     <span className="r-th-team-text">{referto.squadraCasa.nome}</span>
                     <span className="team-role-tag role-casa">CASA</span>
                   </div>
@@ -373,16 +354,11 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                   <div className="r-th r-th-ospite">
                     <span className="team-role-tag role-ospite">OSPITE</span>
                     <span className="r-th-team-text">{referto.squadraOspite.nome}</span>
-                    {logoOspite && (
-                      <img
-                        src={logoOspite}
-                        alt=""
-                        className="r-th-society-img"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-                        }}
-                      />
-                    )}
+                    <TeamLogo
+                      teamName={referto.squadraOspite.nome}
+                      logoUrl={logoOspite}
+                      className="r-th-society-img"
+                    />
                   </div>
                   <div className="r-th r-th-partials">PARZIALI SET (1°-5°)</div>
                   <div className="r-th r-th-action">DETTAGLIO</div>
@@ -413,17 +389,12 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                           <div className={`match-player casa-player ${match.isCasaWinner ? 'is-winner' : ''}`}>
                             <span className="player-name">{match.atletaCasa}</span>
                             {match.isCasaWinner && <span className="trophy-small" title="Vincitore incontro">🏆</span>}
-                            {logoCasa && (
-                              <img
-                                src={logoCasa}
-                                alt={referto.squadraCasa.nome}
-                                className="player-society-badge"
-                                title={referto.squadraCasa.nome}
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-                                }}
-                              />
-                            )}
+                            <TeamLogo
+                              teamName={referto.squadraCasa.nome}
+                              logoUrl={logoCasa}
+                              className="player-society-badge"
+                              title={referto.squadraCasa.nome}
+                            />
                           </div>
 
                           {/* 3. Risultato Set (Score) */}
@@ -439,17 +410,12 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
 
                           {/* 4. Atleta Ospite */}
                           <div className={`match-player ospite-player ${match.isOspiteWinner ? 'is-winner' : ''}`}>
-                            {logoOspite && (
-                              <img
-                                src={logoOspite}
-                                alt={referto.squadraOspite.nome}
-                                className="player-society-badge"
-                                title={referto.squadraOspite.nome}
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-                                }}
-                              />
-                            )}
+                            <TeamLogo
+                              teamName={referto.squadraOspite.nome}
+                              logoUrl={logoOspite}
+                              className="player-society-badge"
+                              title={referto.squadraOspite.nome}
+                            />
                             {match.isOspiteWinner && <span className="trophy-small" title="Vincitore incontro">🏆</span>}
                             <span className="player-name">{match.atletaOspite}</span>
                           </div>
@@ -530,19 +496,12 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                       style={{ cursor: onOpenAtletaModal ? 'pointer' : 'default' }}
                                       title={onOpenAtletaModal ? `Visualizza scheda ${match.atletaCasa}` : undefined}
                                     >
-                                      {hasValidPhoto ? (
-                                        <img
-                                          src={dettaglio!.atletaCasa.fotoUrl}
-                                          alt={match.atletaCasa}
-                                          className="athlete-photo"
-                                          onError={(e) => {
-                                            (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-
-                                          }}
-                                        />
-                                      ) : (
-                                        <div className="athlete-avatar-placeholder">👤</div>
-                                      )}
+                                      <AthleteAvatar
+                                        atletaId={dettaglio?.atletaCasa.atletaId || athleteIdMap[match.atletaCasa.trim().toUpperCase()]}
+                                        nome={match.atletaCasa}
+                                        size={36}
+                                        className="athlete-photo"
+                                      />
                                     </div>
                                     <div className="athlete-info">
                                       <div className="athlete-name-row">
@@ -650,19 +609,12 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                       style={{ cursor: onOpenAtletaModal ? 'pointer' : 'default' }}
                                       title={onOpenAtletaModal ? `Visualizza scheda ${match.atletaOspite}` : undefined}
                                     >
-                                      {hasValidPhoto ? (
-                                        <img
-                                          src={dettaglio!.atletaOspite.fotoUrl}
-                                          alt={match.atletaOspite}
-                                          className="athlete-photo"
-                                          onError={(e) => {
-                                            (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-
-                                          }}
-                                        />
-                                      ) : (
-                                        <div className="athlete-avatar-placeholder">👤</div>
-                                      )}
+                                      <AthleteAvatar
+                                        atletaId={dettaglio?.atletaOspite.atletaId || athleteIdMap[match.atletaOspite.trim().toUpperCase()]}
+                                        nome={match.atletaOspite}
+                                        size={36}
+                                        className="athlete-photo"
+                                      />
                                     </div>
                                     <div className="athlete-info">
                                       <div className="athlete-name-row">

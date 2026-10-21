@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { StatisticaAtleta } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
+import { AthleteAvatar } from './AthleteAvatar';
 
 interface StatisticheTabProps {
   statistiche: StatisticaAtleta[];
@@ -20,56 +21,6 @@ type SortField =
   | 'puntiPersi'
   | 'percentualeVittorie';
 
-// Athlete Avatar matching the Official FITeT Athlete Profile Card
-const AthleteAvatar: React.FC<{ atletaId: string | null; nome: string }> = ({ atletaId, nome }) => {
-  const [error, setError] = useState(false);
-  const initials = nome
-    .split(' ')
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-
-  const photoUrl = atletaId ? `https://portale.fitet.org/images/atleti/${atletaId}.jpg` : null;
-
-  useEffect(() => {
-    setError(false);
-  }, [atletaId, photoUrl]);
-
-  return (
-    <div
-      style={{
-        width: '28px',
-        height: '28px',
-        borderRadius: '5px',
-        overflow: 'hidden',
-        background: '#f1f5f9',
-        border: '1px solid #cbd5e1',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-      }}
-      title={`Foto ${nome}`}
-    >
-      {!error && photoUrl ? (
-        <img
-          src={photoUrl}
-          alt={nome}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          onError={() => setError(true)}
-          loading="lazy"
-        />
-      ) : (
-        <span style={{ fontSize: '10.5px', fontWeight: '700', color: '#64748b', letterSpacing: '-0.3px' }}>
-          {initials || '🏓'}
-        </span>
-      )}
-    </div>
-  );
-};
 
 export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onOpenAtletaModal }) => {
   const [searchTerm, setSearchTerm] = useState('');

@@ -1,4 +1,4 @@
-import { DashboardData, DettaglioAtleta, RefertoIncontro, DettaglioPartitaIndividuale, ChampionshipItem } from '../types/fitet';
+import { DashboardData, DettaglioAtleta, RefertoIncontro, DettaglioPartitaIndividuale, ChampionshipItem, DettaglioSquadra } from '../types/fitet';
 
 const API_BASE = '/api';
 
@@ -73,4 +73,19 @@ export async function searchAtleti(query: string): Promise<Array<{ id: string; v
   if (!res.ok) return [];
   return res.json();
 }
+
+export async function fetchSquadra(
+  squadraId: string,
+  cam = 1902,
+  anno = 41,
+  refresh = false
+): Promise<DettaglioSquadra> {
+  const url = `${API_BASE}/squadra/${encodeURIComponent(squadraId)}?cam=${cam}&anno=${anno}${refresh ? '&refresh=true' : ''}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Errore caricamento scheda squadra (${res.status}): ${res.statusText}`);
+  }
+  return res.json();
+}
+
 

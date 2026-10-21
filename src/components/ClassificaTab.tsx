@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { SquadraClassifica } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
-import { getTeamLogoUrl } from '../utils/teamLogos';
+import { TeamLogo } from './TeamLogo';
 
 interface ClassificaTabProps {
   classifica: SquadraClassifica[];
-  onSelectTeam: (teamName: string) => void;
+  onSelectTeam: (teamName: string, squadraId?: string) => void;
 }
 
 export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSelectTeam }) => {
@@ -284,8 +284,8 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     key={sq.squadraId}
                     className="grid-data-row"
                     style={{ cursor: 'pointer' }}
-                    onClick={() => onSelectTeam(sq.nome)}
-                    title="Filtra calendario per questa squadra"
+                    onClick={() => onSelectTeam(sq.nome, sq.squadraId)}
+                    title={`Visualizza scheda squadra ${sq.nome}`}
                   >
                     {/* Position */}
                     <div className="grid-cell text-center">
@@ -296,13 +296,10 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     <div className="grid-cell text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
                         <div className="standings-team-photo-wrapper">
-                          <img
-                            src={getTeamLogoUrl(sq.nome, sq.logoUrl)}
-                            alt=""
+                          <TeamLogo
+                            teamName={sq.nome}
+                            logoUrl={sq.logoUrl}
                             className="standings-team-logo"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-                            }}
                           />
                         </div>
                         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
@@ -402,8 +399,8 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     key={`bil_${sq.squadraId}`}
                     className="grid-data-row"
                     style={{ cursor: 'pointer' }}
-                    onClick={() => onSelectTeam(sq.nome)}
-                    title="Filtra calendario per questa squadra"
+                    onClick={() => onSelectTeam(sq.nome, sq.squadraId)}
+                    title={`Visualizza scheda squadra ${sq.nome}`}
                   >
                     <div className="grid-cell text-center">
                       {renderPosBadge(sq.posizione)}
@@ -412,13 +409,10 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     <div className="grid-cell text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
                         <div className="standings-team-photo-wrapper">
-                          <img
-                            src={getTeamLogoUrl(sq.nome, sq.logoUrl)}
-                            alt=""
+                          <TeamLogo
+                            teamName={sq.nome}
+                            logoUrl={sq.logoUrl}
                             className="standings-team-logo"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-                            }}
                           />
                         </div>
                         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
@@ -496,8 +490,8 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     key={`diff_${sq.squadraId}`}
                     className="grid-data-row"
                     style={{ cursor: 'pointer' }}
-                    onClick={() => onSelectTeam(sq.nome)}
-                    title="Filtra calendario per questa squadra"
+                    onClick={() => onSelectTeam(sq.nome, sq.squadraId)}
+                    title={`Visualizza scheda squadra ${sq.nome}`}
                   >
                     <div className="grid-cell text-center">
                       {renderPosBadge(sq.posizione)}
@@ -506,13 +500,10 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     <div className="grid-cell text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
                         <div className="standings-team-photo-wrapper">
-                          <img
-                            src={getTeamLogoUrl(sq.nome, sq.logoUrl)}
-                            alt=""
+                          <TeamLogo
+                            teamName={sq.nome}
+                            logoUrl={sq.logoUrl}
                             className="standings-team-logo"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-                            }}
                           />
                         </div>
                         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
@@ -616,8 +607,8 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     key={sq.squadraId}
                     className="grid-data-row"
                     style={{ cursor: 'pointer' }}
-                    onClick={() => onSelectTeam(sq.nome)}
-                    title="Filtra calendario per questa squadra"
+                    onClick={() => onSelectTeam(sq.nome, sq.squadraId)}
+                    title={`Visualizza scheda squadra ${sq.nome}`}
                   >
                     <div className="grid-cell text-center">
                       {renderPosBadge(sq.posizione)}
@@ -626,13 +617,10 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     <div className="grid-cell text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
                         <div className="standings-team-photo-wrapper">
-                          <img
-                            src={getTeamLogoUrl(sq.nome, sq.logoUrl)}
-                            alt=""
+                          <TeamLogo
+                            teamName={sq.nome}
+                            logoUrl={sq.logoUrl}
                             className="standings-team-logo"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-                            }}
                           />
                         </div>
                         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>

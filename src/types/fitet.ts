@@ -24,6 +24,33 @@ export interface SquadraClassifica {
   forma: Array<'V' | 'P' | 'N'>;
 }
 
+export interface AtletaSquadraDettaglio {
+  atletaId: string;
+  nome: string;
+  isDoppio: boolean;
+  rankText: string;
+  rankPosizione: number | null;
+  rankPunti: number | null;
+  partiteDisputate: number;
+  partiteVinte: number;
+  partitePerse: number;
+  setVinti: number;
+  setPersi: number;
+  puntiVinti: number;
+  puntiPersi: number;
+  percentualeVittorie: number;
+  fotoUrl: string | null;
+}
+
+export interface DettaglioSquadra {
+  squadraId: string;
+  camId: number;
+  nome: string;
+  logoUrl?: string;
+  atleti: AtletaSquadraDettaglio[];
+}
+
+
 export interface PartitaCalendario {
   id: string;
   giornata: number;

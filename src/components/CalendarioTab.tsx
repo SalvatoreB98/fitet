@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { GiornataCalendario, PartitaCalendario } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
 import { RefertoModal } from './RefertoModal';
-import { getTeamLogoUrl } from '../utils/teamLogos';
+import { TeamLogo } from './TeamLogo';
 
 interface CalendarioTabProps {
   calendario: GiornataCalendario[];
@@ -12,6 +12,7 @@ interface CalendarioTabProps {
   onClearTeamFilter: () => void;
   onSelectTeamFilter: (team: string) => void;
   onOpenAtletaModal?: (id: string, name: string) => void;
+  onOpenSquadraModal?: (teamName: string) => void;
   currentCamId?: number;
 }
 
@@ -59,6 +60,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
   onClearTeamFilter,
   onSelectTeamFilter,
   onOpenAtletaModal,
+  onOpenSquadraModal,
   currentCamId = 1902,
 }) => {
   const [selectedGiornata, setSelectedGiornata] = useState<number | 'all'>('all');
@@ -256,18 +258,17 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                         {/* Squadra Casa */}
                         <div
                           className={`match-card-team-row ${isCasaWinner ? 'is-winner' : ''}`}
-                          onClick={() => onSelectTeamFilter(m.squadraCasa)}
-                          title={`Filtra incontri per ${m.squadraCasa}`}
+                          onClick={() => {
+                            if (onOpenSquadraModal) onOpenSquadraModal(m.squadraCasa);
+                            else onSelectTeamFilter(m.squadraCasa);
+                          }}
+                          title={onOpenSquadraModal ? `Visualizza scheda squadra ${m.squadraCasa}` : `Filtra incontri per ${m.squadraCasa}`}
                         >
                           <div className="match-card-team-left">
                             <span className="team-role-tag role-casa">CASA</span>
-                            <img
-                              src={getTeamLogoUrl(m.squadraCasa)}
-                              alt=""
+                            <TeamLogo
+                              teamName={m.squadraCasa}
                               className="team-society-logo"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-                              }}
                             />
                             <div className="match-card-name-wrapper">
                               <MarqueeText
@@ -301,18 +302,17 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                         {/* Squadra Ospite */}
                         <div
                           className={`match-card-team-row ${isOspiteWinner ? 'is-winner' : ''}`}
-                          onClick={() => onSelectTeamFilter(m.squadraOspite)}
-                          title={`Filtra incontri per ${m.squadraOspite}`}
+                          onClick={() => {
+                            if (onOpenSquadraModal) onOpenSquadraModal(m.squadraOspite);
+                            else onSelectTeamFilter(m.squadraOspite);
+                          }}
+                          title={onOpenSquadraModal ? `Visualizza scheda squadra ${m.squadraOspite}` : `Filtra incontri per ${m.squadraOspite}`}
                         >
                           <div className="match-card-team-left">
                             <span className="team-role-tag role-ospite">OSPITE</span>
-                            <img
-                              src={getTeamLogoUrl(m.squadraOspite)}
-                              alt=""
+                            <TeamLogo
+                              teamName={m.squadraOspite}
                               className="team-society-logo"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
-                              }}
                             />
                             <div className="match-card-name-wrapper">
                               <MarqueeText
