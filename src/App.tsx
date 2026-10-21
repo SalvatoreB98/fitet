@@ -16,7 +16,7 @@ export const App: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'classifica' | 'calendario' | 'statistiche'>('classifica');
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
-  const [selectedAthlete, setSelectedAthlete] = useState<{ id: string; name: string } | null>(null);
+  const [selectedAthlete, setSelectedAthlete] = useState<{ id: string; name: string; fromReferto?: boolean } | null>(null);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
@@ -206,8 +206,11 @@ export const App: React.FC = () => {
               <CalendarioTab
                 calendario={data.calendario}
                 selectedTeamFilter={selectedTeamFilter}
+                statisticheAtleti={data.statisticheAtleti}
+                isSubmodalOpen={Boolean(selectedAthlete)}
                 onClearTeamFilter={() => setSelectedTeamFilter(null)}
                 onSelectTeamFilter={(team) => setSelectedTeamFilter(team)}
+                onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: true })}
               />
             </div>
 
@@ -218,7 +221,7 @@ export const App: React.FC = () => {
             >
               <StatisticheTab
                 statistiche={data.statisticheAtleti}
-                onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name })}
+                onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
               />
             </div>
           </main>
@@ -240,6 +243,7 @@ export const App: React.FC = () => {
         <AtletaModal
           atletaId={selectedAthlete.id}
           athleteName={selectedAthlete.name}
+          returnLabel={selectedAthlete.fromReferto ? 'Torna al referto' : 'Indietro'}
           onClose={() => setSelectedAthlete(null)}
         />
       )}

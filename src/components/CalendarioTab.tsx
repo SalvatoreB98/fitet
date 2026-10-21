@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 import { GiornataCalendario, PartitaCalendario } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
+import { RefertoModal } from './RefertoModal';
+import { getTeamLogoUrl } from '../utils/teamLogos';
 
 interface CalendarioTabProps {
   calendario: GiornataCalendario[];
   selectedTeamFilter: string | null;
+  statisticheAtleti?: Array<{ atleta: string; atletaId: string | null }>;
+  isSubmodalOpen?: boolean;
   onClearTeamFilter: () => void;
   onSelectTeamFilter: (team: string) => void;
+  onOpenAtletaModal?: (id: string, name: string) => void;
 }
 
 /**
@@ -48,11 +53,47 @@ const shouldShowReferto = (match: PartitaCalendario): boolean => {
 export const CalendarioTab: React.FC<CalendarioTabProps> = ({
   calendario,
   selectedTeamFilter,
+  statisticheAtleti,
+  isSubmodalOpen,
   onClearTeamFilter,
   onSelectTeamFilter,
+  onOpenAtletaModal,
 }) => {
   const [selectedGiornata, setSelectedGiornata] = useState<number | 'all'>('all');
   const [faseFilter, setFaseFilter] = useState<'all' | 'andata' | 'ritorno'>('all');
+  const [selectedReferto, setSelectedReferto] = useState<{
+    incontroId: string;
+    camId?: string;
+    formulaId?: string;
+    casa?: string;
+    ospite?: string;
+  } | null>(null);
+
+  const handleOpenReferto = (m: PartitaCalendario) => {
+    let incontroId = m.incontroId;
+    let camId = '1902';
+    let formulaId = '19';
+
+    if (m.refertoUrl) {
+      const incMatch = m.refertoUrl.match(/INCONTRO=(\d+)/i);
+      const camMatch = m.refertoUrl.match(/CAM=(\d+)/i);
+      const formMatch = m.refertoUrl.match(/FORMULA=(\d+)/i);
+
+      if (incMatch) incontroId = incMatch[1];
+      if (camMatch) camId = camMatch[1];
+      if (formMatch) formulaId = formMatch[1];
+    }
+
+    if (incontroId) {
+      setSelectedReferto({
+        incontroId,
+        camId,
+        formulaId,
+        casa: m.squadraCasa,
+        ospite: m.squadraOspite,
+      });
+    }
+  };
 
   const allTeams = Array.from(
     new Set(
@@ -218,6 +259,14 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                         >
                           <div className="match-card-team-left">
                             <span className="team-role-tag role-casa">CASA</span>
+                            <img
+                              src={getTeamLogoUrl(m.squadraCasa)}
+                              alt=""
+                              className="team-society-logo"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
                             <div className="match-card-name-wrapper">
                               <MarqueeText
                                 text={m.squadraCasa}
@@ -230,7 +279,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                             </div>
                             {isCasaWinner && (
                               <span className="winner-trophy" title="Vincitore incontro">
-                                🏆
+                                
                               </span>
                             )}
                           </div>
@@ -255,6 +304,14 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                         >
                           <div className="match-card-team-left">
                             <span className="team-role-tag role-ospite">OSPITE</span>
+                            <img
+                              src={getTeamLogoUrl(m.squadraOspite)}
+                              alt=""
+                              className="team-society-logo"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
                             <div className="match-card-name-wrapper">
                               <MarqueeText
                                 text={m.squadraOspite}
@@ -274,10 +331,10 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
 
                           <div
                             className={`match-card-score-box ${isOspiteWinner
-                                ? 'score-winner'
-                                : m.disputato
-                                  ? 'score-played'
-                                  : 'score-pending'
+                              ? 'score-winner'
+                              : m.disputato
+                                ? 'score-played'
+                                : 'score-pending'
                               }`}
                           >
                             {m.disputato ? (m.puntiOspite !== null ? m.puntiOspite : '-') : '-'}
@@ -301,13 +358,14 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                         </div>
 
                         {m.refertoUrl && shouldShowReferto(m) && (
-                          <a
-                            href={m.refertoUrl}
-                            target="_blank"
-                            rel="noreferrer"
+                          <button
+                            type="button"
                             className="btn-referto-link"
-                            title="Visualizza referto di gara sul portale FITeT"
-                            onClick={(e) => e.stopPropagation()}
+                            title="Visualizza referto di gara e risultati completi"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenReferto(m);
+                            }}
                           >
                             <span>Dettaglio partita</span>
                             <svg
@@ -324,7 +382,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                               <polyline points="15 3 21 3 21 9"></polyline>
                               <line x1="10" y1="14" x2="21" y2="3"></line>
                             </svg>
-                          </a>
+                          </button>
                         )}
                       </div>
                     </article>
@@ -351,6 +409,21 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
           </div>
         )}
       </div>
+
+      {/* Referto di Gara Modal */}
+      {selectedReferto && (
+        <RefertoModal
+          incontroId={selectedReferto.incontroId}
+          camId={selectedReferto.camId}
+          formulaId={selectedReferto.formulaId}
+          squadraCasaNome={selectedReferto.casa}
+          squadraOspiteNome={selectedReferto.ospite}
+          statisticheAtleti={statisticheAtleti}
+          isSubmodalOpen={isSubmodalOpen}
+          onClose={() => setSelectedReferto(null)}
+          onOpenAtletaModal={onOpenAtletaModal}
+        />
+      )}
     </div>
   );
 };

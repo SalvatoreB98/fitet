@@ -1,6 +1,37 @@
 import * as cheerio from 'cheerio';
 import { DettaglioAtleta, StoricoRankingSnapshot } from '../../src/types/fitet';
 
+/**
+ * Parsa un numero formattato all'italiana (es. "2.510,40", "3.050", "166,00", "-15,20")
+ * Gestisce correttamente il punto come separatore delle migliaia e la virgola come separatore decimale.
+ */
+export function parseItalianNumber(val: string | null | undefined): number {
+  if (!val) return 0;
+  const clean = val.trim();
+  if (!clean) return 0;
+
+  // Se contiene sia punto che virgola (es. "2.510,40" o "10.250,50"):
+  // il punto separa le migliaia, la virgola i decimali
+  if (clean.includes('.') && clean.includes(',')) {
+    return parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0;
+  }
+
+  // Se contiene solo la virgola (es. "166,00" o "248,36"):
+  // la virgola separa i decimali
+  if (clean.includes(',')) {
+    return parseFloat(clean.replace(',', '.')) || 0;
+  }
+
+  // Se contiene solo il punto (es. "3.050" o "2.510"):
+  // Se dopo il punto ci sono 3 cifre, è un separatore di migliaia (3050 pt)
+  if (/^\s*[+-]?\d{1,3}(?:\.\d{3})+\s*$/.test(clean)) {
+    return parseFloat(clean.replace(/\./g, '')) || 0;
+  }
+
+  // Altrimenti parsalo normalmente come float
+  return parseFloat(clean) || 0;
+}
+
 export function parseDettaglioAtleta(html: string, atletaId: string): DettaglioAtleta {
   const $ = cheerio.load(html);
 
@@ -51,12 +82,12 @@ export function parseDettaglioAtleta(html: string, atletaId: string): DettaglioA
   const regione = getFieldValue('Regione') || 'Calabria';
 
   const catRaw = getFieldValue('Categoria');
-  // Example catRaw: "6^ (*)    punti 166,00"
+  // Example catRaw: "6^ (*)    punti 166,00" o "6^    punti 2.510,40"
   let categoria = catRaw;
   let punti = 0;
   const puntiMatch = catRaw.match(/punti\s*([\d\.,]+)/i);
   if (puntiMatch) {
-    punti = parseFloat(puntiMatch[1].replace(',', '.')) || 0;
+    punti = parseItalianNumber(puntiMatch[1]);
     categoria = catRaw.replace(/punti\s*[\d\.,]+/i, '').trim();
   }
 
@@ -90,16 +121,16 @@ export function parseDettaglioAtleta(html: string, atletaId: string): DettaglioA
         const initText = $(dataCells[0]).text().trim();
         const initMatch = initText.match(/([\d\.,]+)\s*\[?\s*(\d{2}\/\d{2}\/\d{4})?/);
         if (initMatch) {
-          puntiIniziali = parseFloat(initMatch[1].replace(',', '.')) || 0;
+          puntiIniziali = parseItalianNumber(initMatch[1]);
           puntiInizialiData = initMatch[2] || '';
         }
 
-        puntiTotali = parseFloat($(dataCells[1]).text().trim().replace(',', '.')) || 0;
-        punteggioFinale = parseFloat($(dataCells[2]).text().trim().replace(',', '.')) || punti;
+        puntiTotali = parseItalianNumber($(dataCells[1]).text().trim());
+        punteggioFinale = parseItalianNumber($(dataCells[2]).text().trim()) || punti;
         partiteGiocate = parseInt($(dataCells[3]).text().trim(), 10) || 0;
         partiteVinte = parseInt($(dataCells[4]).text().trim(), 10) || 0;
         partitePerse = parseInt($(dataCells[5]).text().trim(), 10) || 0;
-        percentualePositiva = parseFloat($(dataCells[6]).text().trim().replace('%', '')) || 0;
+        percentualePositiva = parseItalianNumber($(dataCells[6]).text().trim().replace('%', ''));
       }
     }
   }
@@ -117,9 +148,7 @@ export function parseDettaglioAtleta(html: string, atletaId: string): DettaglioA
     const posText = $(cells[1]).text().trim();
     const posizione = posText ? parseInt(posText, 10) || null : null;
 
-    const ptText = $(cells[2]).text().trim().replace(',', '.');
-    const pt = parseFloat(ptText) || 0;
-
+    const pt = parseItalianNumber($(cells[2]).text().trim());
     const cat = $(cells[3]).text().trim() || categoria;
 
     storicoClassifica.push({
@@ -132,6 +161,10 @@ export function parseDettaglioAtleta(html: string, atletaId: string): DettaglioA
 
   // Sort storico chronologically ascending (oldest first) for charting
   storicoClassifica.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+
+  // Coerenza punti anagrafica: prediligi punteggio finale, poi punti categoria, poi ultimo rilevamento storico
+  const ultimoSnapshot = storicoClassifica.length > 0 ? storicoClassifica[storicoClassifica.length - 1] : null;
+  const puntiEffettivi = punteggioFinale || punti || (ultimoSnapshot ? ultimoSnapshot.punti : 0);
 
   return {
     id: atletaId,
@@ -147,7 +180,7 @@ export function parseDettaglioAtleta(html: string, atletaId: string): DettaglioA
       societa,
       regione,
       categoria,
-      punti: punteggioFinale || punti,
+      punti: puntiEffettivi,
       stato,
       recordClassifica,
     },
@@ -155,7 +188,7 @@ export function parseDettaglioAtleta(html: string, atletaId: string): DettaglioA
       puntiIniziali,
       puntiInizialiData,
       puntiTotali,
-      punteggioFinale: punteggioFinale || punti,
+      punteggioFinale: puntiEffettivi,
       partiteGiocate,
       partiteVinte,
       partitePerse,

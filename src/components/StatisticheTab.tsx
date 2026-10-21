@@ -335,29 +335,25 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
   // Common Action Button with comfortable width and centering
   const renderSchedaButton = (a: StatisticaAtleta) => (
     <div className="grid-cell text-center" style={{ padding: '0 4px', justifyContent: 'center' }}>
-      {a.atletaId ? (
-        <button
-          type="button"
-          className="btn-action"
-          style={{
-            padding: '3px 8px',
-            fontSize: '11px',
-            fontWeight: 600,
-            whiteSpace: 'nowrap',
-            justifyContent: 'center',
-            minWidth: '20px',
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (a.atletaId) onOpenAtletaModal(a.atletaId, a.atleta);
-          }}
-          title={`Apri scheda federale di ${a.atleta}`}
-        >
-          ↗
-        </button>
-      ) : (
-        <span style={{ color: '#94a3b8' }}>-</span>
-      )}
+      <button
+        type="button"
+        className="btn-action"
+        style={{
+          padding: '3px 8px',
+          fontSize: '11px',
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          justifyContent: 'center',
+          minWidth: '20px',
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenAtletaModal(a.atletaId || a.atleta, a.atleta);
+        }}
+        title={`Apri scheda federale di ${a.atleta}`}
+      >
+        ↗
+      </button>
     </div>
   );
 

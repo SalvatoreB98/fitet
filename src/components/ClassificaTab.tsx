@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { SquadraClassifica } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
+import { getTeamLogoUrl } from '../utils/teamLogos';
 
 interface ClassificaTabProps {
   classifica: SquadraClassifica[];
@@ -191,6 +192,13 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
     return pos === 1 ? 'pos-gold' : pos === 2 ? 'pos-silver' : pos === 3 ? 'pos-bronze' : '';
   };
 
+  const renderPosBadge = (pos: number) => {
+    if (pos === 1) return <span className="pos-medal" title="1° Posto (Promozione Diretta)">🥇</span>;
+    if (pos === 2) return <span className="pos-medal" title="2° Posto (Playoff Promozione)">🥈</span>;
+    if (pos === 3) return <span className="pos-medal" title="3° Posto (Playoff Promozione)">🥉</span>;
+    return <span className="pos-num-plain">{pos}</span>;
+  };
+
   return (
     <div>
       {/* Controls Bar */}
@@ -254,7 +262,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                 </div>
               </div>
               <div className="official-badge-group">
-                <span className="badge-official-gold">⭐ VALORE FEDERALE</span>
+                <span className="badge-official-gold">⭐</span>
                 <span className="section-badge">{sortedUfficialeTeams.length} squadre</span>
               </div>
             </div>
@@ -286,12 +294,22 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                   >
                     {/* Position */}
                     <div className="grid-cell text-center">
-                      <span className={`pos-num ${getPosClass(sq.posizione)}`}>{sq.posizione}</span>
+                      {renderPosBadge(sq.posizione)}
                     </div>
 
                     {/* Team */}
                     <div className="grid-cell text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
+                        <div className="standings-team-photo-wrapper">
+                          <img
+                            src={getTeamLogoUrl(sq.nome)}
+                            alt=""
+                            className="standings-team-logo"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
                         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                           <MarqueeText
                             text={sq.nome}
@@ -396,17 +414,31 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     title="Filtra calendario per questa squadra"
                   >
                     <div className="grid-cell text-center">
-                      <span className={`pos-num ${getPosClass(sq.posizione)}`}>{sq.posizione}</span>
+                      {renderPosBadge(sq.posizione)}
                     </div>
 
                     <div className="grid-cell text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
-                      <MarqueeText
-                        text={sq.nome}
-                        style={{
-                          fontWeight: '600',
-                          color: 'var(--text-dark)',
-                        }}
-                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
+                        <div className="standings-team-photo-wrapper">
+                          <img
+                            src={getTeamLogoUrl(sq.nome)}
+                            alt=""
+                            className="standings-team-logo"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                          <MarqueeText
+                            text={sq.nome}
+                            style={{
+                              fontWeight: '600',
+                              color: 'var(--text-dark)',
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <div className="grid-cell text-center" style={{ color: '#16a34a', fontWeight: '700' }}>
@@ -479,17 +511,31 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     title="Filtra calendario per questa squadra"
                   >
                     <div className="grid-cell text-center">
-                      <span className={`pos-num ${getPosClass(sq.posizione)}`}>{sq.posizione}</span>
+                      {renderPosBadge(sq.posizione)}
                     </div>
 
                     <div className="grid-cell text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
-                      <MarqueeText
-                        text={sq.nome}
-                        style={{
-                          fontWeight: '600',
-                          color: 'var(--text-dark)',
-                        }}
-                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
+                        <div className="standings-team-photo-wrapper">
+                          <img
+                            src={getTeamLogoUrl(sq.nome)}
+                            alt=""
+                            className="standings-team-logo"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                          <MarqueeText
+                            text={sq.nome}
+                            style={{
+                              fontWeight: '600',
+                              color: 'var(--text-dark)',
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     <div className="grid-cell text-center" style={{ whiteSpace: 'nowrap' }}>
@@ -588,11 +634,21 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                     title="Filtra calendario per questa squadra"
                   >
                     <div className="grid-cell text-center">
-                      <span className={`pos-num ${getPosClass(sq.posizione)}`}>{sq.posizione}</span>
+                      {renderPosBadge(sq.posizione)}
                     </div>
 
                     <div className="grid-cell text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
+                        <div className="standings-team-photo-wrapper">
+                          <img
+                            src={getTeamLogoUrl(sq.nome)}
+                            alt=""
+                            className="standings-team-logo"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
                         <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                           <MarqueeText
                             text={sq.nome}

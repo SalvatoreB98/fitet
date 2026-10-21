@@ -91,4 +91,20 @@ export class FitetClient {
       return [];
     }
   }
+
+  /**
+   * Endpoint 5: Referto Incontro Gara
+   */
+  static async fetchRefertoIncontro(incontroId: string | number, cam = 1902, formula = 19): Promise<string> {
+    const url = `${BASE_URL}/risultati/campionati/giornata.php?INCONTRO=${incontroId}&CAM=${cam}&FORMULA=${formula}`;
+    return this.fetchHtml(url);
+  }
+
+  /**
+   * Endpoint 6: Dettaglio Singola Partita Individuale
+   */
+  static async fetchDettaglioPartita(partitaId: string | number): Promise<string> {
+    const url = `${BASE_URL}/risultati/campionati/dettaglio_partita.php?ID=${partitaId}`;
+    return this.fetchHtml(url);
+  }
 }

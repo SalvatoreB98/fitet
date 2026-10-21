@@ -47,6 +47,72 @@ export interface GiornataCalendario {
   partiteRitorno: PartitaCalendario[];
 }
 
+export interface SetScore {
+  setNumero: number;
+  puntiCasa: number;
+  puntiOspite: number;
+}
+
+export interface PartitaRefertoIndividuale {
+  id: string;
+  numero: number;
+  atletaCasa: string;
+  atletaOspite: string;
+  isCasaWinner: boolean;
+  isOspiteWinner: boolean;
+  sets: SetScore[];
+  setVintiCasa: number;
+  setVintiOspite: number;
+}
+
+export interface RefertoIncontro {
+  incontroId: string;
+  camId?: string;
+  formulaId?: string;
+  giornata: string;
+  arbitro?: string;
+  campoGara?: string;
+  squadraCasa: {
+    nome: string;
+    logoUrl?: string;
+    punti: number;
+    setTotali: number;
+    puntiTotali: number;
+  };
+  squadraOspite: {
+    nome: string;
+    logoUrl?: string;
+    punti: number;
+    setTotali: number;
+    puntiTotali: number;
+  };
+  partite: PartitaRefertoIndividuale[];
+}
+
+export interface DettaglioPartitaIndividuale {
+  id: string;
+  atletaCasa: {
+    nome: string;
+    bandieraUrl?: string;
+    fotoUrl?: string;
+    atletaId?: string;
+  };
+  atletaOspite: {
+    nome: string;
+    bandieraUrl?: string;
+    fotoUrl?: string;
+    atletaId?: string;
+  };
+  risultatoSet: string;
+  puntiTotali: string;
+  sets: Array<{
+    setNumero: number;
+    puntiCasa: number;
+    puntiOspite: number;
+  }>;
+}
+
+
 export interface StatisticaAtleta {
   nazionalita: string;
   bandieraUrl: string;

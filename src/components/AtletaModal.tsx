@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { DettaglioAtleta } from '../types/fitet';
 import { fetchAtleta } from '../services/api';
 import { RatingChart } from './RatingChart';
@@ -6,10 +7,11 @@ import { RatingChart } from './RatingChart';
 interface AtletaModalProps {
   atletaId: string;
   athleteName?: string;
+  returnLabel?: string;
   onClose: () => void;
 }
 
-export const AtletaModal: React.FC<AtletaModalProps> = ({ atletaId, athleteName, onClose }) => {
+export const AtletaModal: React.FC<AtletaModalProps> = ({ atletaId, athleteName, returnLabel, onClose }) => {
   const [atleta, setAtleta] = useState<DettaglioAtleta | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,21 +43,38 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({ atletaId, athleteName,
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [onClose]);
 
-  return (
-    <div className="modal-backdrop-simple" onClick={onClose}>
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className="modal-backdrop-simple modal-athlete-backdrop" onClick={onClose}>
       <div className="modal-card-simple" onClick={(e) => e.stopPropagation()}>
         {/* Simple Blue Header */}
         <div className="modal-header-simple">
-          <div>
-            <h3>Scheda Ranking FITeT — {atleta?.anagrafica?.nome || athleteName || 'Atleta'}</h3>
-            <div style={{ fontSize: '11px', color: '#bfdbfe', marginTop: '2px' }}>
-              Tessera / ID: {atletaId} • Classifica Unica Nazionale
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {returnLabel && (
+              <button
+                type="button"
+                className="btn-modal-back"
+                onClick={onClose}
+                title="Torna alla schermata precedente"
+              >
+                ← {returnLabel}
+              </button>
+            )}
+            <div>
+              <h3>Scheda Ranking FITeT — {atleta?.anagrafica?.nome || athleteName || 'Atleta'}</h3>
+              <div style={{ fontSize: '11px', color: '#bfdbfe', marginTop: '2px' }}>
+                Tessera / ID: {atleta?.id || (/^\d+$/.test(atletaId) ? atletaId : 'In risoluzione...')} • Classifica Unica Nazionale
+              </div>
             </div>
           </div>
           <button
@@ -63,6 +82,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({ atletaId, athleteName,
             className="btn-header"
             onClick={onClose}
             style={{ padding: '4px 9px', fontSize: '13px' }}
+            title="Chiudi"
           >
             ✕
           </button>
@@ -160,13 +180,29 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({ atletaId, athleteName,
               <div className="modal-stat-boxes">
                 <div className="modal-stat-box stat-box-blue">
                   <div style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-primary-500)' }}>
-                    {atleta.anagrafica.punti} pt
+                    {(() => {
+                      const storico = atleta.storicoClassifica || [];
+                      const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
+                      let pts = atleta.anagrafica.punti;
+                      if (pts < 10 && ultimoSnapshot && ultimoSnapshot.punti >= 100) {
+                        pts = ultimoSnapshot.punti;
+                      }
+                      return pts;
+                    })()} pt
                   </div>
                   <div style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: '700', color: 'var(--color-primary-600)' }}>
                     Punti Classifica Attuali
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Iniziali: {atleta.riepilogo.puntiIniziali.toFixed(2)} ({atleta.riepilogo.puntiInizialiData})
+                    Iniziali: {(() => {
+                      const storico = atleta.storicoClassifica || [];
+                      const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
+                      let initPts = atleta.riepilogo.puntiIniziali;
+                      if (initPts < 10 && ultimoSnapshot && ultimoSnapshot.punti >= 100) {
+                        initPts = Math.round(initPts * 1000);
+                      }
+                      return initPts;
+                    })()} {atleta.riepilogo.puntiInizialiData ? `(${atleta.riepilogo.puntiInizialiData})` : ''}
                   </div>
                 </div>
 
@@ -180,8 +216,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({ atletaId, athleteName,
                   const hasRecord = record && !record.includes('n. il') && record.trim().length > 0;
                   const dataAgg = ultimoSnapshot?.data
                     ? (ultimoSnapshot.data.includes('-')
-                        ? ultimoSnapshot.data.split('-').reverse().join('/')
-                        : ultimoSnapshot.data)
+                      ? ultimoSnapshot.data.split('-').reverse().join('/')
+                      : ultimoSnapshot.data)
                     : null;
 
                   return (
@@ -246,7 +282,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({ atletaId, athleteName,
                     % Vittorie Stagionale
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Guadagno netto: +{atleta.riepilogo.puntiTotali.toFixed(2)} pt
+                    Guadagno netto: {atleta.riepilogo.puntiTotali > 0 ? `+${atleta.riepilogo.puntiTotali}` : atleta.riepilogo.puntiTotali} pt
                   </div>
                 </div>
               </div>
@@ -283,30 +319,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({ atletaId, athleteName,
                 </div>
               )}
 
-              {/* External Link */}
-              <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <a
-                  href={`https://portale.fitet.org/risultati/new_rank/DettaglioAtleta_unica.php?ATLETA=${atletaId}&ID_CLASS=247`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-action"
-                  style={{ padding: '6px 12px', fontSize: '12px' }}
-                >
-                  Apri scheda sul portale federale FITeT ↗
-                </a>
-                <button
-                  type="button"
-                  className="btn-action"
-                  onClick={onClose}
-                  style={{ padding: '6px 14px' }}
-                >
-                  Chiudi
-                </button>
-              </div>
+
             </div>
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

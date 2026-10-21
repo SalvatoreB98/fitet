@@ -8,6 +8,7 @@ import { parseClassifica } from './parsers/classificaParser';
 import { parseCalendario } from './parsers/calendarioParser';
 import { parseStatisticheAtleti } from './parsers/statisticheParser';
 import { parseDettaglioAtleta } from './parsers/atletaParser';
+import { parseRefertoIncontro, parseDettaglioPartita } from './parsers/refertoParser';
 import { DashboardData, SquadraClassifica, GiornataCalendario, StatisticaAtleta } from '../src/types/fitet';
 
 export const app = express();
@@ -24,6 +25,7 @@ const TTL_CLASSIFICA = 30 * 60 * 1000; // 30 min
 const TTL_CALENDARIO = 30 * 60 * 1000; // 30 min
 const TTL_STATISTICHE = 60 * 60 * 1000; // 60 min
 const TTL_ATLETA = 24 * 60 * 60 * 1000; // 24 hours
+const TTL_REFERTO = 12 * 60 * 60 * 1000; // 12 hours
 
 /**
  * Calculates recent form ('V', 'P', 'N') for each team based on played calendar matches
@@ -199,13 +201,25 @@ app.get('/api/statistiche', async (req, res) => {
 
 // 5. Scheda Singolo Atleta
 app.get('/api/atleta/:id', async (req, res) => {
-  const { id } = req.params;
+  let { id } = req.params;
   const forceRefresh = req.query.refresh === 'true';
-  const cacheKey = `atleta_${id}`;
 
   if (!id || id === 'null' || id === 'undefined') {
     return res.status(400).json({ error: 'ID atleta non valido' });
   }
+
+  // Se l'ID non è puramente numerico (es. passato il nome atleta), risolvilo dinamicamente
+  if (!/^\d+$/.test(id)) {
+    const cleanName = decodeURIComponent(id).trim();
+    const resolvedId = await athleteResolver.resolveAthleteId(cleanName);
+    if (resolvedId) {
+      id = resolvedId;
+    } else {
+      return res.status(404).json({ error: `Impossibile risolvere ID federale per "${cleanName}"` });
+    }
+  }
+
+  const cacheKey = `atleta_${id}`;
 
   try {
     if (!forceRefresh) {
@@ -235,6 +249,73 @@ app.get('/api/search-atleta', async (req, res) => {
     res.json(results);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// 7. Referto Incontro Gara
+app.get('/api/referto/:incontroId', async (req, res) => {
+  const { incontroId } = req.params;
+  const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : CAM_ID;
+  const formula = req.query.formula ? parseInt(req.query.formula as string, 10) : 19;
+  const forceRefresh = req.query.refresh === 'true';
+  const cacheKey = `referto_${incontroId}_${cam}_${formula}`;
+
+  if (!incontroId || incontroId === 'null' || incontroId === 'undefined') {
+    return res.status(400).json({ error: 'ID incontro non valido' });
+  }
+
+  try {
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      if (cached) return res.json(cached);
+    }
+
+    const html = await FitetClient.fetchRefertoIncontro(incontroId, cam, formula);
+    const referto = parseRefertoIncontro(html, incontroId, String(cam), String(formula));
+    cacheService.set(cacheKey, referto, TTL_REFERTO);
+    res.json(referto);
+  } catch (error: any) {
+    console.error(`Error fetching referto ${incontroId}:`, error);
+    res.status(500).json({ error: 'Errore nel recupero del referto di gara', details: error.message });
+  }
+});
+
+// 8. Dettaglio Singola Partita Individuale
+app.get('/api/partita/:partitaId', async (req, res) => {
+  const { partitaId } = req.params;
+  const forceRefresh = req.query.refresh === 'true';
+  const cacheKey = `partita_${partitaId}`;
+
+  if (!partitaId || partitaId === 'null' || partitaId === 'undefined') {
+    return res.status(400).json({ error: 'ID partita non valido' });
+  }
+
+  try {
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      if (cached) return res.json(cached);
+    }
+
+    const html = await FitetClient.fetchDettaglioPartita(partitaId);
+    const dettaglio = parseDettaglioPartita(html, partitaId);
+
+    // Risoluzione automatica ID atleta per giocatori privi di foto su FITeT
+    if (!dettaglio.atletaCasa.atletaId && dettaglio.atletaCasa.nome) {
+      const primaryName = dettaglio.atletaCasa.nome.split('-')[0].trim();
+      const resolved = await athleteResolver.resolveAthleteId(primaryName);
+      if (resolved) dettaglio.atletaCasa.atletaId = resolved;
+    }
+    if (!dettaglio.atletaOspite.atletaId && dettaglio.atletaOspite.nome) {
+      const primaryName = dettaglio.atletaOspite.nome.split('-')[0].trim();
+      const resolved = await athleteResolver.resolveAthleteId(primaryName);
+      if (resolved) dettaglio.atletaOspite.atletaId = resolved;
+    }
+
+    cacheService.set(cacheKey, dettaglio, TTL_ATLETA);
+    res.json(dettaglio);
+  } catch (error: any) {
+    console.error(`Error fetching dettaglio partita ${partitaId}:`, error);
+    res.status(500).json({ error: 'Errore nel recupero del dettaglio partita', details: error.message });
   }
 });
 
