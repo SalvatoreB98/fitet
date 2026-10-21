@@ -174,24 +174,6 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
 
             <button
               type="button"
-              className="btn-action"
-              onClick={() => loadData(true)}
-              disabled={loading || refreshing}
-              title="Aggiorna dati squadra dal portale federale"
-              style={{
-                padding: '5px 10px',
-                fontSize: '11px',
-                background: 'rgba(255,255,255,0.12)',
-                color: '#fff',
-                borderColor: 'rgba(255,255,255,0.2)',
-                cursor: 'pointer',
-              }}
-            >
-              {refreshing ? 'Aggiornamento...' : '🔄'}
-            </button>
-
-            <button
-              type="button"
               className="modal-close-btn-red"
               onClick={onClose}
               title="Chiudi finestra (ESC)"
