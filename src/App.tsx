@@ -375,7 +375,7 @@ export const App: React.FC = () => {
                 selectedTeamFilter={selectedTeamFilter}
                 statisticheAtleti={data.statisticheAtleti}
                 isSubmodalOpen={Boolean(selectedAthlete) || Boolean(selectedSquadra)}
-                currentCamId={camId}
+                currentCamId={camId ?? undefined}
                 onClearTeamFilter={() => setSelectedTeamFilter(null)}
                 onSelectTeamFilter={(team) => setSelectedTeamFilter(team)}
                 onOpenSquadraModal={handleOpenSquadra}
@@ -433,7 +433,7 @@ export const App: React.FC = () => {
         <AtletaModal
           atletaId={selectedAthlete.id}
           athleteName={selectedAthlete.name}
-          camId={camId}
+          camId={camId !== null ? String(camId) : undefined}
           campionatoNome={data?.championship?.nome}
           returnLabel={selectedAthlete.fromReferto ? 'Torna al referto' : 'Indietro'}
           onClose={() => setSelectedAthlete(null)}
@@ -445,7 +445,7 @@ export const App: React.FC = () => {
         <SquadraModal
           squadraId={selectedSquadra.id}
           squadraNome={selectedSquadra.name}
-          camId={camId}
+          camId={camId ?? 0}
           annoId={annoId}
           onClose={() => setSelectedSquadra(null)}
           onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}

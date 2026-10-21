@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { getCachedUserRegion } from '../utils/geolocation';
 
 interface HeaderProps {
@@ -34,7 +34,36 @@ export const Header: React.FC<HeaderProps> = ({
   championshipRegion,
   onOpenChampionshipModal,
 }) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isMenuOpen]);
 
   const centerTab = (tab: 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta', targetBtn?: HTMLElement | null) => {
     const nav = navRef.current;
@@ -96,30 +125,136 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="portal-header-sponsor">
           <img className='logo-stag' src="STAG.png" alt="STAG" />
         </div>
-        <div className="portal-header-actions">
-          {/* Compact Icon-Only Motion Graphic Toggle */}
-          {onToggleTheme && (
-            <button
-              type="button"
-              className={`theme-toggle-pill ${theme === 'dark' ? 'is-dark' : 'is-light'}`}
-              onClick={(e) => onToggleTheme(e)}
-              title={theme === 'dark' ? 'Passa alla modalità Chiara (Giorno)' : 'Passa alla modalità Scura (Notte)'}
-              aria-label="Cambia tema giorno/notte"
-            >
-              <span className="theme-toggle-track">
-                <span className="theme-toggle-icon icon-sun" aria-hidden="true">
-                  <i className="bi bi-sun-fill"></i>
-                </span>
-                <span className="theme-toggle-icon icon-moon" aria-hidden="true">
-                  <i className="bi bi-moon-stars-fill"></i>
-                </span>
-                <span className="theme-toggle-thumb" aria-hidden="true">
-                  <i className={theme === 'dark' ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill'}></i>
-                </span>
-              </span>
-            </button>
-          )}
+        <div className="portal-header-actions" ref={menuRef}>
+          {/* Burger Button in Alto a Destra */}
+          <button
+            type="button"
+            className={`portal-burger-btn ${isMenuOpen ? 'is-open' : ''}`}
+            onClick={() => setIsMenuOpen((prev) => !prev)}
+            title={isMenuOpen ? 'Chiudi menu' : 'Menu opzioni'}
+            aria-label="Menu opzioni"
+            aria-expanded={isMenuOpen}
+          >
+            <span className="burger-box">
+              <span className="burger-bar burger-bar-1"></span>
+              <span className="burger-bar burger-bar-2"></span>
+              <span className="burger-bar burger-bar-3"></span>
+            </span>
+          </button>
 
+          {/* Floating Dropdown & Backdrop */}
+          {isMenuOpen && (
+            <>
+              <div
+                className="portal-burger-backdrop"
+                onClick={() => setIsMenuOpen(false)}
+                aria-hidden="true"
+              />
+              <div className="portal-burger-dropdown" role="menu">
+                <div className="burger-menu-header">
+                  <span className="burger-menu-title">Menu Rapido</span>
+                  <span className="burger-menu-badge">FITeT</span>
+                </div>
+
+                <div className="burger-menu-items">
+                  {/* 1. Ricerca Atleta */}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`burger-menu-item ${activeTab === 'cercaAtleta' ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onChangeTab('cercaAtleta');
+                    }}
+                  >
+                    <div className="burger-item-icon-box icon-search">
+                      <i className="bi bi-search"></i>
+                    </div>
+                    <div className="burger-item-content">
+                      <span className="burger-item-title">Ricerca Atleta</span>
+                      <span className="burger-item-desc">Cerca atleti e schede ranking</span>
+                    </div>
+                    {activeTab === 'cercaAtleta' ? (
+                      <span className="burger-item-badge-active">Attivo</span>
+                    ) : (
+                      <i className="bi bi-chevron-right burger-item-arrow"></i>
+                    )}
+                  </button>
+
+                  {/* 2. Cambia Campionato */}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="burger-menu-item"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onOpenChampionshipModal?.();
+                    }}
+                  >
+                    <div className="burger-item-icon-box icon-trophy">
+                      <i className="bi bi-trophy-fill"></i>
+                    </div>
+                    <div className="burger-item-content">
+                      <span className="burger-item-title">Cambia Campionato</span>
+                      <span className="burger-item-desc" title={championshipName || 'Seleziona campionato'}>
+                        {championshipName || 'Seleziona campionato FITeT'}
+                      </span>
+                    </div>
+                    <i className="bi bi-chevron-right burger-item-arrow"></i>
+                  </button>
+
+                  {/* 3. Toggle Dark / Light Mode */}
+                  {onToggleTheme && (
+                    <div
+                      role="menuitem"
+                      tabIndex={0}
+                      className="burger-menu-item burger-menu-item-theme"
+                      onClick={(e) => onToggleTheme(e)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onToggleTheme();
+                        }
+                      }}
+                    >
+                      <div className={`burger-item-icon-box ${theme === 'dark' ? 'icon-moon' : 'icon-sun'}`}>
+                        <i className={theme === 'dark' ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill'}></i>
+                      </div>
+                      <div className="burger-item-content">
+                        <span className="burger-item-title">
+                          {theme === 'dark' ? 'Modalità Scura' : 'Modalità Chiara'}
+                        </span>
+                        <span className="burger-item-desc">
+                          {theme === 'dark' ? 'Passa alla modalità chiara' : 'Passa alla modalità scura'}
+                        </span>
+                      </div>
+                      <div className="burger-item-action" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className={`theme-toggle-pill ${theme === 'dark' ? 'is-dark' : 'is-light'}`}
+                          onClick={(e) => onToggleTheme(e)}
+                          title={theme === 'dark' ? 'Passa alla modalità Chiara (Giorno)' : 'Passa alla modalità Scura (Notte)'}
+                          aria-label="Cambia tema giorno/notte"
+                        >
+                          <span className="theme-toggle-track">
+                            <span className="theme-toggle-icon icon-sun" aria-hidden="true">
+                              <i className="bi bi-sun-fill"></i>
+                            </span>
+                            <span className="theme-toggle-icon icon-moon" aria-hidden="true">
+                              <i className="bi bi-moon-stars-fill"></i>
+                            </span>
+                            <span className="theme-toggle-thumb" aria-hidden="true">
+                              <i className={theme === 'dark' ? 'bi bi-moon-stars-fill' : 'bi bi-sun-fill'}></i>
+                            </span>
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
