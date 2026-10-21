@@ -1,5 +1,12 @@
 import * as cheerio from 'cheerio';
-import { DettaglioAtleta, StoricoRankingSnapshot } from '../../src/types/fitet';
+import {
+  DettaglioAtleta,
+  StoricoRankingSnapshot,
+  PartiteRankingAtleta,
+  PartitaRankingCampionato,
+  PartitaRankingTorneo,
+  DettaglioPuntiRanking,
+} from '../../src/types/fitet';
 
 /**
  * Parsa un numero formattato all'italiana (es. "2.510,40", "3.050", "166,00", "-15,20")
@@ -32,7 +39,133 @@ export function parseItalianNumber(val: string | null | undefined): number {
   return parseFloat(clean) || 0;
 }
 
-export function parseDettaglioAtleta(html: string, atletaId: string): DettaglioAtleta {
+/**
+ * Estrae l'URL della pagina iframe da #fragment-3 (Dettaglio Punti)
+ */
+export function extractRankingIframeUrl(html: string): string | null {
+  const $ = cheerio.load(html);
+  const rawSrc = $('#fragment-3 iframe').attr('src');
+  if (!rawSrc) return null;
+
+  const cleanSrc = rawSrc.replace(/\s+/g, '');
+  if (!cleanSrc) return null;
+
+  try {
+    return new URL(cleanSrc, 'https://portale.fitet.org/risultati/new_rank/dettaglioatleta_unica.php').href;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Parsa la pagina HTML caricata dall'iframe di ranking (contenente gli incontri di campionato e torneo)
+ */
+export function parsePartiteRanking(html: string, atletaId: string): PartiteRankingAtleta {
+  const $ = cheerio.load(html);
+  let $p = $(`#player_${atletaId}`);
+  if (!$p.length) $p = $('.player').first();
+
+  const result: PartiteRankingAtleta = {
+    campionato: [],
+    tornei: [],
+  };
+
+  if (!$p.length) return result;
+
+  const subtleText = $p.find('.subtle').text().trim();
+  result.rawSubtle = subtleText;
+
+  if (subtleText) {
+    const parseSubVal = (regex: RegExp) => {
+      const m = subtleText.match(regex);
+      return m ? parseItalianNumber(m[1]) : undefined;
+    };
+    result.dettaglioPunti = {
+      puntiIniziali: parseSubVal(/iniziali\s*<b>?([\d\.,]+)/i),
+      campionato: parseSubVal(/campionato\s*<b>?([\d\.,]+)/i),
+      tornei: parseSubVal(/tornei\s*<b>?([\d\.,]+)/i),
+      vittorieTornei: parseSubVal(/vittorie\s*tornei\s*<b>?([\d\.,]+)/i),
+      protezione: parseSubVal(/protezione\s*<b>?([\d\.,]+)/i),
+      finali: parseSubVal(/finali\s*<b>?([\d\.,]+)/i),
+    };
+  }
+
+  $p.find('h3').each((_, h3) => {
+    const text = $(h3).text().replace(/\s+/g, ' ').toLowerCase();
+    const table = $(h3).nextAll('table').first();
+    if (!table.length) return;
+
+    if (text.includes('campionato')) {
+      table.find('tbody tr').each((_, tr) => {
+        const cells = $(tr).find('td');
+        if (cells.length < 4) return;
+        const rowText = $(tr).text().trim();
+        if (rowText.toLowerCase().includes('totale')) return;
+
+        const data = $(cells[0]).text().trim();
+        if (!data || !data.includes('/')) return;
+
+        const campionato = $(cells[1]).text().trim();
+        const punti = parseItalianNumber($(cells[2]).text().trim());
+        const ris = $(cells[3]).text().trim();
+        const sesso = cells.length >= 5 ? $(cells[4]).text().trim() : undefined;
+        const stato = cells.length >= 6 ? $(cells[5]).text().trim() : undefined;
+        const avversario = cells.length >= 7 ? $(cells[6]).text().trim() : $(cells[cells.length - 1]).text().trim();
+        const isVittoria = ris.toUpperCase() === 'V';
+
+        result.campionato.push({
+          data,
+          campionato,
+          punti,
+          risultato: ris,
+          isVittoria,
+          avversario,
+          sesso,
+          stato,
+        });
+      });
+    } else if (text.includes('torneo')) {
+      table.find('tbody tr').each((_, tr) => {
+        const cells = $(tr).find('td');
+        if (cells.length < 6) return;
+        const rowText = $(tr).text().trim();
+        if (rowText.toLowerCase().includes('totale')) return;
+
+        const data = $(cells[0]).text().trim();
+        if (!data || !data.includes('/')) return;
+
+        const torneo = $(cells[1]).text().trim();
+        const gara = $(cells[2]).text().trim();
+        const stato = $(cells[3]).text().trim();
+        const avversario = $(cells[4]).text().trim();
+        const fase = cells.length >= 6 ? $(cells[5]).text().trim() : undefined;
+        const ris = cells.length >= 7 ? $(cells[6]).text().trim() : $(cells[cells.length - 1]).text().trim();
+        const isVittoria = ris.toUpperCase() === 'V';
+        const isDiscarded = $(tr).hasClass('discarded') || ris.toUpperCase() === 'S';
+
+        result.tornei.push({
+          data,
+          torneo,
+          gara,
+          stato,
+          avversario,
+          fase,
+          risultato: ris,
+          isVittoria,
+          isDiscarded,
+        });
+      });
+    }
+  });
+
+  return result;
+}
+
+export function parseDettaglioAtleta(
+  html: string,
+  atletaId: string,
+  partiteRanking?: PartiteRankingAtleta
+): DettaglioAtleta {
   const $ = cheerio.load(html);
 
   // 1. Anagrafica
@@ -195,5 +328,6 @@ export function parseDettaglioAtleta(html: string, atletaId: string): DettaglioA
       percentualePositiva,
     },
     storicoClassifica,
+    partiteRanking,
   };
 }

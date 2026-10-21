@@ -176,6 +176,45 @@ export interface StoricoRankingSnapshot {
   categoria: string;
 }
 
+export interface PartitaRankingCampionato {
+  data: string;
+  campionato: string;
+  punti: number;
+  risultato: string;
+  isVittoria: boolean;
+  avversario: string;
+  sesso?: string;
+  stato?: string;
+}
+
+export interface PartitaRankingTorneo {
+  data: string;
+  torneo: string;
+  gara: string;
+  avversario: string;
+  fase?: string;
+  risultato: string;
+  isVittoria: boolean;
+  stato?: string;
+  isDiscarded?: boolean;
+}
+
+export interface DettaglioPuntiRanking {
+  puntiIniziali?: number;
+  campionato?: number;
+  tornei?: number;
+  vittorieTornei?: number;
+  protezione?: number;
+  finali?: number;
+}
+
+export interface PartiteRankingAtleta {
+  campionato: PartitaRankingCampionato[];
+  tornei: PartitaRankingTorneo[];
+  dettaglioPunti?: DettaglioPuntiRanking;
+  rawSubtle?: string;
+}
+
 export interface DettaglioAtleta {
   id: string;
   anagrafica: {
@@ -205,6 +244,7 @@ export interface DettaglioAtleta {
     percentualePositiva: number;
   };
   storicoClassifica: StoricoRankingSnapshot[];
+  partiteRanking?: PartiteRankingAtleta;
 }
 
 export interface ChampionshipInfo {

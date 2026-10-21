@@ -9,7 +9,7 @@ import { championshipCatalog } from './services/championshipCatalog';
 import { parseClassifica } from './parsers/classificaParser';
 import { parseCalendario } from './parsers/calendarioParser';
 import { parseStatisticheAtleti } from './parsers/statisticheParser';
-import { parseDettaglioAtleta } from './parsers/atletaParser';
+import { parseDettaglioAtleta, extractRankingIframeUrl, parsePartiteRanking } from './parsers/atletaParser';
 import { parseDettaglioSquadra } from './parsers/squadraParser';
 import { parseRefertoIncontro, parseDettaglioPartita } from './parsers/refertoParser';
 import * as cheerio from 'cheerio';
@@ -284,12 +284,25 @@ app.get('/api/atleta/:id', async (req, res) => {
 
   try {
     if (!forceRefresh) {
-      const cached = cacheService.get(cacheKey);
-      if (cached) return res.json(cached);
+      const cached = cacheService.get<any>(cacheKey);
+      if (cached && cached.partiteRanking) return res.json(cached);
     }
 
     const html = await FitetClient.fetchSchedaAtleta(id);
-    const atleta = parseDettaglioAtleta(html, id);
+
+    // Extract & parse official ranking matches from #fragment-3 iframe
+    let partiteRanking = undefined;
+    const iframeUrl = extractRankingIframeUrl(html);
+    if (iframeUrl) {
+      try {
+        const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);
+        partiteRanking = parsePartiteRanking(iframeHtml, id);
+      } catch (iframeErr) {
+        console.warn(`Could not fetch ranking matches iframe for athlete ${id}:`, iframeErr);
+      }
+    }
+
+    const atleta = parseDettaglioAtleta(html, id, partiteRanking);
     cacheService.set(cacheKey, atleta, TTL_ATLETA);
     res.json(atleta);
   } catch (error: any) {

@@ -311,16 +311,6 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                             }}
                           />
                         </div>
-                        {sq.isPromozione && (
-                          <span className="badge pct-mid" style={{ fontSize: '10px', flexShrink: 0 }}>
-                            1° Promozione
-                          </span>
-                        )}
-                        {sq.isPlayoff && (
-                          <span className="badge pct-high" style={{ fontSize: '10px', flexShrink: 0 }}>
-                            Playoff
-                          </span>
-                        )}
                       </div>
                     </div>
 
@@ -632,16 +622,6 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                             }}
                           />
                         </div>
-                        {sq.isPromozione && (
-                          <span className="badge pct-mid" style={{ fontSize: '10px', flexShrink: 0 }}>
-                            1° Promozione
-                          </span>
-                        )}
-                        {sq.isPlayoff && (
-                          <span className="badge pct-high" style={{ fontSize: '10px', flexShrink: 0 }}>
-                            Playoff
-                          </span>
-                        )}
                       </div>
                     </div>
 
@@ -729,14 +709,6 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
           borderTop: '1px solid #e2e8f0',
         }}
       >
-        <div>
-          <span className="badge pct-mid" style={{ marginRight: '6px' }}>
-            1° Promozione
-          </span>
-          <span className="badge pct-high" style={{ marginRight: '6px' }}>
-            2° Playoff
-          </span>
-        </div>
         <div>
           G: Gare disputate • IV: Vinte • IP: Perse • Diff: Differenziale
         </div>

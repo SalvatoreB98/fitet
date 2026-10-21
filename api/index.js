@@ -734,7 +734,9 @@ var athlete_mapping_default = {
   "BENFORTE ANTONIO": "610341",
   "CARRIERI VINCENZO": "599067",
   "RUSSO PAOLO": "795319",
-  "BENFORTE A - CARRIERI V": "849609"
+  "BENFORTE A - CARRIERI V": "849609",
+  "CRISPO M": "605901",
+  "CUBONI EMANUELE": "736529"
 };
 
 // server/services/athleteResolver.ts
@@ -1303,7 +1305,106 @@ function parseItalianNumber(val) {
   }
   return parseFloat(clean) || 0;
 }
-function parseDettaglioAtleta(html, atletaId) {
+function extractRankingIframeUrl(html) {
+  const $ = cheerio7.load(html);
+  const rawSrc = $("#fragment-3 iframe").attr("src");
+  if (!rawSrc) return null;
+  const cleanSrc = rawSrc.replace(/\s+/g, "");
+  if (!cleanSrc) return null;
+  try {
+    return new URL(cleanSrc, "https://portale.fitet.org/risultati/new_rank/dettaglioatleta_unica.php").href;
+  } catch {
+    return null;
+  }
+}
+function parsePartiteRanking(html, atletaId) {
+  const $ = cheerio7.load(html);
+  let $p = $(`#player_${atletaId}`);
+  if (!$p.length) $p = $(".player").first();
+  const result = {
+    campionato: [],
+    tornei: []
+  };
+  if (!$p.length) return result;
+  const subtleText = $p.find(".subtle").text().trim();
+  result.rawSubtle = subtleText;
+  if (subtleText) {
+    const parseSubVal = (regex) => {
+      const m = subtleText.match(regex);
+      return m ? parseItalianNumber(m[1]) : void 0;
+    };
+    result.dettaglioPunti = {
+      puntiIniziali: parseSubVal(/iniziali\s*<b>?([\d\.,]+)/i),
+      campionato: parseSubVal(/campionato\s*<b>?([\d\.,]+)/i),
+      tornei: parseSubVal(/tornei\s*<b>?([\d\.,]+)/i),
+      vittorieTornei: parseSubVal(/vittorie\s*tornei\s*<b>?([\d\.,]+)/i),
+      protezione: parseSubVal(/protezione\s*<b>?([\d\.,]+)/i),
+      finali: parseSubVal(/finali\s*<b>?([\d\.,]+)/i)
+    };
+  }
+  $p.find("h3").each((_, h3) => {
+    const text = $(h3).text().replace(/\s+/g, " ").toLowerCase();
+    const table = $(h3).nextAll("table").first();
+    if (!table.length) return;
+    if (text.includes("campionato")) {
+      table.find("tbody tr").each((_2, tr) => {
+        const cells = $(tr).find("td");
+        if (cells.length < 4) return;
+        const rowText = $(tr).text().trim();
+        if (rowText.toLowerCase().includes("totale")) return;
+        const data = $(cells[0]).text().trim();
+        if (!data || !data.includes("/")) return;
+        const campionato = $(cells[1]).text().trim();
+        const punti = parseItalianNumber($(cells[2]).text().trim());
+        const ris = $(cells[3]).text().trim();
+        const sesso = cells.length >= 5 ? $(cells[4]).text().trim() : void 0;
+        const stato = cells.length >= 6 ? $(cells[5]).text().trim() : void 0;
+        const avversario = cells.length >= 7 ? $(cells[6]).text().trim() : $(cells[cells.length - 1]).text().trim();
+        const isVittoria = ris.toUpperCase() === "V";
+        result.campionato.push({
+          data,
+          campionato,
+          punti,
+          risultato: ris,
+          isVittoria,
+          avversario,
+          sesso,
+          stato
+        });
+      });
+    } else if (text.includes("torneo")) {
+      table.find("tbody tr").each((_2, tr) => {
+        const cells = $(tr).find("td");
+        if (cells.length < 6) return;
+        const rowText = $(tr).text().trim();
+        if (rowText.toLowerCase().includes("totale")) return;
+        const data = $(cells[0]).text().trim();
+        if (!data || !data.includes("/")) return;
+        const torneo = $(cells[1]).text().trim();
+        const gara = $(cells[2]).text().trim();
+        const stato = $(cells[3]).text().trim();
+        const avversario = $(cells[4]).text().trim();
+        const fase = cells.length >= 6 ? $(cells[5]).text().trim() : void 0;
+        const ris = cells.length >= 7 ? $(cells[6]).text().trim() : $(cells[cells.length - 1]).text().trim();
+        const isVittoria = ris.toUpperCase() === "V";
+        const isDiscarded = $(tr).hasClass("discarded") || ris.toUpperCase() === "S";
+        result.tornei.push({
+          data,
+          torneo,
+          gara,
+          stato,
+          avversario,
+          fase,
+          risultato: ris,
+          isVittoria,
+          isDiscarded
+        });
+      });
+    }
+  });
+  return result;
+}
+function parseDettaglioAtleta(html, atletaId, partiteRanking) {
   const $ = cheerio7.load(html);
   const $titolo = $("p.titolo").first();
   const nomeRaw = $titolo.text().replace(/\s+/g, " ").trim();
@@ -1432,7 +1533,8 @@ function parseDettaglioAtleta(html, atletaId) {
       partitePerse,
       percentualePositiva
     },
-    storicoClassifica
+    storicoClassifica,
+    partiteRanking
   };
 }
 
@@ -1771,6 +1873,7 @@ import * as cheerio10 from "cheerio";
 var app = express();
 app.use(cors());
 app.use(express.json());
+var DEFAULT_CAM_ID = 794;
 var DEFAULT_ANNO_ID = 41;
 var TTL_CLASSIFICA = 30 * 60 * 1e3;
 var TTL_CALENDARIO = 30 * 60 * 1e3;
@@ -1962,10 +2065,20 @@ app.get("/api/atleta/:id", async (req, res) => {
   try {
     if (!forceRefresh) {
       const cached = cacheService.get(cacheKey);
-      if (cached) return res.json(cached);
+      if (cached && cached.partiteRanking) return res.json(cached);
     }
     const html = await FitetClient.fetchSchedaAtleta(id);
-    const atleta = parseDettaglioAtleta(html, id);
+    let partiteRanking = void 0;
+    const iframeUrl = extractRankingIframeUrl(html);
+    if (iframeUrl) {
+      try {
+        const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);
+        partiteRanking = parsePartiteRanking(iframeHtml, id);
+      } catch (iframeErr) {
+        console.warn(`Could not fetch ranking matches iframe for athlete ${id}:`, iframeErr);
+      }
+    }
+    const atleta = parseDettaglioAtleta(html, id, partiteRanking);
     cacheService.set(cacheKey, atleta, TTL_ATLETA);
     res.json(atleta);
   } catch (error) {
