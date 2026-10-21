@@ -2,6 +2,7 @@ export interface SquadraClassifica {
   posizione: number;
   squadraId: string;
   nome: string;
+  logoUrl?: string;
   punti: number;
   incontriDisputati: number;
   incontriVinti: number;

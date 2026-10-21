@@ -8,6 +8,7 @@ import { CalendarioTab } from './components/CalendarioTab';
 import { StatisticheTab } from './components/StatisticheTab';
 import { AtletaModal } from './components/AtletaModal';
 import { ChampionshipModal } from './components/ChampionshipModal';
+import { registerTeamLogos } from './utils/teamLogos';
 
 export const App: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -134,6 +135,9 @@ export const App: React.FC = () => {
     try {
       const result = await fetchDashboard(targetCam, targetAnno, force);
       setData(result);
+      if (result.classifica) {
+        registerTeamLogos(result.classifica);
+      }
 
       if (result.championship) {
         document.title = `FITeT ${result.championship.nome} - ${result.championship.regione} | Risultati & Classifica`;

@@ -33,6 +33,10 @@ const AthleteAvatar: React.FC<{ atletaId: string | null; nome: string }> = ({ at
 
   const photoUrl = atletaId ? `https://portale.fitet.org/images/atleti/${atletaId}.jpg` : null;
 
+  useEffect(() => {
+    setError(false);
+  }, [atletaId, photoUrl]);
+
   return (
     <div
       style={{

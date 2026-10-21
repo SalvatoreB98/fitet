@@ -297,11 +297,11 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
                         <div className="standings-team-photo-wrapper">
                           <img
-                            src={getTeamLogoUrl(sq.nome)}
+                            src={getTeamLogoUrl(sq.nome, sq.logoUrl)}
                             alt=""
                             className="standings-team-logo"
                             onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
+                              (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
                             }}
                           />
                         </div>
@@ -413,11 +413,11 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
                         <div className="standings-team-photo-wrapper">
                           <img
-                            src={getTeamLogoUrl(sq.nome)}
+                            src={getTeamLogoUrl(sq.nome, sq.logoUrl)}
                             alt=""
                             className="standings-team-logo"
                             onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
+                              (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
                             }}
                           />
                         </div>
@@ -507,11 +507,11 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
                         <div className="standings-team-photo-wrapper">
                           <img
-                            src={getTeamLogoUrl(sq.nome)}
+                            src={getTeamLogoUrl(sq.nome, sq.logoUrl)}
                             alt=""
                             className="standings-team-logo"
                             onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
+                              (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
                             }}
                           />
                         </div>
@@ -627,11 +627,11 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
                         <div className="standings-team-photo-wrapper">
                           <img
-                            src={getTeamLogoUrl(sq.nome)}
+                            src={getTeamLogoUrl(sq.nome, sq.logoUrl)}
                             alt=""
                             className="standings-team-logo"
                             onError={(e) => {
-                              (e.target as HTMLElement).style.display = 'none';
+                              (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
                             }}
                           />
                         </div>

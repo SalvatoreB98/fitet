@@ -4,6 +4,7 @@ import path from 'path';
 import { FitetClient } from './services/fitetClient';
 import { cacheService } from './services/cacheService';
 import { athleteResolver } from './services/athleteResolver';
+import { teamResolver } from './services/teamResolver';
 import { championshipCatalog } from './services/championshipCatalog';
 import { parseClassifica } from './parsers/classificaParser';
 import { parseCalendario } from './parsers/calendarioParser';
@@ -84,9 +85,9 @@ function computeTeamForm(classifica: SquadraClassifica[], calendario: GiornataCa
 }
 
 /**
- * Fetch and parse Classifica
+ * Fetch and parse Classifica with auto team logos
  */
-async function getClassifica(camId = DEFAULT_CAM_ID, forceRefresh = false): Promise<SquadraClassifica[]> {
+async function getClassifica(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, forceRefresh = false): Promise<SquadraClassifica[]> {
   const cacheKey = `classifica_${camId}`;
   if (!forceRefresh) {
     const cached = cacheService.get<SquadraClassifica[]>(cacheKey);
@@ -95,8 +96,22 @@ async function getClassifica(camId = DEFAULT_CAM_ID, forceRefresh = false): Prom
 
   const html = await FitetClient.fetchClassifica(camId);
   const data = parseClassifica(html);
-  cacheService.set(cacheKey, data, TTL_CLASSIFICA);
-  return data;
+
+  // Auto-resolve society logos from FITeT for any newly encountered teams
+  try {
+    const teamsToResolve = data.map((t) => ({ nome: t.nome, squadraId: t.squadraId }));
+    await teamResolver.resolveLogosForTeams(teamsToResolve, camId, annoId);
+  } catch (err) {
+    console.warn(`[TeamResolver] Warning resolving team logos for CAM ${camId}:`, err);
+  }
+
+  const withLogos = data.map((t) => ({
+    ...t,
+    logoUrl: teamResolver.getLogo(t.nome),
+  }));
+
+  cacheService.set(cacheKey, withLogos, TTL_CLASSIFICA);
+  return withLogos;
 }
 
 /**
@@ -116,13 +131,22 @@ async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, f
 }
 
 /**
- * Fetch and parse Statistiche Atleti
+ * Fetch and parse Statistiche Atleti with auto athlete ID resolution
  */
-async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false): Promise<StatisticaAtleta[]> {
+async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squadraIds: string[] = []): Promise<StatisticaAtleta[]> {
   const cacheKey = `statistiche_${camId}`;
   if (!forceRefresh) {
     const cached = cacheService.get<StatisticaAtleta[]>(cacheKey);
     if (cached) return cached;
+  }
+
+  // Auto-resolve athlete IDs for this championship from teams' percentuali.php
+  try {
+    if (squadraIds.length > 0) {
+      await athleteResolver.resolveAthletesForChampionship(camId, squadraIds);
+    }
+  } catch (err) {
+    console.warn(`[AthleteResolver] Warning resolving athletes for CAM ${camId}:`, err);
   }
 
   const html = await FitetClient.fetchStatisticheAtleti(camId);
@@ -153,12 +177,16 @@ app.get('/api/dashboard', async (req, res) => {
   const forceRefresh = req.query.refresh === 'true';
 
   try {
-    const [rawClassifica, calendario, statisticheAtleti, champMeta] = await Promise.all([
-      getClassifica(cam, forceRefresh),
+    // 1. Fetch Classifica & Calendario in parallel
+    const [rawClassifica, calendario, champMeta] = await Promise.all([
+      getClassifica(cam, anno, forceRefresh),
       getCalendario(cam, anno, forceRefresh),
-      getStatistiche(cam, forceRefresh),
       championshipCatalog.getChampionship(cam),
     ]);
+
+    // 2. Fetch Statistiche passing squadraIds so athlete IDs are indexed
+    const squadraIds = rawClassifica.map((s) => s.squadraId).filter(Boolean);
+    const statisticheAtleti = await getStatistiche(cam, forceRefresh, squadraIds);
 
     const classifica = computeTeamForm(rawClassifica, calendario);
 
@@ -186,9 +214,10 @@ app.get('/api/dashboard', async (req, res) => {
 // 2. Classifica standalone
 app.get('/api/classifica', async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
   const forceRefresh = req.query.refresh === 'true';
   try {
-    const data = await getClassifica(cam, forceRefresh);
+    const data = await getClassifica(cam, anno, forceRefresh);
     res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -213,7 +242,9 @@ app.get('/api/statistiche', async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
   const forceRefresh = req.query.refresh === 'true';
   try {
-    const data = await getStatistiche(cam, forceRefresh);
+    const classifica = await getClassifica(cam, DEFAULT_ANNO_ID, false);
+    const squadraIds = classifica.map((s) => s.squadraId).filter(Boolean);
+    const data = await getStatistiche(cam, forceRefresh, squadraIds);
     res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -349,7 +380,7 @@ app.post('/api/refresh', async (req, res) => {
     cacheService.clear();
     athleteResolver.reloadMapping();
     const [rawClassifica, calendario, statisticheAtleti] = await Promise.all([
-      getClassifica(cam, true),
+      getClassifica(cam, anno, true),
       getCalendario(cam, anno, true),
       getStatistiche(cam, true),
     ]);

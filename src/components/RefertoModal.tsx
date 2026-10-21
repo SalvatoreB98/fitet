@@ -229,7 +229,8 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                         alt={referto.squadraCasa.nome}
                         className="referto-club-logo"
                         onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
+                          (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
+
                         }}
                       />
                     ) : (
@@ -301,7 +302,8 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                         alt={referto.squadraOspite.nome}
                         className="referto-club-logo"
                         onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
+                          (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
+
                         }}
                       />
                     ) : (
@@ -359,7 +361,9 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                         src={logoCasa}
                         alt=""
                         className="r-th-society-img"
-                        onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
+                        }}
                       />
                     )}
                     <span className="r-th-team-text">{referto.squadraCasa.nome}</span>
@@ -374,7 +378,9 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                         src={logoOspite}
                         alt=""
                         className="r-th-society-img"
-                        onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
+                        }}
                       />
                     )}
                   </div>
@@ -413,7 +419,9 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                 alt={referto.squadraCasa.nome}
                                 className="player-society-badge"
                                 title={referto.squadraCasa.nome}
-                                onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
+                                }}
                               />
                             )}
                           </div>
@@ -437,7 +445,9 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                 alt={referto.squadraOspite.nome}
                                 className="player-society-badge"
                                 title={referto.squadraOspite.nome}
-                                onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
+                                }}
                               />
                             )}
                             {match.isOspiteWinner && <span className="trophy-small" title="Vincitore incontro">🏆</span>}
@@ -526,7 +536,8 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                           alt={match.atletaCasa}
                                           className="athlete-photo"
                                           onError={(e) => {
-                                            (e.target as HTMLElement).style.display = 'none';
+                                            (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
+
                                           }}
                                         />
                                       ) : (
@@ -645,7 +656,8 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                           alt={match.atletaOspite}
                                           className="athlete-photo"
                                           onError={(e) => {
-                                            (e.target as HTMLElement).style.display = 'none';
+                                            (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
+
                                           }}
                                         />
                                       ) : (

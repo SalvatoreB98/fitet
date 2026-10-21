@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import * as cheerio from 'cheerio';
 import { FitetClient } from './fitetClient';
 import defaultMapping from '../data/athlete_mapping.json';
 
@@ -73,6 +74,46 @@ export class AthleteResolver {
     }
 
     return null;
+  }
+
+  /**
+   * Resolves all athlete IDs for a given championship by crawling percentuali.php of its teams
+   */
+  async resolveAthletesForChampionship(cam: number, squadraIds: string[]): Promise<Record<string, string>> {
+    if (!squadraIds || squadraIds.length === 0) return this.getMapping();
+
+    let newFound = 0;
+    await Promise.all(
+      squadraIds.map(async (sqId) => {
+        try {
+          const res = await fetch(`https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${sqId}&CAM=${cam}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+          });
+          const text = new TextDecoder('iso-8859-1').decode(await res.arrayBuffer());
+          const $p = cheerio.load(text);
+          $p('a[href*="IDA="]').each((_, a) => {
+            const href = $p(a).attr('href') || '';
+            const m = href.match(/IDA=(\d+)/i);
+            const name = $p(a).text().replace(/\s+/g, ' ').trim().toUpperCase();
+            if (m && name) {
+              if (!this.mapping[name]) {
+                this.mapping[name] = m[1];
+                newFound++;
+              }
+            }
+          });
+        } catch (err) {
+          console.warn(`Error resolving athletes from team ${sqId} in CAM ${cam}:`, err);
+        }
+      })
+    );
+
+    if (newFound > 0) {
+      this.saveMapping();
+      console.log(`[AthleteResolver] Auto-indexed ${newFound} new athletes for CAM ${cam}. Total indexed: ${Object.keys(this.mapping).length}`);
+    }
+
+    return this.getMapping();
   }
 }
 

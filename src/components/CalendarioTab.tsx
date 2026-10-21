@@ -266,7 +266,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                               alt=""
                               className="team-society-logo"
                               onError={(e) => {
-                                (e.target as HTMLElement).style.display = 'none';
+                                (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
                               }}
                             />
                             <div className="match-card-name-wrapper">
@@ -281,17 +281,17 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                             </div>
                             {isCasaWinner && (
                               <span className="winner-trophy" title="Vincitore incontro">
-                                
+
                               </span>
                             )}
                           </div>
 
                           <div
                             className={`match-card-score-box ${isCasaWinner
-                                ? 'score-winner'
-                                : m.disputato
-                                  ? 'score-played'
-                                  : 'score-pending'
+                              ? 'score-winner'
+                              : m.disputato
+                                ? 'score-played'
+                                : 'score-pending'
                               }`}
                           >
                             {m.disputato ? (m.puntiCasa !== null ? m.puntiCasa : '-') : '-'}
@@ -311,7 +311,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                               alt=""
                               className="team-society-logo"
                               onError={(e) => {
-                                (e.target as HTMLElement).style.display = 'none';
+                                (e.target as HTMLImageElement).src = 'https://portale.fitet.org/images/societa/img_generica.jpg';
                               }}
                             />
                             <div className="match-card-name-wrapper">

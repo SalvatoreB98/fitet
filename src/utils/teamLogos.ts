@@ -1,22 +1,47 @@
 /**
  * Mapping loghi e foto ufficiali delle società sportive FITeT
  */
-export function getTeamLogoUrl(teamName?: string): string {
+
+const dynamicTeamLogos: Record<string, string> = {
+  'ASD TENNISTAVOLO NUOVA LUZZI': 'https://portale.fitet.org/images/societa/3260.jpg',
+  'TENNISTAVOLO CASTROVILLARI': 'https://portale.fitet.org/images/societa/3164.jpg',
+  'TT PETROLO COSENZA': 'https://portale.fitet.org/images/societa/2904.jpg',
+  'PIROSSIGENO COSENZA': 'https://portale.fitet.org/images/societa/2904.jpg',
+};
+
+/**
+ * Registers logos returned by the server
+ */
+export function registerTeamLogos(teams: Array<{ nome: string; logoUrl?: string }>) {
+  if (!Array.isArray(teams)) return;
+  for (const t of teams) {
+    if (t.nome && t.logoUrl) {
+      dynamicTeamLogos[t.nome.toUpperCase().trim()] = t.logoUrl;
+    }
+  }
+}
+
+export function getTeamLogoUrl(teamName?: string, directLogoUrl?: string): string {
+  if (directLogoUrl) return directLogoUrl;
   if (!teamName) return 'https://portale.fitet.org/images/societa/img_generica.jpg';
 
-  const norm = teamName.toUpperCase();
+  const norm = teamName.toUpperCase().trim();
 
-  // ASD Tennistavolo Nuova Luzzi (ID: 3260)
-  if (norm.includes('LUZZI')) {
-    return 'https://portale.fitet.org/images/societa/3260.jpg';
+  // 1. Exact match in dynamic registry
+  if (dynamicTeamLogos[norm]) {
+    return dynamicTeamLogos[norm];
   }
 
-  // Tennistavolo Castrovillari (ID: 3164)
-  if (norm.includes('CASTROVILLARI')) {
-    return 'https://portale.fitet.org/images/societa/3164.jpg';
+  // 2. Partial match in dynamic registry
+  for (const [k, url] of Object.entries(dynamicTeamLogos)) {
+    if (norm.includes(k) || k.includes(norm)) {
+      return url;
+    }
   }
 
-  // TT Petrolo / Pirossigeno Cosenza (ID: 2904)
+  // 3. Fallback keywords
+  if (norm.includes('LUZZI')) return 'https://portale.fitet.org/images/societa/3260.jpg';
+  if (norm.includes('CASTROVILLARI')) return 'https://portale.fitet.org/images/societa/3164.jpg';
   if (norm.includes('COSENZA') || norm.includes('PETROLO') || norm.includes('PIROSSIGENO')) {
     return 'https://portale.fitet.org/images/societa/2904.jpg';
   }
