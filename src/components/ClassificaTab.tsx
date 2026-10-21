@@ -253,7 +253,6 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                 <div>
                   <div className="official-main-title">CLASSIFICA UFFICIALE FITeT — RANKING PRINCIPALE</div>
                   <div className="official-main-sub">
-                    Graduatoria Federale Ufficiale Serie D/1 • Assegna Titolo, Promozione e Playoff
                   </div>
                 </div>
               </div>

@@ -122,12 +122,20 @@ export const App: React.FC = () => {
 
   const handleTabChange = (tab: 'classifica' | 'calendario' | 'statistiche') => {
     setActiveTab(tab);
-    // Prevent violent scroll jumps if switched from a very long tab
-    const portal = document.querySelector('.portal-container');
-    if (portal) {
-      const rect = portal.getBoundingClientRect();
+    // Smoothly scroll to the portal navigation / top of content if user was scrolled down
+    const nav = document.querySelector('.portal-nav');
+    if (nav) {
+      const rect = nav.getBoundingClientRect();
       if (rect.top < 0) {
         window.scrollTo({ top: window.scrollY + rect.top, behavior: 'smooth' });
+      }
+    } else {
+      const portal = document.querySelector('.portal-container');
+      if (portal) {
+        const rect = portal.getBoundingClientRect();
+        if (rect.top < 0) {
+          window.scrollTo({ top: window.scrollY + rect.top, behavior: 'smooth' });
+        }
       }
     }
   };

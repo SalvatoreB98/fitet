@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
 interface HeaderProps {
   lastUpdated: string | null;
@@ -27,6 +27,32 @@ export const Header: React.FC<HeaderProps> = ({
   counts,
   onSelectAthleteById,
 }) => {
+  const navRef = useRef<HTMLDivElement>(null);
+
+  const centerTab = (tab: 'classifica' | 'calendario' | 'statistiche', targetBtn?: HTMLElement | null) => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    const btn = targetBtn || nav.querySelector<HTMLButtonElement>(`.portal-nav-tab[data-tab="${tab}"]`);
+    if (!btn) return;
+
+    // Precise horizontal centering inside portal-nav
+    const targetLeft = btn.offsetLeft + (btn.offsetWidth / 2) - (nav.clientWidth / 2);
+    nav.scrollTo({
+      left: Math.max(0, targetLeft),
+      behavior: 'smooth',
+    });
+  };
+
+  const handleTabClick = (tab: 'classifica' | 'calendario' | 'statistiche', e: React.MouseEvent<HTMLButtonElement>) => {
+    centerTab(tab, e.currentTarget);
+    onChangeTab(tab);
+  };
+
+  useEffect(() => {
+    centerTab(activeTab);
+  }, [activeTab]);
+
   const formattedTime = lastUpdated
     ? new Date(lastUpdated).toLocaleTimeString('it-IT', {
       hour: '2-digit',
@@ -81,11 +107,12 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Sub-Navigation Tabs */}
-      <div className="portal-nav">
+      <div className="portal-nav" ref={navRef}>
         <button
           type="button"
+          data-tab="classifica"
           className={`portal-nav-tab ${activeTab === 'classifica' ? 'active' : ''}`}
-          onClick={() => onChangeTab('classifica')}
+          onClick={(e) => handleTabClick('classifica', e)}
         >
           <i className="bi bi-trophy"></i>
           <span>Classifica Squadre</span>
@@ -94,8 +121,9 @@ export const Header: React.FC<HeaderProps> = ({
 
         <button
           type="button"
+          data-tab="calendario"
           className={`portal-nav-tab ${activeTab === 'calendario' ? 'active' : ''}`}
-          onClick={() => onChangeTab('calendario')}
+          onClick={(e) => handleTabClick('calendario', e)}
         >
           <i className="bi bi-calendar3"></i>
           <span>Calendario & Risultati</span>
@@ -104,8 +132,9 @@ export const Header: React.FC<HeaderProps> = ({
 
         <button
           type="button"
+          data-tab="statistiche"
           className={`portal-nav-tab ${activeTab === 'statistiche' ? 'active' : ''}`}
-          onClick={() => onChangeTab('statistiche')}
+          onClick={(e) => handleTabClick('statistiche', e)}
         >
           <i className="bi bi-person-lines-fill"></i>
           <span>Statistiche Atleti</span>
