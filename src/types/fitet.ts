@@ -231,3 +231,22 @@ export interface AthleteSearchResult {
   tessera?: string | null;
   fotoUrl?: string | null;
 }
+
+export interface PartitaCampionatoAtleta {
+  giornata: number;
+  avversario: string;
+  squadra: string;
+  setVinti: number;
+  setPersi: number;
+  risultatoSet: string;
+  sets: string[];
+  isVittoria: boolean;
+}
+
+export interface AtletaCampionatoPartiteResponse {
+  camId: string;
+  campionatoNome?: string;
+  squadra?: string;
+  matches: PartitaCampionatoAtleta[];
+  error?: string;
+}

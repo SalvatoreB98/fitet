@@ -12,7 +12,15 @@ import { parseStatisticheAtleti } from './parsers/statisticheParser';
 import { parseDettaglioAtleta } from './parsers/atletaParser';
 import { parseDettaglioSquadra } from './parsers/squadraParser';
 import { parseRefertoIncontro, parseDettaglioPartita } from './parsers/refertoParser';
-import { DashboardData, SquadraClassifica, GiornataCalendario, StatisticaAtleta } from '../src/types/fitet';
+import * as cheerio from 'cheerio';
+import {
+  DashboardData,
+  SquadraClassifica,
+  GiornataCalendario,
+  StatisticaAtleta,
+  PartitaCampionatoAtleta,
+  AtletaCampionatoPartiteResponse,
+} from '../src/types/fitet';
 
 export const app = express();
 
@@ -444,6 +452,137 @@ app.get('/api/squadra/:squadraId', async (req, res) => {
   } catch (error: any) {
     console.error(`Error fetching team ${squadraId} in CAM ${cam}:`, error);
     res.status(500).json({ error: 'Errore nel recupero della scheda squadra', details: error.message });
+  }
+});
+
+// 6. Partite disputate dall'atleta nel campionato
+app.get('/api/atleta-campionato-partite', async (req, res) => {
+  const atletaId = req.query.atletaId as string;
+  const cam = req.query.cam as string;
+  let squadraId = req.query.squadraId as string | undefined;
+  const atletaNome = req.query.atletaNome as string | undefined;
+
+  if (!atletaId || !cam) {
+    return res.status(400).json({ error: 'Parametri atletaId e cam obbligatori' });
+  }
+
+  const cacheKey = `atleta_camp_partite_${cam}_${atletaId}_${squadraId || 'auto'}`;
+  const cached = cacheService.get<AtletaCampionatoPartiteResponse>(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+
+  try {
+    let squadraNome: string | undefined;
+
+    // Se squadraId non è fornito, cerchiamo squadra e squadraId dal campionato
+    if (!squadraId) {
+      const statHtml = await FitetClient.fetchStatisticheAtleti(cam);
+      const stats = parseStatisticheAtleti(statHtml);
+      const found = stats.find(
+        (s) =>
+          (s.atletaId && String(s.atletaId) === String(atletaId)) ||
+          (atletaNome && s.atleta.toUpperCase().trim() === atletaNome.toUpperCase().trim())
+      );
+
+      if (found) {
+        squadraNome = found.squadra;
+        const classHtml = await FitetClient.fetchClassifica(cam);
+        const $c = cheerio.load(classHtml);
+        $c('a[href*="SQUADRA="]').each((_, el) => {
+          const text = $c(el).text().trim();
+          if (text.toUpperCase() === found.squadra.toUpperCase()) {
+            const href = $c(el).attr('href') || '';
+            const m = href.match(/SQUADRA=(\d+)/i);
+            if (m) squadraId = m[1];
+          }
+        });
+      }
+    }
+
+    if (!squadraId) {
+      const responsePayload: AtletaCampionatoPartiteResponse = {
+        camId: cam,
+        matches: [],
+        error: 'Atleta non presente tra le squadre o le statistiche del campionato selezionato',
+      };
+      cacheService.set(cacheKey, responsePayload, 10 * 60 * 1000);
+      return res.json(responsePayload);
+    }
+
+    const url = `https://portale.fitet.org/risultati/campionati/dettaglio_percentuali.php?IDA=${atletaId}&CAM=${cam}&SQUADRA=${squadraId}`;
+    const html = await FitetClient.fetchHtml(url);
+    const $p = cheerio.load(html);
+    const matches: PartitaCampionatoAtleta[] = [];
+
+    // Estrai il nome della squadra dal titolo se non noto
+    if (!squadraNome) {
+      const headerText = $p('table tr').first().text();
+      const sqMatch = headerText.match(/Squadra:\s*([^\n\t\-]+)/i);
+      if (sqMatch) {
+        squadraNome = sqMatch[1].trim();
+      }
+    }
+
+    $p('table tr').each((i, tr) => {
+      if (i < 2) return; // Salta intestazione squadra e testata colonne
+      const cells = $p(tr).find('td').map((_, td) => $p(td).text().trim()).get();
+      if (cells.length < 15) return;
+
+      const giornata = parseInt(cells[0], 10) || 0;
+      const atleta1 = cells[1];
+      const atleta2 = cells[2];
+
+      const setsRaw: string[] = [];
+      for (let s = 0; s < 5; s++) {
+        const a = parseInt(cells[3 + s * 2], 10);
+        const b = parseInt(cells[4 + s * 2], 10);
+        if ((a > 0 || b > 0) && !isNaN(a) && !isNaN(b)) {
+          setsRaw.push(`${a}-${b}`);
+        }
+      }
+
+      const set1 = parseInt(cells[13], 10) || 0;
+      const set2 = parseInt(cells[14], 10) || 0;
+
+      // Determina se l'atleta analizzato è Atleta 1 o Atleta 2
+      const isPlayer1 = atletaNome
+        ? atleta1.toUpperCase().includes(atletaNome.toUpperCase()) || atletaNome.toUpperCase().includes(atleta1.toUpperCase())
+        : !atleta2.toUpperCase().includes(atletaNome?.toUpperCase() || '');
+
+      const avversario = isPlayer1 ? atleta2 : atleta1;
+      const setVinti = isPlayer1 ? set1 : set2;
+      const setPersi = isPlayer1 ? set2 : set1;
+      const isVittoria = setVinti > setPersi;
+
+      const setsFormatted = setsRaw.map((s) => {
+        const [a, b] = s.split('-').map(Number);
+        return isPlayer1 ? `${a}-${b}` : `${b}-${a}`;
+      });
+
+      matches.push({
+        giornata,
+        avversario,
+        squadra: squadraNome || '',
+        setVinti,
+        setPersi,
+        risultatoSet: `${setVinti}-${setPersi}`,
+        sets: setsFormatted,
+        isVittoria,
+      });
+    });
+
+    const responsePayload: AtletaCampionatoPartiteResponse = {
+      camId: cam,
+      squadra: squadraNome,
+      matches,
+    };
+
+    cacheService.set(cacheKey, responsePayload, 30 * 60 * 1000); // 30 min
+    res.json(responsePayload);
+  } catch (err: any) {
+    console.error('Errore nel recupero partite campionato per atleta:', err);
+    res.status(500).json({ error: 'Errore durante la lettura delle partite dal portale FITeT', details: err.message });
   }
 });
 

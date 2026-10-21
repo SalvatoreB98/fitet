@@ -105,11 +105,11 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
       {!compactMode && (
         <div className="cerca-atleta-header">
           <div className="cerca-atleta-icon-box">
-            <i className="bi bi-person-search"></i>
+            <i className="bi bi-search"></i>
           </div>
           <h2>Ricerca Atleta FITeT</h2>
           <p>
-            Cerca qualsiasi atleta tesserato per nome, cognome o numero di tessera federale per consultare scheda ranking, punti e storico posizioni.
+            Cerca qualsiasi atleta tesserato per cognome e nome per consultare scheda ranking, punti e storico posizioni.
           </p>
         </div>
       )}

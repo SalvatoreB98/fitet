@@ -1,4 +1,13 @@
-import { DashboardData, DettaglioAtleta, RefertoIncontro, DettaglioPartitaIndividuale, ChampionshipItem, DettaglioSquadra, AthleteSearchResult } from '../types/fitet';
+import {
+  DashboardData,
+  DettaglioAtleta,
+  RefertoIncontro,
+  DettaglioPartitaIndividuale,
+  ChampionshipItem,
+  DettaglioSquadra,
+  AthleteSearchResult,
+  AtletaCampionatoPartiteResponse,
+} from '../types/fitet';
 
 const API_BASE = '/api';
 
@@ -92,6 +101,25 @@ export async function fetchSquadra(
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Errore caricamento scheda squadra (${res.status}): ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchAtletaCampionatoPartite(
+  atletaId: string,
+  cam: string | number,
+  squadraId?: string,
+  atletaNome?: string
+): Promise<AtletaCampionatoPartiteResponse> {
+  const params = new URLSearchParams({
+    atletaId,
+    cam: String(cam),
+  });
+  if (squadraId) params.append('squadraId', squadraId);
+  if (atletaNome) params.append('atletaNome', atletaNome);
+  const res = await fetch(`${API_BASE}/atleta-campionato-partite?${params.toString()}`);
+  if (!res.ok) {
+    throw new Error(`Errore caricamento partite campionato (${res.status})`);
   }
   return res.json();
 }

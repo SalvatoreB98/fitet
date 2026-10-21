@@ -433,6 +433,8 @@ export const App: React.FC = () => {
         <AtletaModal
           atletaId={selectedAthlete.id}
           athleteName={selectedAthlete.name}
+          camId={camId}
+          campionatoNome={data?.championship?.nome}
           returnLabel={selectedAthlete.fromReferto ? 'Torna al referto' : 'Indietro'}
           onClose={() => setSelectedAthlete(null)}
         />

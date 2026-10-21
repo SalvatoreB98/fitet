@@ -93,7 +93,7 @@ export const Header: React.FC<HeaderProps> = ({
             <small>{(championshipRegion || getCachedUserRegion() || 'FITET').toUpperCase()}</small>
           </div>
         </button>
-        <div>
+        <div className="portal-header-sponsor">
           <img className='logo-stag' src="STAG.png" alt="STAG" />
         </div>
         <div className="portal-header-actions">
