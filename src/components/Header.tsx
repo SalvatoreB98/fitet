@@ -70,6 +70,9 @@ export const Header: React.FC<HeaderProps> = ({
     <>
       {/* Official Blue Top Header Bar */}
       <div className="portal-header">
+        <div className='portal-header-logo'>
+          <img className='logo-fitet' src="logo-fitet-portal.png" alt="" />
+        </div>
         <button
           type="button"
           className="portal-title-btn"
@@ -87,7 +90,9 @@ export const Header: React.FC<HeaderProps> = ({
             <small>{(championshipRegion || 'CALABRIA').toUpperCase()}</small>
           </div>
         </button>
-
+        <div>
+          <img className='logo-stag' src="STAG.png" alt="STAG" />
+        </div>
         <div className="portal-header-actions">
           {/* Compact Icon-Only Motion Graphic Toggle */}
           {onToggleTheme && (
@@ -111,16 +116,6 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </button>
           )}
-
-          <button
-            type="button"
-            className="btn-header"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            title="Ricarica dati dal portale FITeT"
-          >
-            <i className={`bi bi-arrow-clockwise ${isRefreshing ? 'spin-anim' : ''}`}></i>
-          </button>
 
         </div>
       </div>

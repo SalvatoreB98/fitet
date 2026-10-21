@@ -144,7 +144,8 @@ body {
   background: linear-gradient(135deg, #0e2744 0%, #163c67 55%, #1d518a 100%);
   color: #ffffff;
   padding: 18px 24px;
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
@@ -159,10 +160,11 @@ body {
   padding: 6px 10px;
   margin: -6px -10px;
   border-radius: 8px;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
+  justify-content: center;
   align-items: center;
 }
 
@@ -179,6 +181,28 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.logo-stag {
+  width: 150px;
+  max-height: 80px;
+  padding: 1em;
+}
+
+.logo-fitet {
+  max-height: 80px;
+  width: auto;
+  padding: 1em;
+}
+
+@media screen and (max-width:868px) {
+  .logo-fitet {
+    width: 100px;
+  }
+
+  .logo-stag {
+    width: 75px;
+  }
 }
 
 .championship-switcher-badge {
@@ -3028,6 +3052,18 @@ body.modal-open {
    MOBILE RESPONSIVENESS FOR REFERTO MODAL (Zero Horizontal Scroll)
    ========================================================================== */
 @media (max-width: 768px) {
+  .portal-header {
+    padding: 5px;
+  }
+
+  .portal-title-btn h1 {
+    font-size: 16px;
+  }
+
+  .portal-title-btn small {
+    display: none;
+  }
+
   .modal-backdrop-simple.modal-referto-backdrop {
     padding: 6px;
   }
@@ -3374,6 +3410,7 @@ body.modal-open {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -3384,6 +3421,7 @@ body.modal-open {
     opacity: 0;
     transform: scale(0.96) translateY(6px);
   }
+
   100% {
     opacity: 1;
     transform: none;
@@ -3936,6 +3974,7 @@ body.modal-open {
    MOBILE & iOS CRISPNESS AND AUTO-ZOOM PREVENTION
    ========================================================================== */
 @media screen and (max-width: 768px) {
+
   /* Font size >= 16px strictly prevents iOS Safari / Chrome from auto-zooming on focus */
   input,
   select,
