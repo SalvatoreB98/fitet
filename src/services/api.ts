@@ -1,4 +1,4 @@
-import { DashboardData, DettaglioAtleta, RefertoIncontro, DettaglioPartitaIndividuale, ChampionshipItem, DettaglioSquadra } from '../types/fitet';
+import { DashboardData, DettaglioAtleta, RefertoIncontro, DettaglioPartitaIndividuale, ChampionshipItem, DettaglioSquadra, AthleteSearchResult } from '../types/fitet';
 
 const API_BASE = '/api';
 
@@ -71,9 +71,9 @@ export async function refreshAll(cam: number, anno = 41): Promise<{ success: boo
   return res.json();
 }
 
-export async function searchAtleti(query: string): Promise<Array<{ id: string; value: string; label: string }>> {
-  if (!query || query.length < 2) return [];
-  const res = await fetch(`${API_BASE}/search-atleta?q=${encodeURIComponent(query)}`);
+export async function searchAtleti(query: string): Promise<AthleteSearchResult[]> {
+  if (!query || query.trim().length < 2) return [];
+  const res = await fetch(`${API_BASE}/search-atleta?q=${encodeURIComponent(query.trim())}`);
   if (!res.ok) return [];
   return res.json();
 }

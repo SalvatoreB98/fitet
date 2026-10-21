@@ -7,8 +7,8 @@ interface HeaderProps {
   onRefresh: () => void;
   theme?: 'light' | 'dark';
   onToggleTheme?: (event?: React.MouseEvent) => void;
-  activeTab: 'classifica' | 'calendario' | 'statistiche';
-  onChangeTab: (tab: 'classifica' | 'calendario' | 'statistiche') => void;
+  activeTab: 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta';
+  onChangeTab: (tab: 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => void;
   counts: {
     classifica: number;
     calendario: number;
@@ -36,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const navRef = useRef<HTMLDivElement>(null);
 
-  const centerTab = (tab: 'classifica' | 'calendario' | 'statistiche', targetBtn?: HTMLElement | null) => {
+  const centerTab = (tab: 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta', targetBtn?: HTMLElement | null) => {
     const nav = navRef.current;
     if (!nav) return;
 
@@ -51,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
     });
   };
 
-  const handleTabClick = (tab: 'classifica' | 'calendario' | 'statistiche', e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleTabClick = (tab: 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta', e: React.MouseEvent<HTMLButtonElement>) => {
     centerTab(tab, e.currentTarget);
     onChangeTab(tab);
   };
@@ -156,6 +156,16 @@ export const Header: React.FC<HeaderProps> = ({
           <i className="bi bi-person-lines-fill"></i>
           <span>Statistiche Atleti</span>
           <span className="tab-badge">{counts.statistiche}</span>
+        </button>
+
+        <button
+          type="button"
+          data-tab="cercaAtleta"
+          className={`portal-nav-tab ${activeTab === 'cercaAtleta' ? 'active' : ''}`}
+          onClick={(e) => handleTabClick('cercaAtleta', e)}
+        >
+          <i className="bi bi-search"></i>
+          <span>Cerca Atleta</span>
         </button>
       </div>
 

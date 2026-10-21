@@ -10,6 +10,7 @@ import { AtletaModal } from './components/AtletaModal';
 import { ChampionshipModal } from './components/ChampionshipModal';
 import { SquadraModal } from './components/SquadraModal';
 import { IntroMotionGraphic } from './components/IntroMotionGraphic';
+import { CercaAtletaTab } from './components/CercaAtletaTab';
 import { registerTeamLogos } from './utils/teamLogos';
 
 export const App: React.FC = () => {
@@ -62,7 +63,7 @@ export const App: React.FC = () => {
     setIsChampionshipModalOpen(true);
   };
 
-  const [activeTab, setActiveTab] = useState<'classifica' | 'calendario' | 'statistiche'>('classifica');
+  const [activeTab, setActiveTab] = useState<'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta'>('classifica');
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
   const [selectedAthlete, setSelectedAthlete] = useState<{ id: string; name: string; fromReferto?: boolean } | null>(null);
   const [selectedSquadra, setSelectedSquadra] = useState<{ id: string; name: string } | null>(null);
@@ -223,7 +224,7 @@ export const App: React.FC = () => {
     setAnnoId(newAnno);
   };
 
-  const handleTabChange = (tab: 'classifica' | 'calendario' | 'statistiche') => {
+  const handleTabChange = (tab: 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => {
     setActiveTab(tab);
     // Smoothly scroll to the portal navigation / top of content if user was scrolled down
     const nav = document.querySelector('.portal-nav');
@@ -281,26 +282,45 @@ export const App: React.FC = () => {
 
       {/* Clean scenario when no championship is selected yet */}
       {!camId && !data && !loading && (
-        <div style={{ textAlign: 'center', padding: '70px 20px', minHeight: '380px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ width: '68px', height: '68px', borderRadius: '50%', background: 'rgba(37, 99, 235, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', color: '#2563eb', fontSize: '30px' }}>
-            <i className="bi bi-trophy-fill"></i>
-          </div>
-          <h2 style={{ fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-main, #0f172a)', marginBottom: '10px' }}>
-            Nessun Campionato Selezionato
-          </h2>
-          <p style={{ color: 'var(--text-muted, #64748b)', maxWidth: '440px', fontSize: '14px', lineHeight: 1.5, margin: '0 auto 24px auto' }}>
-            Scegli il tuo campionato FITeT tra i campionati nazionali o della tua regione per visualizzare classifiche, calendario e statistiche degli atleti.
-          </p>
-          <button
-            type="button"
-            className="btn-action"
-            style={{ padding: '11px 26px', fontSize: '14.5px', borderRadius: '24px' }}
-            onClick={() => setIsChampionshipModalOpen(true)}
-          >
-            <i className="bi bi-trophy me-2"></i>
-            Scegli Campionato
-          </button>
-        </div>
+        <>
+          {activeTab === 'cercaAtleta' ? (
+            <main className="portal-main">
+              <CercaAtletaTab
+                onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+                autoFocus
+              />
+            </main>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '50px 20px', minHeight: '380px' }}>
+              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(37, 99, 235, 0.1)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '18px', color: '#2563eb', fontSize: '28px' }}>
+                <i className="bi bi-trophy-fill"></i>
+              </div>
+              <h2 style={{ fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-main, #0f172a)', marginBottom: '8px' }}>
+                Nessun Campionato Selezionato
+              </h2>
+              <p style={{ color: 'var(--text-muted, #64748b)', maxWidth: '440px', fontSize: '14px', lineHeight: 1.5, margin: '0 auto 20px auto' }}>
+                Scegli il tuo campionato FITeT tra i campionati nazionali o della tua regione, oppure cerca direttamente un atleta qui sotto.
+              </p>
+              <button
+                type="button"
+                className="btn-action"
+                style={{ padding: '10px 24px', fontSize: '14.5px', borderRadius: '24px', marginBottom: '32px' }}
+                onClick={() => setIsChampionshipModalOpen(true)}
+              >
+                <i className="bi bi-trophy me-2"></i>
+                Scegli Campionato
+              </button>
+
+              {/* Quick Athlete Search on Initial Screen */}
+              <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'left', borderTop: '1px solid var(--border-color, #e2e8f0)', paddingTop: '28px' }}>
+                <CercaAtletaTab
+                  onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+                  compactMode={true}
+                />
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Loading Indicator */}
@@ -371,6 +391,17 @@ export const App: React.FC = () => {
               <StatisticheTab
                 statistiche={data.statisticheAtleti}
                 onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+              />
+            </div>
+
+            <div
+              className={`tab-pane ${activeTab === 'cercaAtleta' ? 'active' : ''}`}
+              role="tabpanel"
+              id="tabpanel-cerca-atleta"
+            >
+              <CercaAtletaTab
+                onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+                autoFocus={activeTab === 'cercaAtleta'}
               />
             </div>
           </main>

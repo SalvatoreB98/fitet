@@ -222,3 +222,12 @@ export interface DashboardData {
   lastUpdated: string;
   championship: ChampionshipInfo;
 }
+
+export interface AthleteSearchResult {
+  id: string;
+  value: string;
+  label: string;
+  dataNascita?: string | null;
+  tessera?: string | null;
+  fotoUrl?: string | null;
+}

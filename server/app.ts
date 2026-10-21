@@ -298,7 +298,19 @@ app.get('/api/search-atleta', async (req, res) => {
 
   try {
     const results = await FitetClient.searchAtleta(query);
-    res.json(results);
+    const enriched = results.map((r) => {
+      const dateMatch = r.label ? r.label.match(/\((\d{2}\/\d{2}\/\d{4})\)/) : null;
+      const tesseraMatch = r.label ? r.label.match(/\[(\d+)\]/) : null;
+      return {
+        id: r.id,
+        value: r.value,
+        label: r.label,
+        dataNascita: dateMatch ? dateMatch[1] : null,
+        tessera: tesseraMatch ? tesseraMatch[1] : null,
+        fotoUrl: `https://portale.fitet.org/images/atleti/${r.id}.jpg`,
+      };
+    });
+    res.json(enriched);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -307,7 +319,7 @@ app.get('/api/search-atleta', async (req, res) => {
 // 7. Referto Incontro Gara
 app.get('/api/referto/:incontroId', async (req, res) => {
   const { incontroId } = req.params;
-  const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
+  const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : 0;
   const formula = req.query.formula ? parseInt(req.query.formula as string, 10) : 19;
   const forceRefresh = req.query.refresh === 'true';
   const cacheKey = `referto_${incontroId}_${cam}_${formula}`;

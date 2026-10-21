@@ -1,0 +1,361 @@
+/* ==========================================================================
+   Cerca Atleta Tab Styles
+   ========================================================================== */
+
+.cerca-atleta-container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.cerca-atleta-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.cerca-atleta-icon-box {
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(56, 189, 248, 0.18));
+  color: var(--color-primary-600, #2563eb);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+}
+
+.cerca-atleta-header h2 {
+  font-family: var(--font-serif, serif);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+  margin: 0 0 8px 0;
+}
+
+.cerca-atleta-header p {
+  color: var(--text-muted, #64748b);
+  font-size: 14px;
+  max-width: 540px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* Search Input Section */
+.cerca-atleta-search-box {
+  max-width: 640px;
+  margin: 0 auto 20px auto;
+}
+
+.cerca-atleta-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--bg-card, #ffffff);
+  border: 2px solid var(--border-color, #cbd5e1);
+  border-radius: 14px;
+  padding: 6px 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.cerca-atleta-input-wrapper:focus-within {
+  border-color: var(--color-primary-500, #3b82f6);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15), 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.cerca-atleta-input-icon {
+  font-size: 20px;
+  color: var(--text-muted, #94a3b8);
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.cerca-atleta-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+  color: var(--text-dark, #0f172a);
+  font-weight: 500;
+  padding: 8px 0;
+  min-width: 0;
+}
+
+.cerca-atleta-input::placeholder {
+  color: var(--text-muted, #94a3b8);
+  font-weight: 400;
+}
+
+.cerca-atleta-clear-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.cerca-atleta-clear-btn:hover {
+  color: var(--text-dark, #334155);
+}
+
+.cerca-atleta-spinner {
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+/* Quick Suggestions Chips */
+.cerca-atleta-chips {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.cerca-atleta-chips-label {
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  font-weight: 600;
+}
+
+.cerca-atleta-chip {
+  background: var(--bg-container, #f1f5f9);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-main, #334155);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cerca-atleta-chip:hover {
+  background: var(--color-primary-50, #eff6ff);
+  border-color: var(--color-primary-400, #60a5fa);
+  color: var(--color-primary-600, #2563eb);
+  transform: translateY(-1px);
+}
+
+/* Results Stats Bar */
+.cerca-atleta-results-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  font-size: 13.5px;
+  color: var(--text-muted, #64748b);
+}
+
+.cerca-atleta-results-bar strong {
+  color: var(--text-dark, #0f172a);
+}
+
+/* Results List */
+.cerca-atleta-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+
+.cerca-atleta-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  width: 100%;
+}
+
+.cerca-atleta-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-primary-400, #60a5fa);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.12);
+}
+
+/* Athlete Avatar */
+.cerca-atleta-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border: 1.5px solid var(--border-color, #e2e8f0);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.cerca-atleta-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cerca-atleta-initials {
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.04em;
+}
+
+/* Athlete Info */
+.cerca-atleta-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cerca-atleta-name {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+  margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cerca-atleta-name .hl_results {
+  background: rgba(245, 158, 11, 0.25);
+  color: #b45309;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+.cerca-atleta-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cerca-atleta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--bg-container, #f1f5f9);
+  color: var(--text-muted, #64748b);
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.cerca-atleta-badge i {
+  font-size: 11px;
+}
+
+/* Card Action Arrow */
+.cerca-atleta-action {
+  color: var(--text-muted, #94a3b8);
+  font-size: 18px;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.cerca-atleta-card:hover .cerca-atleta-action {
+  color: var(--color-primary-600, #2563eb);
+  transform: translateX(3px);
+}
+
+/* Empty State */
+.cerca-atleta-empty {
+  text-align: center;
+  padding: 50px 20px;
+  background: var(--bg-card, #ffffff);
+  border: 1px dashed var(--border-color, #cbd5e1);
+  border-radius: 14px;
+  margin-top: 20px;
+}
+
+.cerca-atleta-empty i {
+  font-size: 38px;
+  color: var(--text-muted, #94a3b8);
+  display: block;
+  margin-bottom: 12px;
+}
+
+.cerca-atleta-empty h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text-dark, #0f172a);
+  margin-bottom: 6px;
+}
+
+.cerca-atleta-empty p {
+  color: var(--text-muted, #64748b);
+  font-size: 13.5px;
+  margin: 0;
+}
+
+/* Dark mode overrides */
+[data-theme="dark"] .cerca-atleta-input-wrapper {
+  background: #111827;
+  border-color: #374151;
+}
+
+[data-theme="dark"] .cerca-atleta-input {
+  color: #f9fafb;
+}
+
+[data-theme="dark"] .cerca-atleta-card {
+  background: #111827;
+  border-color: #1f2937;
+}
+
+[data-theme="dark"] .cerca-atleta-card:hover {
+  border-color: #3b82f6;
+  background: #1e293b;
+}
+
+[data-theme="dark"] .cerca-atleta-name {
+  color: #f9fafb;
+}
+
+[data-theme="dark"] .cerca-atleta-name .hl_results {
+  background: rgba(245, 158, 11, 0.35);
+  color: #fef08a;
+}
+
+[data-theme="dark"] .cerca-atleta-badge {
+  background: #1f2937;
+  border-color: #374151;
+  color: #9ca3af;
+}
+
+[data-theme="dark"] .cerca-atleta-chip {
+  background: #1f2937;
+  border-color: #374151;
+  color: #d1d5db;
+}
+
+[data-theme="dark"] .cerca-atleta-chip:hover {
+  background: #374151;
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .cerca-atleta-empty {
+  background: #111827;
+  border-color: #374151;
+}
