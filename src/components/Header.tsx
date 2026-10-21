@@ -71,7 +71,9 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Official Blue Top Header Bar */}
       <div className="portal-header">
         <div className='portal-header-logo'>
-          <img className='logo-fitet' src="logo-fitet-portal.png" alt="" />
+          <a href="https://portale.fitet.org/">
+            <img className='logo-fitet' src="logo-fitet-portal.png" alt="" />
+          </a>
         </div>
         <button
           type="button"

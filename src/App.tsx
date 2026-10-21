@@ -319,9 +319,7 @@ export const App: React.FC = () => {
           <footer className="portal-footer mt-5 text-center">
             <div>
               <strong>Federazione Italiana Tennistavolo (FITeT)</strong> • {data?.championship.nome} ({data?.championship.regione})
-              <div className="text-center">
-                Dati sincronizzati ufficialmente con portale.fitet.org
-              </div>
+              <div>Progetto autonomo della community, dati sincronizzati da portale.fitet.org</div>
             </div>
           </footer>
         </>
