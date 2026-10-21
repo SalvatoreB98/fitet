@@ -1,7 +1,7 @@
 // server/app.ts
 import express from "express";
 import cors from "cors";
-import path4 from "path";
+import path5 from "path";
 
 // server/services/fitetClient.ts
 var BASE_URL = "https://portale.fitet.org";
@@ -189,6 +189,7 @@ var cacheService = new CacheService();
 // server/services/athleteResolver.ts
 import fs2 from "fs";
 import path2 from "path";
+import * as cheerio from "cheerio";
 
 // server/data/athlete_mapping.json
 var athlete_mapping_default = {
@@ -227,7 +228,262 @@ var athlete_mapping_default = {
   "MONTESANTO MARIO": "797038",
   "D'ANDREA MARCO": "817090",
   "RENDE FEDELE": "743857",
-  "FILOGRANA G": "608787"
+  "FILOGRANA G": "608787",
+  "CARRO SANDRO": "799213",
+  "RUBINO CLAUDIO": "600410",
+  "PEPINO GIANCARLO": "766358",
+  "DE SIMONE DARIO": "613242",
+  "PAPACCIO LUIGI": "766660",
+  "RUBINO C - PAPACCIO L": "803850",
+  "CARBONE PASQUALE": "767384",
+  "SERRAPICA IMMACOLATA AURORA": "742040",
+  "NUNZIATA ROCCO": "767650",
+  "SERRAPICA IMMACOLATA A - NUNZIATA R": "848382",
+  "MARZUILLO GIUSEPPE": "698681",
+  "AVERSA ANTONINO": "591957",
+  "MARESCA ALBERTO": "764636",
+  "CAFIERO GIUSEPPE": "591950",
+  "CAFIERO G - AVERSA A": "848781",
+  "MARZUILLO G - AVERSA A": "849788",
+  "CANDELMO MAURIZIO": "714427",
+  "TROPEANO PAOLO": "709842",
+  "TROPEANO FLAVIO": "816181",
+  "TROPEANO F - TROPEANO P": "849496",
+  "DI MARZO ROSARIO": "772773",
+  "BRUNASSO GIOVANNI BATTISTA": "789732",
+  "MASSA LUIGI": "731346",
+  "SCOGNAMIGLIO PAOLO": "834763",
+  "BORRIELLO FRANCESCO": "731672",
+  "DI MARZO R - SCOGNAMIGLIO P": "848780",
+  "MASSA L - DI MARZO R": "849452",
+  "MARTONE GIOVANNI": "732904",
+  "SAGLIOCCO RICCARDO": "772261",
+  "CRISPINO ANGELO": "592291",
+  "MERCIAI DARIO": "747111",
+  "MARTONE G - CRISPINO A": "848133",
+  "SAGLIOCCO R - MARTONE G": "849787",
+  "D'ANIELLO GABRIELE": "723906",
+  "ESPOSITO MAURIZIO": "738529",
+  "VERNILLO NICOLA": "613244",
+  "GALIERO GIOVANNI": "723475",
+  "VITTORIOSO ANTONIO": "758502",
+  "D'ANIELLO G - VERNILLO N": "848380",
+  "FAMA' DANIELE AGAZIO": "766354",
+  "FERRARO NICOLA": "735053",
+  "CUCCI PAOLO": "705292",
+  "CUCCI P - FERRARO N": "819144",
+  "SILVESTRO SALVATORE": "591644",
+  "CAVALLARI ADOLFO": "610207",
+  "FERRARO FRANCESCO": "612185",
+  "CAVALLARI A - SILVESTRO S": "832289",
+  "CUSATO ANTONIO FRANCO": "594596",
+  "LACAVA FABIO": "721818",
+  "SORGIOVANNI ILARIO": "722762",
+  "CUSATO ANTONIO F - LACAVA F": "849833",
+  "CUSATO ANTONIO F - SORGIOVANNI I": "847985",
+  "MESSINA FELICE": "767966",
+  "CATANIA PAOLO": "789842",
+  "SCUTICCHIO NICOLA": "762505",
+  "CATANIA P - MESSINA F": "847969",
+  "D'ACRI GIOVANNI PAOLO": "789834",
+  "FIORE STEVEN": "670392",
+  "MARCHESE CESARE": "788878",
+  "MALIZIA ELIO": "788877",
+  "MARCHESE C - D'ACRI G": "837482",
+  "RUFFA FRANCESCO": "713362",
+  "CAERO IVAN MARCO": "716345",
+  "PIETROPAOLO CHIARA": "800472",
+  "RUFFA F - CAERO IVAN M": "848392",
+  "AMATO SALVATORE": "613410",
+  "FALSONE FRANCESCO": "587496",
+  "MAIO MAURIZIO": "587461",
+  "MITTIGA MASSIMO": "594601",
+  "FALSONE F - AMATO S": "776087",
+  "MASTROIANNI ANTONIO GIOVANNI": "591896",
+  "LONGO ANDREA": "596592",
+  "MASTROIANNI ANDREA": "720577",
+  "SCRIVANO ROBERTO": "599045",
+  "MASTROIANNI A - MASTROIANNI A": "837472",
+  "KULCZYCKI SAMUEL SZYMON": "846245",
+  "MUTTI MATTEO": "696674",
+  "PERSSON JON SEBASTIAN": "824481",
+  "TREVISAN FRANCESCO": "734684",
+  "ABUSEV ARTUR": "758735",
+  "KOZUL DENI": "737436",
+  "GKIONIS PANAGIOTIS": "811390",
+  "TURRINI RAFAEL VINICIUS": "825439",
+  "BOULOUSSA MEHDI": "830399",
+  "GIOVANNETTI TOMMASO MARIA": "712557",
+  "OUAICHE STEPHANE LAURENT JOHANN": "846717",
+  "SODERLUND HAMPUS AKE HANNES": "775313",
+  "GACINA ANDREJ": "767245",
+  "CAPPUCCIO MARCO ANTONIO": "718997",
+  "PUPPO ANDREA": "706240",
+  "ROSSI CARLO": "706227",
+  "BERGLUND SIMON ALEXANDER": "846601",
+  "CHANDRA JEET": "810802",
+  "MANHANI JUNIOR HUMBERTO": "793667",
+  "SPELBUS ALIN-MARIAN": "772219",
+  "BOBOCICA MIHAI RAZVAN": "594848",
+  "DE LAS HERAS PLAZA RAFAEL": "796478",
+  "ANDRADE SELGAS MONTEIRO JOAO PEDRO": "758319",
+  "DYJAS JAKUB WIKTOR": "774939",
+  "PUCAR TOMISLAV": "774979",
+  "URSU VLADISLAV": "810352",
+  "PISTEJ LUBOMIR": "767279",
+  "PINTO DANIELE": "703038",
+  "STOYANOV NIAGOL IVANOV": "598079",
+  "KAWA TOMASZ S - FILOGRANA G": "849723",
+  "BELMONTE A - RITACCO L": "849777",
+  "DURANTE S - RITACCO L": "804976",
+  "D'ACRI LORENZO P - DURANTE E": "849637",
+  "BRUSCO C - CRISPO M": "849663",
+  "BASILE D - BASILE S": "837476",
+  "BASILE G - BASILE D": "837478",
+  "D'ANDREA M - FEDERICO M": "849725",
+  "BRANCA F - FERRARO LUIGI A": "849773",
+  "RITACCO S - GACCIONE CLAUDIA M": "849776",
+  "FORTE L - BELSITO D": "849636",
+  "MILICCHIO E - BELSITO M": "849610",
+  "PIRAINO FRANCESCO M - FERRARO G": "849719",
+  "PALERMO D - TOMA F": "849664",
+  "PRADOS I LOPEZ ANTONI": "825100",
+  "CALARCO EZIO": "599504",
+  "PALUMMO MARCO": "608519",
+  "SCERMINO UMBERTO": "604602",
+  "PALUMMO M - CALARCO E": "847655",
+  "COLELLA GIAMPIERO": "714424",
+  "NAPOLITANO FRANCESCO": "709401",
+  "D'AGOSTINO GAETANO": "598216",
+  "DI PALMA GIUSEPPE": "764385",
+  "NAPOLITANO F - COLELLA G": "790045",
+  "DI VIZIO ALFREDO": "708427",
+  "GIORGIONE GIOVANNI": "696065",
+  "DE LUCA DOMENICO": "775280",
+  "DE LUCA D - GIORGIONE G": "847594",
+  "MASSINELLI ANDREA": "591205",
+  "MINUCCI FABIO": "702436",
+  "FERRARA FABIO": "762723",
+  "FERRARA F - IAQUINANDI G": "847798",
+  "FERRAIOLI FRANCESCO": "732094",
+  "RUSSO CARMINE": "717746",
+  "GAMBARDELLA FRANCESCO": "742546",
+  "FERRAIOLI F - RUSSO C": "805336",
+  "D'ORSO BENEDETTO": "813846",
+  "SAVINO ANTONINO": "727274",
+  "SOLARO GIUSEPPE": "774976",
+  "DI DONNA RAFFAELE": "600951",
+  "D'ORSO B - DI DONNA R": "849467",
+  "DI DONNA R - SAVINO A": "848764",
+  "IOVINE LORENZO": "771477",
+  "CASO GIUSEPPE": "771479",
+  "D'AVINO RAFFAELE": "710707",
+  "IOVINE L - CASO G": "847653",
+  "DE SIMONE MARCO": "705523",
+  "POLLIO EMMANUEL": "721348",
+  "ACANFORA ERMANNO": "758503",
+  "PANE GIOVANBATTISTA": "591964",
+  "DE SIMONE M - PANE G": "848765",
+  "PANE G - POLLIO E": "849793",
+  "TRIPPINI ENRICO": "752031",
+  "LI HAOYAN": "730199",
+  "MATTIOLI CRISPINO": "598032",
+  "MATTIOLI C - TRIPPINI E": "847927",
+  "PROIETTI CRISTIANO": "758476",
+  "ROSINI ALEXHS": "766207",
+  "ROSINI PARIS": "766208",
+  "ROSINI MASSIMO": "601750",
+  "ROSINI P - ROSINI A": "782970",
+  "CERQUIGLINI MATTIA": "670651",
+  "GIGLIONI ELIA": "728747",
+  "QUAGLIARINI ANDREA": "633790",
+  "BASTIANELLI VALTER": "717983",
+  "CERQUIGLINI M - GIGLIONI E": "847497",
+  "BASTIANELLI V - GIGLIONI E": "762313",
+  "FLAYEH NISARE": "733252",
+  "YAQOUB PETER BASEM ANWER": "811652",
+  "RICCA CARMINE": "606048",
+  "RICCA C - YAQOUB PETER B": "847823",
+  "FLAYEH N - YAQOUB P": "838640",
+  "PROIETTI MICHELE": "737772",
+  "COSTANTINI GIACOMO": "758341",
+  "MARIOTTI JULIEN": "750653",
+  "SIMONE NICOLA": "789911",
+  "MARIOTTI J - PROIETTI M": "847926",
+  "CORSINI DANIELE": "733643",
+  "CORSINI CHRISTIAN": "732894",
+  "PALONI PIETRO": "770007",
+  "TETTI CHRISTIAN": "774118",
+  "TETTI C - PALONI P": "847534",
+  "BRACCIONI LORENZO": "710333",
+  "SCOTTONI STEFANO": "595421",
+  "TOSI COSIMO": "732930",
+  "BRACCIONI L - TOSI C": "847535",
+  "MONOTTI FEDERICO": "727386",
+  "PATTOIA ERICA": "767821",
+  "PIRAINO MIRIAM": "724201",
+  "MONOTTI F - PIRAINO M": "849754",
+  "PIRAINO M - PATTOIA E": "778694",
+  "MOSCONI VERONICA": "696325",
+  "MAGNAGHI ARIANNA": "697909",
+  "BUZZONI MATILDE": "758459",
+  "CICUTTINI CECILIA": "735118",
+  "CICUTTINI AURORA": "715627",
+  "MARINELLI AZZURRA": "734973",
+  "MESCIERI SOFIA": "700933",
+  "COLANTONI CHIARA": "609947",
+  "PINNA LAURA ALBA": "738009",
+  "CARAGEA CLAUDIA STEFANIA": "774690",
+  "PETKOVA ANITA": "811270",
+  "WANG XUELAN": "595290",
+  "MOR SONIA": "610704",
+  "IVANOVA SOFIA": "764824",
+  "MORETTI IRENE": "737770",
+  "FILIPPI GIORGIA": "736310",
+  "ATOYAN GOHAR": "588887",
+  "LIBRETTI AMELIA": "740075",
+  "PROKOP ANNA BOZENA": "701960",
+  "MERENDA MICHELA": "595284",
+  "GUILLOT RUIZ JOSE CARLOS": "832034",
+  "PALMIERI FRANCESCO": "713761",
+  "DI MARINO ALESSANDRO": "588926",
+  "DI MARINO A - GUILLOT RUIZ J": "847770",
+  "CAPPUCCIO COSTANTINO": "719546",
+  "VALLINO COSTASSA FEDERICO": "718434",
+  "URSUT HORIA STEFAN": "831088",
+  "URSUT HORIA S - CAPPUCCIO C": "847790",
+  "SANCHI FRANCISCO": "772233",
+  "BASSI ANDREA": "749360",
+  "GUALDI MATTEO": "712400",
+  "INCARDONA PAOLO": "712112",
+  "NINIOLA ADESHINA ISIAKA": "745080",
+  "GUALDI M - SANCHI F": "847691",
+  "BASSI A - NINIOLA ADESHINA I": "849829",
+  "BHANJA RONIT": "827162",
+  "MARTINALLI LORENZO": "710247",
+  "AL-NUAIMI AMEER THAMER MOHAMMED": "816099",
+  "POMA MARCO": "709934",
+  "POMA M - BHANJA R": "849812",
+  "MARTINALLI L - POMA M": "847693",
+  "MARTIN SANCHO IVAN": "815169",
+  "SIMON DAVIDE LORENZO": "738068",
+  "CALARCO GIUSEPPE": "728478",
+  "PROVOST DAMIEN ROLAND GREGORY": "810542",
+  "CALARCO G - SIMON DAVIDE L": "849830",
+  "PROVOST DAMIEN R - SIMON DAVIDE L": "848512",
+  "LILLO BORDAJANDI ALBERTO": "776874",
+  "GIORDANO ANTONIO": "726934",
+  "CIPRIANO JACOPO": "729983",
+  "LILLO BORDAJANDI A - GIORDANO A": "848511",
+  "JOSIP HUZJAK": "846778",
+  "CAPRI' GIOVANNI": "592064",
+  "MARAGIOGLIO FRANCESCO": "810237",
+  "JOSIP H - MARAGIOGLIO F": "847771",
+  "RUIZ RODRIGUEZ FRANCISCO MIGUEL": "810541",
+  "TAULER ALSINA NORBERT": "810739",
+  "MELLINO CRISTIAN": "729156",
+  "PELLEGRINI ANTONIO": "723056",
+  "PELLEGRINI A - RUIZ RODRIGUEZ F": "847791"
 };
 
 // server/services/athleteResolver.ts
@@ -288,13 +544,131 @@ var AthleteResolver = class {
     }
     return null;
   }
+  /**
+   * Resolves all athlete IDs for a given championship by crawling percentuali.php of its teams
+   */
+  async resolveAthletesForChampionship(cam, squadraIds) {
+    if (!squadraIds || squadraIds.length === 0) return this.getMapping();
+    let newFound = 0;
+    await Promise.all(
+      squadraIds.map(async (sqId) => {
+        try {
+          const res = await fetch(`https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${sqId}&CAM=${cam}`, {
+            headers: { "User-Agent": "Mozilla/5.0" }
+          });
+          const text = new TextDecoder("iso-8859-1").decode(await res.arrayBuffer());
+          const $p = cheerio.load(text);
+          $p('a[href*="IDA="]').each((_, a) => {
+            const href = $p(a).attr("href") || "";
+            const m = href.match(/IDA=(\d+)/i);
+            const name = $p(a).text().replace(/\s+/g, " ").trim().toUpperCase();
+            if (m && name) {
+              if (!this.mapping[name]) {
+                this.mapping[name] = m[1];
+                newFound++;
+              }
+            }
+          });
+        } catch (err) {
+          console.warn(`Error resolving athletes from team ${sqId} in CAM ${cam}:`, err);
+        }
+      })
+    );
+    if (newFound > 0) {
+      this.saveMapping();
+      console.log(`[AthleteResolver] Auto-indexed ${newFound} new athletes for CAM ${cam}. Total indexed: ${Object.keys(this.mapping).length}`);
+    }
+    return this.getMapping();
+  }
 };
 var athleteResolver = new AthleteResolver();
 
-// server/services/championshipCatalog.ts
+// server/services/teamResolver.ts
 import fs3 from "fs";
 import path3 from "path";
-import * as cheerio from "cheerio";
+import * as cheerio2 from "cheerio";
+var TeamResolver = class {
+  cacheFilePath = path3.resolve(process.cwd(), "server", "data", "team_logos.json");
+  logos = {
+    "ASD TENNISTAVOLO NUOVA LUZZI": "https://portale.fitet.org/images/societa/3260.jpg",
+    "TENNISTAVOLO CASTROVILLARI": "https://portale.fitet.org/images/societa/3164.jpg",
+    "TT PETROLO COSENZA": "https://portale.fitet.org/images/societa/2904.jpg",
+    "PIROSSIGENO COSENZA": "https://portale.fitet.org/images/societa/2904.jpg"
+  };
+  constructor() {
+    this.loadFromDisk();
+  }
+  loadFromDisk() {
+    try {
+      if (fs3.existsSync(this.cacheFilePath)) {
+        const raw = fs3.readFileSync(this.cacheFilePath, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === "object") {
+          this.logos = { ...this.logos, ...parsed };
+        }
+      }
+    } catch (e) {
+      console.error("Error loading team_logos.json:", e);
+    }
+  }
+  saveToDisk() {
+    try {
+      const dir = path3.dirname(this.cacheFilePath);
+      if (!fs3.existsSync(dir)) fs3.mkdirSync(dir, { recursive: true });
+      fs3.writeFileSync(this.cacheFilePath, JSON.stringify(this.logos, null, 2), "utf-8");
+    } catch (e) {
+      console.error("Error saving team_logos.json:", e);
+    }
+  }
+  getLogo(teamName) {
+    const norm = teamName.toUpperCase().trim();
+    if (this.logos[norm]) return this.logos[norm];
+    for (const [k, url] of Object.entries(this.logos)) {
+      if (norm.includes(k) || k.includes(norm)) return url;
+    }
+    return void 0;
+  }
+  /**
+   * Resolves logos for a list of teams from a championship by scraping DatiSquadra.asp
+   */
+  async resolveLogosForTeams(teams, cam, anno = 41) {
+    const toFetch = teams.filter((t) => !this.getLogo(t.nome) && t.squadraId);
+    if (toFetch.length === 0) return { ...this.logos };
+    await Promise.all(
+      toFetch.map(async (t) => {
+        try {
+          const url = `https://portale.fitet.org/risultati/campionati/DatiSquadra.asp?SQUADRA=${t.squadraId}&CAM=${cam}&ANNO=${anno}`;
+          const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+          const text = new TextDecoder("iso-8859-1").decode(await res.arrayBuffer());
+          const $ = cheerio2.load(text);
+          const img = $('img[src*="/societa/"]').first().attr("src");
+          if (img) {
+            const clean = img.replace(/^(\.\.\/)+/, "");
+            const fullUrl = clean.startsWith("http") ? clean : `https://portale.fitet.org/${clean}`;
+            this.logos[t.nome.toUpperCase().trim()] = fullUrl;
+          } else {
+            const tableText = $("table").text().replace(/\s+/g, " ");
+            const alboMatch = tableText.match(/Albo Federale Prima Affiliazione\s*([^\d]*)\s*(\d{2,6})/i);
+            if (alboMatch && alboMatch[2]) {
+              const fullUrl = `https://portale.fitet.org/images/societa/${alboMatch[2]}.jpg`;
+              this.logos[t.nome.toUpperCase().trim()] = fullUrl;
+            }
+          }
+        } catch (err) {
+          console.warn(`Failed to resolve logo for team ${t.nome}:`, err);
+        }
+      })
+    );
+    this.saveToDisk();
+    return { ...this.logos };
+  }
+};
+var teamResolver = new TeamResolver();
+
+// server/services/championshipCatalog.ts
+import fs4 from "fs";
+import path4 from "path";
+import * as cheerio3 from "cheerio";
 var REGIONI = [
   { id: 19, nome: "Calabria" },
   { id: 14, nome: "Abruzzo" },
@@ -326,7 +700,7 @@ var NAZIONALI = [
   { cid: 7, nome: "Paralimpici Naz." }
 ];
 var ChampionshipCatalog = class {
-  cacheFilePath = path3.resolve(process.cwd(), "server", "data", "campionati.json");
+  cacheFilePath = path4.resolve(process.cwd(), "server", "data", "campionati.json");
   memoryCache = null;
   lastFetched = 0;
   TTL = 24 * 60 * 60 * 1e3;
@@ -336,12 +710,12 @@ var ChampionshipCatalog = class {
   }
   loadFromDisk() {
     try {
-      if (fs3.existsSync(this.cacheFilePath)) {
-        const raw = fs3.readFileSync(this.cacheFilePath, "utf-8");
+      if (fs4.existsSync(this.cacheFilePath)) {
+        const raw = fs4.readFileSync(this.cacheFilePath, "utf-8");
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           this.memoryCache = parsed;
-          const stat = fs3.statSync(this.cacheFilePath);
+          const stat = fs4.statSync(this.cacheFilePath);
           this.lastFetched = stat.mtimeMs;
         }
       }
@@ -351,9 +725,9 @@ var ChampionshipCatalog = class {
   }
   saveToDisk(data) {
     try {
-      const dir = path3.dirname(this.cacheFilePath);
-      if (!fs3.existsSync(dir)) fs3.mkdirSync(dir, { recursive: true });
-      fs3.writeFileSync(this.cacheFilePath, JSON.stringify(data, null, 2), "utf-8");
+      const dir = path4.dirname(this.cacheFilePath);
+      if (!fs4.existsSync(dir)) fs4.mkdirSync(dir, { recursive: true });
+      fs4.writeFileSync(this.cacheFilePath, JSON.stringify(data, null, 2), "utf-8");
     } catch (e) {
       console.error("Error saving campionati.json to disk:", e);
     }
@@ -387,7 +761,7 @@ var ChampionshipCatalog = class {
           headers: { "User-Agent": "Mozilla/5.0" }
         });
         const text = new TextDecoder("iso-8859-1").decode(await res.arrayBuffer());
-        const $ = cheerio.load(text);
+        const $ = cheerio3.load(text);
         $('a[href*="CAM="]').each((_, el) => {
           const href = $(el).attr("href") || "";
           const m = href.match(/CAM=(\d+)/i);
@@ -418,7 +792,7 @@ var ChampionshipCatalog = class {
             headers: { "User-Agent": "Mozilla/5.0" }
           });
           const text = new TextDecoder("iso-8859-1").decode(await res.arrayBuffer());
-          const $ = cheerio.load(text);
+          const $ = cheerio3.load(text);
           $('a[href*="CAM="]').each((_, el) => {
             const href = $(el).attr("href") || "";
             const m = href.match(/CAM=(\d+)/i);
@@ -454,9 +828,9 @@ var ChampionshipCatalog = class {
 var championshipCatalog = new ChampionshipCatalog();
 
 // server/parsers/classificaParser.ts
-import * as cheerio2 from "cheerio";
+import * as cheerio4 from "cheerio";
 function parseClassifica(html) {
-  const $ = cheerio2.load(html);
+  const $ = cheerio4.load(html);
   const squadre = [];
   $("table tr").each((_, row) => {
     const $row = $(row);
@@ -524,9 +898,9 @@ function parseClassifica(html) {
 }
 
 // server/parsers/calendarioParser.ts
-import * as cheerio3 from "cheerio";
+import * as cheerio5 from "cheerio";
 function parseCalendario(html) {
-  const $ = cheerio3.load(html);
+  const $ = cheerio5.load(html);
   const giornate = [];
   $("table").each((_, table) => {
     const $table = $(table);
@@ -611,9 +985,9 @@ function parseCalendario(html) {
 }
 
 // server/parsers/statisticheParser.ts
-import * as cheerio4 from "cheerio";
+import * as cheerio6 from "cheerio";
 function parseStatisticheAtleti(html, athleteMapping = {}) {
-  const $ = cheerio4.load(html);
+  const $ = cheerio6.load(html);
   const atleti = [];
   $("table tr").each((_, row) => {
     const $row = $(row);
@@ -662,7 +1036,7 @@ function parseStatisticheAtleti(html, athleteMapping = {}) {
 }
 
 // server/parsers/atletaParser.ts
-import * as cheerio5 from "cheerio";
+import * as cheerio7 from "cheerio";
 function parseItalianNumber(val) {
   if (!val) return 0;
   const clean = val.trim();
@@ -679,7 +1053,7 @@ function parseItalianNumber(val) {
   return parseFloat(clean) || 0;
 }
 function parseDettaglioAtleta(html, atletaId) {
-  const $ = cheerio5.load(html);
+  const $ = cheerio7.load(html);
   const $titolo = $("p.titolo").first();
   const nomeRaw = $titolo.text().replace(/\s+/g, " ").trim();
   const flagImg = $titolo.find("img.immagine").first();
@@ -811,8 +1185,81 @@ function parseDettaglioAtleta(html, atletaId) {
   };
 }
 
+// server/parsers/squadraParser.ts
+import * as cheerio8 from "cheerio";
+function parseDettaglioSquadra(html, squadraId, camId, logoUrl) {
+  const $ = cheerio8.load(html);
+  const titleText = $("table tr:first-child").text().replace(/\s+/g, " ").trim();
+  const teamNameMatch = titleText.match(/Atleti della squadra:\s*(.+)$/i);
+  const nome = teamNameMatch ? teamNameMatch[1].trim() : "Squadra " + squadraId;
+  const atleti = [];
+  $("table tr").each((_, row) => {
+    const $row = $(row);
+    const cells = $row.find("td");
+    if (cells.length < 10) return;
+    const rowText = $row.text();
+    if (rowText.includes("Atleta") && rowText.includes("PaV")) return;
+    const athleteLink = $row.find('a[href*="dettaglio_percentuali.php"], a[href*="IDA="]');
+    if (athleteLink.length === 0) return;
+    const athleteName = athleteLink.text().replace(/\s+/g, " ").trim();
+    if (!athleteName) return;
+    const href = athleteLink.attr("href") || "";
+    const idaMatch = href.match(/IDA=(\d+)/i);
+    const atletaId = idaMatch ? idaMatch[1] : "";
+    const hasScheda = $row.find('a[onclick*="getScheda"]').length > 0;
+    const isDoppio = !hasScheda && athleteName.includes(" - ");
+    const rankText = $(cells[2]).text().replace(/\s+/g, " ").trim();
+    let rankPosizione = null;
+    let rankPunti = null;
+    const rankPosMatch = rankText.match(/rank\.\s*(\d+)/i);
+    if (rankPosMatch) {
+      rankPosizione = parseInt(rankPosMatch[1], 10);
+    }
+    const rankPuntiMatch = rankText.match(/\((\d+)\)/);
+    if (rankPuntiMatch) {
+      rankPunti = parseInt(rankPuntiMatch[1], 10);
+    }
+    const getInt = (cellIdx) => {
+      const val = $(cells[cellIdx]).text().trim().replace(/[^\d-]/g, "");
+      return parseInt(val, 10) || 0;
+    };
+    const partiteDisputate = getInt(3);
+    const partiteVinte = getInt(4);
+    const partitePerse = getInt(5);
+    const setVinti = getInt(6);
+    const setPersi = getInt(7);
+    const puntiVinti = getInt(8);
+    const puntiPersi = getInt(9);
+    const percentualeVittorie = getInt(10);
+    atleti.push({
+      atletaId,
+      nome: athleteName,
+      isDoppio,
+      rankText,
+      rankPosizione,
+      rankPunti,
+      partiteDisputate,
+      partiteVinte,
+      partitePerse,
+      setVinti,
+      setPersi,
+      puntiVinti,
+      puntiPersi,
+      percentualeVittorie,
+      fotoUrl: !isDoppio && atletaId ? `https://portale.fitet.org/images/atleti/${atletaId}.jpg` : null
+    });
+  });
+  return {
+    squadraId,
+    camId,
+    nome,
+    logoUrl,
+    atleti
+  };
+}
+
 // server/parsers/refertoParser.ts
-import * as cheerio6 from "cheerio";
+import * as cheerio9 from "cheerio";
 function resolveFitetUrl(src) {
   if (!src) return void 0;
   if (src.startsWith("http")) return src;
@@ -820,7 +1267,7 @@ function resolveFitetUrl(src) {
   return `https://portale.fitet.org/${clean}`;
 }
 function parseRefertoIncontro(html, incontroId, camId, formulaId) {
-  const $ = cheerio6.load(html);
+  const $ = cheerio9.load(html);
   const $incontri = $("p.incontro");
   let casaNome = "";
   let ospiteNome = "";
@@ -959,7 +1406,7 @@ function parseRefertoIncontro(html, incontroId, camId, formulaId) {
   };
 }
 function parseDettaglioPartita(html, partitaId) {
-  const $ = cheerio6.load(html);
+  const $ = cheerio9.load(html);
   const rows = $('table[width="716"] > tr, table[width="716"] > tbody > tr');
   let headerRow = rows.eq(0);
   let detailRow = rows.eq(1);
@@ -1118,7 +1565,7 @@ function computeTeamForm(classifica, calendario) {
     };
   });
 }
-async function getClassifica(camId = DEFAULT_CAM_ID, forceRefresh = false) {
+async function getClassifica(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, forceRefresh = false) {
   const cacheKey = `classifica_${camId}`;
   if (!forceRefresh) {
     const cached = cacheService.get(cacheKey);
@@ -1126,8 +1573,18 @@ async function getClassifica(camId = DEFAULT_CAM_ID, forceRefresh = false) {
   }
   const html = await FitetClient.fetchClassifica(camId);
   const data = parseClassifica(html);
-  cacheService.set(cacheKey, data, TTL_CLASSIFICA);
-  return data;
+  try {
+    const teamsToResolve = data.map((t) => ({ nome: t.nome, squadraId: t.squadraId }));
+    await teamResolver.resolveLogosForTeams(teamsToResolve, camId, annoId);
+  } catch (err) {
+    console.warn(`[TeamResolver] Warning resolving team logos for CAM ${camId}:`, err);
+  }
+  const withLogos = data.map((t) => ({
+    ...t,
+    logoUrl: teamResolver.getLogo(t.nome)
+  }));
+  cacheService.set(cacheKey, withLogos, TTL_CLASSIFICA);
+  return withLogos;
 }
 async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, forceRefresh = false) {
   const cacheKey = `calendario_${camId}_${annoId}`;
@@ -1140,11 +1597,18 @@ async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, f
   cacheService.set(cacheKey, data, TTL_CALENDARIO);
   return data;
 }
-async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false) {
+async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squadraIds = []) {
   const cacheKey = `statistiche_${camId}`;
   if (!forceRefresh) {
     const cached = cacheService.get(cacheKey);
     if (cached) return cached;
+  }
+  try {
+    if (squadraIds.length > 0) {
+      await athleteResolver.resolveAthletesForChampionship(camId, squadraIds);
+    }
+  } catch (err) {
+    console.warn(`[AthleteResolver] Warning resolving athletes for CAM ${camId}:`, err);
   }
   const html = await FitetClient.fetchStatisticheAtleti(camId);
   const mapping = athleteResolver.getMapping();
@@ -1167,12 +1631,13 @@ app.get("/api/dashboard", async (req, res) => {
   const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
   const forceRefresh = req.query.refresh === "true";
   try {
-    const [rawClassifica, calendario, statisticheAtleti, champMeta] = await Promise.all([
-      getClassifica(cam, forceRefresh),
+    const [rawClassifica, calendario, champMeta] = await Promise.all([
+      getClassifica(cam, anno, forceRefresh),
       getCalendario(cam, anno, forceRefresh),
-      getStatistiche(cam, forceRefresh),
       championshipCatalog.getChampionship(cam)
     ]);
+    const squadraIds = rawClassifica.map((s) => s.squadraId).filter(Boolean);
+    const statisticheAtleti = await getStatistiche(cam, forceRefresh, squadraIds);
     const classifica = computeTeamForm(rawClassifica, calendario);
     const payload = {
       classifica,
@@ -1195,9 +1660,10 @@ app.get("/api/dashboard", async (req, res) => {
 });
 app.get("/api/classifica", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
   const forceRefresh = req.query.refresh === "true";
   try {
-    const data = await getClassifica(cam, forceRefresh);
+    const data = await getClassifica(cam, anno, forceRefresh);
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1218,7 +1684,9 @@ app.get("/api/statistiche", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const forceRefresh = req.query.refresh === "true";
   try {
-    const data = await getStatistiche(cam, forceRefresh);
+    const classifica = await getClassifica(cam, DEFAULT_ANNO_ID, false);
+    const squadraIds = classifica.map((s) => s.squadraId).filter(Boolean);
+    const data = await getStatistiche(cam, forceRefresh, squadraIds);
     res.json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1320,6 +1788,54 @@ app.get("/api/partita/:partitaId", async (req, res) => {
     res.status(500).json({ error: "Errore nel recupero del dettaglio partita", details: error.message });
   }
 });
+app.get("/api/squadra/:squadraId", async (req, res) => {
+  const { squadraId } = req.params;
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  const forceRefresh = req.query.refresh === "true";
+  if (!squadraId || squadraId === "null" || squadraId === "undefined") {
+    return res.status(400).json({ error: "ID squadra non valido" });
+  }
+  try {
+    let targetSquadraId = squadraId;
+    if (!/^\d+$/.test(targetSquadraId)) {
+      const decodedName = decodeURIComponent(targetSquadraId).trim().toUpperCase();
+      let rawClassifica = cacheService.get(`classifica_${cam}_${anno}`);
+      if (!rawClassifica) {
+        rawClassifica = await getClassifica(cam, anno);
+      }
+      if (Array.isArray(rawClassifica)) {
+        const found = rawClassifica.find(
+          (sq) => sq.nome.toUpperCase().trim() === decodedName || sq.nome.toUpperCase().includes(decodedName) || decodedName.includes(sq.nome.toUpperCase())
+        );
+        if (found && found.squadraId) {
+          targetSquadraId = found.squadraId;
+        }
+      }
+    }
+    const cacheKey = `squadra_${targetSquadraId}_${cam}_${anno}`;
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      if (cached) return res.json(cached);
+    }
+    const url = `https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${targetSquadraId}&CAM=${cam}`;
+    const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    const buffer = await response.arrayBuffer();
+    const html = new TextDecoder("iso-8859-1").decode(buffer);
+    const parsed = parseDettaglioSquadra(html, targetSquadraId, cam);
+    let logoUrl = teamResolver.getLogo(parsed.nome);
+    if (!logoUrl && targetSquadraId) {
+      const resolved = await teamResolver.resolveLogosForTeams([{ nome: parsed.nome, squadraId: targetSquadraId }], cam, anno);
+      logoUrl = resolved[parsed.nome.toUpperCase().trim()] || teamResolver.getLogo(parsed.nome);
+    }
+    parsed.logoUrl = logoUrl;
+    cacheService.set(cacheKey, parsed, 60 * 60 * 1e3);
+    res.json(parsed);
+  } catch (error) {
+    console.error(`Error fetching team ${squadraId} in CAM ${cam}:`, error);
+    res.status(500).json({ error: "Errore nel recupero della scheda squadra", details: error.message });
+  }
+});
 app.post("/api/refresh", async (req, res) => {
   const cam = req.query.cam || req.body?.cam ? parseInt(req.query.cam || req.body?.cam, 10) : DEFAULT_CAM_ID;
   const anno = req.query.anno || req.body?.anno ? parseInt(req.query.anno || req.body?.anno, 10) : DEFAULT_ANNO_ID;
@@ -1327,7 +1843,7 @@ app.post("/api/refresh", async (req, res) => {
     cacheService.clear();
     athleteResolver.reloadMapping();
     const [rawClassifica, calendario, statisticheAtleti] = await Promise.all([
-      getClassifica(cam, true),
+      getClassifica(cam, anno, true),
       getCalendario(cam, anno, true),
       getStatistiche(cam, true)
     ]);
@@ -1338,11 +1854,11 @@ app.post("/api/refresh", async (req, res) => {
   }
 });
 if (!process.env.VERCEL) {
-  const distPath = path4.resolve(process.cwd(), "dist");
+  const distPath = path5.resolve(process.cwd(), "dist");
   app.use(express.static(distPath));
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
-    const indexFile = path4.join(distPath, "index.html");
+    const indexFile = path5.join(distPath, "index.html");
     res.sendFile(indexFile, (err) => {
       if (err) res.status(404).send("Not Found");
     });

@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { getCachedUserRegion } from '../utils/geolocation';
 
 interface HeaderProps {
   lastUpdated: string | null;
@@ -89,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <i className="bi bi-chevron-down"></i>
               </span>
             </div>
-            <small>{(championshipRegion || 'CALABRIA').toUpperCase()}</small>
+            <small>{(championshipRegion || getCachedUserRegion()).toUpperCase()}</small>
           </div>
         </button>
         <div>

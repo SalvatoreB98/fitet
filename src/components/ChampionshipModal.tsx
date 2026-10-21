@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChampionshipItem } from '../types/fitet';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { detectUserRegion, getCachedUserRegion } from '../utils/geolocation';
+import { searchCampionati } from '../utils/searchCampionati';
 
 interface ChampionshipModalProps {
   isOpen: boolean;
@@ -23,7 +25,14 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
   useBodyScrollLock(isOpen);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRegion, setSelectedRegion] = useState<string>('Calabria');
+  const [userRegion, setUserRegion] = useState<string>(getCachedUserRegion);
+  const [selectedRegion, setSelectedRegion] = useState<string>(getCachedUserRegion);
+  const [hasGeoLocation, setHasGeoLocation] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return !!localStorage.getItem('fitet_detected_region');
+    }
+    return false;
+  });
   const [customCamInput, setCustomCamInput] = useState('');
   const [customError, setCustomError] = useState<string | null>(null);
 
@@ -37,42 +46,59 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Detect user region via geolocation
+  useEffect(() => {
+    let isCancelled = false;
+    detectUserRegion().then((detected) => {
+      if (!isCancelled && detected) {
+        setUserRegion((prevUserRegion) => {
+          setSelectedRegion((prevSelected) => {
+            // Keep selectedRegion in sync if user hasn't chosen another specific region
+            if (prevSelected === prevUserRegion || prevSelected === 'Calabria') {
+              return detected;
+            }
+            return prevSelected;
+          });
+          return detected;
+        });
+        setHasGeoLocation(true);
+      }
+    });
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
   // Unique list of regions from the catalog
   const regionsList = useMemo(() => {
     const set = new Set<string>();
     campionati.forEach((c) => {
       if (c.regione) set.add(c.regione);
     });
-    // Ensure Calabria and Nazionale are always present
     const list = Array.from(set).sort((a, b) => a.localeCompare(b, 'it'));
-    return ['Tutti', 'Calabria', 'Nazionale', ...list.filter((r) => r !== 'Calabria' && r !== 'Nazionale')];
-  }, [campionati]);
+    return ['Tutti', userRegion, 'Nazionale', ...list.filter((r) => r !== userRegion && r !== 'Nazionale')];
+  }, [campionati, userRegion]);
 
-  // Filtered championships
+  // Filtered championships using tokenized search & normalization
   const filteredCampionati = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchQuery.trim();
 
-    return campionati.filter((c) => {
-      // Region filter
-      if (selectedRegion !== 'Tutti' && c.regione.toLowerCase() !== selectedRegion.toLowerCase()) {
-        // If user typed a search query, search everywhere regardless of region filter
-        if (!q) return false;
-      }
+    if (q) {
+      return searchCampionati(campionati, q);
+    }
 
-      // Query filter
-      if (!q) return true;
+    if (selectedRegion === 'Tutti') {
+      return campionati;
+    }
 
-      const matchName = c.nome.toLowerCase().includes(q);
-      const matchReg = c.regione.toLowerCase().includes(q);
-      const matchCat = c.categoria.toLowerCase().includes(q);
-      const matchId = String(c.id).includes(q);
-
-      return matchName || matchReg || matchCat || matchId;
-    });
+    return campionati.filter((c) => c.regione.toLowerCase() === selectedRegion.toLowerCase());
   }, [campionati, selectedRegion, searchQuery]);
 
   // Quick stats
-  const countCalabria = useMemo(() => campionati.filter((c) => c.regione === 'Calabria').length, [campionati]);
+  const countUserRegion = useMemo(
+    () => campionati.filter((c) => c.regione === userRegion).length,
+    [campionati, userRegion]
+  );
   const countNazionale = useMemo(() => campionati.filter((c) => c.regione === 'Nazionale').length, [campionati]);
 
   const handleCustomSubmit = (e: React.FormEvent) => {
@@ -164,14 +190,15 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
         <div className="championship-regions-bar">
           <button
             type="button"
-            className={`region-pill ${selectedRegion === 'Calabria' && !searchQuery ? 'active' : ''}`}
+            className={`region-pill ${selectedRegion === userRegion && !searchQuery ? 'active' : ''}`}
             onClick={() => {
-              setSelectedRegion('Calabria');
+              setSelectedRegion(userRegion);
               setSearchQuery('');
             }}
+            title={hasGeoLocation ? `Regione rilevata dalla posizione: ${userRegion}` : `Regione: ${userRegion}`}
           >
-            <span className="pill-star">⭐</span> Calabria
-            {countCalabria > 0 && <span className="pill-badge">{countCalabria}</span>}
+            <span className="pill-star">{hasGeoLocation ? '📍' : '⭐'}</span> {userRegion}
+            {countUserRegion > 0 && <span className="pill-badge">{countUserRegion}</span>}
           </button>
 
           <button
@@ -201,7 +228,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
           <div className="region-select-wrapper">
             <select
               className="region-select-dropdown"
-              value={['Calabria', 'Nazionale', 'Tutti'].includes(selectedRegion) ? '' : selectedRegion}
+              value={[userRegion, 'Nazionale', 'Tutti'].includes(selectedRegion) ? '' : selectedRegion}
               onChange={(e) => {
                 if (e.target.value) {
                   setSelectedRegion(e.target.value);
@@ -214,7 +241,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
                 Altre regioni...
               </option>
               {regionsList
-                .filter((r) => r !== 'Calabria' && r !== 'Nazionale' && r !== 'Tutti')
+                .filter((r) => r !== userRegion && r !== 'Nazionale' && r !== 'Tutti')
                 .map((r) => (
                   <option key={r} value={r}>
                     {r}
