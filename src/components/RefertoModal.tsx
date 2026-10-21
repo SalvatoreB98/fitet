@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { RefertoIncontro, DettaglioPartitaIndividuale, PartitaRefertoIndividuale } from '../types/fitet';
 import { fetchReferto, fetchDettaglioPartita } from '../services/api';
 import { getTeamLogoUrl } from '../utils/teamLogos';
+import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 
 interface RefertoModalProps {
   incontroId: string;
@@ -27,6 +28,8 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
   onClose,
   onOpenAtletaModal,
 }) => {
+  useBodyScrollLock(true);
+
   const [referto, setReferto] = useState<RefertoIncontro | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -165,9 +168,8 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
               title="Aggiorna referto da portale FITeT"
               style={{ padding: '4px 10px', fontSize: '11px', background: 'rgba(255,255,255,0.12)', color: '#fff', borderColor: 'rgba(255,255,255,0.2)' }}
             >
-              {refreshing ? 'Aggiornamento...' : '🔄 Ricarica'}
-            </button>
-            <button
+              {refreshing ? 'Aggiornamento...' : '🔄'}
+            </button>            <button
               type="button"
               className="btn-header"
               onClick={onClose}
@@ -488,229 +490,229 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                           </div>
                         </div>
 
-                      {/* Expanded View: Full Game Details */}
-                      {isExpanded && (
-                        <div className="referto-expanded-panel">
-                          {isLoadingDettaglio && (
-                            <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
-                              <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                              <span style={{ fontSize: '12.5px' }}>Caricamento parziali e dati atleti...</span>
-                            </div>
-                          )}
+                        {/* Expanded View: Full Game Details */}
+                        {isExpanded && (
+                          <div className="referto-expanded-panel">
+                            {isLoadingDettaglio && (
+                              <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
+                                <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                                <span style={{ fontSize: '12.5px' }}>Caricamento parziali e dati atleti...</span>
+                              </div>
+                            )}
 
-                          {/* Individual match detail view */}
-                          <div className="expanded-detail-grid">
-                            {/* Athlete Casa Profile Card */}
-                            {(() => {
-                              const isDoublesCasa = match.atletaCasa.includes(' - ');
-                              const casaPlayers = isDoublesCasa
-                                ? match.atletaCasa.split(' - ').map((s) => s.trim())
-                                : [match.atletaCasa];
-                              const hasValidPhoto =
-                                Boolean(dettaglio?.atletaCasa.fotoUrl) &&
-                                !dettaglio?.atletaCasa.fotoUrl?.includes('-vuoto');
+                            {/* Individual match detail view */}
+                            <div className="expanded-detail-grid">
+                              {/* Athlete Casa Profile Card */}
+                              {(() => {
+                                const isDoublesCasa = match.atletaCasa.includes(' - ');
+                                const casaPlayers = isDoublesCasa
+                                  ? match.atletaCasa.split(' - ').map((s) => s.trim())
+                                  : [match.atletaCasa];
+                                const hasValidPhoto =
+                                  Boolean(dettaglio?.atletaCasa.fotoUrl) &&
+                                  !dettaglio?.atletaCasa.fotoUrl?.includes('-vuoto');
 
-                              return (
-                                <div className="athlete-card casa-card">
-                                  <div
-                                    className="athlete-photo-frame"
-                                    onClick={() => handleOpenAthlete(dettaglio?.atletaCasa.atletaId, match.atletaCasa)}
-                                    style={{ cursor: onOpenAtletaModal ? 'pointer' : 'default' }}
-                                    title={onOpenAtletaModal ? `Visualizza scheda ${match.atletaCasa}` : undefined}
-                                  >
-                                    {hasValidPhoto ? (
-                                      <img
-                                        src={dettaglio!.atletaCasa.fotoUrl}
-                                        alt={match.atletaCasa}
-                                        className="athlete-photo"
-                                        onError={(e) => {
-                                          (e.target as HTMLElement).style.display = 'none';
-                                        }}
-                                      />
-                                    ) : (
-                                      <div className="athlete-avatar-placeholder">👤</div>
-                                    )}
-                                  </div>
-                                  <div className="athlete-info">
-                                    <div className="athlete-name-row">
-                                      <strong>{match.atletaCasa}</strong>
-                                      {dettaglio?.atletaCasa.bandieraUrl && (
+                                return (
+                                  <div className="athlete-card casa-card">
+                                    <div
+                                      className="athlete-photo-frame"
+                                      onClick={() => handleOpenAthlete(dettaglio?.atletaCasa.atletaId, match.atletaCasa)}
+                                      style={{ cursor: onOpenAtletaModal ? 'pointer' : 'default' }}
+                                      title={onOpenAtletaModal ? `Visualizza scheda ${match.atletaCasa}` : undefined}
+                                    >
+                                      {hasValidPhoto ? (
                                         <img
-                                          src={dettaglio.atletaCasa.bandieraUrl}
-                                          alt="Bandiera"
-                                          className="athlete-flag"
+                                          src={dettaglio!.atletaCasa.fotoUrl}
+                                          alt={match.atletaCasa}
+                                          className="athlete-photo"
+                                          onError={(e) => {
+                                            (e.target as HTMLElement).style.display = 'none';
+                                          }}
                                         />
+                                      ) : (
+                                        <div className="athlete-avatar-placeholder">👤</div>
                                       )}
                                     </div>
-                                    {onOpenAtletaModal &&
-                                      (isDoublesCasa ? (
-                                        <div className="doubles-athlete-links">
-                                          {casaPlayers.map((player, idx) => (
-                                            <button
-                                              key={idx}
-                                              type="button"
-                                              className="btn-athlete-link"
-                                              onClick={() =>
-                                                handleOpenAthlete(
-                                                  idx === 0 ? dettaglio?.atletaCasa.atletaId : undefined,
-                                                  player
-                                                )
-                                              }
-                                              title={`Visualizza scheda ranking di ${player}`}
-                                            >
-                                              Scheda {player.split(' ')[0]} ↗
-                                            </button>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          className="btn-athlete-link"
-                                          onClick={() =>
-                                            handleOpenAthlete(dettaglio?.atletaCasa.atletaId, match.atletaCasa)
-                                          }
-                                          title="Visualizza scheda atleta e storico punti"
-                                        >
-                                          Scheda ranking ↗
-                                        </button>
-                                      ))}
+                                    <div className="athlete-info">
+                                      <div className="athlete-name-row">
+                                        <strong>{match.atletaCasa}</strong>
+                                        {dettaglio?.atletaCasa.bandieraUrl && (
+                                          <img
+                                            src={dettaglio.atletaCasa.bandieraUrl}
+                                            alt="Bandiera"
+                                            className="athlete-flag"
+                                          />
+                                        )}
+                                      </div>
+                                      {onOpenAtletaModal &&
+                                        (isDoublesCasa ? (
+                                          <div className="doubles-athlete-links">
+                                            {casaPlayers.map((player, idx) => (
+                                              <button
+                                                key={idx}
+                                                type="button"
+                                                className="btn-athlete-link"
+                                                onClick={() =>
+                                                  handleOpenAthlete(
+                                                    idx === 0 ? dettaglio?.atletaCasa.atletaId : undefined,
+                                                    player
+                                                  )
+                                                }
+                                                title={`Visualizza scheda ranking di ${player}`}
+                                              >
+                                                Scheda {player.split(' ')[0]} ↗
+                                              </button>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            className="btn-athlete-link"
+                                            onClick={() =>
+                                              handleOpenAthlete(dettaglio?.atletaCasa.atletaId, match.atletaCasa)
+                                            }
+                                            title="Visualizza scheda atleta e storico punti"
+                                          >
+                                            Scheda ranking ↗
+                                          </button>
+                                        ))}
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })()}
+                                );
+                              })()}
 
-                            {/* Sets Progression Table */}
-                            <div className="sets-table-box">
-                              <table className="sets-progression-table">
-                                <thead>
-                                  <tr>
-                                    <th>CASA</th>
-                                    <th>SET</th>
-                                    <th>OSPITE</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {(dettaglio?.sets && dettaglio.sets.length > 0 ? dettaglio.sets : match.sets).map(
-                                    (s) => {
-                                      const casaWonSet = s.puntiCasa > s.puntiOspite;
-                                      return (
-                                        <tr key={s.setNumero}>
-                                          <td className={`set-pts ${casaWonSet ? 'set-winner-pts' : ''}`}>
-                                            {s.puntiCasa}
-                                          </td>
-                                          <td className="set-label">{s.setNumero}° set</td>
-                                          <td className={`set-pts ${!casaWonSet ? 'set-winner-pts' : ''}`}>
-                                            {s.puntiOspite}
-                                          </td>
-                                        </tr>
-                                      );
-                                    }
-                                  )}
-                                </tbody>
-                                {(dettaglio?.puntiTotali || match.sets.length > 0) && (
-                                  <tfoot>
+                              {/* Sets Progression Table */}
+                              <div className="sets-table-box">
+                                <table className="sets-progression-table">
+                                  <thead>
                                     <tr>
-                                      <td colSpan={3} className="total-pts-row">
-                                        Totale Punti: <strong>{dettaglio?.puntiTotali || `${match.sets.reduce((a, b) => a + b.puntiCasa, 0)} : ${match.sets.reduce((a, b) => a + b.puntiOspite, 0)}`}</strong>
-                                      </td>
+                                      <th>CASA</th>
+                                      <th>SET</th>
+                                      <th>OSPITE</th>
                                     </tr>
-                                  </tfoot>
-                                )}
-                              </table>
-                            </div>
-
-                            {/* Athlete Ospite Profile Card */}
-                            {(() => {
-                              const isDoublesOspite = match.atletaOspite.includes(' - ');
-                              const ospitePlayers = isDoublesOspite
-                                ? match.atletaOspite.split(' - ').map((s) => s.trim())
-                                : [match.atletaOspite];
-                              const hasValidPhoto =
-                                Boolean(dettaglio?.atletaOspite.fotoUrl) &&
-                                !dettaglio?.atletaOspite.fotoUrl?.includes('-vuoto');
-
-                              return (
-                                <div className="athlete-card ospite-card">
-                                  <div
-                                    className="athlete-photo-frame"
-                                    onClick={() => handleOpenAthlete(dettaglio?.atletaOspite.atletaId, match.atletaOspite)}
-                                    style={{ cursor: onOpenAtletaModal ? 'pointer' : 'default' }}
-                                    title={onOpenAtletaModal ? `Visualizza scheda ${match.atletaOspite}` : undefined}
-                                  >
-                                    {hasValidPhoto ? (
-                                      <img
-                                        src={dettaglio!.atletaOspite.fotoUrl}
-                                        alt={match.atletaOspite}
-                                        className="athlete-photo"
-                                        onError={(e) => {
-                                          (e.target as HTMLElement).style.display = 'none';
-                                        }}
-                                      />
-                                    ) : (
-                                      <div className="athlete-avatar-placeholder">👤</div>
+                                  </thead>
+                                  <tbody>
+                                    {(dettaglio?.sets && dettaglio.sets.length > 0 ? dettaglio.sets : match.sets).map(
+                                      (s) => {
+                                        const casaWonSet = s.puntiCasa > s.puntiOspite;
+                                        return (
+                                          <tr key={s.setNumero}>
+                                            <td className={`set-pts ${casaWonSet ? 'set-winner-pts' : ''}`}>
+                                              {s.puntiCasa}
+                                            </td>
+                                            <td className="set-label">{s.setNumero}° set</td>
+                                            <td className={`set-pts ${!casaWonSet ? 'set-winner-pts' : ''}`}>
+                                              {s.puntiOspite}
+                                            </td>
+                                          </tr>
+                                        );
+                                      }
                                     )}
-                                  </div>
-                                  <div className="athlete-info">
-                                    <div className="athlete-name-row">
-                                      <strong>{match.atletaOspite}</strong>
-                                      {dettaglio?.atletaOspite.bandieraUrl && (
+                                  </tbody>
+                                  {(dettaglio?.puntiTotali || match.sets.length > 0) && (
+                                    <tfoot>
+                                      <tr>
+                                        <td colSpan={3} className="total-pts-row">
+                                          Totale Punti: <strong>{dettaglio?.puntiTotali || `${match.sets.reduce((a, b) => a + b.puntiCasa, 0)} : ${match.sets.reduce((a, b) => a + b.puntiOspite, 0)}`}</strong>
+                                        </td>
+                                      </tr>
+                                    </tfoot>
+                                  )}
+                                </table>
+                              </div>
+
+                              {/* Athlete Ospite Profile Card */}
+                              {(() => {
+                                const isDoublesOspite = match.atletaOspite.includes(' - ');
+                                const ospitePlayers = isDoublesOspite
+                                  ? match.atletaOspite.split(' - ').map((s) => s.trim())
+                                  : [match.atletaOspite];
+                                const hasValidPhoto =
+                                  Boolean(dettaglio?.atletaOspite.fotoUrl) &&
+                                  !dettaglio?.atletaOspite.fotoUrl?.includes('-vuoto');
+
+                                return (
+                                  <div className="athlete-card ospite-card">
+                                    <div
+                                      className="athlete-photo-frame"
+                                      onClick={() => handleOpenAthlete(dettaglio?.atletaOspite.atletaId, match.atletaOspite)}
+                                      style={{ cursor: onOpenAtletaModal ? 'pointer' : 'default' }}
+                                      title={onOpenAtletaModal ? `Visualizza scheda ${match.atletaOspite}` : undefined}
+                                    >
+                                      {hasValidPhoto ? (
                                         <img
-                                          src={dettaglio.atletaOspite.bandieraUrl}
-                                          alt="Bandiera"
-                                          className="athlete-flag"
+                                          src={dettaglio!.atletaOspite.fotoUrl}
+                                          alt={match.atletaOspite}
+                                          className="athlete-photo"
+                                          onError={(e) => {
+                                            (e.target as HTMLElement).style.display = 'none';
+                                          }}
                                         />
+                                      ) : (
+                                        <div className="athlete-avatar-placeholder">👤</div>
                                       )}
                                     </div>
-                                    {onOpenAtletaModal &&
-                                      (isDoublesOspite ? (
-                                        <div className="doubles-athlete-links">
-                                          {ospitePlayers.map((player, idx) => (
-                                            <button
-                                              key={idx}
-                                              type="button"
-                                              className="btn-athlete-link"
-                                              onClick={() =>
-                                                handleOpenAthlete(
-                                                  idx === 0 ? dettaglio?.atletaOspite.atletaId : undefined,
-                                                  player
-                                                )
-                                              }
-                                              title={`Visualizza scheda ranking di ${player}`}
-                                            >
-                                              Scheda {player.split(' ')[0]} ↗
-                                            </button>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          className="btn-athlete-link"
-                                          onClick={() =>
-                                            handleOpenAthlete(dettaglio?.atletaOspite.atletaId, match.atletaOspite)
-                                          }
-                                          title="Visualizza scheda atleta e storico punti"
-                                        >
-                                          Scheda ranking ↗
-                                        </button>
-                                      ))}
+                                    <div className="athlete-info">
+                                      <div className="athlete-name-row">
+                                        <strong>{match.atletaOspite}</strong>
+                                        {dettaglio?.atletaOspite.bandieraUrl && (
+                                          <img
+                                            src={dettaglio.atletaOspite.bandieraUrl}
+                                            alt="Bandiera"
+                                            className="athlete-flag"
+                                          />
+                                        )}
+                                      </div>
+                                      {onOpenAtletaModal &&
+                                        (isDoublesOspite ? (
+                                          <div className="doubles-athlete-links">
+                                            {ospitePlayers.map((player, idx) => (
+                                              <button
+                                                key={idx}
+                                                type="button"
+                                                className="btn-athlete-link"
+                                                onClick={() =>
+                                                  handleOpenAthlete(
+                                                    idx === 0 ? dettaglio?.atletaOspite.atletaId : undefined,
+                                                    player
+                                                  )
+                                                }
+                                                title={`Visualizza scheda ranking di ${player}`}
+                                              >
+                                                Scheda {player.split(' ')[0]} ↗
+                                              </button>
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            className="btn-athlete-link"
+                                            onClick={() =>
+                                              handleOpenAthlete(dettaglio?.atletaOspite.atletaId, match.atletaOspite)
+                                            }
+                                            title="Visualizza scheda atleta e storico punti"
+                                          >
+                                            Scheda ranking ↗
+                                          </button>
+                                        ))}
+                                    </div>
                                   </div>
-                                </div>
-                              );
-                            })()}
+                                );
+                              })()}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
-  </div>,
-  document.body
-);
+    </div>,
+    document.body
+  );
 };
 

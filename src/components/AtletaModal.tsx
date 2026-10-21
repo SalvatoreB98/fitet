@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { DettaglioAtleta } from '../types/fitet';
 import { fetchAtleta } from '../services/api';
 import { RatingChart } from './RatingChart';
+import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 
 interface AtletaModalProps {
   atletaId: string;
@@ -12,6 +13,8 @@ interface AtletaModalProps {
 }
 
 export const AtletaModal: React.FC<AtletaModalProps> = ({ atletaId, athleteName, returnLabel, onClose }) => {
+  useBodyScrollLock(true);
+
   const [atleta, setAtleta] = useState<DettaglioAtleta | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
