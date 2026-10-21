@@ -14,12 +14,12 @@ import { registerTeamLogos } from './utils/teamLogos';
 
 export const App: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // Championship selection state
-  const [camId, setCamId] = useState<number>(() => {
+  const [camId, setCamId] = useState<number | null>(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const urlCam = urlParams.get('cam');
@@ -27,7 +27,7 @@ export const App: React.FC = () => {
       const savedCam = localStorage.getItem('fitet_selected_cam');
       if (savedCam && /^\d+$/.test(savedCam)) return parseInt(savedCam, 10);
     }
-    return 1902;
+    return null;
   });
 
   const [annoId, setAnnoId] = useState<number>(() => {
@@ -150,6 +150,10 @@ export const App: React.FC = () => {
   };
 
   const loadDashboard = async (targetCam = camId, targetAnno = annoId, force = false) => {
+    if (!targetCam) {
+      setLoading(false);
+      return;
+    }
     if (force) setRefreshing(true);
     else setLoading(true);
     setError(null);
@@ -191,6 +195,15 @@ export const App: React.FC = () => {
 
   // Fetch dashboard whenever camId or annoId changes
   useEffect(() => {
+    if (!camId) {
+      setLoading(false);
+      // Clean scenario: If no championship is selected yet and intro is closed, open modal
+      if (!showIntro) {
+        setIsChampionshipModalOpen(true);
+      }
+      return;
+    }
+
     loadDashboard(camId, annoId);
 
     // Sync URL and localStorage
@@ -202,7 +215,7 @@ export const App: React.FC = () => {
       window.history.replaceState({}, '', url.toString());
       localStorage.setItem('fitet_selected_cam', String(camId));
     }
-  }, [camId, annoId]);
+  }, [camId, annoId, showIntro]);
 
   const handleSelectChampionship = (newCam: number, newAnno = 41) => {
     setSelectedTeamFilter(null);
@@ -250,7 +263,7 @@ export const App: React.FC = () => {
       <Header
         lastUpdated={data?.lastUpdated || null}
         isRefreshing={refreshing}
-        onRefresh={() => loadDashboard(camId, annoId, true)}
+        onRefresh={() => camId && loadDashboard(camId, annoId, true)}
         theme={theme}
         onToggleTheme={handleToggleTheme}
         activeTab={activeTab}
@@ -266,6 +279,30 @@ export const App: React.FC = () => {
         onOpenChampionshipModal={() => setIsChampionshipModalOpen(true)}
       />
 
+      {/* Clean scenario when no championship is selected yet */}
+      {!camId && !data && !loading && (
+        <div style={{ textAlign: 'center', padding: '70px 20px', minHeight: '380px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '68px', height: '68px', borderRadius: '50%', background: 'rgba(37, 99, 235, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px', color: '#2563eb', fontSize: '30px' }}>
+            <i className="bi bi-trophy-fill"></i>
+          </div>
+          <h2 style={{ fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-main, #0f172a)', marginBottom: '10px' }}>
+            Nessun Campionato Selezionato
+          </h2>
+          <p style={{ color: 'var(--text-muted, #64748b)', maxWidth: '440px', fontSize: '14px', lineHeight: 1.5, margin: '0 auto 24px auto' }}>
+            Scegli il tuo campionato FITeT tra i campionati nazionali o della tua regione per visualizzare classifiche, calendario e statistiche degli atleti.
+          </p>
+          <button
+            type="button"
+            className="btn-action"
+            style={{ padding: '11px 26px', fontSize: '14.5px', borderRadius: '24px' }}
+            onClick={() => setIsChampionshipModalOpen(true)}
+          >
+            <i className="bi bi-trophy me-2"></i>
+            Scegli Campionato
+          </button>
+        </div>
+      )}
+
       {/* Loading Indicator */}
       {loading && !data && (
         <div style={{ textAlign: 'center', padding: '60px 20px', minHeight: '400px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -276,7 +313,7 @@ export const App: React.FC = () => {
             Connessione a portale.fitet.org...
           </h3>
           <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '13px', margin: 0 }}>
-            Caricamento dati campionato #{camId} in corso
+            {camId ? `Caricamento dati campionato #${camId} in corso` : 'Caricamento dati in corso...'}
           </p>
         </div>
       )}
@@ -287,7 +324,7 @@ export const App: React.FC = () => {
           <div>
             <strong>Errore di connessione a portale.fitet.org:</strong> {error}
           </div>
-          <button className="btn-action" onClick={() => loadDashboard(camId, annoId, true)}>
+          <button className="btn-action" onClick={() => camId && loadDashboard(camId, annoId, true)}>
             Riprova
           </button>
         </div>
@@ -353,7 +390,7 @@ export const App: React.FC = () => {
       {/* Championship Picker Modal */}
       <ChampionshipModal
         isOpen={isChampionshipModalOpen}
-        currentCamId={camId}
+        currentCamId={camId || 0}
         campionati={campionati}
         isLoadingCampionati={loadingCampionati}
         onClose={() => setIsChampionshipModalOpen(false)}

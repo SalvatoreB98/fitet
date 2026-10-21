@@ -189,31 +189,6 @@
   pointer-events: none;
 }
 
-/* Minimalist Paddle Lines */
-.kinetic-paddle-left,
-.kinetic-paddle-right {
-  position: absolute;
-  width: 3px;
-  height: 38px;
-  border-radius: 2px;
-  background: linear-gradient(to bottom, #38bdf8, #2563eb);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
-}
-
-.kinetic-paddle-left {
-  left: 20px;
-  bottom: 30px;
-  transform: rotate(-12deg);
-  animation: paddleLeftTilt 2.2s ease-in-out infinite;
-}
-
-.kinetic-paddle-right {
-  right: 20px;
-  bottom: 30px;
-  transform: rotate(12deg);
-  animation: paddleRightTilt 2.2s ease-in-out infinite;
-}
-
 /* Tagline pill */
 .motion-intro-badge {
   display: inline-flex;

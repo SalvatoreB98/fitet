@@ -21,8 +21,8 @@ interface RefertoModalProps {
 
 export const RefertoModal: React.FC<RefertoModalProps> = ({
   incontroId,
-  camId = '1902',
-  formulaId = '19',
+  camId = '',
+  formulaId = '',
   squadraCasaNome,
   squadraOspiteNome,
   statisticheAtleti,
@@ -67,8 +67,8 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
     else setLoading(true);
     setError(null);
 
-    const cId = parseInt(camId, 10) || 1902;
-    const fId = parseInt(formulaId, 10) || 19;
+    const cId = parseInt(camId, 10);
+    const fId = parseInt(formulaId, 10);
 
     fetchReferto(incontroId, cId, fId, force)
       .then((data) => {

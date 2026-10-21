@@ -20,7 +20,6 @@ app.use(cors());
 app.use(express.json());
 
 // Championship defaults
-const DEFAULT_CAM_ID = 1902;
 const DEFAULT_ANNO_ID = 41;
 
 // Cache TTLs (ms)

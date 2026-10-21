@@ -31,7 +31,7 @@ export const IntroMotionGraphic: React.FC<IntroMotionGraphicProps> = ({ onComple
     // Auto-advance after 2.8s
     timerRef.current = setTimeout(() => {
       handleFinish();
-    }, 2800);
+    }, 50000);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
@@ -67,16 +67,6 @@ export const IntroMotionGraphic: React.FC<IntroMotionGraphicProps> = ({ onComple
 
       {/* Center Motion Graphic Stage */}
       <div className="motion-intro-stage">
-        {/* Kinetic Table Tennis SVG / Elements */}
-        <div className="motion-intro-graphic" aria-hidden="true">
-          <div className="kinetic-paddle-left"></div>
-          <div className="kinetic-table-net"></div>
-          <div className="kinetic-net-pillar"></div>
-          <div className="kinetic-ball"></div>
-          <div className="kinetic-ripple"></div>
-          <div className="kinetic-paddle-right"></div>
-        </div>
-
         {/* Minimal Refined Badge */}
         <div className="motion-intro-badge">
           <span className="badge-dot"></span>
@@ -90,7 +80,7 @@ export const IntroMotionGraphic: React.FC<IntroMotionGraphicProps> = ({ onComple
         </div>
 
         <p className="motion-intro-sub">
-          Risultati • Classifiche • Statistiche Atleti in Tempo Reale
+          Risultati • Classifiche • Statistiche Atleti
         </p>
 
         {/* Interactive CTA */}

@@ -338,7 +338,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
               <input
                 type="text"
                 className="custom-cam-input"
-                placeholder="Es: 1902 oppure incolla URL FITeT"
+                placeholder="Es: ID numerico oppure incolla URL FITeT"
                 value={customCamInput}
                 onChange={(e) => setCustomCamInput(e.target.value)}
               />

@@ -50,7 +50,7 @@ export class FitetClient {
   /**
    * Endpoint 1: Classifica Squadre
    */
-  static async fetchClassifica(cam = 1902): Promise<string> {
+  static async fetchClassifica(cam: number | string): Promise<string> {
     const url = `${BASE_URL}/risultati/campionati/classifica_squadre.php?CAM=${cam}`;
     return this.fetchHtml(url);
   }
@@ -58,7 +58,7 @@ export class FitetClient {
   /**
    * Endpoint 2: Calendario & Incontri
    */
-  static async fetchCalendario(cam = 1902, anno = 41): Promise<string> {
+  static async fetchCalendario(cam: number | string, anno = 41): Promise<string> {
     const url = `${BASE_URL}/risultati/campionati/Calendario.asp?CAM=${cam}&ANNO=${anno}`;
     return this.fetchHtml(url);
   }
@@ -66,7 +66,7 @@ export class FitetClient {
   /**
    * Endpoint 3: Statistiche Atleti Girone
    */
-  static async fetchStatisticheAtleti(cam = 1902): Promise<string> {
+  static async fetchStatisticheAtleti(cam: number | string): Promise<string> {
     const url = `${BASE_URL}/risultati/campionati/statistiche_atleti.php?CAM=${cam}`;
     return this.fetchHtml(url);
   }
@@ -95,7 +95,7 @@ export class FitetClient {
   /**
    * Endpoint 5: Referto Incontro Gara
    */
-  static async fetchRefertoIncontro(incontroId: string | number, cam = 1902, formula = 19): Promise<string> {
+  static async fetchRefertoIncontro(incontroId: string | number, cam: number | string, formula = 19): Promise<string> {
     const url = `${BASE_URL}/risultati/campionati/giornata.php?INCONTRO=${incontroId}&CAM=${cam}&FORMULA=${formula}`;
     return this.fetchHtml(url);
   }

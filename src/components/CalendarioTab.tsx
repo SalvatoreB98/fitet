@@ -61,7 +61,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
   onSelectTeamFilter,
   onOpenAtletaModal,
   onOpenSquadraModal,
-  currentCamId = 1902,
+  currentCamId,
 }) => {
   const [selectedGiornata, setSelectedGiornata] = useState<number | 'all'>('all');
   const [faseFilter, setFaseFilter] = useState<'all' | 'andata' | 'ritorno'>('all');

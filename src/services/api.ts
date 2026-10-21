@@ -11,7 +11,7 @@ export async function fetchCampionati(refresh = false): Promise<ChampionshipItem
   return res.json();
 }
 
-export async function fetchDashboard(cam = 1902, anno = 41, refresh = false): Promise<DashboardData> {
+export async function fetchDashboard(cam: number, anno = 41, refresh = false): Promise<DashboardData> {
   const params = new URLSearchParams();
   if (cam) params.set('cam', String(cam));
   if (anno) params.set('anno', String(anno));
@@ -35,11 +35,15 @@ export async function fetchAtleta(id: string, refresh = false): Promise<Dettagli
 
 export async function fetchReferto(
   incontroId: string,
-  cam = 1902,
+  cam?: number | string,
   formula = 19,
   refresh = false
 ): Promise<RefertoIncontro> {
-  const url = `${API_BASE}/referto/${incontroId}?cam=${cam}&formula=${formula}${refresh ? '&refresh=true' : ''}`;
+  const params = new URLSearchParams();
+  if (cam) params.set('cam', String(cam));
+  if (formula) params.set('formula', String(formula));
+  if (refresh) params.set('refresh', 'true');
+  const url = `${API_BASE}/referto/${incontroId}?${params.toString()}`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Errore caricamento referto gara (${res.status}): ${res.statusText}`);
@@ -59,7 +63,7 @@ export async function fetchDettaglioPartita(
   return res.json();
 }
 
-export async function refreshAll(cam = 1902, anno = 41): Promise<{ success: boolean; timestamp: string }> {
+export async function refreshAll(cam: number, anno = 41): Promise<{ success: boolean; timestamp: string }> {
   const res = await fetch(`${API_BASE}/refresh?cam=${cam}&anno=${anno}`, { method: 'POST' });
   if (!res.ok) {
     throw new Error(`Errore refresh dati: ${res.statusText}`);
@@ -76,11 +80,15 @@ export async function searchAtleti(query: string): Promise<Array<{ id: string; v
 
 export async function fetchSquadra(
   squadraId: string,
-  cam = 1902,
+  cam?: number | string,
   anno = 41,
   refresh = false
 ): Promise<DettaglioSquadra> {
-  const url = `${API_BASE}/squadra/${encodeURIComponent(squadraId)}?cam=${cam}&anno=${anno}${refresh ? '&refresh=true' : ''}`;
+  const params = new URLSearchParams();
+  if (cam) params.set('cam', String(cam));
+  if (anno) params.set('anno', String(anno));
+  if (refresh) params.set('refresh', 'true');
+  const url = `${API_BASE}/squadra/${encodeURIComponent(squadraId)}?${params.toString()}`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Errore caricamento scheda squadra (${res.status}): ${res.statusText}`);
