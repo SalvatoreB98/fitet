@@ -9,6 +9,42 @@ interface CalendarioTabProps {
   onSelectTeamFilter: (team: string) => void;
 }
 
+/**
+ * Mostra il link al referto solo se il match è stato disputato
+ * oppure se la data odierna è uguale o maggiore di quella dell'evento.
+ */
+const shouldShowReferto = (match: PartitaCalendario): boolean => {
+  if (!match.refertoUrl) return false;
+  if (match.disputato) return true;
+  if (!match.data) return false;
+
+  let matchDate: Date | null = null;
+  if (match.data.includes('/')) {
+    const parts = match.data.split('/');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        matchDate = new Date(year, month, day);
+      }
+    }
+  } else {
+    const parsed = new Date(match.data);
+    if (!isNaN(parsed.getTime())) {
+      matchDate = parsed;
+    }
+  }
+
+  if (!matchDate) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  matchDate.setHours(0, 0, 0, 0);
+
+  return today.getTime() >= matchDate.getTime();
+};
+
 export const CalendarioTab: React.FC<CalendarioTabProps> = ({
   calendario,
   selectedTeamFilter,
@@ -149,9 +185,8 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                       <div className="match-card-top">
                         <div className="match-card-top-left">
                           <span
-                            className={`match-phase-badge ${
-                              m.tipo === 'andata' ? 'phase-andata' : 'phase-ritorno'
-                            }`}
+                            className={`match-phase-badge ${m.tipo === 'andata' ? 'phase-andata' : 'phase-ritorno'
+                              }`}
                           >
                             {m.tipo.toUpperCase()}
                           </span>
@@ -201,13 +236,12 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                           </div>
 
                           <div
-                            className={`match-card-score-box ${
-                              isCasaWinner
+                            className={`match-card-score-box ${isCasaWinner
                                 ? 'score-winner'
                                 : m.disputato
-                                ? 'score-played'
-                                : 'score-pending'
-                            }`}
+                                  ? 'score-played'
+                                  : 'score-pending'
+                              }`}
                           >
                             {m.disputato ? (m.puntiCasa !== null ? m.puntiCasa : '-') : '-'}
                           </div>
@@ -239,13 +273,12 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                           </div>
 
                           <div
-                            className={`match-card-score-box ${
-                              isOspiteWinner
+                            className={`match-card-score-box ${isOspiteWinner
                                 ? 'score-winner'
                                 : m.disputato
-                                ? 'score-played'
-                                : 'score-pending'
-                            }`}
+                                  ? 'score-played'
+                                  : 'score-pending'
+                              }`}
                           >
                             {m.disputato ? (m.puntiOspite !== null ? m.puntiOspite : '-') : '-'}
                           </div>
@@ -267,7 +300,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                           )}
                         </div>
 
-                        {m.refertoUrl && Date.now() > new Date(m.data).getTime() && (
+                        {m.refertoUrl && shouldShowReferto(m) && (
                           <a
                             href={m.refertoUrl}
                             target="_blank"
