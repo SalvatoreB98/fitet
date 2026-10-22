@@ -953,7 +953,7 @@ body {
    ========================================================================== */
 
 .portal-main {
-  min-height: 560px;
+  min-height: 70vh;
   position: relative;
   background: var(--bg-container);
 }
