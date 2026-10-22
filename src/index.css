@@ -19,8 +19,8 @@ html {
 }
 
 :root {
-  --font-serif: 'Lora', Georgia, 'Times New Roman', serif;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   /* Modern Federal Navy Palette */
   --color-primary-900: #0a192f;
@@ -183,19 +183,19 @@ body {
   transition: box-shadow 0.25s ease;
 }
 
-/* Header with Refined Federal Gradient */
+/* Header with Clean Federal Solid Background */
 .portal-header {
   position: relative;
   z-index: 200;
-  background: linear-gradient(135deg, #0e2744 0%, #163c67 55%, #1d518a 100%);
+  background: #0f1e36;
   color: #ffffff;
   padding: 14px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 2px 8px rgba(10, 25, 47, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 1px 4px rgba(10, 25, 47, 0.12);
 }
 
 .portal-header-logo {
@@ -757,9 +757,9 @@ body {
 }
 
 .theme-toggle-pill.is-dark .theme-toggle-track {
-  background: linear-gradient(135deg, rgba(7, 16, 34, 0.88) 0%, rgba(16, 34, 70, 0.8) 100%);
+  background: #0b1526;
   border-color: rgba(96, 165, 250, 0.42);
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.45), 0 0 10px rgba(59, 130, 246, 0.35);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 
 .theme-toggle-icon {
@@ -817,12 +817,12 @@ body {
     border-color 0.35s ease;
 }
 
-/* Light Mode Thumb: Radiant Golden Sun */
+/* Light Mode Thumb: Clean Sun Pill */
 .theme-toggle-pill.is-light .theme-toggle-thumb {
   transform: translateX(0);
-  background: linear-gradient(135deg, #ffffff 0%, #fef3c7 100%);
-  border: 1px solid #fcd34d;
-  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.45), 0 1px 3px rgba(0, 0, 0, 0.2);
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .theme-toggle-pill.is-light .theme-toggle-thumb i {
@@ -831,12 +831,12 @@ body {
   animation: sunSpinIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Dark Mode Thumb: Glowing Celestial Moon */
+/* Dark Mode Thumb: Clean Moon Pill */
 .theme-toggle-pill.is-dark .theme-toggle-thumb {
   transform: translateX(25px);
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border: 1px solid rgba(96, 165, 250, 0.55);
-  box-shadow: 0 2px 8px rgba(30, 58, 138, 0.75), 0 0 12px rgba(96, 165, 250, 0.5);
+  background: #1e293b;
+  border: 1px solid #334155;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .theme-toggle-pill.is-dark .theme-toggle-thumb i {
@@ -1358,15 +1358,21 @@ body {
 
 .giornata-badge-pill {
   font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  background: var(--color-primary-600, #2563eb);
+  background: #0f1e36;
   color: #ffffff;
   padding: 3px 10px;
   border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .giornata-badge-pill {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #f1f5f9;
 }
 
 .giornata-phase-text {
@@ -1725,8 +1731,8 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 11px 16px;
-  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-  border-bottom: 1.5px solid #cbd5e1;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 700;
@@ -1736,17 +1742,17 @@ body {
   flex-wrap: wrap;
 }
 
-/* Official Header (Elevated Federal Gradient) */
+/* Official Header (Solid Federal Header) */
 .ranking-section-header.official-header {
-  background: linear-gradient(135deg, #0e2744 0%, #163d6b 60%, #1d538e 100%);
+  background: #0f1e36;
   color: #ffffff;
   padding: 12px 16px;
-  border-bottom: 2.5px solid #f59e0b;
+  border-bottom: 2px solid #f59e0b;
 }
 
 [data-theme="dark"] .ranking-section-header.official-header {
-  background: linear-gradient(135deg, #071326 0%, #10264e 60%, #16366b 100%);
-  border-bottom: 2.5px solid #f59e0b;
+  background: #0b1526;
+  border-bottom: 2px solid #f59e0b;
 }
 
 .official-title-group {
@@ -1756,16 +1762,15 @@ body {
 }
 
 .official-crown {
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
 .official-main-title {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 14.5px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.01em;
   color: #ffffff;
   line-height: 1.25;
 }
@@ -1774,12 +1779,12 @@ body {
   font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 400;
-  color: #bfdbfe;
+  color: #94a3b8;
   margin-top: 2px;
 }
 
 [data-theme="dark"] .official-main-sub {
-  color: #93c5fd;
+  color: #8899b5;
 }
 
 .official-badge-group {
@@ -1790,43 +1795,40 @@ body {
 }
 
 .badge-official-gold {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  background: #fef3c7;
   color: #92400e;
   border: 1px solid #fcd34d;
-  font-weight: 800;
+  font-weight: 700;
   font-size: 10.5px;
   padding: 3px 8px;
   border-radius: 9999px;
   letter-spacing: 0.02em;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   white-space: nowrap;
 }
 
 [data-theme="dark"] .badge-official-gold {
-  background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
+  background: #2e1a05;
   color: #fef08a;
-  border: 1px solid #f59e0b;
+  border: 1px solid #b45309;
 }
 
 /* Points Badge in Primary Official Standings */
 .badge-points-official {
-  background: linear-gradient(135deg, #0e2744 0%, #163d6b 100%);
+  background: #0f1e36;
   color: #ffffff;
   border: 1px solid #3b82f6;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 3px 9px;
   border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(14, 39, 68, 0.2);
   display: inline-block;
   min-width: 44px;
 }
 
 [data-theme="dark"] .badge-points-official {
-  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+  background: #1e3a8a;
   color: #ffffff;
   border: 1px solid #60a5fa;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
 }
 
 /* Official Card Footer Explanatory Note */
@@ -1978,16 +1980,16 @@ body {
 }
 
 .ranking-section-header.secondary-header {
-  background: linear-gradient(180deg, #f8fafc 0%, #edf2f7 100%);
+  background: #f8fafc;
   color: #334155;
-  border-bottom: 1px solid #cbd5e1;
-  padding: 9px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 14px;
 }
 
 [data-theme="dark"] .ranking-section-header.secondary-header {
-  background: linear-gradient(180deg, #0e182e 0%, #0a1324 100%);
+  background: #0d1729;
   color: #cbd5e1;
-  border-bottom-color: #1a2d52;
+  border-bottom: 1px solid #1a2d52;
 }
 
 .secondary-title-group {
@@ -2181,20 +2183,19 @@ body {
 }
 
 .pos-gold {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  background: #fef3c7;
   color: #92400e;
   border: 1px solid #fcd34d;
-  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.25);
 }
 
 .pos-silver {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  background: #f1f5f9;
   color: #334155;
   border: 1px solid #cbd5e1;
 }
 
 .pos-bronze {
-  background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%);
+  background: #ffedd5;
   color: #9a3412;
   border: 1px solid #fdba74;
 }
@@ -2325,10 +2326,12 @@ body.modal-open {
 }
 
 /* ==========================================================================
-   UNIFIED RED-ACCENT MODAL CLOSE BUTTON ("X")
+   UNIFIED CLEAN MINIMALIST MODAL CLOSE BUTTON ("X") - NOT RED
    ========================================================================== */
+.modal-close-btn,
 .modal-close-btn-red,
-.championship-modal-close {
+.championship-modal-close,
+.modal-close-btn-simple {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2337,80 +2340,63 @@ body.modal-open {
   min-width: 32px;
   min-height: 32px;
   border-radius: 8px;
-  background: #dc2626;
-  border: 1px solid #b91c1c;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   color: #ffffff !important;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1);
-  padding: 0;
-  margin: 0;
-  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.32);
-  flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-}
-
-/* Inside dark gradient headers (.modal-header-simple) */
-.modal-header-simple .modal-close-btn-red {
-  background: #dc2626;
-  border-color: #ef4444;
-  color: #ffffff !important;
-  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.45);
-}
-
-.modal-close-btn-red:hover,
-.championship-modal-close:hover {
-  background: #b91c1c !important;
-  border-color: #991b1b !important;
-  color: #ffffff !important;
-  transform: scale(1.08);
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.45);
-}
-
-.modal-close-btn-red:active,
-.championship-modal-close:active {
-  transform: scale(0.92);
-  background: #991b1b !important;
-  border-color: #7f1d1d !important;
-}
-
-/* Discreet, elegant modal close button ("X") */
-.modal-close-btn-simple {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  min-width: 30px;
-  min-height: 30px;
-  border-radius: 6px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: rgba(255, 255, 255, 0.75) !important;
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
   transition: all 0.15s ease;
   padding: 0;
   margin: 0;
+  box-shadow: none !important;
   flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
 }
 
-.modal-close-btn-simple:hover {
-  background: rgba(255, 255, 255, 0.14);
+.modal-header-simple .modal-close-btn,
+.modal-header-simple .modal-close-btn-red,
+.modal-header-simple .championship-modal-close,
+.modal-header-simple .modal-close-btn-simple {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   color: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: none !important;
 }
 
+.modal-close-btn:hover,
+.modal-close-btn-red:hover,
+.championship-modal-close:hover,
+.modal-close-btn-simple:hover {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: #ffffff !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.modal-close-btn:active,
+.modal-close-btn-red:active,
+.championship-modal-close:active,
 .modal-close-btn-simple:active {
-  transform: scale(0.92);
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.25) !important;
+  transform: scale(0.95) !important;
+}
+
+/* Light header close button adaptation (e.g. Championship modal) */
+.championship-modal-header .modal-close-btn,
+.championship-modal-header .championship-modal-close {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569 !important;
+}
+
+.championship-modal-header .modal-close-btn:hover,
+.championship-modal-header .championship-modal-close:hover {
+  background: #e2e8f0 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
 }
 
 @keyframes backdropIn {
@@ -2461,16 +2447,16 @@ body.modal-open {
   top: 0;
   z-index: 100;
   flex-shrink: 0;
-  background: linear-gradient(135deg, #0e2744 0%, #163c67 100%);
+  background: #0f1e36;
   color: #ffffff;
   padding: 14px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   border-top-left-radius: 11px;
   border-top-right-radius: 11px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .modal-header-simple h3 {
@@ -2549,9 +2535,9 @@ body.modal-open {
    COMPREHENSIVE DARK MODE (data-theme="dark") COMPONENT OVERRIDES
    ========================================================================== */
 [data-theme="dark"] .portal-header {
-  background: linear-gradient(135deg, #050b16 0%, #0c1830 50%, #122444 100%);
+  background: #091322;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
 [data-theme="dark"] .portal-nav {
@@ -2818,26 +2804,27 @@ body.modal-open {
 }
 
 [data-theme="dark"] .modal-header-simple {
-  background: linear-gradient(135deg, #050b16 0%, #0e1e3e 100%);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  background: #08101e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 [data-theme="dark"] .pos-silver {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  background: #1e293b;
   color: #cbd5e1;
   border-color: #475569;
 }
 
 [data-theme="dark"] .pos-gold {
-  background: linear-gradient(135deg, #78350f 0%, #451a03 100%);
+  background: #451a03;
   color: #fef08a;
-  border-color: #f59e0b;
+  border-color: #b45309;
 }
 
 [data-theme="dark"] .pos-bronze {
-  background: linear-gradient(135deg, #7c2d12 0%, #431407 100%);
+  background: #431407;
   color: #fdba74;
-  border-color: #ea580c;
+  border-color: #9a3412;
 }
 
 [data-theme="dark"] .bg-body {
@@ -2967,8 +2954,8 @@ body.modal-open {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 20px;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border: 1px solid var(--border-color);
+  background: #f8fafc;
+  border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 10px;
   margin-bottom: 16px;
 }
@@ -3014,7 +3001,8 @@ body.modal-open {
 
 .referto-team-name {
   margin: 0;
-  font-size: 15px;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--text-dark);
   line-height: 1.25;
@@ -3659,8 +3647,8 @@ body.modal-open {
 
 /* Dark Mode Overrides for Referto */
 [data-theme="dark"] .referto-hero-card {
-  background: linear-gradient(135deg, #0e1a32 0%, #091224 100%);
-  border-color: #1a2d52;
+  background: #0f1a2e;
+  border-color: #1e2f50;
 }
 
 [data-theme="dark"] .referto-logo-wrapper {
@@ -4304,15 +4292,15 @@ body.modal-open {
 .championship-modal-header .header-icon-box {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  border-radius: 10px;
+  background: #0f1e36;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  box-shadow: none;
 }
 
 .championship-modal-header .header-titles {
@@ -4754,19 +4742,28 @@ body.modal-open {
   color: #f1f5f9;
 }
 
+[data-theme="dark"] .championship-modal-header .header-icon-box {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #93c5fd;
+}
+
 [data-theme="dark"] .championship-modal-close,
-[data-theme="dark"] .modal-close-btn-red {
-  background: #dc2626;
-  border-color: #ef4444;
+[data-theme="dark"] .modal-close-btn-red,
+[data-theme="dark"] .modal-close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
   color: #ffffff !important;
-  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.45);
+  box-shadow: none !important;
 }
 
 [data-theme="dark"] .championship-modal-close:hover,
-[data-theme="dark"] .modal-close-btn-red:hover {
-  background: #b91c1c !important;
-  border-color: #991b1b !important;
+[data-theme="dark"] .modal-close-btn-red:hover,
+[data-theme="dark"] .modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
   color: #ffffff !important;
+  transform: none !important;
 }
 
 /* Mobile Responsiveness for Championship Modal */

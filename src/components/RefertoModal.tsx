@@ -180,7 +180,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
             </button>
             <button
               type="button"
-              className="modal-close-btn-red"
+              className="modal-close-btn"
               onClick={onClose}
               title="Chiudi finestra (ESC)"
               aria-label="Chiudi finestra"

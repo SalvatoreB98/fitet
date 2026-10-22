@@ -273,17 +273,17 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
             type="button"
             className={`sub-pill-btn ${viewMode === 'responsive' ? 'active' : ''}`}
             onClick={() => setViewMode('responsive')}
-            title="Classifica ufficiale e sezioni separate senza scroll"
+            title="Classifica ufficiale e viste di dettaglio"
           >
-            <i className="bi bi-view-list me-1"></i> Classifiche separate
+            <i className="bi bi-view-list me-1"></i> Viste Separate
           </button>
           <button
             type="button"
             className={`sub-pill-btn ${viewMode === 'completa' ? 'active' : ''}`}
             onClick={() => setViewMode('completa')}
-            title="Tabellone unico 10 colonne per schermi ampi"
+            title="Tabellone con tutte le metriche"
           >
-            <i className="bi bi-table me-1"></i> Tabellone (10 Col.)
+            <i className="bi bi-table me-1"></i> Tabellone Completo
           </button>
         </div>
       </div>
@@ -299,15 +299,10 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                   <i className="bi bi-trophy-fill text-warning"></i>
                 </span>
                 <div>
-                  <div className="official-main-title">CLASSIFICA FITeT</div>
-                  <div className="official-main-sub">
-                  </div>
+                  <div className="official-main-title">Classifica Ufficiale</div>
                 </div>
               </div>
               <div className="official-badge-group">
-                <span className="badge-official-gold">
-                  <i className="bi bi-star-fill"></i>
-                </span>
                 <span className="section-badge">{sortedUfficialeTeams.length} squadre</span>
               </div>
             </div>
@@ -408,9 +403,8 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
           <div className="ranking-card-block secondary-stats">
             <div className="ranking-section-header secondary-header">
               <div className="secondary-title-group">
-                <span className="secondary-tag">APPROFONDIMENTO 1</span>
                 <span>
-                  <i className="bi bi-bar-chart-line-fill me-1"></i> Bilancio Gare &amp; Stato di Forma
+                  <i className="bi bi-bar-chart-line-fill me-2 text-primary"></i>Bilancio Gare &amp; Stato di Forma
                 </span>
               </div>
               <span className="section-badge">IV: Vinte • IP: Perse</span>
@@ -501,9 +495,8 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
           <div className="ranking-card-block secondary-stats">
             <div className="ranking-section-header secondary-header">
               <div className="secondary-title-group">
-                <span className="secondary-tag">APPROFONDIMENTO 2</span>
                 <span>
-                  <i className="bi bi-bullseye me-1"></i> Differenziali Partite, Set &amp; Punti Gioco
+                  <i className="bi bi-bullseye me-2 text-primary"></i>Differenziali Partite, Set &amp; Punti
                 </span>
               </div>
               <span className="section-badge">Partite • Set • Punti</span>
@@ -601,13 +594,10 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                   <i className="bi bi-trophy-fill text-warning"></i>
                 </span>
                 <div>
-                  <div className="official-main-title">CLASSIFICA - TUTTE LE METRICHE</div>
+                  <div className="official-main-title">Tabellone Completo Classifica</div>
                 </div>
               </div>
               <div className="official-badge-group">
-                <span className="badge-official-gold">
-                  <i className="bi bi-star-fill me-1"></i> VALORE FEDERALE
-                </span>
                 <span className="section-badge">{sortedCompletaTeams.length} squadre</span>
               </div>
             </div>

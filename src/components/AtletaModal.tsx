@@ -173,7 +173,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           </div>
           <button
             type="button"
-            className="modal-close-btn-simple"
+            className="modal-close-btn"
             onClick={onClose}
             title="Chiudi finestra (ESC)"
             aria-label="Chiudi finestra"

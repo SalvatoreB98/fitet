@@ -425,7 +425,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
           </div>
           <button
             type="button"
-            className="championship-modal-close"
+            className="modal-close-btn"
             onClick={onClose}
             aria-label="Chiudi finestra"
             title="Chiudi finestra (ESC)"

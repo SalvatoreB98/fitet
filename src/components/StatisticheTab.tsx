@@ -429,17 +429,17 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
             type="button"
             className={`sub-pill-btn ${subRanking === 'all' ? 'active' : ''}`}
             onClick={() => setSubRanking('all')}
-            title="Visualizza tutte le classifiche separate impilate sotto"
+            title="Visualizza tutte le classifiche"
           >
-            <i className="bi bi-view-stacked me-1"></i> Tutte le Classifiche (Sotto)
+            <i className="bi bi-view-stacked me-1"></i> Tutte le Viste
           </button>
           <button
             type="button"
             className={`sub-pill-btn ${subRanking === 'full' ? 'active' : ''}`}
             onClick={() => setSubRanking('full')}
-            title="Tabellone completo 11 colonne per monitor ampi"
+            title="Tabellone completo con tutte le metriche"
           >
-            <i className="bi bi-table me-1"></i> Tabellone (11 Col.)
+            <i className="bi bi-table me-1"></i> Tabellone Completo
           </button>
 
         </div>
@@ -459,16 +459,13 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
                   <i className="bi bi-trophy-fill text-warning"></i>
                 </span>
                 <div>
-                  <div className="official-main-title"> PERCENTUALE VITTORIE (%pv)</div>
+                  <div className="official-main-title">Percentuale Vittorie (%pv)</div>
                   <div className="official-main-sub">
-                    Graduatoria di Rendimento Ufficiale FITeT • Criterio Federale di Efficienza Singolare
+                    Classifica di rendimento atleti nei singolari disputati
                   </div>
                 </div>
               </div>
               <div className="official-badge-group">
-                <span className="badge-official-gold">
-                  <i className="bi bi-star-fill me-1"></i> RANKING PRINCIPALE
-                </span>
                 <span className="section-badge">{sortedPctAthletes.length} atleti</span>
               </div>
             </div>
@@ -569,9 +566,8 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
           <div className="ranking-card-block secondary-stats">
             <div className="ranking-section-header secondary-header">
               <div className="secondary-title-group">
-                <span className="secondary-tag">APPROFONDIMENTO 1</span>
                 <span>
-                  <i className="bi bi-award-fill me-1"></i> Singolari Più Vincenti (Partite Vinte &amp; Perse)
+                  <i className="bi bi-award-fill me-2 text-primary"></i>Singolari Più Vincenti
                 </span>
               </div>
               <span className="section-badge">{sortedVinteAthletes.length} atleti</span>
@@ -667,9 +663,8 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
           <div className="ranking-card-block secondary-stats">
             <div className="ranking-section-header secondary-header">
               <div className="secondary-title-group">
-                <span className="secondary-tag">APPROFONDIMENTO 2</span>
                 <span>
-                  <i className="bi bi-bullseye me-1"></i> Differenziali Set e Punti Gioco Vinti/Persi
+                  <i className="bi bi-bullseye me-2 text-primary"></i>Differenziali Set &amp; Punti
                 </span>
               </div>
               <span className="section-badge">{sortedSetAthletes.length} atleti</span>

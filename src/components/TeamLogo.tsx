@@ -65,7 +65,7 @@ export const TeamLogo: React.FC<TeamLogoProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           borderRadius: '6px',
-          background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.08) 0%, rgba(2, 132, 199, 0.12) 100%)',
+          background: 'var(--bg-th, #f1f5f9)',
           border: '1px solid var(--border-color, #cbd5e1)',
           color: 'var(--color-primary-600, #0284c7)',
           fontWeight: 700,
