@@ -157,24 +157,35 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
             ))}
           </select>
 
-          {/* Team Select */}
-          <select
-            value={selectedTeamFilter || ''}
-            onChange={(e) => onSelectTeamFilter(e.target.value)}
-          >
-            <option value="">Tutte le squadre</option>
-            {allTeams.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-
-          {selectedTeamFilter && (
-            <button className="btn-action" onClick={onClearTeamFilter}>
-              Rimuovi filtro: {selectedTeamFilter} ✕
-            </button>
-          )}
+          {/* Team Select with embedded Clear Button */}
+          <div className="select-clearable-wrapper">
+            <select
+              value={selectedTeamFilter || ''}
+              onChange={(e) => onSelectTeamFilter(e.target.value)}
+              className={selectedTeamFilter ? 'has-clear' : ''}
+            >
+              <option value="">Tutte le squadre</option>
+              {allTeams.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+            {selectedTeamFilter && (
+              <button
+                type="button"
+                className="select-clear-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClearTeamFilter();
+                }}
+                title={`Rimuovi filtro: ${selectedTeamFilter}`}
+                aria-label={`Rimuovi filtro: ${selectedTeamFilter}`}
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="controls-right text-muted" style={{ fontSize: '12px' }}>
