@@ -11,6 +11,7 @@ import { ChampionshipModal } from './components/ChampionshipModal';
 import { SquadraModal } from './components/SquadraModal';
 import { IntroMotionGraphic } from './components/IntroMotionGraphic';
 import { CercaAtletaTab } from './components/CercaAtletaTab';
+import { FavoritesModal } from './components/FavoritesModal';
 import { registerTeamLogos } from './utils/teamLogos';
 
 export const App: React.FC = () => {
@@ -43,6 +44,7 @@ export const App: React.FC = () => {
   const [campionati, setCampionati] = useState<ChampionshipItem[]>([]);
   const [loadingCampionati, setLoadingCampionati] = useState<boolean>(false);
   const [isChampionshipModalOpen, setIsChampionshipModalOpen] = useState<boolean>(false);
+  const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState<boolean>(false);
 
   // Motion Graphic Intro on first access only
   const [showIntro, setShowIntro] = useState<boolean>(() => {
@@ -273,6 +275,7 @@ export const App: React.FC = () => {
         championshipName={data?.championship.nome}
         championshipRegion={data?.championship.regione}
         onOpenChampionshipModal={() => setIsChampionshipModalOpen(true)}
+        onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
       />
 
       {/* Clean scenario when no championship is selected yet */}
@@ -421,6 +424,14 @@ export const App: React.FC = () => {
         isLoadingCampionati={loadingCampionati}
         onClose={() => setIsChampionshipModalOpen(false)}
         onSelectChampionship={handleSelectChampionship}
+      />
+
+      {/* Favorite Athletes Modal */}
+      <FavoritesModal
+        isOpen={isFavoritesModalOpen}
+        onClose={() => setIsFavoritesModalOpen(false)}
+        onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+        onGoToSearch={() => handleTabChange('cercaAtleta')}
       />
 
       {/* Athlete Detail Profile Modal */}

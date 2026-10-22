@@ -342,6 +342,62 @@ body {
   z-index: 100;
 }
 
+/* Quick Favorite Star Button in Portal Header */
+.portal-quick-fav-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  outline: none;
+  color: #ffffff;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  font-size: 17px;
+}
+
+.portal-quick-fav-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.portal-quick-fav-btn:active {
+  transform: scale(0.94);
+}
+
+.portal-quick-fav-btn.has-favorites {
+  color: #fbbf24;
+}
+
+.portal-quick-fav-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #f59e0b;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  border: 1.5px solid #1e3a8a;
+}
+
 /* Burger Button */
 .portal-burger-btn {
   position: relative;
@@ -574,6 +630,31 @@ body {
 [data-theme="dark"] .burger-item-icon-box.icon-trophy {
   background: rgba(245, 158, 11, 0.2);
   color: #fbbf24;
+}
+
+.burger-item-icon-box.icon-star {
+  background: rgba(245, 158, 11, 0.14);
+  color: #d97706;
+}
+
+[data-theme="dark"] .burger-item-icon-box.icon-star {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fbbf24;
+}
+
+.burger-item-badge-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+  letter-spacing: 0.02em;
+}
+
+[data-theme="dark"] .burger-item-badge-count {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fde047;
 }
 
 .burger-item-icon-box.icon-sun {
@@ -2462,6 +2543,202 @@ body.modal-open {
 
 [data-theme="dark"] .hover-row-highlight:hover {
   background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ==========================================================================
+   MODAL FAVORITE ATHLETES BUTTON & CARDS
+   ========================================================================== */
+.modal-favorite-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.modal-favorite-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.24);
+  transform: translateY(-1px);
+}
+
+.modal-favorite-toggle-btn.is-favorited {
+  background: rgba(251, 191, 36, 0.22);
+  border-color: rgba(251, 191, 36, 0.45);
+  color: #ffffff;
+}
+
+.modal-favorite-toggle-btn.is-favorited i {
+  color: #fbbf24;
+}
+
+.favorite-athlete-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  outline: none;
+}
+
+.favorite-athlete-card:hover {
+  border-color: var(--color-primary-500, #3b82f6);
+  background: var(--bg-hover, #f8fafc);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.favorite-athlete-card:focus-visible {
+  border-color: var(--color-primary-500, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+[data-theme="dark"] .favorite-athlete-card {
+  background: #111827;
+  border-color: #1f2937;
+}
+
+[data-theme="dark"] .favorite-athlete-card:hover {
+  background: #1e293b;
+  border-color: #3b82f6;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.favorite-card-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-th, #f1f5f9);
+  border: 1px solid var(--border-color, #e2e8f0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.favorite-card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.favorite-card-initials {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-muted, #64748b);
+}
+
+.favorite-card-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.favorite-card-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-theme="dark"] .favorite-card-name {
+  color: #f8fafc;
+}
+
+.favorite-card-sub {
+  font-size: 11.5px;
+  color: var(--text-muted, #64748b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+}
+
+.favorite-card-tags {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+
+.favorite-card-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-th, #f1f5f9);
+  color: var(--text-muted, #64748b);
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.favorite-card-tag.ranking-tag {
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+.favorite-card-tag.points-tag {
+  background: rgba(16, 185, 129, 0.08);
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+[data-theme="dark"] .favorite-card-tag {
+  background: #1f2937;
+  border-color: #374151;
+  color: #9ca3af;
+}
+
+[data-theme="dark"] .favorite-card-tag.ranking-tag {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .favorite-card-tag.points-tag {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.favorite-card-star-btn {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  border-radius: 50%;
+  color: #fbbf24;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.favorite-card-star-btn:hover {
+  transform: scale(1.2);
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
 }
 
 /* ==========================================================================

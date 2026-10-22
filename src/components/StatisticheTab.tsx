@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { StatisticaAtleta } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
 import { AthleteAvatar } from './AthleteAvatar';
+import { useFavoriteAthletes } from '../utils/favorites';
 
 interface StatisticheTabProps {
   statistiche: StatisticaAtleta[];
@@ -28,6 +29,7 @@ export interface AthleteWithRanking extends StatisticaAtleta {
 
 
 export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onOpenAtletaModal }) => {
+  const { isFavorite, toggleFavorite } = useFavoriteAthletes();
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -284,44 +286,79 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
     return 'pct-zero';
   };
 
-  // Athlete Name Cell with Photo & Optional Foreign Badge
-  const renderAthleteNameCell = (a: StatisticaAtleta) => (
-    <div className="grid-cell text-left" style={{ paddingLeft: '6px', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '7px', overflow: 'hidden', width: '100%' }}>
-        <AthleteAvatar atletaId={a.atletaId} nome={a.atleta} />
-        <span
-          style={{
-            fontWeight: '600',
-            fontSize: '12.5px',
-            color: 'var(--text-dark)',
-            whiteSpace: 'nowrap',
-            textOverflow: 'ellipsis',
-            overflow: 'hidden',
-          }}
-          title={a.atleta}
-        >
-          {a.atleta}
-        </span>
-        {a.nazionalita && a.nazionalita !== 'IT' && (
-          <span
+  // Athlete Name Cell with Photo, Star Toggle & Optional Foreign Badge
+  const renderAthleteNameCell = (a: StatisticaAtleta) => {
+    const athleteKey = a.atletaId || a.atleta;
+    const isFav = isFavorite(athleteKey) || isFavorite(a.atleta);
+
+    return (
+      <div className="grid-cell text-left" style={{ paddingLeft: '6px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', width: '100%' }}>
+          <button
+            type="button"
+            className="athlete-row-star-btn"
             style={{
-              fontSize: '9.5px',
-              fontWeight: '700',
-              padding: '1px 4px',
-              borderRadius: '3px',
-              background: '#fee2e2',
-              color: '#b91c1c',
-              border: '1px solid #fecaca',
+              background: 'none',
+              border: 'none',
+              padding: '2px',
+              cursor: 'pointer',
+              fontSize: '12.5px',
+              color: isFav ? '#f59e0b' : 'var(--text-muted, #94a3b8)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: isFav ? 1 : 0.45,
+              transition: 'all 0.15s ease',
               flexShrink: 0,
             }}
-            title={`Nazionalità: ${a.nazionalita}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFavorite({
+                id: a.atletaId || a.atleta,
+                name: a.atleta,
+                squadra: a.squadra,
+              });
+            }}
+            title={isFav ? `Rimuovi ${a.atleta} dai preferiti` : `Aggiungi ${a.atleta} ai preferiti`}
+            aria-label={isFav ? `Rimuovi ${a.atleta} dai preferiti` : `Aggiungi ${a.atleta} ai preferiti`}
           >
-            {a.nazionalita}
+            <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
+          </button>
+          <AthleteAvatar atletaId={a.atletaId} nome={a.atleta} />
+          <span
+            style={{
+              fontWeight: '600',
+              fontSize: '12.5px',
+              color: 'var(--text-dark)',
+              whiteSpace: 'nowrap',
+              textOverflow: 'ellipsis',
+              overflow: 'hidden',
+            }}
+            title={a.atleta}
+          >
+            {a.atleta}
           </span>
-        )}
+          {a.nazionalita && a.nazionalita !== 'IT' && (
+            <span
+              style={{
+                fontSize: '9.5px',
+                fontWeight: '700',
+                padding: '1px 4px',
+                borderRadius: '3px',
+                background: '#fee2e2',
+                color: '#b91c1c',
+                border: '1px solid #fecaca',
+                flexShrink: 0,
+              }}
+              title={`Nazionalità: ${a.nazionalita}`}
+            >
+              {a.nazionalita}
+            </span>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Common Action Button with comfortable width and centering
   const renderSchedaButton = (a: StatisticaAtleta) => (

@@ -6,6 +6,7 @@ import { RatingChart } from './RatingChart';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { MarqueeText } from './MarqueeText';
 import { recordAndGetAthleteViews } from '../utils/athleteViews';
+import { useFavoriteAthletes } from '../utils/favorites';
 
 interface AtletaModalProps {
   atletaId: string;
@@ -27,6 +28,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   onSelectAthlete,
 }) => {
   useBodyScrollLock(true);
+  const { isFavorite, toggleFavorite } = useFavoriteAthletes();
 
   const [atleta, setAtleta] = useState<DettaglioAtleta | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -34,6 +36,23 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [imgError, setImgError] = useState<boolean>(false);
   const [viewsCount, setViewsCount] = useState<number>(0);
   const lastTrackedKeyRef = useRef<string | null>(null);
+
+  const currentAtletaId = atleta?.id || atletaId;
+  const currentAthleteName = atleta?.anagrafica?.nome || athleteName || 'Atleta';
+  const isFav = isFavorite(currentAtletaId) || isFavorite(currentAthleteName);
+
+  const handleToggleFavorite = () => {
+    toggleFavorite({
+      id: currentAtletaId,
+      name: currentAthleteName,
+      squadra: atleta?.anagrafica?.societa || squadraCampionato || undefined,
+      ranking: atleta?.storicoClassifica?.[0]?.posizione ?? undefined,
+      punti: atleta?.anagrafica?.punti ?? undefined,
+      categoria: atleta?.anagrafica?.categoria ?? undefined,
+      dataNascita: atleta?.anagrafica?.dataNascita ?? undefined,
+      fotoUrl: atleta?.anagrafica?.fotoUrl ?? undefined,
+    });
+  };
 
   useEffect(() => {
     const key = (atletaId || athleteName || '').toLowerCase().trim();
@@ -171,15 +190,29 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            className="modal-close-btn"
-            onClick={onClose}
-            title="Chiudi finestra (ESC)"
-            aria-label="Chiudi finestra"
-          >
-            <i className="bi bi-x-lg"></i>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            <button
+              type="button"
+              className={`modal-favorite-toggle-btn ${isFav ? 'is-favorited' : ''}`}
+              onClick={handleToggleFavorite}
+              title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+              aria-label={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+            >
+              <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
+              <span className="modal-favorite-btn-text d-none d-sm-inline">
+                {isFav ? 'Preferito' : 'Preferiti'}
+              </span>
+            </button>
+            <button
+              type="button"
+              className="modal-close-btn"
+              onClick={onClose}
+              title="Chiudi finestra (ESC)"
+              aria-label="Chiudi finestra"
+            >
+              <i className="bi bi-x-lg"></i>
+            </button>
+          </div>
         </div>
 
         {/* Modal Body */}

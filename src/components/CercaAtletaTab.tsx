@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AthleteSearchResult } from '../types/fitet';
 import { searchAtleti } from '../services/api';
+import { useFavoriteAthletes } from '../utils/favorites';
 import './CercaAtletaTab.css';
 
 interface CercaAtletaTabProps {
@@ -14,6 +15,7 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
   compactMode = false,
   autoFocus = false,
 }) => {
+  const { favorites, isFavorite, toggleFavorite } = useFavoriteAthletes();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<AthleteSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -163,6 +165,105 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
         )}
       </div>
 
+      {/* Pinned Favorite Athletes Shelf when idle / no active search */}
+      {!hasSearched && favorites.length > 0 && (
+        <div className="cerca-atleta-favorites-section">
+          <div className="cerca-atleta-favorites-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <i className="bi bi-star-fill text-warning" style={{ fontSize: '16px' }}></i>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, fontFamily: 'var(--font-serif)', color: 'var(--text-main, #0f172a)' }}>
+                I Tuoi Atleti Preferiti
+              </h3>
+              <span className="cerca-atleta-favorites-count-badge">
+                {favorites.length}
+              </span>
+            </div>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted, #64748b)' }}>
+              Accesso rapido alle schede
+            </span>
+          </div>
+
+          <div className="cerca-atleta-favorites-grid">
+            {favorites.map((fav) => {
+              const hasImgError = failedImgs[fav.id];
+              const fotoUrl = fav.fotoUrl || `https://portale.fitet.org/images/atleti/${fav.id}.jpg`;
+              return (
+                <div
+                  key={fav.id}
+                  className="cerca-atleta-card is-fav-shelf-card"
+                  onClick={() => onOpenAtletaModal(fav.id, fav.name)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onOpenAtletaModal(fav.id, fav.name);
+                    }
+                  }}
+                  title={`Apri la scheda di ${fav.name}`}
+                >
+                  <div className="cerca-atleta-avatar">
+                    {!hasImgError ? (
+                      <img
+                        src={fotoUrl}
+                        alt={fav.name}
+                        onError={() => handleImageError(fav.id)}
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="cerca-atleta-initials">{getInitials(fav.name)}</span>
+                    )}
+                  </div>
+                  <div className="cerca-atleta-info">
+                    <div className="cerca-atleta-name" title={fav.name}>
+                      {fav.name}
+                    </div>
+                    <div className="cerca-atleta-badges">
+                      {fav.squadra && (
+                        <span className="cerca-atleta-badge team-badge" title={fav.squadra}>
+                          <i className="bi bi-shield-shaded"></i> {fav.squadra}
+                        </span>
+                      )}
+                      {fav.ranking && (
+                        <span className="cerca-atleta-badge ranking-badge">
+                          #{fav.ranking}
+                        </span>
+                      )}
+                      {fav.punti !== undefined && (
+                        <span className="cerca-atleta-badge points-badge">
+                          {fav.punti} pt
+                        </span>
+                      )}
+                      <span className="cerca-atleta-badge">
+                        <i className="bi bi-hash"></i> {fav.id}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="cerca-atleta-card-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className="cerca-atleta-star-btn is-favorited"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(fav);
+                      }}
+                      title="Rimuovi dai preferiti"
+                      aria-label="Rimuovi dai preferiti"
+                    >
+                      <i className="bi bi-star-fill text-warning"></i>
+                    </button>
+                    <div className="cerca-atleta-action" aria-hidden="true">
+                      <i className="bi bi-chevron-right"></i>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Results Header */}
       {hasSearched && (
         <div className="cerca-atleta-results-bar">
@@ -235,9 +336,29 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
                   </div>
                 </div>
 
-                {/* Right Arrow Action */}
-                <div className="cerca-atleta-action" aria-hidden="true">
-                  <i className="bi bi-chevron-right"></i>
+                {/* Right Arrow Action & Star button */}
+                <div className="cerca-atleta-card-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={`cerca-atleta-star-btn ${isFavorite(atleta.id) ? 'is-favorited' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite({
+                        id: atleta.id,
+                        name: atleta.value,
+                        tessera: atleta.tessera || undefined,
+                        dataNascita: atleta.dataNascita || undefined,
+                        fotoUrl: atleta.fotoUrl || undefined,
+                      });
+                    }}
+                    title={isFavorite(atleta.id) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                    aria-label={isFavorite(atleta.id) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                  >
+                    <i className={isFavorite(atleta.id) ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
+                  </button>
+                  <div className="cerca-atleta-action" aria-hidden="true">
+                    <i className="bi bi-chevron-right"></i>
+                  </div>
                 </div>
               </div>
             );

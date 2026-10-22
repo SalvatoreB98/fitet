@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { getCachedUserRegion } from '../utils/geolocation';
+import { useFavoriteAthletes } from '../utils/favorites';
 
 interface HeaderProps {
   lastUpdated: string | null;
@@ -18,6 +19,7 @@ interface HeaderProps {
   championshipName?: string;
   championshipRegion?: string;
   onOpenChampionshipModal?: () => void;
+  onOpenFavoritesModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -33,7 +35,9 @@ export const Header: React.FC<HeaderProps> = ({
   championshipName,
   championshipRegion,
   onOpenChampionshipModal,
+  onOpenFavoritesModal,
 }) => {
+  const { favoritesCount } = useFavoriteAthletes();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -126,6 +130,22 @@ export const Header: React.FC<HeaderProps> = ({
           <img className='logo-stag' src="STAG.png" alt="STAG" />
         </div>
         <div className="portal-header-actions" ref={menuRef}>
+          {/* Quick Favorite Star Button */}
+          {onOpenFavoritesModal && (
+            <button
+              type="button"
+              className={`portal-quick-fav-btn ${favoritesCount > 0 ? 'has-favorites' : ''}`}
+              onClick={onOpenFavoritesModal}
+              title={favoritesCount > 0 ? `Atleti Preferiti (${favoritesCount})` : 'Atleti Preferiti'}
+              aria-label="Atleti Preferiti"
+            >
+              <i className={favoritesCount > 0 ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
+              {favoritesCount > 0 && (
+                <span className="portal-quick-fav-badge">{favoritesCount}</span>
+              )}
+            </button>
+          )}
+
           {/* Burger Button in Alto a Destra */}
           <button
             type="button"
@@ -157,7 +177,37 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
 
                 <div className="burger-menu-items">
-                  {/* 1. Ricerca Atleta */}
+                  {/* 1. Atleti Preferiti */}
+                  {onOpenFavoritesModal && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="burger-menu-item"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onOpenFavoritesModal();
+                      }}
+                    >
+                      <div className="burger-item-icon-box icon-star">
+                        <i className="bi bi-star-fill"></i>
+                      </div>
+                      <div className="burger-item-content">
+                        <span className="burger-item-title">Atleti Preferiti</span>
+                        <span className="burger-item-desc">
+                          {favoritesCount > 0
+                            ? `${favoritesCount} ${favoritesCount === 1 ? 'atleta salvato' : 'atleti salvati'}`
+                            : 'Schede atleti salvate'}
+                        </span>
+                      </div>
+                      {favoritesCount > 0 ? (
+                        <span className="burger-item-badge-count">{favoritesCount}</span>
+                      ) : (
+                        <i className="bi bi-chevron-right burger-item-arrow"></i>
+                      )}
+                    </button>
+                  )}
+
+                  {/* 2. Ricerca Atleta / Scheda */}
                   <button
                     type="button"
                     role="menuitem"
@@ -168,11 +218,11 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                   >
                     <div className="burger-item-icon-box icon-search">
-                      <i className="bi bi-search"></i>
+                      <i className="bi bi-person-lines-fill"></i>
                     </div>
                     <div className="burger-item-content">
-                      <span className="burger-item-title">Ricerca Atleta</span>
-                      <span className="burger-item-desc">Cerca atleti e schede ranking</span>
+                      <span className="burger-item-title">Ricerca / Scheda Atleta</span>
+                      <span className="burger-item-desc">Cerca atleti e apri schede ranking</span>
                     </div>
                     {activeTab === 'cercaAtleta' ? (
                       <span className="burger-item-badge-active">Attivo</span>
