@@ -4,6 +4,7 @@ import { StoricoRankingSnapshot } from '../types/fitet';
 interface RatingChartProps {
   data: StoricoRankingSnapshot[];
   athleteName: string;
+  hideTitle?: boolean;
 }
 
 interface SingleChartProps {
@@ -97,7 +98,7 @@ const SingleChart: React.FC<SingleChartProps> = ({ data, metric, height = 220 })
   const gradientId = metric === 'posizione' ? 'chartGradientPosizione' : 'chartGradientPunti';
 
   return (
-    <div className="position-relative overflow-visible rounded border p-2 shadow-sm mb-3" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+    <div className="position-relative overflow-visible p-2 mb-3 rating-chart-box">
       <div className="d-flex justify-content-between align-items-center mb-1 px-1">
         <span className="small fw-bold text-uppercase" style={{ color: primaryColor, fontSize: '11px', letterSpacing: '0.04em' }}>
           {metric === 'posizione' ? (
@@ -110,7 +111,7 @@ const SingleChart: React.FC<SingleChartProps> = ({ data, metric, height = 220 })
             </>
           )}
         </span>
-        <span className="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle" style={{ fontSize: '10px' }}>
+        <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
           {activeData.length} Rilevazioni
         </span>
       </div>
@@ -289,7 +290,7 @@ const SingleChart: React.FC<SingleChartProps> = ({ data, metric, height = 220 })
   );
 };
 
-export const RatingChart: React.FC<RatingChartProps> = ({ data, athleteName }) => {
+export const RatingChart: React.FC<RatingChartProps> = ({ data, athleteName, hideTitle }) => {
   const hasPositions = data.some((d) => d.posizione !== null && d.posizione > 0);
   const [metric, setMetric] = useState<'posizione' | 'punti' | 'entrambi'>(hasPositions ? 'posizione' : 'punti');
 
@@ -303,12 +304,14 @@ export const RatingChart: React.FC<RatingChartProps> = ({ data, athleteName }) =
 
   return (
     <div className="position-relative w-100">
-      <div className="d-flex justify-content-between align-items-center mb-2 px-1 flex-wrap gap-2">
-        <div className="d-flex align-items-center gap-2">
-          <span className="small text-secondary fw-bold text-uppercase tracking-wider">
-            <i className="bi bi-activity me-1 text-primary"></i>Andamento Storico Federale
-          </span>
-        </div>
+      <div className={`d-flex ${hideTitle ? 'justify-content-end' : 'justify-content-between'} align-items-center mb-2 px-1 flex-wrap gap-2`}>
+        {!hideTitle && (
+          <div className="d-flex align-items-center gap-2">
+            <span className="small text-secondary fw-bold text-uppercase tracking-wider">
+              <i className="bi bi-activity me-1 text-primary"></i>Andamento Storico Federale
+            </span>
+          </div>
+        )}
 
         {/* Metric Selector Buttons */}
         {hasPositions && (

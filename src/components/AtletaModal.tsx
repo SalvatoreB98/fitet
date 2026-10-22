@@ -57,6 +57,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [matchTab, setMatchTab] = useState<'girone' | 'ranking'>('girone');
   const [rankingFilter, setRankingFilter] = useState<'tutti' | 'campionato' | 'tornei'>('tutti');
   const [viewMode, setViewMode] = useState<'slider' | 'list'>('slider');
+  const [analyticsTab, setAnalyticsTab] = useState<'chart' | 'table'>('chart');
 
   // Slider navigation
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -172,7 +173,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           </div>
           <button
             type="button"
-            className="modal-close-btn-red"
+            className="modal-close-btn-simple"
             onClick={onClose}
             title="Chiudi finestra (ESC)"
             aria-label="Chiudi finestra"
@@ -216,6 +217,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   gap: '16px',
                   alignItems: 'center',
                   paddingBottom: '16px',
+                  marginBottom: '16px',
+                  borderBottom: '1px solid var(--border-light, #f1f5f9)',
                   flexWrap: 'wrap',
                 }}
               >
@@ -223,7 +226,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   style={{
                     width: '74px',
                     height: '74px',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     overflow: 'hidden',
                     background: 'var(--bg-th)',
                     border: '1px solid var(--border-color)',
@@ -254,24 +257,40 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
                     <strong>Società:</strong> {atleta.anagrafica.societa || 'N.D.'} {atleta.anagrafica.regione && `(${atleta.anagrafica.regione})`}
                   </div>
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-                    <span className="badge pct-high">Cat: {atleta.anagrafica.categoria || 'N.D.'}</span>
-                    <span className="badge pct-mid">Stato: {atleta.anagrafica.stato || 'Attivo'}</span>
-                    {atleta.anagrafica.settore && (
-                      <span className="badge pct-zero">{atleta.anagrafica.settore}</span>
-                    )}
-                    {atleta.anagrafica.dataNascita && (
-                      <span className="badge pct-zero">Nascita: {atleta.anagrafica.dataNascita}</span>
-                    )}
-                    {viewsCount > 0 && (
-                      <span
-                        className="athlete-yt-views"
-                        title={`${viewsCount.toLocaleString('it-IT')} ${viewsCount === 1 ? 'visualizzazione' : 'visualizzazioni'} reali del profilo`}
-                      >
-                        <i className="bi bi-eye" style={{ fontSize: '12px' }}></i>
-                        {viewsCount.toLocaleString('it-IT')}{' '}
-                        {viewsCount === 1 ? 'visualizzazione' : 'visualizzazioni'}
+
+                  {/* Secondary subtle metadata text: Birth date and Profile Views */}
+                  {(atleta.anagrafica.dataNascita || viewsCount > 0) && (
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      {atleta.anagrafica.dataNascita && (
+                        <span>
+                          <i className="bi bi-calendar3 me-1" style={{ fontSize: '11px' }}></i>
+                          Nato/a il {atleta.anagrafica.dataNascita}
+                        </span>
+                      )}
+                      {atleta.anagrafica.dataNascita && viewsCount > 0 && <span style={{ opacity: 0.5 }}>•</span>}
+                      {viewsCount > 0 && (
+                        <span title={`${viewsCount.toLocaleString('it-IT')} visualizzazioni reali del profilo`}>
+                          <i className="bi bi-eye me-1" style={{ fontSize: '11px' }}></i>
+                          {viewsCount.toLocaleString('it-IT')} {viewsCount === 1 ? 'visita' : 'visite'}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Status & Category Tags (Only essential tags in clean neutral badges) */}
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                    {atleta.anagrafica.categoria && (
+                      <span className="badge badge-neutral">
+                        {/^\d+$/.test(atleta.anagrafica.categoria.trim())
+                          ? `${atleta.anagrafica.categoria}ª Categoria`
+                          : atleta.anagrafica.categoria}
                       </span>
+                    )}
+                    {atleta.anagrafica.settore && (
+                      <span className="badge badge-neutral">{atleta.anagrafica.settore}</span>
+                    )}
+                    {atleta.anagrafica.stato && atleta.anagrafica.stato !== 'Attivo' && (
+                      <span className="badge badge-neutral">{atleta.anagrafica.stato}</span>
                     )}
                   </div>
                 </div>
@@ -307,7 +326,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                 const posSub = hasRecord ? `Record: ${record}` : (dataAgg ? `Al ${dataAgg}` : 'Nazionale');
 
                 return (
-                  <div className="overview-stats-section">
+                  <div className="overview-stats-section" style={{ paddingBottom: '18px', borderBottom: '1px solid var(--border-light, #f1f5f9)', marginBottom: '18px' }}>
                     <div className="overview-stats-card">
                       <div className="overview-stats-row">
                         {/* 1. Posizione */}
@@ -433,7 +452,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                             : 'Incontri Ufficiali FITeT (Ranking)'}
                         </div>
                         {activeTabResolved === 'girone' && squadraCampionato && (
-                          <span className="badge pct-high" style={{ fontSize: '11px' }}>
+                          <span className="badge badge-neutral" style={{ fontSize: '11px' }}>
                             {squadraCampionato}
                           </span>
                         )}
@@ -451,7 +470,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               fontWeight: 600,
                               border: 'none',
                               borderRadius: '6px',
-                              background: activeTabResolved === 'girone' ? 'var(--color-primary-500)' : 'transparent',
+                              background: activeTabResolved === 'girone' ? 'var(--color-primary-600)' : 'transparent',
                               color: activeTabResolved === 'girone' ? '#ffffff' : 'var(--text-muted)',
                               cursor: 'pointer',
                               transition: 'all 0.15s ease',
@@ -468,7 +487,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               fontWeight: 600,
                               border: 'none',
                               borderRadius: '6px',
-                              background: activeTabResolved === 'ranking' ? 'var(--color-primary-500)' : 'transparent',
+                              background: activeTabResolved === 'ranking' ? 'var(--color-primary-600)' : 'transparent',
                               color: activeTabResolved === 'ranking' ? '#ffffff' : 'var(--text-muted)',
                               cursor: 'pointer',
                               transition: 'all 0.15s ease',
@@ -488,7 +507,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                           alignItems: 'center',
                           gap: '12px',
                           flexWrap: 'wrap',
-                          padding: '8px 12px',
+                          padding: '7px 12px',
                           borderRadius: '8px',
                           background: 'var(--bg-th)',
                           border: '1px solid var(--border-color)',
@@ -502,16 +521,16 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                           Punti Ranking:
                         </span>
                         {atleta.partiteRanking.dettaglioPunti.puntiIniziali !== undefined && (
-                          <span>Iniziali: <strong>{atleta.partiteRanking.dettaglioPunti.puntiIniziali}</strong></span>
+                          <span>Iniziali: <strong style={{ color: 'var(--text-dark)' }}>{atleta.partiteRanking.dettaglioPunti.puntiIniziali}</strong></span>
                         )}
                         {atleta.partiteRanking.dettaglioPunti.campionato !== undefined && (
-                          <span>Campionato: <strong style={{ color: '#16a34a' }}>+{atleta.partiteRanking.dettaglioPunti.campionato}</strong></span>
+                          <span>Campionato: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.campionato}</strong></span>
                         )}
                         {atleta.partiteRanking.dettaglioPunti.tornei !== undefined && (
-                          <span>Tornei: <strong style={{ color: '#2563eb' }}>+{atleta.partiteRanking.dettaglioPunti.tornei}</strong></span>
+                          <span>Tornei: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.tornei}</strong></span>
                         )}
                         {atleta.partiteRanking.dettaglioPunti.vittorieTornei !== undefined && (
-                          <span>Vittorie Tornei: <strong style={{ color: '#d97706' }}>+{atleta.partiteRanking.dettaglioPunti.vittorieTornei}</strong></span>
+                          <span>Vittorie Tornei: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.vittorieTornei}</strong></span>
                         )}
                         {atleta.partiteRanking.dettaglioPunti.finali !== undefined && (
                           <span>Totale: <strong style={{ color: 'var(--color-primary-600)' }}>{atleta.partiteRanking.dettaglioPunti.finali} pt</strong></span>
@@ -531,7 +550,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                             fontWeight: 600,
                             borderRadius: '999px',
                             border: '1px solid var(--border-color)',
-                            background: rankingFilter === 'tutti' ? 'var(--color-primary-500)' : 'var(--bg-th)',
+                            background: rankingFilter === 'tutti' ? 'var(--color-primary-600)' : 'var(--bg-th)',
                             color: rankingFilter === 'tutti' ? '#ffffff' : 'var(--text-muted)',
                             cursor: 'pointer',
                           }}
@@ -547,7 +566,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                             fontWeight: 600,
                             borderRadius: '999px',
                             border: '1px solid var(--border-color)',
-                            background: rankingFilter === 'campionato' ? 'var(--color-primary-500)' : 'var(--bg-th)',
+                            background: rankingFilter === 'campionato' ? 'var(--color-primary-600)' : 'var(--bg-th)',
                             color: rankingFilter === 'campionato' ? '#ffffff' : 'var(--text-muted)',
                             cursor: 'pointer',
                           }}
@@ -563,7 +582,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                             fontWeight: 600,
                             borderRadius: '999px',
                             border: '1px solid var(--border-color)',
-                            background: rankingFilter === 'tornei' ? 'var(--color-primary-500)' : 'var(--bg-th)',
+                            background: rankingFilter === 'tornei' ? 'var(--color-primary-600)' : 'var(--bg-th)',
                             color: rankingFilter === 'tornei' ? '#ffffff' : 'var(--text-muted)',
                             cursor: 'pointer',
                           }}
@@ -579,22 +598,18 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         <div
                           style={{
                             display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '8px',
-                            padding: '8px 12px',
-                            borderRadius: '6px',
-                            background: 'rgba(234, 179, 8, 0.1)',
-                            border: '1px solid rgba(234, 179, 8, 0.25)',
-                            color: '#ca8a04',
+                            alignItems: 'center',
+                            gap: '6px',
                             fontSize: '11.5px',
-                            lineHeight: '1.4',
-                            marginBottom: '12px',
+                            color: 'var(--text-muted)',
+                            marginBottom: '10px',
+                            lineHeight: '1.35',
                           }}
                         >
-                          <i className="bi bi-info-circle-fill" style={{ fontSize: '13px', marginTop: '1px', flexShrink: 0 }}></i>
-                          <div>
-                            <strong>Nota federale:</strong> Le partite disputate nel campionato in corso potrebbero non essere ancora state conteggiate dalla Federazione nel ranking e nei punti ufficiali del profilo.
-                          </div>
+                          <i className="bi bi-info-circle text-primary" style={{ fontSize: '12px', flexShrink: 0 }}></i>
+                          <span>
+                            Le partite disputate nel campionato in corso potrebbero non essere ancora convalidate nei punti ranking ufficiali.
+                          </span>
                         </div>
 
                         {loadingPartite && (
@@ -708,11 +723,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
                                 {matchesToDisplay.length} {matchesToDisplay.length === 1 ? 'partita' : 'partite'}
                               </span>
-                              {matchesToDisplay.length > 2 && viewMode === 'slider' && (
-                                <span style={{ opacity: 0.8 }} className="d-none d-sm-inline">
-                                  • Scorri in orizzontale o usa le frecce
-                                </span>
-                              )}
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -721,14 +731,14 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => setViewMode('slider')}
-                                  title="Vista Slider (compatta)"
+                                  title="Vista Slider"
                                   style={{
                                     padding: '2px 8px',
                                     fontSize: '11px',
                                     fontWeight: 600,
                                     border: 'none',
                                     borderRadius: '4px',
-                                    background: viewMode === 'slider' ? 'var(--color-primary-500)' : 'transparent',
+                                    background: viewMode === 'slider' ? 'var(--color-primary-600)' : 'transparent',
                                     color: viewMode === 'slider' ? '#ffffff' : 'var(--text-muted)',
                                     cursor: 'pointer',
                                     transition: 'all 0.15s ease',
@@ -746,7 +756,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                     fontWeight: 600,
                                     border: 'none',
                                     borderRadius: '4px',
-                                    background: viewMode === 'list' ? 'var(--color-primary-500)' : 'transparent',
+                                    background: viewMode === 'list' ? 'var(--color-primary-600)' : 'transparent',
                                     color: viewMode === 'list' ? '#ffffff' : 'var(--text-muted)',
                                     cursor: 'pointer',
                                     transition: 'all 0.15s ease',
@@ -826,18 +836,15 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               {matchesToDisplay.map((m, idx) => (
                                 <div
                                   key={m.id || idx}
+                                  className="atleta-match-card"
                                   style={{
-                                    flex: '0 0 min(290px, 85%)',
+                                    flex: '0 0 min(280px, 82%)',
                                     scrollSnapAlign: 'start',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     justifyContent: 'space-between',
                                     padding: '11px 13px',
-                                    background: 'var(--bg-card, #ffffff)',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: '10px',
-                                    boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                                    minHeight: '135px',
+                                    minHeight: '130px',
                                     boxSizing: 'border-box',
                                   }}
                                 >
@@ -860,7 +867,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                       </span>
 
                                       {m.fase && (
-                                        <span className="badge pct-zero" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
+                                        <span className="badge badge-neutral" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
                                           {m.fase}
                                         </span>
                                       )}
@@ -928,25 +935,24 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                       marginTop: 'auto',
                                     }}
                                   >
-                                    {/* Left: Set partials or Phase */}
-                                    <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
+                                    {/* Left: Set partials as clean text without pill frames */}
+                                    <div style={{ minWidth: 0, flex: 1 }}>
                                       {m.sets && m.sets.length > 0 ? (
-                                        m.sets.map((s, sIdx) => (
-                                          <span
-                                            key={sIdx}
-                                            style={{
-                                              fontSize: '10px',
-                                              padding: '1px 4px',
-                                              borderRadius: '3px',
-                                              background: 'var(--bg-th)',
-                                              color: 'var(--text-main)',
-                                              border: '1px solid var(--border-color)',
-                                              fontVariantNumeric: 'tabular-nums',
-                                            }}
-                                          >
-                                            {s}
-                                          </span>
-                                        ))
+                                        <span
+                                          style={{
+                                            fontSize: '11px',
+                                            color: 'var(--text-muted)',
+                                            fontVariantNumeric: 'tabular-nums',
+                                            letterSpacing: '0.02em',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                            display: 'block',
+                                          }}
+                                          title={m.sets.join(', ')}
+                                        >
+                                          {m.sets.join(', ')}
+                                        </span>
                                       ) : m.fase ? (
                                         <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                                           Fase: <strong style={{ color: 'var(--text-main)' }}>{m.fase}</strong>
@@ -1014,14 +1020,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               {matchesToDisplay.map((m, idx) => (
                                 <div
                                   key={m.id || idx}
+                                  className="atleta-match-list-item"
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'space-between',
                                     padding: '9px 12px',
-                                    background: 'var(--bg-card, #ffffff)',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: '8px',
                                     gap: '10px',
                                     flexWrap: 'wrap',
                                     transition: 'all 0.15s ease',
@@ -1044,13 +1048,13 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                     </span>
 
                                     {m.giornata !== undefined && (
-                                      <span className="badge pct-zero" style={{ fontSize: '10px' }}>
+                                      <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
                                         G{m.giornata}
                                       </span>
                                     )}
 
                                     {m.fase && (
-                                      <span className="badge pct-zero" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
+                                      <span className="badge badge-neutral" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
                                         {m.fase}
                                       </span>
                                     )}
@@ -1088,24 +1092,17 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     {m.sets && m.sets.length > 0 && (
-                                      <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-                                        {m.sets.map((s, sIdx) => (
-                                          <span
-                                            key={sIdx}
-                                            style={{
-                                              fontSize: '10.5px',
-                                              padding: '1px 5px',
-                                              borderRadius: '4px',
-                                              background: 'var(--bg-th)',
-                                              color: 'var(--text-main)',
-                                              border: '1px solid var(--border-color)',
-                                              fontVariantNumeric: 'tabular-nums',
-                                            }}
-                                          >
-                                            {s}
-                                          </span>
-                                        ))}
-                                      </div>
+                                      <span
+                                        style={{
+                                          fontSize: '11px',
+                                          color: 'var(--text-muted)',
+                                          fontVariantNumeric: 'tabular-nums',
+                                          letterSpacing: '0.02em',
+                                        }}
+                                        title={m.sets.join(', ')}
+                                      >
+                                        {m.sets.join(', ')}
+                                      </span>
                                     )}
 
                                     <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
@@ -1139,7 +1136,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                             <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px' }}>
                               <i className="bi bi-info-circle text-primary" style={{ flexShrink: 0 }}></i>
                               <span>
-                                <strong>Dato Federale Ranking:</strong> La FITeT nei tabulati graduatoria registra l'esito (Vittoria/Sconfitta) e i punti; i set numerici (es. 3-1, 11-9) sono registrati nei referti ufficiali di gara.
+                                <strong>Dato Federale Ranking:</strong> La FITeT nei tabulati graduatoria registra l'esito (Vittoria/Sconfitta) e i punti; i set numerici sono registrati nei referti ufficiali di gara.
                               </span>
                             </div>
                           )}
@@ -1150,38 +1147,80 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                 );
               })()}
 
-              {/* Historical Charts */}
-              <div style={{ marginBottom: '16px' }}>
-                <RatingChart data={atleta.storicoClassifica} athleteName={atleta.anagrafica.nome} />
-              </div>
-
-              {/* Historical Ranking Table */}
-              {atleta.storicoClassifica.length > 0 && (
-                <div>
-                  <div style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                    Storico Classifica Ufficiale
+              {/* Historical Analytics (Sub-Tabs: Grafico vs Tabella) */}
+              <div style={{ marginTop: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--color-primary-600)', letterSpacing: '0.04em' }}>
+                    <i className="bi bi-graph-up-arrow me-1 text-primary"></i>
+                    Andamento Ranking Ufficiale
                   </div>
-                  <div style={{ maxHeight: '140px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px' }}>
-                    <div className="modal-ranking-grid">
-                      <div className="grid-header-row">
-                        <div className="grid-th text-center">Data Rilevazione</div>
-                        <div className="grid-th text-center">Categoria</div>
-                        <div className="grid-th text-center">Punti Classifica</div>
-                        <div className="grid-th text-center">Posizione</div>
-                      </div>
-                      {[...atleta.storicoClassifica].reverse().map((s, idx) => (
-                        <div key={idx} className="grid-data-row">
-                          <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.data}</div>
-                          <div className="grid-cell text-center"><span className="badge pct-zero">{s.categoria}^</span></div>
-                          <div className="grid-cell text-center" style={{ fontWeight: '700', color: 'var(--color-primary-600)' }}>{s.punti} pt</div>
-                          <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.posizione ? `#${s.posizione}` : '-'}</div>
-                        </div>
-                      ))}
+                  {atleta.storicoClassifica.length > 0 && (
+                    <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setAnalyticsTab('chart')}
+                        style={{
+                          padding: '3px 10px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          border: 'none',
+                          borderRadius: '4px',
+                          background: analyticsTab === 'chart' ? 'var(--color-primary-600)' : 'transparent',
+                          color: analyticsTab === 'chart' ? '#ffffff' : 'var(--text-muted)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <i className="bi bi-graph-up me-1"></i>Grafico
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAnalyticsTab('table')}
+                        style={{
+                          padding: '3px 10px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          border: 'none',
+                          borderRadius: '4px',
+                          background: analyticsTab === 'table' ? 'var(--color-primary-600)' : 'transparent',
+                          color: analyticsTab === 'table' ? '#ffffff' : 'var(--text-muted)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <i className="bi bi-table me-1"></i>Tabella ({atleta.storicoClassifica.length})
+                      </button>
                     </div>
-                  </div>
+                  )}
                 </div>
-              )}
 
+                {analyticsTab === 'chart' ? (
+                  <RatingChart data={atleta.storicoClassifica} athleteName={atleta.anagrafica.nome} hideTitle={true} />
+                ) : (
+                  atleta.storicoClassifica.length > 0 && (
+                    <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px', scrollbarWidth: 'thin' }}>
+                      <div className="modal-ranking-grid">
+                        <div className="grid-header-row">
+                          <div className="grid-th text-center">Data Rilevazione</div>
+                          <div className="grid-th text-center">Categoria</div>
+                          <div className="grid-th text-center">Punti Classifica</div>
+                          <div className="grid-th text-center">Posizione</div>
+                        </div>
+                        {[...atleta.storicoClassifica].reverse().map((s, idx) => (
+                          <div key={idx} className="grid-data-row">
+                            <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.data}</div>
+                            <div className="grid-cell text-center">
+                              <span className="badge badge-neutral">{s.categoria ? `${s.categoria}ª` : '-'}</span>
+                            </div>
+                            <div className="grid-cell text-center" style={{ fontWeight: '700', color: 'var(--color-primary-600)' }}>{s.punti} pt</div>
+                            <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.posizione ? `#${s.posizione.toLocaleString('it-IT')}` : '-'}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
 
             </div>
           )}

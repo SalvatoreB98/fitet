@@ -1984,9 +1984,22 @@ body {
 }
 
 .pct-zero {
-  background: #ffffff00;
-  color: #64748b;
-  border: 1px solid #000000;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.badge-neutral {
+  background: var(--bg-th);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  font-weight: 600;
+}
+
+[data-theme="dark"] .badge-neutral {
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .flag {
@@ -2238,6 +2251,42 @@ body.modal-open {
   transform: scale(0.92);
   background: #991b1b !important;
   border-color: #7f1d1d !important;
+}
+
+/* Discreet, elegant modal close button ("X") */
+.modal-close-btn-simple {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  min-height: 30px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: rgba(255, 255, 255, 0.75) !important;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+  margin: 0;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.modal-close-btn-simple:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.modal-close-btn-simple:active {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 @keyframes backdropIn {
@@ -4730,15 +4779,26 @@ body.modal-open {
 }
 
 .overview-stats-card {
-  color: var(--text-dark);
-  border-radius: 14px;
+  background: var(--bg-th, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
   padding: 14px 18px;
-  box-shadow: 0px 1px 3px 1px black;
+  color: var(--text-dark);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 [data-theme="light"] .overview-stats-card {
-  box-shadow: 0px 1px 3px 1px rgba(13, 33, 58, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+  background: var(--bg-th, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  color: var(--text-dark);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .overview-stats-card {
+  background: #111a2e;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: #f8fafc;
+  box-shadow: none;
 }
 
 .overview-season-badge {
@@ -4818,13 +4878,13 @@ body.modal-open {
 
 .overview-stat-divider {
   width: 1px;
-  height: 42px;
-  background: linear-gradient(180deg, white 0%, #030712 50%, white 100%);
+  height: 38px;
+  background: linear-gradient(180deg, transparent 0%, #cbd5e1 50%, transparent 100%);
   flex-shrink: 0;
 }
 
 [data-theme="dark"] .overview-stat-divider {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.03) 100%);
+  background: linear-gradient(180deg, transparent 0%, rgba(255, 255, 255, 0.12) 50%, transparent 100%);
 }
 
 @media (max-width: 480px) {
@@ -5163,3 +5223,49 @@ body.modal-open {
   background: #0f172a;
   border-color: #334155;
 }
+
+/* ==========================================================================
+   ATLETA MODAL OVERHAUL: CLEAN CARDS & SUBTLE DARK SURFACES
+   ========================================================================== */
+.atleta-match-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.15s ease;
+}
+
+[data-theme="dark"] .atleta-match-card {
+  background: #111a2e;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: none;
+}
+
+.atleta-match-list-item {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  transition: all 0.15s ease;
+}
+
+[data-theme="dark"] .atleta-match-list-item {
+  background: #111a2e;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+[data-theme="dark"] .modal-ranking-grid {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.rating-chart-box {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="dark"] .rating-chart-box {
+  background: #111a2e;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: none;
+}
