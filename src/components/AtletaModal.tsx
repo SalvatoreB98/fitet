@@ -216,8 +216,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   gap: '16px',
                   alignItems: 'center',
                   paddingBottom: '16px',
-                  marginBottom: '16px',
-                  borderBottom: '1px solid var(--border-color)',
                   flexWrap: 'wrap',
                 }}
               >
@@ -631,7 +629,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     {activeTabResolved === 'ranking' && unifiedRankingMatches.length === 0 && (
                       <div style={{ padding: '16px', textAlign: 'center', background: 'var(--bg-th)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '12.5px' }}>
                         <i className="bi bi-clock-history me-1"></i>
-                        Nessun incontro ufficiale registrato nelle graduatorie FITeT correnti per questo atleta.
+                        Incontri al momento non disponibili
                       </div>
                     )}
 
@@ -861,12 +859,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                         {m.isVittoria ? 'VINTA' : 'PERSA'}
                                       </span>
 
-                                      {m.giornata !== undefined && (
-                                        <span className="badge pct-zero" style={{ fontSize: '10px' }}>
-                                          G{m.giornata}
-                                        </span>
-                                      )}
-
                                       {m.fase && (
                                         <span className="badge pct-zero" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
                                           {m.fase}
@@ -881,33 +873,33 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                                   {/* Middle Row: Opponent Name & Event Details */}
                                   <div style={{ marginBottom: '8px' }}>
-                                      <div
-                                        style={{
-                                          fontWeight: '700',
-                                          fontSize: '13.5px',
-                                          color: 'var(--text-dark)',
-                                          overflow: 'hidden',
-                                          textOverflow: 'ellipsis',
-                                          whiteSpace: 'nowrap',
-                                        }}
-                                      >
-                                        {onSelectAthlete ? (
-                                          <button
-                                            type="button"
-                                            className="atleta-opponent-link"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              onSelectAthlete(m.avversario, m.avversario);
-                                            }}
-                                            title={`Apri profilo di ${m.avversario}`}
-                                          >
-                                            <span className="atleta-opponent-text">vs {m.avversario}</span>
-                                            <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
-                                          </button>
-                                        ) : (
-                                          <span title={`Avversario: ${m.avversario}`}>vs {m.avversario}</span>
-                                        )}
-                                      </div>
+                                    <div
+                                      style={{
+                                        fontWeight: '700',
+                                        fontSize: '13.5px',
+                                        color: 'var(--text-dark)',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                      }}
+                                    >
+                                      {onSelectAthlete ? (
+                                        <button
+                                          type="button"
+                                          className="atleta-opponent-link"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSelectAthlete(m.avversario, m.avversario);
+                                          }}
+                                          title={`Apri profilo di ${m.avversario}`}
+                                        >
+                                          <span className="atleta-opponent-text">vs {m.avversario}</span>
+                                          <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
+                                        </button>
+                                      ) : (
+                                        <span title={`Avversario: ${m.avversario}`}>vs {m.avversario}</span>
+                                      )}
+                                    </div>
 
                                     <MarqueeText
                                       className="match-event-title-scroll"

@@ -4730,20 +4730,14 @@ body.modal-open {
 }
 
 .overview-stats-card {
-  --scrollbar-track: transparent;
-  --scrollbar-thumb: rgba(255, 255, 255, 0.28);
-  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.55);
-  background: linear-gradient(145deg, #0b1528 0%, #070e1c 100%);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: var(--text-dark);
   border-radius: 14px;
   padding: 14px 18px;
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0px 1px 3px 1px black;
 }
 
 [data-theme="light"] .overview-stats-card {
-  background: linear-gradient(145deg, #0d213a 0%, #16365c 100%);
-  border: 1px solid rgba(13, 33, 58, 0.2);
-  box-shadow: 0 8px 20px -4px rgba(13, 33, 58, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow: 0px 1px 3px 1px rgba(13, 33, 58, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   color: #ffffff;
 }
 
@@ -4795,7 +4789,7 @@ body.modal-open {
   font-family: var(--font-sans);
   font-size: clamp(16px, 3.8vw, 22px);
   font-weight: 800;
-  color: #ffffff;
+  color: var(--text-main);
   letter-spacing: -0.02em;
   line-height: 1.15;
   white-space: nowrap;
@@ -4825,8 +4819,12 @@ body.modal-open {
 .overview-stat-divider {
   width: 1px;
   height: 42px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.03) 100%);
+  background: linear-gradient(180deg, white 0%, #030712 50%, white 100%);
   flex-shrink: 0;
+}
+
+[data-theme="dark"] .overview-stat-divider {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.03) 100%);
 }
 
 @media (max-width: 480px) {
