@@ -919,11 +919,9 @@ body {
   gap: 8px;
   white-space: nowrap;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.portal-nav-tab:nth-child(1) {
-  min-width: 60vw;
+  min-width: 55vw;
   justify-content: center;
+
 }
 
 .portal-nav-tab:hover {
@@ -1147,7 +1145,8 @@ body {
 .grid-table {
   display: flex;
   flex-direction: column;
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
@@ -1157,6 +1156,7 @@ body {
   display: grid;
   align-items: center;
   height: 38px;
+  width: 100%;
   background: var(--bg-th);
   border-bottom: 2px solid #cbd5e1;
   user-select: none;
@@ -1174,6 +1174,7 @@ body {
   align-items: center;
   height: 100%;
   padding: 0 8px;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1191,12 +1192,22 @@ body {
   display: grid;
   align-items: center;
   height: 40px;
+  width: 100%;
   border-bottom: 1px solid var(--border-light);
   transition: background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.grid-data-row:hover {
-  background: var(--bg-hover);
+/* Alternating Row Tint (Zebra Striping) - Light Theme */
+.grid-table .grid-data-row:nth-child(even) {
+  background-color: var(--bg-container);
+}
+
+.grid-table .grid-data-row:nth-child(odd) {
+  background-color: #f8fafc;
+}
+
+.grid-table .grid-data-row:hover {
+  background-color: #edf4ff !important;
 }
 
 .grid-cell {
@@ -1204,6 +1215,7 @@ body {
   align-items: center;
   height: 100%;
   padding: 0 8px;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1242,7 +1254,7 @@ body {
   grid-template-columns: 46px minmax(220px, 1fr) 58px 46px 46px 46px 115px 105px 95px 105px;
 }
 
-/* 1b. Responsive Classifica Sections (Zero Horizontal Scroll on any screen) */
+/* 1b. Responsive Classifica Sections */
 .classifica-ufficiale-grid,
 .classifica-bilancio-grid,
 .classifica-differenziali-grid {
@@ -1257,12 +1269,67 @@ body {
 
 .classifica-bilancio-grid .grid-header-row,
 .classifica-bilancio-grid .grid-data-row {
-  grid-template-columns: 38px minmax(120px, 1fr) 48px 48px 125px;
+  grid-template-columns: 38px minmax(130px, 1fr) 48px 48px 125px;
 }
 
 .classifica-differenziali-grid .grid-header-row,
 .classifica-differenziali-grid .grid-data-row {
-  grid-template-columns: 38px minmax(120px, 1fr) 90px 78px 64px;
+  grid-template-columns: 38px minmax(130px, 1fr) 90px 78px 64px;
+}
+
+/* Mobile Sticky Team Column & Responsive Column Widths (<= 768px) */
+@media (max-width: 768px) {
+  .classifica-grid {
+    min-width: 760px;
+  }
+
+  .classifica-grid .grid-header-row,
+  .classifica-grid .grid-data-row {
+    grid-template-columns: 40px minmax(135px, 160px) 52px 42px 42px 42px 95px 85px 80px 95px;
+  }
+
+  .classifica-ufficiale-grid .grid-header-row,
+  .classifica-ufficiale-grid .grid-data-row {
+    grid-template-columns: 40px minmax(130px, 160px) 44px 58px;
+  }
+
+  .classifica-bilancio-grid .grid-header-row,
+  .classifica-bilancio-grid .grid-data-row {
+    grid-template-columns: 38px minmax(130px, 155px) 46px 46px 120px;
+  }
+
+  .classifica-differenziali-grid .grid-header-row,
+  .classifica-differenziali-grid .grid-data-row {
+    grid-template-columns: 38px minmax(130px, 155px) 85px 76px 64px;
+  }
+
+  /* Sticky positioning for Team on mobile */
+  .grid-th-team,
+  .grid-cell-team {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    border-right: 1px solid var(--border-color);
+  }
+
+  /* Header sticky team must stay above scrolling data rows */
+  .grid-th.grid-th-team {
+    z-index: 6;
+    background: var(--bg-th);
+  }
+
+  /* Sticky data cell matching zebra striping and hover */
+  .grid-table .grid-data-row:nth-child(even) .grid-cell-team {
+    background-color: var(--bg-container);
+  }
+
+  .grid-table .grid-data-row:nth-child(odd) .grid-cell-team {
+    background-color: #f8fafc;
+  }
+
+  .grid-table .grid-data-row:hover .grid-cell-team {
+    background-color: #edf4ff;
+  }
 }
 
 /* 2. Calendario Match Cards System */

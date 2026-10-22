@@ -267,10 +267,6 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
           >
             📑 Tabellone (10 Col.)
           </button>
-
-        </div>
-        <div className="controls-right text-muted" style={{ fontSize: '12px' }}>
-          Clicca sulle intestazioni di colonna per ordinare le classifiche
         </div>
       </div>
 
@@ -283,7 +279,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
               <div className="official-title-group">
                 <span className="official-crown">👑</span>
                 <div>
-                  <div className="official-main-title">CLASSIFICA UFFICIALE FITeT — RANKING PRINCIPALE</div>
+                  <div className="official-main-title">CLASSIFICA FITeT</div>
                   <div className="official-main-sub">
                   </div>
                 </div>
@@ -592,7 +588,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                   <div className="grid-th text-center" onClick={() => handleCompletaSort('pos')} title="Ordina per Posizione">
                     Pos {renderSortIndicator('pos', completaSortField, completaSortAsc)}
                   </div>
-                  <div className="grid-th text-left" style={{ paddingLeft: '8px' }} onClick={() => handleCompletaSort('nome')} title="Ordina per Squadra">
+                  <div className="grid-th grid-th-team text-left" style={{ paddingLeft: '8px' }} onClick={() => handleCompletaSort('nome')} title="Ordina per Squadra">
                     Squadra {renderSortIndicator('nome', completaSortField, completaSortAsc)}
                   </div>
                   <div className="grid-th text-center" onClick={() => handleCompletaSort('punti')} title="Ordina per Punti">
@@ -633,7 +629,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                       {renderPosBadge(sq.posizione)}
                     </div>
 
-                    <div className="grid-cell text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
+                    <div className="grid-cell grid-cell-team text-left" style={{ paddingLeft: '8px', overflow: 'hidden' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', width: '100%', minWidth: 0 }}>
                         <div className="standings-team-photo-wrapper">
                           <TeamLogo
