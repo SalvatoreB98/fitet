@@ -4813,6 +4813,7 @@ body.modal-open {
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 2px;
+  max-width: 200px;
 }
 
 .match-event-title-scroll::-webkit-scrollbar {

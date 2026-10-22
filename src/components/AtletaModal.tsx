@@ -867,7 +867,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                       vs {m.avversario}
                                     </div>
 
-                                    <div
+                                    <MarqueeText
                                       className="match-event-title-scroll"
                                       style={{
                                         fontSize: '11px',
@@ -879,7 +879,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                       <i className={`bi ${m.tipo === 'torneo' ? 'bi-award' : 'bi-trophy'} me-1`}></i>
                                       {m.titolo}
                                       {m.sottotitolo && ` • ${m.sottotitolo}`}
-                                    </div>
+                                    </MarqueeText>
                                   </div>
 
                                   {/* Bottom Row: Set Details and Prominent Numeric Score */}
