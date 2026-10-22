@@ -1229,7 +1229,7 @@ body {
 
 /* 1. Classifica Grid: Master 10-column table */
 .classifica-grid {
-  min-width: 800px;
+  min-width: 900px;
 }
 
 .classifica-grid .grid-header-row,
