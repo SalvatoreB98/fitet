@@ -113,7 +113,9 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
           </p>
         </div>
       )}
-
+      <div className="cerca-atleta-or-label text-center mb-3">
+        <div><i className='bi bi-person'></i></div>
+        Oppure cerca atleta: </div>
       {/* Search Input Bar */}
       <div className="cerca-atleta-search-box">
         <div className="cerca-atleta-input-wrapper">
