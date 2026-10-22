@@ -60,7 +60,6 @@ export const App: React.FC = () => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('fitet_intro_completed', 'true');
     }
-    setIsChampionshipModalOpen(true);
   };
 
   const [activeTab, setActiveTab] = useState<'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta'>('classifica');
@@ -198,10 +197,6 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (!camId) {
       setLoading(false);
-      // Clean scenario: If no championship is selected yet and intro is closed, open modal
-      if (!showIntro) {
-        setIsChampionshipModalOpen(true);
-      }
       return;
     }
 

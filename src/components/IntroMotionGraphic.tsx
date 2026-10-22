@@ -14,7 +14,7 @@ export const IntroMotionGraphic: React.FC<IntroMotionGraphicProps> = ({ onComple
     setIsClosing(true);
     setTimeout(() => {
       onComplete();
-    }, 420);
+    }, 480);
   };
 
   useEffect(() => {
