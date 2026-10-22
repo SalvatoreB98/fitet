@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { SquadraClassifica } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
 import { TeamLogo } from './TeamLogo';
@@ -10,7 +10,21 @@ interface ClassificaTabProps {
 
 export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSelectTeam }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [viewMode, setViewMode] = useState<'responsive' | 'completa'>('responsive');
+
+  const toggleSearch = () => {
+    setIsSearchOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setTimeout(() => searchInputRef.current?.focus(), 60);
+      } else {
+        setSearchTerm('');
+      }
+      return next;
+    });
+  };
 
   // Sorting state for 1. Classifica Ufficiale (Primary)
   const [ufficialeSortField, setUfficialeSortField] = useState<string>('pos');
@@ -200,22 +214,40 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
       {/* Controls Bar */}
       <div className="controls">
         <div className="controls-left">
-          <input
-            type="text"
-            placeholder="Cerca squadra..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '180px' }}
-          />
-          {searchTerm && (
+          {/* Expandable Search Control */}
+          <div className={`search-expandable-box ${(isSearchOpen || searchTerm) ? 'is-open' : ''}`}>
             <button
-              className="btn-action"
-              onClick={() => setSearchTerm('')}
-              style={{ padding: '6px 10px' }}
+              type="button"
+              className={`btn-search-trigger ${(isSearchOpen || searchTerm) ? 'active' : ''}`}
+              onClick={toggleSearch}
+              title={isSearchOpen || searchTerm ? 'Chiudi ricerca' : 'Cerca squadra...'}
             >
-              Azzera ✕
+              <i className="bi bi-search"></i>
             </button>
-          )}
+            <div className="search-expandable-content">
+              <input
+                ref={searchInputRef}
+                type="text"
+                className="search-expandable-input"
+                placeholder="Cerca squadra..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  className="search-expandable-clear"
+                  onClick={() => {
+                    setSearchTerm('');
+                    searchInputRef.current?.focus();
+                  }}
+                  title="Cancella ricerca"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
 
           {/* View mode switcher */}
           <div className="sub-ranking-pills">

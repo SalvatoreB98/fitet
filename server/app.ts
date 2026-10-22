@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { FitetClient } from './services/fitetClient';
 import { cacheService } from './services/cacheService';
+import { viewsService } from './services/viewsService';
 import { athleteResolver } from './services/athleteResolver';
 import { teamResolver } from './services/teamResolver';
 import { championshipCatalog } from './services/championshipCatalog';
@@ -309,6 +310,21 @@ app.get('/api/atleta/:id', async (req, res) => {
         console.error(`Error fetching athlete ${id}:`, error);
         res.status(500).json({ error: 'Errore nel recupero della scheda atleta', details: error.message });
     }
+});
+
+// 5b. Athlete Real Views tracking
+app.post('/api/atleta/:id/view', (req, res) => {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'ID atleta mancante' });
+    const count = viewsService.incrementViews(id);
+    res.json({ id, views: count });
+});
+
+app.get('/api/atleta/:id/views', (req, res) => {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'ID atleta mancante' });
+    const count = viewsService.getViews(id);
+    res.json({ id, views: count });
 });
 
 // 6. Search / Autocomplete Atleta

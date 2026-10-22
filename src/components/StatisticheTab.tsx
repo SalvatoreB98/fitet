@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { StatisticaAtleta } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
 import { AthleteAvatar } from './AthleteAvatar';
@@ -24,8 +24,22 @@ type SortField =
 
 export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onOpenAtletaModal }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedTeam, setSelectedTeam] = useState('');
   const [subRanking, setSubRanking] = useState<'pct' | 'vinte' | 'set' | 'all' | 'full'>('pct');
+
+  const toggleSearch = () => {
+    setIsSearchOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setTimeout(() => searchInputRef.current?.focus(), 60);
+      } else {
+        setSearchTerm('');
+      }
+      return next;
+    });
+  };
 
   // Sorting state for 1. % Vittorie (Ranking Principale)
   const [pctSortField, setPctSortField] = useState<string>('percentualeVittorie');
@@ -317,13 +331,40 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
       {/* Controls Bar */}
       <div className="controls">
         <div className="controls-left">
-          <input
-            type="text"
-            placeholder="Cerca atleta o squadra..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '180px' }}
-          />
+          {/* Expandable Search Control */}
+          <div className={`search-expandable-box ${(isSearchOpen || searchTerm) ? 'is-open' : ''}`}>
+            <button
+              type="button"
+              className={`btn-search-trigger ${(isSearchOpen || searchTerm) ? 'active' : ''}`}
+              onClick={toggleSearch}
+              title={isSearchOpen || searchTerm ? 'Chiudi ricerca' : 'Cerca atleta o squadra...'}
+            >
+              <i className="bi bi-search"></i>
+            </button>
+            <div className="search-expandable-content">
+              <input
+                ref={searchInputRef}
+                type="text"
+                className="search-expandable-input"
+                placeholder="Cerca atleta o squadra..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  className="search-expandable-clear"
+                  onClick={() => {
+                    setSearchTerm('');
+                    searchInputRef.current?.focus();
+                  }}
+                  title="Cancella ricerca"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
           <select value={selectedTeam} onChange={(e) => setSelectedTeam(e.target.value)}>
             <option value="">Tutte le società ({teams.length})</option>
             {teams.map((t) => (

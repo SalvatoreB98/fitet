@@ -119,7 +119,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
     <div>
       {/* Controls Bar */}
       <div className="controls">
-        <div className="controls-left">
+        <div className="controls-left calendario">
           {/* Phase Filter Buttons */}
           <div className="filter-btn-group">
             <button
@@ -211,7 +211,6 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
               <div className="giornata-header-banner">
                 <div className="giornata-title-group">
                   <span className="giornata-badge-pill">{giornata.numero}ª GIORNATA</span>
-                  <span className="giornata-phase-text">Incontri di Campionato</span>
                 </div>
                 <div className="giornata-meta-count">
                   {filteredMatches.length} {filteredMatches.length === 1 ? 'incontro' : 'incontri'}

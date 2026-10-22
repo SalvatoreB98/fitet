@@ -1,7 +1,7 @@
 // server/app.ts
 import express from "express";
 import cors from "cors";
-import path5 from "path";
+import path6 from "path";
 
 // server/services/fitetClient.ts
 var BASE_URL = "https://portale.fitet.org";
@@ -186,9 +186,61 @@ var CacheService = class {
 };
 var cacheService = new CacheService();
 
-// server/services/athleteResolver.ts
+// server/services/viewsService.ts
 import fs2 from "fs";
 import path2 from "path";
+var ViewsService = class {
+  filePath;
+  viewsMap = {};
+  constructor() {
+    const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+    const dir = isServerless ? path2.join("/tmp", "fitet_cache") : path2.resolve(process.cwd(), "server", "cache");
+    try {
+      if (!fs2.existsSync(dir)) {
+        fs2.mkdirSync(dir, { recursive: true });
+      }
+    } catch (err) {
+      console.warn("Views directory init fallback to memory-only:", err);
+    }
+    this.filePath = path2.join(dir, "athlete_views.json");
+    this.load();
+  }
+  load() {
+    try {
+      if (fs2.existsSync(this.filePath)) {
+        const raw = fs2.readFileSync(this.filePath, "utf8");
+        this.viewsMap = JSON.parse(raw);
+      }
+    } catch {
+      this.viewsMap = {};
+    }
+  }
+  save() {
+    try {
+      fs2.writeFileSync(this.filePath, JSON.stringify(this.viewsMap, null, 2), "utf8");
+    } catch (err) {
+      console.warn("Error saving athlete views:", err);
+    }
+  }
+  getViews(key) {
+    if (!key) return 0;
+    return this.viewsMap[key.toLowerCase().trim()] || 0;
+  }
+  incrementViews(key) {
+    if (!key) return 0;
+    const clean = key.toLowerCase().trim();
+    const current = this.viewsMap[clean] || 0;
+    const next = current + 1;
+    this.viewsMap[clean] = next;
+    this.save();
+    return next;
+  }
+};
+var viewsService = new ViewsService();
+
+// server/services/athleteResolver.ts
+import fs3 from "fs";
+import path3 from "path";
 import * as cheerio from "cheerio";
 
 // server/data/athlete_mapping.json
@@ -736,7 +788,50 @@ var athlete_mapping_default = {
   "RUSSO PAOLO": "795319",
   "BENFORTE A - CARRIERI V": "849609",
   "CRISPO M": "605901",
-  "CUBONI EMANUELE": "736529"
+  "CUBONI EMANUELE": "736529",
+  "AGNELLO IVAN": "706212",
+  "TACCINI ROBERTO": "704074",
+  "RUSSO GIOVANNI": "814909",
+  "AGNELLO I - TACCINI R": "848642",
+  "BUSALACCHI GUGLIELMO": "727814",
+  "RINI NICOLO' MARIO": "696072",
+  "SCARDAMAGLIA GIUSEPPE": "810494",
+  "BUSALACCHI G - RINI N": "848867",
+  "RESTIVO DOMENICO": "724519",
+  "SIMONTE ANDREA": "761831",
+  "DATTOLO DANIELE": "759653",
+  "ROSSELLI GIOVANNI BATTISTA": "758079",
+  "TRAPOLINO PASQUALE": "846076",
+  "SIMONTE A - ROSSELLI GIOVANNI B": "781503",
+  "CACIOLI MARCO": "728448",
+  "MIDOLO ERASMO": "774380",
+  "FIUMARELLI STEFANO": "710903",
+  "BUCCA SAMUELE": "610868",
+  "CACIOLI M - MIDOLO E": "849900",
+  "BUCCA S - MIDOLO E": "848706",
+  "GANDOLFO FRANCESCO": "612204",
+  "SALADINO MICHELE": "743501",
+  "ARRIGO GIULIA": "764279",
+  "CINA' ANTONIO": "825527",
+  "ARRIGO G - GANDOLFO F": "848422",
+  "LUCCHESE SALVATORE": "774767",
+  "CARROCCIO BENEDETTO": "774764",
+  "LIGAMMARI ROSARIO": "764255",
+  "CARROCCIO B - LIGAMMARI R": "816390",
+  "CARROCCIO B - LUCCHESE S": "798264",
+  "GIACALONE ANDREA": "803755",
+  "BONAFEDE GABRIELE": "767615",
+  "DI GIROLAMO VINCENZA": "729514",
+  "QUINCI GINO": "764637",
+  "DI GIROLAMO V - GIACALONE A": "849899",
+  "QUINCI G - GIACALONE A": "820699",
+  "BARONE VITA": "758101",
+  "SCALABRINO ANTONINA DEBORAH": "758083",
+  "MILAZZO BENEDETTO": "743634",
+  "ALTESI MARIKA": "768189",
+  "D'ANTONI GABRIELE": "846844",
+  "LA LUCE SALVATORE LUCIANO": "736314",
+  "ALTESI M - MILAZZO B": "848641"
 };
 
 // server/services/athleteResolver.ts
@@ -745,13 +840,13 @@ var AthleteResolver = class {
   mapping;
   constructor() {
     this.mapping = { ...athlete_mapping_default };
-    this.mappingFile = path2.resolve(process.cwd(), "server", "data", "athlete_mapping.json");
+    this.mappingFile = path3.resolve(process.cwd(), "server", "data", "athlete_mapping.json");
     this.loadMapping();
   }
   loadMapping() {
     try {
-      if (fs2.existsSync(this.mappingFile)) {
-        const content = fs2.readFileSync(this.mappingFile, "utf8");
+      if (fs3.existsSync(this.mappingFile)) {
+        const content = fs3.readFileSync(this.mappingFile, "utf8");
         this.mapping = { ...athlete_mapping_default, ...JSON.parse(content) };
       }
     } catch {
@@ -760,7 +855,7 @@ var AthleteResolver = class {
   }
   saveMapping() {
     try {
-      fs2.writeFileSync(this.mappingFile, JSON.stringify(this.mapping, null, 2), "utf8");
+      fs3.writeFileSync(this.mappingFile, JSON.stringify(this.mapping, null, 2), "utf8");
     } catch {
     }
   }
@@ -837,11 +932,11 @@ var AthleteResolver = class {
 var athleteResolver = new AthleteResolver();
 
 // server/services/teamResolver.ts
-import fs3 from "fs";
-import path3 from "path";
+import fs4 from "fs";
+import path4 from "path";
 import * as cheerio2 from "cheerio";
 var TeamResolver = class {
-  cacheFilePath = path3.resolve(process.cwd(), "server", "data", "team_logos.json");
+  cacheFilePath = path4.resolve(process.cwd(), "server", "data", "team_logos.json");
   logos = {
     "ASD TENNISTAVOLO NUOVA LUZZI": "https://portale.fitet.org/images/societa/3260.jpg",
     "TENNISTAVOLO CASTROVILLARI": "https://portale.fitet.org/images/societa/3164.jpg",
@@ -853,8 +948,8 @@ var TeamResolver = class {
   }
   loadFromDisk() {
     try {
-      if (fs3.existsSync(this.cacheFilePath)) {
-        const raw = fs3.readFileSync(this.cacheFilePath, "utf-8");
+      if (fs4.existsSync(this.cacheFilePath)) {
+        const raw = fs4.readFileSync(this.cacheFilePath, "utf-8");
         const parsed = JSON.parse(raw);
         if (typeof parsed === "object") {
           this.logos = { ...this.logos, ...parsed };
@@ -866,9 +961,9 @@ var TeamResolver = class {
   }
   saveToDisk() {
     try {
-      const dir = path3.dirname(this.cacheFilePath);
-      if (!fs3.existsSync(dir)) fs3.mkdirSync(dir, { recursive: true });
-      fs3.writeFileSync(this.cacheFilePath, JSON.stringify(this.logos, null, 2), "utf-8");
+      const dir = path4.dirname(this.cacheFilePath);
+      if (!fs4.existsSync(dir)) fs4.mkdirSync(dir, { recursive: true });
+      fs4.writeFileSync(this.cacheFilePath, JSON.stringify(this.logos, null, 2), "utf-8");
     } catch (e) {
       console.error("Error saving team_logos.json:", e);
     }
@@ -919,8 +1014,8 @@ var TeamResolver = class {
 var teamResolver = new TeamResolver();
 
 // server/services/championshipCatalog.ts
-import fs4 from "fs";
-import path4 from "path";
+import fs5 from "fs";
+import path5 from "path";
 import * as cheerio3 from "cheerio";
 var REGIONI = [
   { id: 19, nome: "Calabria" },
@@ -953,7 +1048,7 @@ var NAZIONALI = [
   { cid: 7, nome: "Paralimpici Naz." }
 ];
 var ChampionshipCatalog = class {
-  cacheFilePath = path4.resolve(process.cwd(), "server", "data", "campionati.json");
+  cacheFilePath = path5.resolve(process.cwd(), "server", "data", "campionati.json");
   memoryCache = null;
   lastFetched = 0;
   TTL = 24 * 60 * 60 * 1e3;
@@ -963,12 +1058,12 @@ var ChampionshipCatalog = class {
   }
   loadFromDisk() {
     try {
-      if (fs4.existsSync(this.cacheFilePath)) {
-        const raw = fs4.readFileSync(this.cacheFilePath, "utf-8");
+      if (fs5.existsSync(this.cacheFilePath)) {
+        const raw = fs5.readFileSync(this.cacheFilePath, "utf-8");
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           this.memoryCache = parsed;
-          const stat = fs4.statSync(this.cacheFilePath);
+          const stat = fs5.statSync(this.cacheFilePath);
           this.lastFetched = stat.mtimeMs;
         }
       }
@@ -978,9 +1073,9 @@ var ChampionshipCatalog = class {
   }
   saveToDisk(data) {
     try {
-      const dir = path4.dirname(this.cacheFilePath);
-      if (!fs4.existsSync(dir)) fs4.mkdirSync(dir, { recursive: true });
-      fs4.writeFileSync(this.cacheFilePath, JSON.stringify(data, null, 2), "utf-8");
+      const dir = path5.dirname(this.cacheFilePath);
+      if (!fs5.existsSync(dir)) fs5.mkdirSync(dir, { recursive: true });
+      fs5.writeFileSync(this.cacheFilePath, JSON.stringify(data, null, 2), "utf-8");
     } catch (e) {
       console.error("Error saving campionati.json to disk:", e);
     }
@@ -2086,6 +2181,18 @@ app.get("/api/atleta/:id", async (req, res) => {
     res.status(500).json({ error: "Errore nel recupero della scheda atleta", details: error.message });
   }
 });
+app.post("/api/atleta/:id/view", (req, res) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: "ID atleta mancante" });
+  const count = viewsService.incrementViews(id);
+  res.json({ id, views: count });
+});
+app.get("/api/atleta/:id/views", (req, res) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: "ID atleta mancante" });
+  const count = viewsService.getViews(id);
+  res.json({ id, views: count });
+});
 app.get("/api/search-atleta", async (req, res) => {
   const query = req.query.q || "";
   if (!query || query.length < 2) {
@@ -2334,11 +2441,11 @@ app.post("/api/refresh", async (req, res) => {
   }
 });
 if (!process.env.VERCEL) {
-  const distPath = path5.resolve(process.cwd(), "dist");
+  const distPath = path6.resolve(process.cwd(), "dist");
   app.use(express.static(distPath));
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
-    const indexFile = path5.join(distPath, "index.html");
+    const indexFile = path6.join(distPath, "index.html");
     res.sendFile(indexFile, (err) => {
       if (err) res.status(404).send("Not Found");
     });

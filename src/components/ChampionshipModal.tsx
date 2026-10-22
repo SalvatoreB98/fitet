@@ -5,6 +5,141 @@ import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { detectUserRegion, getCachedUserRegion } from '../utils/geolocation';
 import { searchCampionati } from '../utils/searchCampionati';
 
+const FAVORITES_STORAGE_KEY = 'fitet_favorite_championships';
+
+function getStoredFavorites(): number[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredFavorites(favs: number[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favs));
+  } catch (e) {
+    console.error('Failed to save favorites to localStorage:', e);
+  }
+}
+
+type SerieGroupKey = 'serie_a' | 'serie_b' | 'serie_c' | 'serie_d' | 'altri';
+
+interface SerieGroupConfig {
+  key: SerieGroupKey;
+  title: string;
+  sub: string;
+  icon: string;
+  accent: string;
+  accentBg: string;
+  order: number;
+}
+
+const SERIE_CONFIGS: Record<SerieGroupKey, SerieGroupConfig> = {
+  serie_a: {
+    key: 'serie_a',
+    title: 'Serie A',
+    sub: 'Massima Divisione Nazionale (A1, A2)',
+    icon: 'bi-trophy-fill',
+    accent: '#2563eb',
+    accentBg: 'rgba(37, 99, 235, 0.12)',
+    order: 1,
+  },
+  serie_b: {
+    key: 'serie_b',
+    title: 'Serie B',
+    sub: 'Campionati Nazionali (B1, B2)',
+    icon: 'bi-award-fill',
+    accent: '#0284c7',
+    accentBg: 'rgba(2, 132, 199, 0.12)',
+    order: 2,
+  },
+  serie_c: {
+    key: 'serie_c',
+    title: 'Serie C',
+    sub: 'Campionati Nazionali & Regionali (C1, C2)',
+    icon: 'bi-shield-shaded',
+    accent: '#b45309',
+    accentBg: 'rgba(245, 158, 11, 0.12)',
+    order: 3,
+  },
+  serie_d: {
+    key: 'serie_d',
+    title: 'Serie D',
+    sub: 'Campionati Regionali & Territoriali (D1, D2, D3)',
+    icon: 'bi-diagram-3-fill',
+    accent: '#059669',
+    accentBg: 'rgba(5, 150, 105, 0.12)',
+    order: 4,
+  },
+  altri: {
+    key: 'altri',
+    title: 'Coppe & Altri Campionati',
+    sub: 'Coppa Italia, Tornei a Squadre, Paralimpici',
+    icon: 'bi-stars',
+    accent: '#7c3aed',
+    accentBg: 'rgba(124, 58, 237, 0.12)',
+    order: 5,
+  },
+};
+
+function getChampionshipSerieKey(c: ChampionshipItem): SerieGroupKey {
+  const normCat = (c.categoria || '').trim().toUpperCase();
+  const normName = (c.nome || '').trim().toUpperCase();
+
+  // Serie A
+  if (
+    normCat === 'SERIE A' ||
+    normCat === 'A' ||
+    /\bA\s*[\/-]?\s*[12]\b/i.test(normName) ||
+    /\bSERIE\s+A\b/i.test(normName) ||
+    /^A[12]\b/i.test(normName)
+  ) {
+    return 'serie_a';
+  }
+
+  // Serie B
+  if (
+    normCat === 'SERIE B' ||
+    normCat === 'B' ||
+    /\bB\s*[\/-]?\s*[12]\b/i.test(normName) ||
+    /\bSERIE\s+B\b/i.test(normName) ||
+    /^B[12]\b/i.test(normName)
+  ) {
+    return 'serie_b';
+  }
+
+  // Serie C
+  if (
+    normCat === 'SERIE C1' ||
+    normCat === 'C/2' ||
+    normCat === 'C2' ||
+    normCat === 'C' ||
+    normCat === 'C2/A' ||
+    normCat === 'C2/B' ||
+    /\bC\s*[\/-]?\s*[12]\b/i.test(normName) ||
+    /\bSERIE\s+C\b/i.test(normName) ||
+    /^C[12]\b/i.test(normName)
+  ) {
+    return 'serie_c';
+  }
+
+  // Serie D
+  if (
+    normCat.startsWith('D') ||
+    /\bD\s*[\/-]?\s*[1234]\b/i.test(normName) ||
+    /\bSERIE\s+D\b/i.test(normName) ||
+    /^D[1234]\b/i.test(normName)
+  ) {
+    return 'serie_d';
+  }
+
+  return 'altri';
+}
+
 interface ChampionshipModalProps {
   isOpen: boolean;
   currentCamId: number;
@@ -35,6 +170,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
     }
     return false;
   });
+  const [favoriteIds, setFavoriteIds] = useState<number[]>(getStoredFavorites);
   const [customCamInput, setCustomCamInput] = useState('');
   const [customError, setCustomError] = useState<string | null>(null);
 
@@ -55,7 +191,6 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
       if (!isCancelled && detected) {
         setUserRegion((prevUserRegion) => {
           setSelectedRegion((prevSelected) => {
-            // Keep selectedRegion in sync if user hasn't chosen another specific region
             if (prevSelected === prevUserRegion || prevSelected === 'Tutti' || !prevSelected) {
               return detected;
             }
@@ -70,6 +205,17 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
       isCancelled = true;
     };
   }, []);
+
+  // Toggle favorite status
+  const toggleFavorite = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setFavoriteIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((fid) => fid !== id) : [...prev, id];
+      saveStoredFavorites(next);
+      return next;
+    });
+  };
 
   // Unique list of regions from the catalog
   const regionsList = useMemo(() => {
@@ -99,6 +245,30 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
     return campionati.filter((c) => c.regione.toLowerCase() === selectedRegion.toLowerCase());
   }, [campionati, selectedRegion, searchQuery]);
 
+  // Favorites that match current filtered list
+  const favoriteCampionati = useMemo(() => {
+    if (favoriteIds.length === 0) return [];
+    return filteredCampionati.filter((c) => favoriteIds.includes(c.id));
+  }, [filteredCampionati, favoriteIds]);
+
+  // Group filtered championships by Serie
+  const groupedBySerie = useMemo(() => {
+    const groups: Record<SerieGroupKey, ChampionshipItem[]> = {
+      serie_a: [],
+      serie_b: [],
+      serie_c: [],
+      serie_d: [],
+      altri: [],
+    };
+
+    filteredCampionati.forEach((c) => {
+      const key = getChampionshipSerieKey(c);
+      groups[key].push(c);
+    });
+
+    return groups;
+  }, [filteredCampionati]);
+
   // Quick stats
   const countUserRegion = useMemo(
     () => campionati.filter((c) => c.regione === userRegion).length,
@@ -112,7 +282,6 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
     const trimmed = customCamInput.trim();
     if (!trimmed) return;
 
-    // Check if user pasted a FITeT URL
     let camId: number | null = null;
     const urlMatch = trimmed.match(/CAM=(\d+)/i);
     if (urlMatch) {
@@ -128,6 +297,59 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
 
     onSelectChampionship(camId);
     onClose();
+  };
+
+  const renderCard = (champ: ChampionshipItem) => {
+    const isSelected = champ.id === currentCamId;
+    const isFav = favoriteIds.includes(champ.id);
+
+    return (
+      <button
+        key={`${champ.regione}_${champ.id}`}
+        type="button"
+        className={`championship-card ${isSelected ? 'is-selected' : ''}`}
+        onClick={() => {
+          onSelectChampionship(champ.id, champ.anno || 41, champ.formula || 19);
+          onClose();
+        }}
+      >
+        <div className="championship-card-top">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span className={`cat-badge cat-${champ.categoria.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`}>
+              {champ.categoria}
+            </span>
+            <span className="region-tag">{champ.regione}</span>
+          </div>
+
+          <button
+            type="button"
+            className={`champ-fav-btn ${isFav ? 'is-fav' : ''}`}
+            onClick={(e) => toggleFavorite(champ.id, e)}
+            title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+            aria-label={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+          >
+            <i className={`bi ${isFav ? 'bi-star-fill text-warning' : 'bi-star'}`}></i>
+          </button>
+        </div>
+
+        <div className="championship-card-name">
+          <strong>{champ.nome}</strong>
+        </div>
+
+        <div className="championship-card-footer">
+          <span className="cam-id-hint">ID FITeT: #{champ.id}</span>
+          {isSelected ? (
+            <span className="selected-indicator">
+              <i className="bi bi-check-circle-fill"></i> Attivo
+            </span>
+          ) : (
+            <span className="select-action">
+              Seleziona <i className="bi bi-arrow-right-short"></i>
+            </span>
+          )}
+        </div>
+      </button>
+    );
   };
 
   if (!isOpen) return null;
@@ -283,44 +505,64 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
               </button>
             </div>
           ) : (
-            <div className="championship-grid">
-              {filteredCampionati.map((champ) => {
-                const isSelected = champ.id === currentCamId;
+            <div>
+              {/* 1. SEZIONE PREFERITI (IN CIMA) */}
+              {favoriteCampionati.length > 0 && (
+                <div className="championship-group-section favorites-section">
+                  <div className="championship-group-header favorites-group-header">
+                    <div className="group-header-left">
+                      <div className="group-header-icon-box favorites-icon-box">
+                        <i className="bi bi-star-fill"></i>
+                      </div>
+                      <div className="group-header-title-box">
+                        <h3 className="group-header-title">Campionati Preferiti</h3>
+                        <span className="group-header-sub">Accesso rapido ai tuoi gironi preferiti</span>
+                      </div>
+                    </div>
+                    <span className="group-header-badge favorites-badge">
+                      {favoriteCampionati.length} {favoriteCampionati.length === 1 ? 'salvato' : 'salvati'}
+                    </span>
+                  </div>
+
+                  <div className="championship-grid">
+                    {favoriteCampionati.map((champ) => renderCard(champ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 2. RAGGRUPPAMENTO GERARCHICO PER SERIE */}
+              {(['serie_a', 'serie_b', 'serie_c', 'serie_d', 'altri'] as SerieGroupKey[]).map((groupKey) => {
+                const list = groupedBySerie[groupKey];
+                if (!list || list.length === 0) return null;
+                const config = SERIE_CONFIGS[groupKey];
 
                 return (
-                  <button
-                    key={`${champ.regione}_${champ.id}`}
-                    type="button"
-                    className={`championship-card ${isSelected ? 'is-selected' : ''}`}
-                    onClick={() => {
-                      onSelectChampionship(champ.id, champ.anno || 41, champ.formula || 19);
-                      onClose();
-                    }}
-                  >
-                    <div className="championship-card-top">
-                      <span className={`cat-badge cat-${champ.categoria.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`}>
-                        {champ.categoria}
+                  <div key={groupKey} className="championship-group-section">
+                    <div
+                      className="championship-group-header"
+                      style={{ borderLeftColor: config.accent }}
+                    >
+                      <div className="group-header-left">
+                        <div
+                          className="group-header-icon-box"
+                          style={{ color: config.accent, background: config.accentBg }}
+                        >
+                          <i className={`bi ${config.icon}`}></i>
+                        </div>
+                        <div className="group-header-title-box">
+                          <h3 className="group-header-title">{config.title}</h3>
+                          <span className="group-header-sub">{config.sub}</span>
+                        </div>
+                      </div>
+                      <span className="group-header-badge">
+                        {list.length} {list.length === 1 ? 'girone' : 'gironi'}
                       </span>
-                      <span className="region-tag">{champ.regione}</span>
                     </div>
 
-                    <div className="championship-card-name">
-                      <strong>{champ.nome}</strong>
+                    <div className="championship-grid">
+                      {list.map((champ) => renderCard(champ))}
                     </div>
-
-                    <div className="championship-card-footer">
-                      <span className="cam-id-hint">ID FITeT: #{champ.id}</span>
-                      {isSelected ? (
-                        <span className="selected-indicator">
-                          <i className="bi bi-check-circle-fill"></i> Attivo
-                        </span>
-                      ) : (
-                        <span className="select-action">
-                          Seleziona <i className="bi bi-arrow-right-short"></i>
-                        </span>
-                      )}
-                    </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -354,3 +596,5 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
     document.body
   );
 };
+
+export default ChampionshipModal;

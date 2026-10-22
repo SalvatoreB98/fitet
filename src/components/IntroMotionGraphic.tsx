@@ -53,26 +53,8 @@ export const IntroMotionGraphic: React.FC<IntroMotionGraphicProps> = ({ onComple
         <div className="ambient-grid"></div>
       </div>
 
-      {/* Skip Button */}
-      <button
-        type="button"
-        className="motion-intro-skip-btn"
-        onClick={handleFinish}
-        title="Salta introduzione (ESC)"
-        aria-label="Salta introduzione"
-      >
-        <span>Salta</span>
-        <kbd>ESC</kbd>
-      </button>
-
       {/* Center Motion Graphic Stage */}
       <div className="motion-intro-stage">
-        {/* Minimal Refined Badge */}
-        <div className="motion-intro-badge">
-          <span className="badge-dot"></span>
-          <span>FEDERAZIONE ITALIANA TENNISTAVOLO</span>
-        </div>
-
         {/* Grand Hero Titles */}
         <div className="motion-intro-title">
           <span className="title-fitet">FITeT</span>
@@ -90,7 +72,7 @@ export const IntroMotionGraphic: React.FC<IntroMotionGraphicProps> = ({ onComple
           onClick={handleFinish}
           autoFocus
         >
-          <span>Scegli il tuo campionato</span>
+          <span>Entra nel portale</span>
           <span className="cta-arrow">→</span>
         </button>
       </div>

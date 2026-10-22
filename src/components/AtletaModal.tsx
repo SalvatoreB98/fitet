@@ -5,6 +5,7 @@ import { fetchAtleta, fetchAtletaCampionatoPartite } from '../services/api';
 import { RatingChart } from './RatingChart';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { MarqueeText } from './MarqueeText';
+import { recordAndGetAthleteViews } from '../utils/athleteViews';
 
 interface AtletaModalProps {
   atletaId: string;
@@ -13,6 +14,7 @@ interface AtletaModalProps {
   camId?: string | null;
   campionatoNome?: string | null;
   onClose: () => void;
+  onSelectAthlete?: (id: string, name: string) => void;
 }
 
 export const AtletaModal: React.FC<AtletaModalProps> = ({
@@ -22,6 +24,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   camId,
   campionatoNome,
   onClose,
+  onSelectAthlete,
 }) => {
   useBodyScrollLock(true);
 
@@ -29,6 +32,17 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [imgError, setImgError] = useState<boolean>(false);
+  const [viewsCount, setViewsCount] = useState<number>(0);
+
+  useEffect(() => {
+    const key = atletaId || athleteName || '';
+    if (key) {
+      const v = recordAndGetAthleteViews(key, (serverViews) => {
+        setViewsCount(serverViews);
+      });
+      setViewsCount(v);
+    }
+  }, [atletaId, athleteName]);
 
   // Partite nel campionato attualmente aperto
   const [campionatoPartite, setCampionatoPartite] = useState<PartitaCampionatoAtleta[] | null>(null);
@@ -246,6 +260,16 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     )}
                     {atleta.anagrafica.dataNascita && (
                       <span className="badge pct-zero">Nascita: {atleta.anagrafica.dataNascita}</span>
+                    )}
+                    {viewsCount > 0 && (
+                      <span
+                        className="athlete-yt-views"
+                        title={`${viewsCount.toLocaleString('it-IT')} ${viewsCount === 1 ? 'visualizzazione' : 'visualizzazioni'} reali del profilo`}
+                      >
+                        <i className="bi bi-eye" style={{ fontSize: '12px' }}></i>
+                        {viewsCount.toLocaleString('it-IT')}{' '}
+                        {viewsCount === 1 ? 'visualizzazione' : 'visualizzazioni'}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -853,19 +877,33 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                                   {/* Middle Row: Opponent Name & Event Details */}
                                   <div style={{ marginBottom: '8px' }}>
-                                    <div
-                                      style={{
-                                        fontWeight: '700',
-                                        fontSize: '13.5px',
-                                        color: 'var(--text-dark)',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                      }}
-                                      title={`Avversario: ${m.avversario}`}
-                                    >
-                                      vs {m.avversario}
-                                    </div>
+                                      <div
+                                        style={{
+                                          fontWeight: '700',
+                                          fontSize: '13.5px',
+                                          color: 'var(--text-dark)',
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                          whiteSpace: 'nowrap',
+                                        }}
+                                      >
+                                        {onSelectAthlete ? (
+                                          <button
+                                            type="button"
+                                            className="atleta-opponent-link"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onSelectAthlete(m.avversario, m.avversario);
+                                            }}
+                                            title={`Apri profilo di ${m.avversario}`}
+                                          >
+                                            <span className="atleta-opponent-text">vs {m.avversario}</span>
+                                            <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
+                                          </button>
+                                        ) : (
+                                          <span title={`Avversario: ${m.avversario}`}>vs {m.avversario}</span>
+                                        )}
+                                      </div>
 
                                     <MarqueeText
                                       className="match-event-title-scroll"
@@ -1023,7 +1061,22 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                                     <div style={{ minWidth: 0 }}>
                                       <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                        vs {m.avversario}
+                                        {onSelectAthlete ? (
+                                          <button
+                                            type="button"
+                                            className="atleta-opponent-link"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onSelectAthlete(m.avversario, m.avversario);
+                                            }}
+                                            title={`Apri profilo di ${m.avversario}`}
+                                          >
+                                            <span className="atleta-opponent-text">vs {m.avversario}</span>
+                                            <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
+                                          </button>
+                                        ) : (
+                                          <span>vs {m.avversario}</span>
+                                        )}
                                       </div>
                                       <div
                                         className="match-event-title-scroll"
