@@ -137,9 +137,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                   FITeT #{camId}
                 </span>
               </div>
-              <div style={{ fontSize: '11.5px', color: '#bfdbfe', marginTop: '3px' }}>
-                Roster Squadra & Rendimento Atleti • Stagione {annoId === 41 ? '2024/2025' : `Anno ${annoId}`}
-              </div>
+
             </div>
           </div>
 
@@ -316,7 +314,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                       color: 'var(--text-dark)',
                     }}
                   >
-                    Roster Atleti & Statistiche Individuali
+                    Statistiche Individuali
                   </h4>
                   <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
                     Clicca su un atleta per visualizzare la scheda anagrafica federale e lo storico punti

@@ -494,7 +494,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
               setSearchQuery('');
             }}
           >
-            <i className="bi bi-flag-fill me-1" style={{ color: '#10b981' }}></i> Nazionali
+            <i className="bi bi-flag-fill me-1" style={{ color: '#5c8af9' }}></i> Nazionali
             {countNazionale > 0 && <span className="pill-badge">{countNazionale}</span>}
           </button>
 
