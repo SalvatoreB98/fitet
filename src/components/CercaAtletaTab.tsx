@@ -102,7 +102,7 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
 
   return (
     <div className={`cerca-atleta-container ${compactMode ? 'is-compact' : ''}`}>
-      {!compactMode && (
+      
         <div className="cerca-atleta-header">
           <div className="cerca-atleta-icon-box">
             <i className="bi bi-search"></i>
@@ -112,10 +112,8 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
             Cerca qualsiasi atleta tesserato per cognome e nome per consultare scheda ranking, punti e storico posizioni.
           </p>
         </div>
-      )}
-      <div className="cerca-atleta-or-label text-center mb-3">
-        <div><i className='bi bi-person'></i></div>
-        Oppure cerca atleta: </div>
+      
+      
       {/* Search Input Bar */}
       <div className="cerca-atleta-search-box">
         <div className="cerca-atleta-input-wrapper">
