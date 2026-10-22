@@ -921,6 +921,11 @@ body {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.portal-nav-tab:nth-child(1) {
+  min-width: 60vw;
+  justify-content: center;
+}
+
 .portal-nav-tab:hover {
   color: #f1f5f9;
   background: rgba(255, 255, 255, 0.04);
