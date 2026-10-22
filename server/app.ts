@@ -313,17 +313,17 @@ app.get('/api/atleta/:id', async (req, res) => {
 });
 
 // 5b. Athlete Real Views tracking
-app.post('/api/atleta/:id/view', (req, res) => {
+app.post('/api/atleta/:id/view', async (req, res) => {
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: 'ID atleta mancante' });
-    const count = viewsService.incrementViews(id);
+    const count = await viewsService.incrementViews(id);
     res.json({ id, views: count });
 });
 
-app.get('/api/atleta/:id/views', (req, res) => {
+app.get('/api/atleta/:id/views', async (req, res) => {
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: 'ID atleta mancante' });
-    const count = viewsService.getViews(id);
+    const count = await viewsService.getViews(id);
     res.json({ id, views: count });
 });
 

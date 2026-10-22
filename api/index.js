@@ -222,13 +222,55 @@ var ViewsService = class {
       console.warn("Error saving athlete views:", err);
     }
   }
-  getViews(key) {
-    if (!key) return 0;
-    return this.viewsMap[key.toLowerCase().trim()] || 0;
+  getKvConfig() {
+    const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+    const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+    if (kvUrl && kvToken) {
+      return { url: kvUrl, token: kvToken };
+    }
+    return null;
   }
-  incrementViews(key) {
+  async getViews(key) {
     if (!key) return 0;
     const clean = key.toLowerCase().trim();
+    const kv = this.getKvConfig();
+    if (kv) {
+      try {
+        const res = await fetch(`${kv.url}/get/athlete_views:${encodeURIComponent(clean)}`, {
+          headers: { Authorization: `Bearer ${kv.token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.result !== null && data.result !== void 0) {
+            return parseInt(data.result, 10) || 0;
+          }
+          return 0;
+        }
+      } catch (err) {
+        console.warn("Vercel KV get error, fallback to local:", err);
+      }
+    }
+    return this.viewsMap[clean] || 0;
+  }
+  async incrementViews(key) {
+    if (!key) return 0;
+    const clean = key.toLowerCase().trim();
+    const kv = this.getKvConfig();
+    if (kv) {
+      try {
+        const res = await fetch(`${kv.url}/incr/athlete_views:${encodeURIComponent(clean)}`, {
+          headers: { Authorization: `Bearer ${kv.token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && typeof data.result === "number") {
+            return data.result;
+          }
+        }
+      } catch (err) {
+        console.warn("Vercel KV incr error, fallback to local:", err);
+      }
+    }
     const current = this.viewsMap[clean] || 0;
     const next = current + 1;
     this.viewsMap[clean] = next;
@@ -2181,16 +2223,16 @@ app.get("/api/atleta/:id", async (req, res) => {
     res.status(500).json({ error: "Errore nel recupero della scheda atleta", details: error.message });
   }
 });
-app.post("/api/atleta/:id/view", (req, res) => {
+app.post("/api/atleta/:id/view", async (req, res) => {
   const { id } = req.params;
   if (!id) return res.status(400).json({ error: "ID atleta mancante" });
-  const count = viewsService.incrementViews(id);
+  const count = await viewsService.incrementViews(id);
   res.json({ id, views: count });
 });
-app.get("/api/atleta/:id/views", (req, res) => {
+app.get("/api/atleta/:id/views", async (req, res) => {
   const { id } = req.params;
   if (!id) return res.status(400).json({ error: "ID atleta mancante" });
-  const count = viewsService.getViews(id);
+  const count = await viewsService.getViews(id);
   res.json({ id, views: count });
 });
 app.get("/api/search-atleta", async (req, res) => {
