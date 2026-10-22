@@ -163,7 +163,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
             <div style={{ minWidth: 0, overflow: 'hidden' }}>
               <h3 style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                Scheda Ranking FITeT — {atleta?.anagrafica?.nome || athleteName || 'Atleta'}
+                Scheda Ranking FITeT
               </h3>
               <div style={{ fontSize: '11px', color: '#bfdbfe', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 Tessera / ID: {atleta?.id || (/^\d+$/.test(atletaId) ? atletaId : 'In risoluzione...')} • Classifica Unica Nazionale
