@@ -10,15 +10,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #06080e;
+  background: linear-gradient(135deg, #050b16 0%, #0c1830 50%, #122444 100%);
+
   color: #ffffff;
   overflow: hidden;
   user-select: none;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
-              filter 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: opacity, transform, filter;
 }
 
 .motion-intro-overlay.is-closing {
@@ -26,53 +23,6 @@
   transform: scale(1.04);
   filter: blur(14px);
   pointer-events: none;
-}
-
-/* Ambient dynamic background lighting */
-.motion-intro-ambient {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 1;
-}
-
-.ambient-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.45;
-  animation: floatOrb 8s ease-in-out infinite alternate;
-}
-
-.ambient-orb-1 {
-  width: 450px;
-  height: 450px;
-  top: 15%;
-  left: 20%;
-  background: radial-gradient(circle, rgba(37, 99, 235, 0.35) 0%, rgba(37, 99, 235, 0) 70%);
-}
-
-.ambient-orb-2 {
-  width: 500px;
-  height: 500px;
-  bottom: 15%;
-  right: 20%;
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0) 70%);
-  animation-duration: 10s;
-  animation-delay: -3s;
-}
-
-.ambient-grid {
-  position: absolute;
-  inset: 0;
-  background-image: 
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 60px 60px;
-  background-position: center center;
-  mask-image: radial-gradient(ellipse 65% 65% at 50% 50%, #000 30%, transparent 85%);
-  -webkit-mask-image: radial-gradient(ellipse 65% 65% at 50% 50%, #000 30%, transparent 85%);
 }
 
 /* Skip / Esc Button */
@@ -137,85 +87,6 @@
   justify-content: center;
 }
 
-.kinetic-table-net {
-  position: absolute;
-  bottom: 28px;
-  width: 170px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35) 20%, rgba(255, 255, 255, 0.85) 50%, rgba(255, 255, 255, 0.35) 80%, transparent);
-}
-
-.kinetic-net-pillar {
-  position: absolute;
-  bottom: 28px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 2px;
-  height: 18px;
-  background: linear-gradient(to top, rgba(255, 255, 255, 0.8), transparent);
-}
-
-/* Animated Ball & Trajectory */
-.kinetic-trajectory-svg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.kinetic-ball {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.95), 0 0 32px rgba(56, 189, 248, 0.7);
-  animation: kineticBallBounce 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-}
-
-.kinetic-ripple {
-  position: absolute;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 28px;
-  height: 10px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(56, 189, 248, 0.8);
-  box-shadow: 0 0 14px rgba(56, 189, 248, 0.6);
-  animation: kineticRippleExpand 2.2s ease-out infinite;
-  pointer-events: none;
-}
-
-/* Tagline pill */
-.motion-intro-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 14px;
-  border-radius: 30px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #94a3b8;
-  margin-bottom: 14px;
-  animation: staggerFadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.motion-intro-badge .badge-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 8px #10b981;
-  animation: badgeBlink 2s ease-in-out infinite;
-}
-
 /* Grand Hero Typography */
 .motion-intro-title {
   margin: 0 0 10px 0;
@@ -234,7 +105,11 @@
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: shimmerSheen 3.5s ease-in-out infinite, staggerFadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  max-width: 100%;
+}
+
+.motion-intro-title .title-fitet img {
+  max-width: 250px;
 }
 
 .motion-intro-title .title-campionati {
@@ -243,8 +118,7 @@
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.9);
-  margin-top: 4px;
-  animation: staggerFadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+  margin-top: 2em;
 }
 
 .motion-intro-sub {
@@ -253,7 +127,6 @@
   color: #94a3b8;
   margin: 8px 0 28px 0;
   letter-spacing: 0.04em;
-  animation: staggerFadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
 }
 
 /* Call to Action CTA */
@@ -262,23 +135,17 @@
   align-items: center;
   gap: 10px;
   padding: 13px 28px;
-  border-radius: 40px;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #ffffff;
+  background: white;
+  border: none;
+  color: #000000;
   font-size: 14.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
   cursor: pointer;
-  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  animation: staggerFadeUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both;
+  border: 1px solid white;
+  border-radius: 8px;
 }
 
-.motion-intro-cta:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: 0 12px 32px rgba(37, 99, 235, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.45);
-}
 
 .motion-intro-cta:active {
   transform: translateY(0) scale(0.98);
@@ -306,42 +173,58 @@
 .motion-intro-progress-fill {
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #2563eb, #38bdf8, #10b981);
+  background: white;
   box-shadow: 0 0 12px rgba(56, 189, 248, 0.7);
   animation: progressFill 2.8s linear forwards;
 }
 
 /* Animations */
 @keyframes floatOrb {
-  0% { transform: translate(0, 0) scale(1); }
-  100% { transform: translate(30px, -20px) scale(1.15); }
-}
-
-@keyframes staggerFadeUp {
   0% {
-    opacity: 0;
-    transform: translateY(18px);
+    transform: translate(0, 0) scale(1);
   }
+
   100% {
-    opacity: 1;
-    transform: translateY(0);
+    transform: translate(30px, -20px) scale(1.15);
   }
 }
 
 @keyframes shimmerSheen {
-  0% { background-position: 100% 0%; }
-  50% { background-position: 0% 0%; }
-  100% { background-position: 100% 0%; }
+  0% {
+    background-position: 100% 0%;
+  }
+
+  50% {
+    background-position: 0% 0%;
+  }
+
+  100% {
+    background-position: 100% 0%;
+  }
 }
 
 @keyframes badgeBlink {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.85); }
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
 }
 
 @keyframes progressFill {
-  0% { width: 0%; }
-  100% { width: 100%; }
+  0% {
+    width: 0%;
+  }
+
+  100% {
+    width: 100%;
+  }
 }
 
 /* Table Tennis Kinetic Ball Bounce Animation */
@@ -351,21 +234,27 @@
     top: 50px;
     transform: scale(1, 1);
   }
+
   24% {
     left: 114px;
-    top: 72px; /* impact on net table */
+    top: 72px;
+    /* impact on net table */
     transform: scale(1.2, 0.75);
   }
+
   50% {
     left: 200px;
     top: 48px;
     transform: scale(1, 1);
   }
+
   74% {
     left: 114px;
-    top: 72px; /* return impact */
+    top: 72px;
+    /* return impact */
     transform: scale(1.2, 0.75);
   }
+
   100% {
     left: 28px;
     top: 50px;
@@ -374,42 +263,68 @@
 }
 
 @keyframes kineticRippleExpand {
-  0%, 20% {
+
+  0%,
+  20% {
     opacity: 0;
     transform: translateX(-50%) scale(0.2);
   }
+
   25% {
     opacity: 1;
     transform: translateX(-50%) scale(0.4);
   }
+
   42% {
     opacity: 0;
     transform: translateX(-50%) scale(1.8);
   }
+
   70% {
     opacity: 0;
     transform: translateX(-50%) scale(0.2);
   }
+
   75% {
     opacity: 1;
     transform: translateX(-50%) scale(0.4);
   }
-  92%, 100% {
+
+  92%,
+  100% {
     opacity: 0;
     transform: translateX(-50%) scale(1.8);
   }
 }
 
 @keyframes paddleLeftTilt {
-  0%, 100% { transform: rotate(-10deg) scale(1); }
-  2% { transform: rotate(-18deg) scale(1.05); }
-  15% { transform: rotate(-10deg) scale(1); }
+
+  0%,
+  100% {
+    transform: rotate(-10deg) scale(1);
+  }
+
+  2% {
+    transform: rotate(-18deg) scale(1.05);
+  }
+
+  15% {
+    transform: rotate(-10deg) scale(1);
+  }
 }
 
 @keyframes paddleRightTilt {
-  48% { transform: rotate(10deg) scale(1); }
-  52% { transform: rotate(18deg) scale(1.05); }
-  65% { transform: rotate(10deg) scale(1); }
+  48% {
+    transform: rotate(10deg) scale(1);
+  }
+
+  52% {
+    transform: rotate(18deg) scale(1.05);
+  }
+
+  65% {
+    transform: rotate(10deg) scale(1);
+  }
 }
 
 @media (max-width: 640px) {
@@ -417,13 +332,16 @@
     transform: scale(0.85);
     margin-bottom: 16px;
   }
+
   .motion-intro-title .title-fitet {
     font-size: 52px;
   }
+
   .motion-intro-title .title-campionati {
     font-size: 16px;
     letter-spacing: 0.22em;
   }
+
   .motion-intro-skip-btn {
     top: 16px;
     right: 16px;

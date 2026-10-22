@@ -27,16 +27,6 @@ export const IntroMotionGraphic: React.FC<IntroMotionGraphicProps> = ({ onComple
     };
 
     window.addEventListener('keydown', handleKeyDown);
-
-    // Auto-advance after 2.8s
-    timerRef.current = setTimeout(() => {
-      handleFinish();
-    }, 50000);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
   }, []);
 
   return (
@@ -46,18 +36,14 @@ export const IntroMotionGraphic: React.FC<IntroMotionGraphicProps> = ({ onComple
       aria-modal="true"
       aria-label="Introduzione Campionati FITeT"
     >
-      {/* Dynamic ambient backgrounds */}
-      <div className="motion-intro-ambient" aria-hidden="true">
-        <div className="ambient-orb ambient-orb-1"></div>
-        <div className="ambient-orb ambient-orb-2"></div>
-        <div className="ambient-grid"></div>
-      </div>
 
       {/* Center Motion Graphic Stage */}
       <div className="motion-intro-stage">
         {/* Grand Hero Titles */}
         <div className="motion-intro-title">
-          <span className="title-fitet">FITeT</span>
+          <span className="title-fitet">
+            <img src="bw.png" alt="" />
+          </span>
           <span className="title-campionati">CAMPIONATI</span>
         </div>
 
@@ -72,15 +58,12 @@ export const IntroMotionGraphic: React.FC<IntroMotionGraphicProps> = ({ onComple
           onClick={handleFinish}
           autoFocus
         >
-          <span>Entra nel portale</span>
+          <span>Entra nel nuovo portale</span>
           <span className="cta-arrow">→</span>
         </button>
       </div>
 
-      {/* Bottom Progress Timer Line */}
-      <div className="motion-intro-progress-bar" aria-hidden="true">
-        <div className="motion-intro-progress-fill"></div>
-      </div>
+      {/* Bottom Progress Timer Line removed*/}
     </div>
   );
 };
