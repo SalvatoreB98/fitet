@@ -891,7 +891,6 @@ body {
 /* Sub-Navigation Tabs */
 .portal-nav {
   background: #0b1f36;
-  padding: 0 22px;
   display: flex;
   gap: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
