@@ -75,22 +75,22 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
   const renderSortIndicator = (field: string, activeField: string, isAsc: boolean) => {
     if (field !== activeField) {
       return (
-        <span style={{ marginLeft: '4px', opacity: 0.3, fontSize: '10px' }} title="Clicca per ordinare">
-          ↕
-        </span>
+        <i
+          className="bi bi-arrow-down-up"
+          style={{ marginLeft: '4px', opacity: 0.35, fontSize: '10px' }}
+          title="Clicca per ordinare"
+        />
       );
     }
     return (
-      <span
+      <i
+        className={isAsc ? 'bi bi-caret-up-fill' : 'bi bi-caret-down-fill'}
         style={{
           marginLeft: '4px',
           color: 'var(--color-primary-600)',
-          fontWeight: '800',
           fontSize: '11px',
         }}
-      >
-        {isAsc ? '▲' : '▼'}
-      </span>
+      />
     );
   };
 
@@ -203,9 +203,27 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
   };
 
   const renderPosBadge = (pos: number) => {
-    if (pos === 1) return <span className="pos-medal" title="1° Posto (Promozione Diretta)">🥇</span>;
-    if (pos === 2) return <span className="pos-medal" title="2° Posto (Playoff Promozione)">🥈</span>;
-    if (pos === 3) return <span className="pos-medal" title="3° Posto (Playoff Promozione)">🥉</span>;
+    if (pos === 1) {
+      return (
+        <span className="pos-badge-podium pos-badge-gold" title="1° Posto (Promozione Diretta)">
+          <i className="bi bi-trophy-fill"></i>
+        </span>
+      );
+    }
+    if (pos === 2) {
+      return (
+        <span className="pos-badge-podium pos-badge-silver" title="2° Posto (Playoff Promozione)">
+          <i className="bi bi-award-fill"></i>
+        </span>
+      );
+    }
+    if (pos === 3) {
+      return (
+        <span className="pos-badge-podium pos-badge-bronze" title="3° Posto (Playoff Promozione)">
+          <i className="bi bi-award-fill"></i>
+        </span>
+      );
+    }
     return <span className="pos-num-plain">{pos}</span>;
   };
 
@@ -243,7 +261,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                   }}
                   title="Cancella ricerca"
                 >
-                  ✕
+                  <i className="bi bi-x-lg"></i>
                 </button>
               )}
             </div>
@@ -257,7 +275,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
             onClick={() => setViewMode('responsive')}
             title="Classifica ufficiale e sezioni separate senza scroll"
           >
-            📱 Classifiche separate
+            <i className="bi bi-view-list me-1"></i> Classifiche separate
           </button>
           <button
             type="button"
@@ -265,7 +283,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
             onClick={() => setViewMode('completa')}
             title="Tabellone unico 10 colonne per schermi ampi"
           >
-            📑 Tabellone (10 Col.)
+            <i className="bi bi-table me-1"></i> Tabellone (10 Col.)
           </button>
         </div>
       </div>
@@ -277,7 +295,9 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
           <div className="ranking-card-block primary-official">
             <div className="ranking-section-header official-header">
               <div className="official-title-group">
-                <span className="official-crown">👑</span>
+                <span className="official-crown">
+                  <i className="bi bi-trophy-fill text-warning"></i>
+                </span>
                 <div>
                   <div className="official-main-title">CLASSIFICA FITeT</div>
                   <div className="official-main-sub">
@@ -285,7 +305,9 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
                 </div>
               </div>
               <div className="official-badge-group">
-                <span className="badge-official-gold">⭐</span>
+                <span className="badge-official-gold">
+                  <i className="bi bi-star-fill"></i>
+                </span>
                 <span className="section-badge">{sortedUfficialeTeams.length} squadre</span>
               </div>
             </div>
@@ -387,7 +409,9 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
             <div className="ranking-section-header secondary-header">
               <div className="secondary-title-group">
                 <span className="secondary-tag">APPROFONDIMENTO 1</span>
-                <span>📊 Bilancio Gare &amp; Stato di Forma</span>
+                <span>
+                  <i className="bi bi-bar-chart-line-fill me-1"></i> Bilancio Gare &amp; Stato di Forma
+                </span>
               </div>
               <span className="section-badge">IV: Vinte • IP: Perse</span>
             </div>
@@ -478,7 +502,9 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
             <div className="ranking-section-header secondary-header">
               <div className="secondary-title-group">
                 <span className="secondary-tag">APPROFONDIMENTO 2</span>
-                <span>🎯 Differenziali Partite, Set &amp; Punti Gioco</span>
+                <span>
+                  <i className="bi bi-bullseye me-1"></i> Differenziali Partite, Set &amp; Punti Gioco
+                </span>
               </div>
               <span className="section-badge">Partite • Set • Punti</span>
             </div>
@@ -571,13 +597,17 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
           <div className="ranking-card-block primary-official">
             <div className="ranking-section-header official-header">
               <div className="official-title-group">
-                <span className="official-crown">👑</span>
+                <span className="official-crown">
+                  <i className="bi bi-trophy-fill text-warning"></i>
+                </span>
                 <div>
                   <div className="official-main-title">CLASSIFICA - TUTTE LE METRICHE</div>
                 </div>
               </div>
               <div className="official-badge-group">
-                <span className="badge-official-gold">⭐ VALORE FEDERALE</span>
+                <span className="badge-official-gold">
+                  <i className="bi bi-star-fill me-1"></i> VALORE FEDERALE
+                </span>
                 <span className="section-badge">{sortedCompletaTeams.length} squadre</span>
               </div>
             </div>

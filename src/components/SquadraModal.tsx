@@ -168,7 +168,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                 }}
                 title="Filtra gli incontri di questa squadra nel Calendario"
               >
-                <span>📅</span>
+                <i className="bi bi-calendar-event me-1"></i>
                 <span className="d-none d-sm-inline">Filtra Incontri</span>
               </button>
             )}
@@ -180,7 +180,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
               title="Chiudi finestra (ESC)"
               aria-label="Chiudi finestra"
             >
-              ✕
+              <i className="bi bi-x-lg"></i>
             </button>
           </div>
         </div>
@@ -420,7 +420,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                                   }}
                                   title="Coppia di doppio"
                                 >
-                                  👥
+                                  <i className="bi bi-people-fill text-secondary"></i>
                                 </div>
                               ) : (
                                 <AthleteAvatar atletaId={a.atletaId} nome={a.nome} size={30} />
@@ -439,7 +439,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                                     {a.nome}
                                   </span>
                                   {isClickable && (
-                                    <span style={{ fontSize: '10px', opacity: 0.7 }}>↗</span>
+                                    <i className="bi bi-box-arrow-up-right" style={{ fontSize: '10.5px', opacity: 0.75 }}></i>
                                   )}
                                 </div>
                                 {a.isDoppio && (

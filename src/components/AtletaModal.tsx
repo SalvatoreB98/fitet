@@ -178,7 +178,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             title="Chiudi finestra (ESC)"
             aria-label="Chiudi finestra"
           >
-            ✕
+            <i className="bi bi-x-lg"></i>
           </button>
         </div>
 
@@ -445,7 +445,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     {/* Header Row: Title & Switcher */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <div style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--color-primary-600)', letterSpacing: '0.04em' }}>
+                        <div style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-dark)', letterSpacing: '0.04em' }}>
                           <i className="bi bi-trophy-fill me-1 text-warning"></i>
                           {activeTabResolved === 'girone'
                             ? `Partite nel Campionato ${campionatoNome ? `(${campionatoNome})` : ''}`

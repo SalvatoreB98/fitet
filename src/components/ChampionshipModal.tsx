@@ -430,7 +430,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
             aria-label="Chiudi finestra"
             title="Chiudi finestra (ESC)"
           >
-            ✕
+            <i className="bi bi-x-lg"></i>
           </button>
         </div>
 
@@ -480,7 +480,8 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
               }}
               title={hasGeoLocation ? `Regione rilevata dalla posizione: ${userRegion}` : `Regione: ${userRegion}`}
             >
-              <span className="pill-star">{hasGeoLocation ? '📍' : '⭐'}</span> {userRegion}
+              <i className={hasGeoLocation ? 'bi bi-geo-alt-fill me-1 text-danger' : 'bi bi-star-fill me-1 text-warning'}></i>
+              {userRegion}
               {countUserRegion > 0 && <span className="pill-badge">{countUserRegion}</span>}
             </button>
           )}
@@ -493,7 +494,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
               setSearchQuery('');
             }}
           >
-            <span className="pill-flag">🇮🇹</span> Nazionali
+            <i className="bi bi-flag-fill me-1" style={{ color: '#10b981' }}></i> Nazionali
             {countNazionale > 0 && <span className="pill-badge">{countNazionale}</span>}
           </button>
 

@@ -351,8 +351,8 @@ body {
   width: 40px;
   height: 40px;
   padding: 0;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: none;
+  border: none;
   border-radius: 10px;
   cursor: pointer;
   outline: none;
@@ -919,9 +919,14 @@ body {
   gap: 8px;
   white-space: nowrap;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  min-width: 55vw;
-  justify-content: center;
 
+}
+
+@media screen and (max-width: 500px) {
+  .portal-nav-tab {
+    min-width: 55vw;
+    justify-content: center;
+  }
 }
 
 .portal-nav-tab:hover {
@@ -1553,9 +1558,11 @@ body {
 }
 
 .winner-trophy {
-  font-size: 12px;
+  font-size: 13px;
   flex-shrink: 0;
-  margin-left: 2px;
+  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* Score Box */
@@ -1838,6 +1845,66 @@ body {
   background: #091222;
   border-top-color: #1a2d52;
   color: #94a3b8;
+}
+
+/* Podium Badges in Standings Tables (Replacing raw emojis with vector Bootstrap Icons) */
+.pos-badge-podium {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.pos-badge-podium:hover {
+  transform: scale(1.1);
+}
+
+.pos-badge-gold {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.12);
+}
+
+[data-theme="dark"] .pos-badge-gold {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+.pos-badge-silver {
+  color: #475569;
+  background: rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+[data-theme="dark"] .pos-badge-silver {
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.22);
+  border-color: rgba(148, 163, 184, 0.45);
+}
+
+.pos-badge-bronze {
+  color: #9a3412;
+  background: rgba(217, 119, 6, 0.14);
+  border: 1px solid rgba(217, 119, 6, 0.32);
+}
+
+[data-theme="dark"] .pos-badge-bronze {
+  color: #fdba74;
+  background: rgba(217, 119, 6, 0.2);
+  border-color: rgba(217, 119, 6, 0.45);
+}
+
+.pos-num-plain {
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--text-muted, #64748b);
 }
 
 /* ==========================================================================
@@ -2962,7 +3029,9 @@ body.modal-open {
   background: #dcfce7;
   padding: 2px 7px;
   border-radius: 4px;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   align-self: flex-start;
   border: 1px solid #bbf7d0;
 }
@@ -3060,6 +3129,9 @@ body.modal-open {
 
 .meta-icon {
   font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-primary-600);
 }
 
 .referto-section-header {

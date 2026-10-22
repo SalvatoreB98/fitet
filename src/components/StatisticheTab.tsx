@@ -257,22 +257,22 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
   const renderSortIndicator = (field: string, activeField: string, isAsc: boolean) => {
     if (field !== activeField) {
       return (
-        <span style={{ marginLeft: '4px', opacity: 0.3, fontSize: '10px' }} title="Clicca per ordinare">
-          ↕
-        </span>
+        <i
+          className="bi bi-arrow-down-up"
+          style={{ marginLeft: '4px', opacity: 0.35, fontSize: '10px' }}
+          title="Clicca per ordinare"
+        />
       );
     }
     return (
-      <span
+      <i
+        className={isAsc ? 'bi bi-caret-up-fill' : 'bi bi-caret-down-fill'}
         style={{
           marginLeft: '4px',
           color: 'var(--color-primary-600)',
-          fontWeight: '800',
           fontSize: '11px',
         }}
-      >
-        {isAsc ? '▲' : '▼'}
-      </span>
+      />
     );
   };
 
@@ -343,7 +343,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
         }}
         title={`Apri scheda federale di ${a.atleta}`}
       >
-        ↗
+        <i className="bi bi-box-arrow-up-right"></i>
       </button>
     </div>
   );
@@ -382,7 +382,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
                   }}
                   title="Cancella ricerca"
                 >
-                  ✕
+                  <i className="bi bi-x-lg"></i>
                 </button>
               )}
             </div>
@@ -395,7 +395,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
                 setSelectedTeam('');
               }}
             >
-              Azzera ✕
+              Azzera <i className="bi bi-x-lg ms-1"></i>
             </button>
           )}
 
@@ -407,7 +407,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
             onClick={() => setSubRanking('pct')}
             title="Classifica rendimento e percentuale vittorie (zero scroll)"
           >
-            🏆 % Vittorie
+            <i className="bi bi-trophy me-1"></i> % Vittorie
           </button>
           <button
             type="button"
@@ -415,7 +415,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
             onClick={() => setSubRanking('vinte')}
             title="Classifica singolari più vincenti (zero scroll)"
           >
-            🥇 Più Vincenti
+            <i className="bi bi-award me-1"></i> Più Vincenti
           </button>
           <button
             type="button"
@@ -423,7 +423,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
             onClick={() => setSubRanking('set')}
             title="Classifica differenziale set e punti (zero scroll)"
           >
-            🎯 Set &amp; Punti
+            <i className="bi bi-bullseye me-1"></i> Set &amp; Punti
           </button>
           <button
             type="button"
@@ -431,7 +431,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
             onClick={() => setSubRanking('all')}
             title="Visualizza tutte le classifiche separate impilate sotto"
           >
-            📑 Tutte le Classifiche (Sotto)
+            <i className="bi bi-view-stacked me-1"></i> Tutte le Classifiche (Sotto)
           </button>
           <button
             type="button"
@@ -439,7 +439,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
             onClick={() => setSubRanking('full')}
             title="Tabellone completo 11 colonne per monitor ampi"
           >
-            📋 Tabellone (11 Col.)
+            <i className="bi bi-table me-1"></i> Tabellone (11 Col.)
           </button>
 
         </div>
@@ -455,7 +455,9 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
           <div className="ranking-card-block primary-official">
             <div className="ranking-section-header official-header">
               <div className="official-title-group">
-                <span className="official-crown">⭐</span>
+                <span className="official-crown">
+                  <i className="bi bi-trophy-fill text-warning"></i>
+                </span>
                 <div>
                   <div className="official-main-title"> PERCENTUALE VITTORIE (%pv)</div>
                   <div className="official-main-sub">
@@ -464,7 +466,9 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
                 </div>
               </div>
               <div className="official-badge-group">
-                <span className="badge-official-gold">⭐ RANKING PRINCIPALE</span>
+                <span className="badge-official-gold">
+                  <i className="bi bi-star-fill me-1"></i> RANKING PRINCIPALE
+                </span>
                 <span className="section-badge">{sortedPctAthletes.length} atleti</span>
               </div>
             </div>
@@ -566,7 +570,9 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
             <div className="ranking-section-header secondary-header">
               <div className="secondary-title-group">
                 <span className="secondary-tag">APPROFONDIMENTO 1</span>
-                <span>🥇 Singolari Più Vincenti (Partite Vinte &amp; Perse)</span>
+                <span>
+                  <i className="bi bi-award-fill me-1"></i> Singolari Più Vincenti (Partite Vinte &amp; Perse)
+                </span>
               </div>
               <span className="section-badge">{sortedVinteAthletes.length} atleti</span>
             </div>
@@ -662,7 +668,9 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
             <div className="ranking-section-header secondary-header">
               <div className="secondary-title-group">
                 <span className="secondary-tag">APPROFONDIMENTO 2</span>
-                <span>🎯 Differenziali Set e Punti Gioco Vinti/Persi</span>
+                <span>
+                  <i className="bi bi-bullseye me-1"></i> Differenziali Set e Punti Gioco Vinti/Persi
+                </span>
               </div>
               <span className="section-badge">{sortedSetAthletes.length} atleti</span>
             </div>

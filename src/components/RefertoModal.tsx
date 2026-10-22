@@ -170,15 +170,22 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
               title="Aggiorna referto da portale FITeT"
               style={{ padding: '4px 10px', fontSize: '11px', background: 'rgba(255,255,255,0.12)', color: '#fff', borderColor: 'rgba(255,255,255,0.2)' }}
             >
-              {refreshing ? 'Aggiornamento...' : '🔄'}
-            </button>            <button
+              {refreshing ? (
+                <>
+                  <i className="bi bi-arrow-repeat spin-anim me-1"></i>Aggiornamento...
+                </>
+              ) : (
+                <i className="bi bi-arrow-clockwise" style={{ fontSize: '13px' }}></i>
+              )}
+            </button>
+            <button
               type="button"
               className="modal-close-btn-red"
               onClick={onClose}
               title="Chiudi finestra (ESC)"
               aria-label="Chiudi finestra"
             >
-              ✕
+              <i className="bi bi-x-lg"></i>
             </button>
           </div>
         </div>
@@ -235,7 +242,9 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span className="team-role-tag role-casa">CASA</span>
                       {isCasaWinner && (
-                        <span className="referto-winner-badge">🏆 Vincitore incontro</span>
+                        <span className="referto-winner-badge">
+                          <i className="bi bi-trophy-fill text-warning me-1"></i>Vincitore incontro
+                        </span>
                       )}
                     </div>
                     <h4 className="referto-team-name" title={referto.squadraCasa.nome}>
@@ -281,7 +290,9 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                   <div className="referto-team-name-group ospite-name-group">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
                       {isOspiteWinner && (
-                        <span className="referto-winner-badge">🏆 Vincitore incontro</span>
+                        <span className="referto-winner-badge">
+                          <i className="bi bi-trophy-fill text-warning me-1"></i>Vincitore incontro
+                        </span>
                       )}
                       <span className="team-role-tag role-ospite">OSPITE</span>
                     </div>
@@ -304,7 +315,9 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                 <div className="referto-meta-bar">
                   {referto.arbitro && (
                     <div className="referto-meta-item">
-                      <span className="meta-icon">👨‍⚖️</span>
+                      <span className="meta-icon">
+                        <i className="bi bi-person-badge"></i>
+                      </span>
                       <span className="meta-text">
                         <strong>Arbitro:</strong> {referto.arbitro}
                       </span>
@@ -312,7 +325,9 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                   )}
                   {referto.campoGara && (
                     <div className="referto-meta-item">
-                      <span className="meta-icon">📍</span>
+                      <span className="meta-icon">
+                        <i className="bi bi-geo-alt-fill"></i>
+                      </span>
                       <span className="meta-text">
                         <strong>Campo Gara:</strong> {referto.campoGara}
                       </span>
@@ -388,7 +403,11 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                           {/* 2. Atleta Casa */}
                           <div className={`match-player casa-player ${match.isCasaWinner ? 'is-winner' : ''}`}>
                             <span className="player-name">{match.atletaCasa}</span>
-                            {match.isCasaWinner && <span className="trophy-small" title="Vincitore incontro">🏆</span>}
+                            {match.isCasaWinner && (
+                              <span className="trophy-small" title="Vincitore incontro">
+                                <i className="bi bi-trophy-fill text-warning"></i>
+                              </span>
+                            )}
                             <TeamLogo
                               teamName={referto.squadraCasa.nome}
                               logoUrl={logoCasa}
@@ -416,7 +435,11 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                               className="player-society-badge"
                               title={referto.squadraOspite.nome}
                             />
-                            {match.isOspiteWinner && <span className="trophy-small" title="Vincitore incontro">🏆</span>}
+                            {match.isOspiteWinner && (
+                              <span className="trophy-small" title="Vincitore incontro">
+                                <i className="bi bi-trophy-fill text-warning"></i>
+                              </span>
+                            )}
                             <span className="player-name">{match.atletaOspite}</span>
                           </div>
 
@@ -530,7 +553,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                                 }
                                                 title={`Visualizza scheda ranking di ${player}`}
                                               >
-                                                Scheda {player.split(' ')[0]} ↗
+                                                Scheda {player.split(' ')[0]} <i className="bi bi-box-arrow-up-right ms-1"></i>
                                               </button>
                                             ))}
                                           </div>
@@ -543,7 +566,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                             }
                                             title="Visualizza scheda atleta e storico punti"
                                           >
-                                            Scheda ranking ↗
+                                            Scheda ranking <i className="bi bi-box-arrow-up-right ms-1"></i>
                                           </button>
                                         ))}
                                     </div>
@@ -643,7 +666,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                                 }
                                                 title={`Visualizza scheda ranking di ${player}`}
                                               >
-                                                Scheda {player.split(' ')[0]} ↗
+                                                Scheda {player.split(' ')[0]} <i className="bi bi-box-arrow-up-right ms-1"></i>
                                               </button>
                                             ))}
                                           </div>
@@ -656,7 +679,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                             }
                                             title="Visualizza scheda atleta e storico punti"
                                           >
-                                            Scheda ranking ↗
+                                            Scheda ranking <i className="bi bi-box-arrow-up-right ms-1"></i>
                                           </button>
                                         ))}
                                     </div>

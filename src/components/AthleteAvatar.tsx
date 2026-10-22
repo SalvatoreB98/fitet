@@ -70,9 +70,12 @@ export const AthleteAvatar: React.FC<AthleteAvatarProps> = ({
             fontWeight: 700,
             color: 'var(--text-muted, #64748b)',
             letterSpacing: '-0.3px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          {initials || '🏓'}
+          {initials || <i className="bi bi-person-fill" style={{ fontSize: typeof size === 'number' ? `${Math.max(12, size * 0.52)}px` : '13px' }} />}
         </span>
       )}
     </div>

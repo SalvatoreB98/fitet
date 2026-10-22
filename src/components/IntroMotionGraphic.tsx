@@ -59,7 +59,9 @@ export const IntroMotionGraphic: React.FC<IntroMotionGraphicProps> = ({ onComple
           autoFocus
         >
           <span>Entra nel nuovo portale</span>
-          <span className="cta-arrow">→</span>
+          <span className="cta-arrow">
+            <i className="bi bi-arrow-right"></i>
+          </span>
         </button>
       </div>
 

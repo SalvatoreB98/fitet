@@ -182,7 +182,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                 title={`Rimuovi filtro: ${selectedTeamFilter}`}
                 aria-label={`Rimuovi filtro: ${selectedTeamFilter}`}
               >
-                ✕
+                <i className="bi bi-x-lg"></i>
               </button>
             )}
           </div>
@@ -246,18 +246,18 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                             {m.tipo.toUpperCase()}
                           </span>
                           <span className="match-card-datetime">
-                            📅 {m.data} • 🕒 {m.ora}
+                            <i className="bi bi-calendar3 me-1"></i>{m.data} • <i className="bi bi-clock me-1 ms-1"></i>{m.ora}
                           </span>
                         </div>
 
                         <div className="match-card-top-right">
                           {m.disputato ? (
                             <span className="match-status-badge status-disputato">
-                              ✓ Disputato
+                              <i className="bi bi-check2-circle me-1"></i>Disputato
                             </span>
                           ) : (
                             <span className="match-status-badge status-programmato">
-                              ⏳ In programma
+                              <i className="bi bi-clock-history me-1"></i>In programma
                             </span>
                           )}
                         </div>
@@ -292,7 +292,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                             </div>
                             {isCasaWinner && (
                               <span className="winner-trophy" title="Vincitore incontro">
-
+                                <i className="bi bi-trophy-fill text-warning"></i>
                               </span>
                             )}
                           </div>
@@ -336,7 +336,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                             </div>
                             {isOspiteWinner && (
                               <span className="winner-trophy" title="Vincitore incontro">
-                                🏆
+                                <i className="bi bi-trophy-fill text-warning"></i>
                               </span>
                             )}
                           </div>
@@ -407,7 +407,9 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
 
         {totalDisplayedMatches === 0 && (
           <div className="no-matches-found">
-            <span style={{ fontSize: '32px' }}>🏓</span>
+            <div className="empty-state-icon mb-2">
+              <i className="bi bi-calendar-x" style={{ fontSize: '36px', color: 'var(--text-muted)' }}></i>
+            </div>
             <p style={{ margin: '4px 0', fontWeight: 600 }}>Nessun incontro trovato con i filtri selezionati.</p>
             {selectedTeamFilter && (
               <button
@@ -415,7 +417,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                 onClick={onClearTeamFilter}
                 style={{ marginTop: '8px' }}
               >
-                Rimuovi filtro ({selectedTeamFilter}) ✕
+                Rimuovi filtro ({selectedTeamFilter}) <i className="bi bi-x-lg ms-1"></i>
               </button>
             )}
           </div>
