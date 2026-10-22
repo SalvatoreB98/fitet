@@ -9,6 +9,7 @@ interface StatisticheTabProps {
 }
 
 type SortField =
+  | 'pos'
   | 'atleta'
   | 'squadra'
   | 'incontriDisputati'
@@ -20,6 +21,10 @@ type SortField =
   | 'puntiVinti'
   | 'puntiPersi'
   | 'percentualeVittorie';
+
+export interface AthleteWithRanking extends StatisticaAtleta {
+  posUfficiale: number;
+}
 
 
 export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onOpenAtletaModal }) => {
@@ -93,25 +98,36 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
       setSortAsc(!sortAsc);
     } else {
       setSortField(field);
-      setSortAsc(field === 'atleta' || field === 'squadra');
+      setSortAsc(field === 'pos' || field === 'atleta' || field === 'squadra');
     }
   };
 
+  // Pre-calculate official championship ranking position from unfiltered list
+  const athletesWithRank = useMemo<AthleteWithRanking[]>(() => {
+    return statistiche.map((a, index) => ({
+      ...a,
+      posUfficiale: a.posizione ?? (index + 1),
+    }));
+  }, [statistiche]);
+
   // Base filtered list
   const filteredAthletes = useMemo(() => {
-    return statistiche.filter((a) => {
+    return athletesWithRank.filter((a) => {
       const matchesSearch =
         a.atleta.toLowerCase().includes(searchTerm.toLowerCase()) ||
         a.squadra.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesTeam = !selectedTeam || a.squadra === selectedTeam;
       return matchesSearch && matchesTeam;
     });
-  }, [statistiche, searchTerm, selectedTeam]);
+  }, [athletesWithRank, searchTerm, selectedTeam]);
 
   // 1. % Vittorie (Efficacia - Ranking Principale)
   const sortedPctAthletes = useMemo(() => {
     const list = [...filteredAthletes];
     list.sort((a, b) => {
+      if (pctSortField === 'pos') {
+        return pctSortAsc ? a.posUfficiale - b.posUfficiale : b.posUfficiale - a.posUfficiale;
+      }
       if (pctSortField === 'atleta') {
         return pctSortAsc ? a.atleta.localeCompare(b.atleta) : b.atleta.localeCompare(a.atleta);
       }
@@ -215,6 +231,10 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
   const fullAthletes = useMemo(() => {
     const list = [...filteredAthletes];
     list.sort((a, b) => {
+      if (sortField === 'pos') {
+        return sortAsc ? a.posUfficiale - b.posUfficiale : b.posUfficiale - a.posUfficiale;
+      }
+
       let valA: string | number = a[sortField];
       let valB: string | number = b[sortField];
 
@@ -227,7 +247,9 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
         return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
       }
 
-      return sortAsc ? (valA as number) - (valB as number) : (valB as number) - (valA as number);
+      const numDiff = sortAsc ? (valA as number) - (valB as number) : (valB as number) - (valA as number);
+      if (numDiff !== 0) return numDiff;
+      return a.posUfficiale - b.posUfficiale;
     });
     return list;
   }, [filteredAthletes, sortField, sortAsc]);
@@ -365,14 +387,6 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
               )}
             </div>
           </div>
-          <select value={selectedTeam} onChange={(e) => setSelectedTeam(e.target.value)}>
-            <option value="">Tutte le società ({teams.length})</option>
-            {teams.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
           {(searchTerm || selectedTeam) && (
             <button
               className="btn-action"
@@ -386,48 +400,48 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
           )}
 
           {/* Sub-Ranking Switcher Pills */}
-          <div className="sub-ranking-pills">
-            <button
-              type="button"
-              className={`sub-pill-btn ${subRanking === 'pct' ? 'active' : ''}`}
-              onClick={() => setSubRanking('pct')}
-              title="Classifica rendimento e percentuale vittorie (zero scroll)"
-            >
-              🏆 % Vittorie
-            </button>
-            <button
-              type="button"
-              className={`sub-pill-btn ${subRanking === 'vinte' ? 'active' : ''}`}
-              onClick={() => setSubRanking('vinte')}
-              title="Classifica singolari più vincenti (zero scroll)"
-            >
-              🥇 Più Vincenti
-            </button>
-            <button
-              type="button"
-              className={`sub-pill-btn ${subRanking === 'set' ? 'active' : ''}`}
-              onClick={() => setSubRanking('set')}
-              title="Classifica differenziale set e punti (zero scroll)"
-            >
-              🎯 Set &amp; Punti
-            </button>
-            <button
-              type="button"
-              className={`sub-pill-btn ${subRanking === 'all' ? 'active' : ''}`}
-              onClick={() => setSubRanking('all')}
-              title="Visualizza tutte le classifiche separate impilate sotto"
-            >
-              📑 Tutte le Classifiche (Sotto)
-            </button>
-            <button
-              type="button"
-              className={`sub-pill-btn ${subRanking === 'full' ? 'active' : ''}`}
-              onClick={() => setSubRanking('full')}
-              title="Tabellone completo 11 colonne per monitor ampi"
-            >
-              📋 Tabellone (11 Col.)
-            </button>
-          </div>
+
+          <button
+            type="button"
+            className={`sub-pill-btn ${subRanking === 'pct' ? 'active' : ''}`}
+            onClick={() => setSubRanking('pct')}
+            title="Classifica rendimento e percentuale vittorie (zero scroll)"
+          >
+            🏆 % Vittorie
+          </button>
+          <button
+            type="button"
+            className={`sub-pill-btn ${subRanking === 'vinte' ? 'active' : ''}`}
+            onClick={() => setSubRanking('vinte')}
+            title="Classifica singolari più vincenti (zero scroll)"
+          >
+            🥇 Più Vincenti
+          </button>
+          <button
+            type="button"
+            className={`sub-pill-btn ${subRanking === 'set' ? 'active' : ''}`}
+            onClick={() => setSubRanking('set')}
+            title="Classifica differenziale set e punti (zero scroll)"
+          >
+            🎯 Set &amp; Punti
+          </button>
+          <button
+            type="button"
+            className={`sub-pill-btn ${subRanking === 'all' ? 'active' : ''}`}
+            onClick={() => setSubRanking('all')}
+            title="Visualizza tutte le classifiche separate impilate sotto"
+          >
+            📑 Tutte le Classifiche (Sotto)
+          </button>
+          <button
+            type="button"
+            className={`sub-pill-btn ${subRanking === 'full' ? 'active' : ''}`}
+            onClick={() => setSubRanking('full')}
+            title="Tabellone completo 11 colonne per monitor ampi"
+          >
+            📋 Tabellone (11 Col.)
+          </button>
+
         </div>
 
         <div className="controls-right text-muted" style={{ fontSize: '12px' }}>
@@ -498,7 +512,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
                     }}
                   >
                     <div className="grid-cell text-center" style={{ color: '#64748b', fontSize: '12px' }}>
-                      {i + 1}
+                      {a.posUfficiale}
                     </div>
                     {renderAthleteNameCell(a)}
                     <div
@@ -735,7 +749,14 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
             <div className="grid-table-container">
               <div className="grid-table statistiche-grid">
                 <div className="grid-header-row">
-                  <div className="grid-th text-center" style={{ cursor: 'default' }}>#</div>
+                  <div
+                    className="grid-th text-center"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => handleSort('pos')}
+                    title="Ordina per Posizione in Classifica"
+                  >
+                    # {renderSortIndicator('pos', sortField, sortAsc)}
+                  </div>
                   <div
                     className="grid-th text-left"
                     style={{ paddingLeft: '8px' }}
@@ -809,7 +830,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
                     }}
                   >
                     <div className="grid-cell text-center" style={{ color: '#64748b', fontSize: '12px' }}>
-                      {i + 1}
+                      {a.posUfficiale}
                     </div>
                     {renderAthleteNameCell(a)}
                     <div

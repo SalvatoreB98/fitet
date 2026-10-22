@@ -153,6 +153,7 @@ export interface DettaglioPartitaIndividuale {
 
 
 export interface StatisticaAtleta {
+  posizione?: number;
   nazionalita: string;
   bandieraUrl: string;
   atleta: string;

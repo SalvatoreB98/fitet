@@ -213,7 +213,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
     <div>
       {/* Controls Bar */}
       <div className="controls">
-        <div className="controls-left">
+        <div className="controls-left classifica">
           {/* Expandable Search Control */}
           <div className={`search-expandable-box ${(isSearchOpen || searchTerm) ? 'is-open' : ''}`}>
             <button
@@ -250,24 +250,24 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
           </div>
 
           {/* View mode switcher */}
-          <div className="sub-ranking-pills">
-            <button
-              type="button"
-              className={`sub-pill-btn ${viewMode === 'responsive' ? 'active' : ''}`}
-              onClick={() => setViewMode('responsive')}
-              title="Classifica ufficiale e sezioni separate senza scroll"
-            >
-              📱 Classifiche separate
-            </button>
-            <button
-              type="button"
-              className={`sub-pill-btn ${viewMode === 'completa' ? 'active' : ''}`}
-              onClick={() => setViewMode('completa')}
-              title="Tabellone unico 10 colonne per schermi ampi"
-            >
-              📑 Tabellone Completo (10 Col.)
-            </button>
-          </div>
+
+          <button
+            type="button"
+            className={`sub-pill-btn ${viewMode === 'responsive' ? 'active' : ''}`}
+            onClick={() => setViewMode('responsive')}
+            title="Classifica ufficiale e sezioni separate senza scroll"
+          >
+            📱 Classifiche separate
+          </button>
+          <button
+            type="button"
+            className={`sub-pill-btn ${viewMode === 'completa' ? 'active' : ''}`}
+            onClick={() => setViewMode('completa')}
+            title="Tabellone unico 10 colonne per schermi ampi"
+          >
+            📑 Tabellone (10 Col.)
+          </button>
+
         </div>
         <div className="controls-right text-muted" style={{ fontSize: '12px' }}>
           Clicca sulle intestazioni di colonna per ordinare le classifiche

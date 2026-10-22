@@ -48,6 +48,7 @@ export function parseStatisticheAtleti(
     const athleteId = athleteMapping[nomeText] || athleteMapping[nomeText.toUpperCase()] || null;
 
     atleti.push({
+      posizione: atleti.length + 1,
       nazionalita,
       bandieraUrl,
       atleta: nomeText,
