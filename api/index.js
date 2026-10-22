@@ -252,9 +252,16 @@ var ViewsService = class {
     }
     return this.viewsMap[clean] || 0;
   }
+  lastServerCallTimes = {};
   async incrementViews(key) {
     if (!key) return 0;
     const clean = key.toLowerCase().trim();
+    const now = Date.now();
+    const lastTime = this.lastServerCallTimes[clean] || 0;
+    if (now - lastTime < 2e3) {
+      return this.getViews(clean);
+    }
+    this.lastServerCallTimes[clean] = now;
     const kv = this.getKvConfig();
     if (kv) {
       try {
@@ -873,7 +880,49 @@ var athlete_mapping_default = {
   "ALTESI MARIKA": "768189",
   "D'ANTONI GABRIELE": "846844",
   "LA LUCE SALVATORE LUCIANO": "736314",
-  "ALTESI M - MILAZZO B": "848641"
+  "ALTESI M - MILAZZO B": "848641",
+  "GENTILE FRANCESCO": "612399",
+  "CAFISO VINCENZO": "743031",
+  "GRIMALDI ALESSIO GAETANO": "704797",
+  "CAFISO V - GENTILE F": "832522",
+  "GIANNETTO FRANCESCO": "601665",
+  "MARINO GAETANO": "711234",
+  "GIANNINO ANDREA": "710826",
+  "SPANO' ANGELO": "697488",
+  "GIANNETTO F - MARINO G": "848063",
+  "GIUFFRIDA ANTONINO": "699763",
+  "RUSSO GABRIELE": "698255",
+  "D'AMICO DANIELE": "710763",
+  "D'AMICO PIETRO": "696604",
+  "SPAMPINATO GESSICA": "719162",
+  "D'AMICO D - RUSSO G": "848669",
+  "GIARDINA MICHELE": "599331",
+  "INGEGNERI DIEGO": "707909",
+  "CIRRITO DAMIANO": "698448",
+  "CAMARDA FRANCESCO": "734678",
+  "GIARDINA M - INGEGNERI D": "848668",
+  "GIARDINA M - CAMARDA F": "849705",
+  "D'AMICO LUCA": "601664",
+  "GIORDANO VALERIO": "765296",
+  "D'ANTONIO FABRIZIO": "599251",
+  "MACRI' GIOVANNI": "772376",
+  "GIORDANO V - MACRI' G": "849215",
+  "D'AMICO L - GIORDANO V": "847590",
+  "RAGUSA DIEGO": "593249",
+  "CAMPIONE CARMELO": "592742",
+  "VALENTI GIANROSARIO": "718652",
+  "RAGUSA D - VALENTI G": "847589",
+  "BIANCO GABRIELE": "846187",
+  "AMATO GIUSEPPE": "606326",
+  "GRILLO CHRISTIAN": "762211",
+  "LO FARO GIULIANO": "776231",
+  "VENUTO MATILDE": "738824",
+  "AMATO G - BIANCO G": "848496",
+  "LO FARO G - GRILLO C": "815056",
+  "DI PIETRO ENRICO": "764692",
+  "SABATINO DOMENICO": "599328",
+  "CALABRESE ADRIANO": "765478",
+  "CALABRESE A - DI PIETRO E": "770422"
 };
 
 // server/services/athleteResolver.ts

@@ -511,12 +511,14 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
                 <div className="championship-group-section favorites-section">
                   <div className="championship-group-header favorites-group-header">
                     <div className="group-header-left">
-                      <div className="group-header-icon-box favorites-icon-box">
-                        <i className="bi bi-star-fill"></i>
-                      </div>
+
                       <div className="group-header-title-box">
-                        <h3 className="group-header-title">Campionati Preferiti</h3>
-                        <span className="group-header-sub">Accesso rapido ai tuoi gironi preferiti</span>
+                        <h3 className="group-header-title">
+                          <span className="group-header-icon-box favorites-icon-box">
+                            <i className="bi bi-star-fill"></i>
+                          </span>
+                          Campionati Preferiti
+                        </h3>
                       </div>
                     </div>
                     <span className="group-header-badge favorites-badge">
@@ -543,15 +545,14 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
                       style={{ borderLeftColor: config.accent }}
                     >
                       <div className="group-header-left">
-                        <div
-                          className="group-header-icon-box"
-                          style={{ color: config.accent, background: config.accentBg }}
-                        >
-                          <i className={`bi ${config.icon}`}></i>
-                        </div>
                         <div className="group-header-title-box">
-                          <h3 className="group-header-title">{config.title}</h3>
-                          <span className="group-header-sub">{config.sub}</span>
+                          <h3 className="group-header-title">
+                            <span
+                              className="group-header-icon-box"
+                              style={{ color: config.accent, background: config.accentBg }}
+                            >
+                              <i className={`bi ${config.icon}`}></i>
+                            </span> {config.title}</h3>
                         </div>
                       </div>
                       <span className="group-header-badge">
