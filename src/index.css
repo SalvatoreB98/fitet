@@ -952,7 +952,7 @@ body {
    ========================================================================== */
 
 .portal-main {
-  min-height: 70vh;
+  min-height: calc(100vh - 142px);
   position: relative;
   background: var(--bg-container);
 }
@@ -5268,4 +5268,4 @@ body.modal-open {
   background: #111a2e;
   border: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: none;
-}
+}
