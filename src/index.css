@@ -70,6 +70,11 @@ html {
 
   /* Shadows */
   --shadow-container: 0 10px 25px -5px rgba(15, 23, 42, 0.07), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+
+  /* Minimal Clean Scrollbar - Light Theme */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(100, 116, 139, 0.35);
+  --scrollbar-thumb-hover: rgba(14, 39, 68, 0.65);
 }
 
 /* ==========================================================================
@@ -121,6 +126,43 @@ html {
   --color-danger-border: rgba(248, 113, 113, 0.35);
 
   --shadow-container: 0 16px 36px -8px rgba(0, 0, 0, 0.65), 0 8px 16px -6px rgba(0, 0, 0, 0.5);
+
+  /* Minimal Clean Scrollbar - Dark Theme */
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(96, 165, 250, 0.3);
+  --scrollbar-thumb-hover: rgba(96, 165, 250, 0.7);
+}
+
+/* ==========================================================================
+   MINIMAL CUSTOM SCROLLBARS (PALETTE-AWARE: LIGHT & DARK)
+   ========================================================================== */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 body {
@@ -2167,6 +2209,10 @@ body.modal-open {
 }
 
 .modal-header-simple {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  flex-shrink: 0;
   background: linear-gradient(135deg, #0e2744 0%, #163c67 100%);
   color: #ffffff;
   padding: 14px 20px;
@@ -2174,6 +2220,9 @@ body.modal-open {
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-top-left-radius: 11px;
+  border-top-right-radius: 11px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .modal-header-simple h3 {
@@ -2488,6 +2537,7 @@ body.modal-open {
 
 [data-theme="dark"] .modal-header-simple {
   background: linear-gradient(135deg, #050b16 0%, #0e1e3e 100%);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
 [data-theme="dark"] .pos-silver {
@@ -4609,6 +4659,9 @@ body.modal-open {
 }
 
 .overview-stats-card {
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.28);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.55);
   background: linear-gradient(145deg, #0b1528 0%, #070e1c 100%);
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 14px;
@@ -4708,6 +4761,7 @@ body.modal-open {
 @media (max-width: 480px) {
   .overview-stats-card {
     padding: 12px 6px;
+    overflow: hidden;
   }
 
   .overview-stats-row {
@@ -4716,11 +4770,13 @@ body.modal-open {
 
   .overview-stat-col {
     padding: 0 1px;
+    overflow: hidden;
   }
 
   .overview-stat-value {
     font-size: 13.5px;
     letter-spacing: -0.01em;
+    overflow: hidden;
   }
 
   .overview-stat-label {
@@ -4729,10 +4785,49 @@ body.modal-open {
   }
 
   .overview-stat-sub {
-    font-size: 7.5px;
+    font-size: 8px;
+    overflow: hidden;
   }
 
   .overview-stat-divider {
     height: 30px;
   }
+}
+
+/* Ensure MarqueeText in overview cards stays clipped without scrollbars */
+.overview-stats-card .marquee-text-wrapper {
+  overflow: hidden !important;
+  text-overflow: clip !important;
+}
+
+.overview-stats-card .marquee-text-content {
+  text-overflow: clip !important;
+}
+
+/* Horizontal scrollable event title with minimal scrollbar */
+.match-event-title-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.match-event-title-scroll::-webkit-scrollbar {
+  height: 3px;
+}
+
+.match-event-title-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.match-event-title-scroll::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 9999px;
+}
+
+.match-event-title-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
 }

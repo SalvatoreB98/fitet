@@ -5,6 +5,7 @@ import { fetchSquadra } from '../services/api';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { TeamLogo } from './TeamLogo';
 import { AthleteAvatar } from './AthleteAvatar';
+import { MarqueeText } from './MarqueeText';
 
 export interface SquadraModalProps {
   squadraId: string;
@@ -235,10 +236,11 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                     title={`Atleti Tesserati: ${data.atleti.filter((a) => !a.isDoppio).length} (Roster Ufficiale FITeT)`}
                   >
                     <span className="overview-stat-label">Atleti</span>
-                    <span className="overview-stat-value">
-                      {data.atleti.filter((a) => !a.isDoppio).length}
-                    </span>
-                    <span className="overview-stat-sub">Roster FITeT</span>
+                    <MarqueeText
+                      className="overview-stat-value"
+                      text={String(data.atleti.filter((a) => !a.isDoppio).length)}
+                    />
+                    <MarqueeText className="overview-stat-sub" text="Roster FITeT" />
                   </div>
 
                   <div className="overview-stat-divider" aria-hidden="true" />
@@ -249,12 +251,12 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                     title={`Partite Vinte: ${totalMatchesVinte}, Perse: ${totalMatchesPerse} (${totalMatchesDisputate} partite totali)`}
                   >
                     <span className="overview-stat-label">Partite V/P</span>
-                    <span className="overview-stat-value">
+                    <MarqueeText className="overview-stat-value">
                       <span style={{ color: '#4ade80' }}>{totalMatchesVinte}</span>{' '}
                       <span className="overview-stat-slash">-</span>{' '}
                       <span style={{ color: '#f87171' }}>{totalMatchesPerse}</span>
-                    </span>
-                    <span className="overview-stat-sub">{totalMatchesDisputate} totali</span>
+                    </MarqueeText>
+                    <MarqueeText className="overview-stat-sub" text={`${totalMatchesDisputate} totali`} />
                   </div>
 
                   <div className="overview-stat-divider" aria-hidden="true" />
@@ -265,12 +267,13 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                     title={`Set Vinti: ${totalSetVinti}, Persi: ${totalSetPersi} (Diff: ${setDiff > 0 ? `+${setDiff}` : setDiff})`}
                   >
                     <span className="overview-stat-label">Set V/P</span>
-                    <span className="overview-stat-value">
+                    <MarqueeText className="overview-stat-value">
                       {totalSetVinti} <span className="overview-stat-slash">:</span> {totalSetPersi}
-                    </span>
-                    <span className="overview-stat-sub">
-                      Diff: {setDiff > 0 ? `+${setDiff}` : setDiff}
-                    </span>
+                    </MarqueeText>
+                    <MarqueeText
+                      className="overview-stat-sub"
+                      text={`Diff: ${setDiff > 0 ? `+${setDiff}` : setDiff}`}
+                    />
                   </div>
 
                   <div className="overview-stat-divider" aria-hidden="true" />
@@ -281,10 +284,12 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                     title={`% Vittorie Squadra: ${teamWinRate}% (Rendimento complessivo)`}
                   >
                     <span className="overview-stat-label">% Vittorie</span>
-                    <span className="overview-stat-value" style={{ color: '#fbbf24' }}>
-                      {teamWinRate}%
-                    </span>
-                    <span className="overview-stat-sub">Rendimento</span>
+                    <MarqueeText
+                      className="overview-stat-value"
+                      text={`${teamWinRate}%`}
+                      style={{ color: '#fbbf24' }}
+                    />
+                    <MarqueeText className="overview-stat-sub" text="Rendimento" />
                   </div>
                 </div>
               </div>

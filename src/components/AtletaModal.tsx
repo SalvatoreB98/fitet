@@ -4,6 +4,7 @@ import { DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
 import { fetchAtleta, fetchAtletaCampionatoPartite } from '../services/api';
 import { RatingChart } from './RatingChart';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { MarqueeText } from './MarqueeText';
 
 interface AtletaModalProps {
   atletaId: string;
@@ -286,8 +287,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         {/* 1. Posizione */}
                         <div className="overview-stat-col" title={`Posizione attuale: ${posText} (${posSub})`}>
                           <span className="overview-stat-label">Posizione</span>
-                          <span className="overview-stat-value">{posText}</span>
-                          <span className="overview-stat-sub">{posSub}</span>
+                          <MarqueeText className="overview-stat-value" text={posText} />
+                          <MarqueeText className="overview-stat-sub" text={posSub} />
                         </div>
 
                         <div className="overview-stat-divider" aria-hidden="true" />
@@ -295,8 +296,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         {/* 2. Punti Rank */}
                         <div className="overview-stat-col" title={`Punti attuali: ${pts} pt (Iniziali: ${initPts} pt)`}>
                           <span className="overview-stat-label">Punti Rank</span>
-                          <span className="overview-stat-value">{pts.toLocaleString('it-IT')}</span>
-                          <span className="overview-stat-sub">Iniziali: {initPts.toLocaleString('it-IT')}</span>
+                          <MarqueeText className="overview-stat-value" text={pts.toLocaleString('it-IT')} />
+                          <MarqueeText className="overview-stat-sub" text={`Iniziali: ${initPts.toLocaleString('it-IT')}`} />
                         </div>
 
                         <div className="overview-stat-divider" aria-hidden="true" />
@@ -304,10 +305,10 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         {/* 3. Partite V/G */}
                         <div className="overview-stat-col" title={`Partite vinte: ${atleta.riepilogo.partiteVinte}, giocate: ${atleta.riepilogo.partiteGiocate}, perse: ${atleta.riepilogo.partitePerse}`}>
                           <span className="overview-stat-label">Partite V/G</span>
-                          <span className="overview-stat-value">
+                          <MarqueeText className="overview-stat-value">
                             {atleta.riepilogo.partiteVinte} <span className="overview-stat-slash">/</span> {atleta.riepilogo.partiteGiocate}
-                          </span>
-                          <span className="overview-stat-sub">Perse: {atleta.riepilogo.partitePerse}</span>
+                          </MarqueeText>
+                          <MarqueeText className="overview-stat-sub" text={`Perse: ${atleta.riepilogo.partitePerse}`} />
                         </div>
 
                         <div className="overview-stat-divider" aria-hidden="true" />
@@ -315,10 +316,11 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         {/* 4. % Vittorie */}
                         <div className="overview-stat-col" title={`% Vittorie: ${atleta.riepilogo.percentualePositiva}%, Guadagno netto: ${atleta.riepilogo.puntiTotali} pt`}>
                           <span className="overview-stat-label">% Vittorie</span>
-                          <span className="overview-stat-value">{atleta.riepilogo.percentualePositiva}%</span>
-                          <span className="overview-stat-sub">
-                            {atleta.riepilogo.puntiTotali > 0 ? `+${atleta.riepilogo.puntiTotali} pt netti` : `${atleta.riepilogo.puntiTotali} pt`}
-                          </span>
+                          <MarqueeText className="overview-stat-value" text={`${atleta.riepilogo.percentualePositiva}%`} />
+                          <MarqueeText
+                            className="overview-stat-sub"
+                            text={atleta.riepilogo.puntiTotali > 0 ? `+${atleta.riepilogo.puntiTotali} pt netti` : `${atleta.riepilogo.puntiTotali} pt`}
+                          />
                         </div>
                       </div>
                     </div>
@@ -866,13 +868,11 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                     </div>
 
                                     <div
+                                      className="match-event-title-scroll"
                                       style={{
                                         fontSize: '11px',
                                         color: 'var(--text-muted)',
                                         marginTop: '3px',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
                                       }}
                                       title={`${m.titolo}${m.sottotitolo ? ` • ${m.sottotitolo}` : ''}`}
                                     >
@@ -1025,7 +1025,11 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                       <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         vs {m.avversario}
                                       </div>
-                                      <div style={{ maxWidth: '100px', fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      <div
+                                        className="match-event-title-scroll"
+                                        style={{ maxWidth: '260px', fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}
+                                        title={`${m.titolo}${m.sottotitolo ? ` • ${m.sottotitolo}` : ''}`}
+                                      >
                                         <i className={`bi ${m.tipo === 'torneo' ? 'bi-award' : 'bi-trophy'} me-1`}></i>
                                         {m.titolo}
                                         {m.sottotitolo && ` • ${m.sottotitolo}`}
