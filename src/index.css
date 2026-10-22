@@ -1145,8 +1145,7 @@ body {
 .grid-table {
   display: flex;
   flex-direction: column;
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
@@ -1203,11 +1202,11 @@ body {
 }
 
 .grid-table .grid-data-row:nth-child(odd) {
-  background-color: #f8fafc;
+  background-color: #e5eaee;
 }
 
 .grid-table .grid-data-row:hover {
-  background-color: #edf4ff !important;
+  background-color: #e5eaee !important;
 }
 
 .grid-cell {
@@ -1247,6 +1246,7 @@ body {
 /* 1. Classifica Grid: Master 10-column table */
 .classifica-grid {
   min-width: 900px;
+  width: max-content;
 }
 
 .classifica-grid .grid-header-row,
@@ -1254,7 +1254,7 @@ body {
   grid-template-columns: 46px minmax(220px, 1fr) 58px 46px 46px 46px 115px 105px 95px 105px;
 }
 
-/* 1b. Responsive Classifica Sections */
+/* 1b. Responsive Classifica Sections (Zero Horizontal Scroll on any screen) */
 .classifica-ufficiale-grid,
 .classifica-bilancio-grid,
 .classifica-differenziali-grid {
@@ -1269,15 +1269,15 @@ body {
 
 .classifica-bilancio-grid .grid-header-row,
 .classifica-bilancio-grid .grid-data-row {
-  grid-template-columns: 38px minmax(130px, 1fr) 48px 48px 125px;
+  grid-template-columns: 38px minmax(120px, 1fr) 48px 48px 125px;
 }
 
 .classifica-differenziali-grid .grid-header-row,
 .classifica-differenziali-grid .grid-data-row {
-  grid-template-columns: 38px minmax(130px, 1fr) 90px 78px 64px;
+  grid-template-columns: 38px minmax(120px, 1fr) 90px 78px 64px;
 }
 
-/* Mobile Sticky Team Column & Responsive Column Widths (<= 768px) */
+/* Mobile Sticky Team Column - ONLY for Tabellone 10 Colonne (.classifica-grid) */
 @media (max-width: 768px) {
   .classifica-grid {
     min-width: 760px;
@@ -1288,24 +1288,9 @@ body {
     grid-template-columns: 40px minmax(135px, 160px) 52px 42px 42px 42px 95px 85px 80px 95px;
   }
 
-  .classifica-ufficiale-grid .grid-header-row,
-  .classifica-ufficiale-grid .grid-data-row {
-    grid-template-columns: 40px minmax(130px, 160px) 44px 58px;
-  }
-
-  .classifica-bilancio-grid .grid-header-row,
-  .classifica-bilancio-grid .grid-data-row {
-    grid-template-columns: 38px minmax(130px, 155px) 46px 46px 120px;
-  }
-
-  .classifica-differenziali-grid .grid-header-row,
-  .classifica-differenziali-grid .grid-data-row {
-    grid-template-columns: 38px minmax(130px, 155px) 85px 76px 64px;
-  }
-
-  /* Sticky positioning for Team on mobile */
-  .grid-th-team,
-  .grid-cell-team {
+  /* Sticky positioning for Team on mobile (Tabellone only) */
+  .classifica-grid .grid-th-team,
+  .classifica-grid .grid-cell-team {
     position: sticky;
     left: 0;
     z-index: 2;
@@ -1313,21 +1298,21 @@ body {
   }
 
   /* Header sticky team must stay above scrolling data rows */
-  .grid-th.grid-th-team {
+  .classifica-grid .grid-th.grid-th-team {
     z-index: 6;
     background: var(--bg-th);
   }
 
   /* Sticky data cell matching zebra striping and hover */
-  .grid-table .grid-data-row:nth-child(even) .grid-cell-team {
+  .classifica-grid .grid-data-row:nth-child(even) .grid-cell-team {
     background-color: var(--bg-container);
   }
 
-  .grid-table .grid-data-row:nth-child(odd) .grid-cell-team {
-    background-color: #f8fafc;
+  .classifica-grid .grid-data-row:nth-child(odd) .grid-cell-team {
+    background-color: #e5eaee;
   }
 
-  .grid-table .grid-data-row:hover .grid-cell-team {
+  .classifica-grid .grid-data-row:hover .grid-cell-team {
     background-color: #edf4ff;
   }
 }
@@ -2569,6 +2554,44 @@ body.modal-open {
 
 [data-theme="dark"] .grid-data-row {
   border-bottom-color: #121f38;
+}
+
+/* Alternating Row Tint (Zebra Striping) - Dark Theme */
+[data-theme="dark"] .grid-table .grid-data-row:nth-child(even) {
+  background-color: var(--bg-container);
+}
+
+[data-theme="dark"] .grid-table .grid-data-row:nth-child(odd) {
+  background-color: #0e1a33;
+}
+
+[data-theme="dark"] .grid-table .grid-data-row:hover {
+  background-color: #152649 !important;
+}
+
+/* Dark Mode Sticky Team on Mobile - ONLY for Tabellone 10 Colonne (.classifica-grid) */
+@media (max-width: 768px) {
+
+  [data-theme="dark"] .classifica-grid .grid-th-team,
+  [data-theme="dark"] .classifica-grid .grid-cell-team {
+    border-right-color: #1c3258;
+  }
+
+  [data-theme="dark"] .classifica-grid .grid-th.grid-th-team {
+    background: #0e1a34;
+  }
+
+  [data-theme="dark"] .classifica-grid .grid-data-row:nth-child(even) .grid-cell-team {
+    background-color: var(--bg-container);
+  }
+
+  [data-theme="dark"] .classifica-grid .grid-data-row:nth-child(odd) .grid-cell-team {
+    background-color: #0e1a33;
+  }
+
+  [data-theme="dark"] .classifica-grid .grid-data-row:hover .grid-cell-team {
+    background-color: #152649;
+  }
 }
 
 
