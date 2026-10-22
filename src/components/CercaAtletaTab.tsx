@@ -102,18 +102,18 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
 
   return (
     <div className={`cerca-atleta-container ${compactMode ? 'is-compact' : ''}`}>
-      
-        <div className="cerca-atleta-header">
-          <div className="cerca-atleta-icon-box">
-            <i className="bi bi-search"></i>
-          </div>
-          <h2>Ricerca Atleta FITeT</h2>
-          <p>
-            Cerca qualsiasi atleta tesserato per cognome e nome per consultare scheda ranking, punti e storico posizioni.
-          </p>
+
+      <div className="cerca-atleta-header">
+        <div className="cerca-atleta-icon-box">
+          <i className="bi bi-search"></i>
         </div>
-      
-      
+        <h2>Ricerca Atleta FITeT</h2>
+        <p>
+          Cerca qualsiasi atleta tesserato per cognome e nome per consultare scheda ranking, punti e storico posizioni.
+        </p>
+      </div>
+
+
       {/* Search Input Bar */}
       <div className="cerca-atleta-search-box">
         <div className="cerca-atleta-input-wrapper">
@@ -149,7 +149,7 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
         {!hasSearched && (
           <div className="cerca-atleta-chips">
             <span className="cerca-atleta-chips-label">Suggerimenti rapidi:</span>
-            {['BUTERA', 'ROSSI', 'BOBOCICA', 'MUTTI', 'PICIULIN', 'STOYANOV'].map((chip) => (
+            {['STOYANOV', 'OYEBODE', 'SZOCS', 'PICCOLIN', 'MONFARDINI'].map((chip) => (
               <button
                 key={chip}
                 type="button"

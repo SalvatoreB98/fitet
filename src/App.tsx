@@ -287,14 +287,14 @@ export const App: React.FC = () => {
             </main>
           ) : (
             <div style={{ textAlign: 'center', padding: '50px 20px', minHeight: 'calc(100vh - 142px' }}>
-              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(37, 99, 235, 0.1)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '18px', color: '#2563eb', fontSize: '28px' }}>
+              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(37, 99, 235, 0.1)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '18px', color: 'var(--color-primary-600, #2563eb);', fontSize: '28px' }}>
                 <i className="bi bi-trophy-fill"></i>
               </div>
               <h2 style={{ fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-main, #0f172a)', marginBottom: '8px' }}>
                 Nessun Campionato Selezionato
               </h2>
               <p style={{ color: 'var(--text-muted, #64748b)', maxWidth: '440px', fontSize: '14px', lineHeight: 1.5, margin: '0 auto 20px auto' }}>
-                Scegli il tuo campionato FITeT tra i campionati nazionali o della tua regione, oppure cerca direttamente un atleta qui sotto.
+                Scegli il campionato FITeT da consultare tra tutti i campionati nazionali o della tua regione, oppure cerca direttamente un atleta qui sotto.
               </p>
               <button
                 type="button"
