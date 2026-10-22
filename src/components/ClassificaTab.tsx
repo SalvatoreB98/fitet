@@ -754,9 +754,6 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
           borderTop: '1px solid #e2e8f0',
         }}
       >
-        <div>
-          G: Gare disputate • IV: Vinte • IP: Perse • Diff: Differenziale
-        </div>
       </div>
     </div>
   );

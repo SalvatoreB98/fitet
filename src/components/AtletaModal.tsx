@@ -997,7 +997,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                             fontVariantNumeric: 'tabular-nums',
                                           }}
                                         >
-                                          {m.isVittoria ? '1 - 0' : '0 - 1'}
                                         </div>
                                       )}
                                     </div>

@@ -300,7 +300,7 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={(e) => handleTabClick('cercaAtleta', e)}
         >
           <i className="bi bi-search"></i>
-          <span>Cerca Atleta</span>
+          <span>Ricerca Atleta</span>
         </button>
       </div>
 

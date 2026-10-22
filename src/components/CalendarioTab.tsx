@@ -233,32 +233,36 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                 {filteredMatches.map((m) => {
                   const isCasaWinner = m.vincitore === 'casa';
                   const isOspiteWinner = m.vincitore === 'ospite';
+                  const isDraw = m.vincitore === 'pareggio';
+                  const hasReferto = Boolean(m.refertoUrl && shouldShowReferto(m));
 
                   return (
-                    <article key={m.id} className="match-card">
-                      {/* Card Top: Phase, Date, Time & Status */}
+                    <article
+                      key={m.id}
+                      className={`match-card ${hasReferto ? 'has-referto' : ''}`}
+                      onClick={() => {
+                        if (hasReferto) {
+                          handleOpenReferto(m);
+                        }
+                      }}
+                    >
+                      {/* Card Top: Date, Time & Status */}
                       <div className="match-card-top">
-                        <div className="match-card-top-left">
-                          <span
-                            className={`match-phase-badge ${m.tipo === 'andata' ? 'phase-andata' : 'phase-ritorno'
-                              }`}
-                          >
-                            {m.tipo.toUpperCase()}
+                        <div className="match-card-meta">
+                          <span className="match-meta-datetime">
+                            {m.data} • ore {m.ora}
                           </span>
-                          <span className="match-card-datetime">
-                            <i className="bi bi-calendar3 me-1"></i>{m.data} • <i className="bi bi-clock me-1 ms-1"></i>{m.ora}
+                          <span className="match-meta-dot">•</span>
+                          <span className="match-meta-phase">
+                            {m.tipo === 'andata' ? 'Andata' : 'Ritorno'}
                           </span>
                         </div>
 
-                        <div className="match-card-top-right">
+                        <div className="match-card-status">
                           {m.disputato ? (
-                            <span className="match-status-badge status-disputato">
-                              <i className="bi bi-check2-circle me-1"></i>Disputato
-                            </span>
+                            <span className="match-status-label status-disputato">Finale</span>
                           ) : (
-                            <span className="match-status-badge status-programmato">
-                              <i className="bi bi-clock-history me-1"></i>In programma
-                            </span>
+                            <span className="match-status-label status-programmato">In programma</span>
                           )}
                         </div>
                       </div>
@@ -267,15 +271,15 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                       <div className="match-card-teams">
                         {/* Squadra Casa */}
                         <div
-                          className={`match-card-team-row ${isCasaWinner ? 'is-winner' : ''}`}
-                          onClick={() => {
+                          className={`match-card-team-row ${isCasaWinner ? 'is-winner' : m.disputato && !isDraw ? 'is-loser' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
                             if (onOpenSquadraModal) onOpenSquadraModal(m.squadraCasa);
                             else onSelectTeamFilter(m.squadraCasa);
                           }}
                           title={onOpenSquadraModal ? `Visualizza scheda squadra ${m.squadraCasa}` : `Filtra incontri per ${m.squadraCasa}`}
                         >
                           <div className="match-card-team-left">
-                            <span className="team-role-tag role-casa">CASA</span>
                             <TeamLogo
                               teamName={m.squadraCasa}
                               className="team-society-logo"
@@ -283,25 +287,16 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                             <div className="match-card-name-wrapper">
                               <MarqueeText
                                 text={m.squadraCasa}
-                                style={{
-                                  fontSize: '13.5px',
-                                  fontWeight: isCasaWinner ? '700' : '600',
-                                  color: isCasaWinner ? 'var(--color-primary-700, #1d4ed8)' : 'var(--text-dark)',
-                                }}
+                                className={`team-name-text ${isCasaWinner ? 'name-winner' : m.disputato && !isDraw ? 'name-loser' : 'name-neutral'}`}
                               />
                             </div>
-                            {isCasaWinner && (
-                              <span className="winner-trophy" title="Vincitore incontro">
-                                <i className="bi bi-trophy-fill text-warning"></i>
-                              </span>
-                            )}
                           </div>
 
                           <div
-                            className={`match-card-score-box ${isCasaWinner
+                            className={`match-card-score-digit ${isCasaWinner
                               ? 'score-winner'
-                              : m.disputato
-                                ? 'score-played'
+                              : m.disputato && !isDraw
+                                ? 'score-loser'
                                 : 'score-pending'
                               }`}
                           >
@@ -311,15 +306,15 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
 
                         {/* Squadra Ospite */}
                         <div
-                          className={`match-card-team-row ${isOspiteWinner ? 'is-winner' : ''}`}
-                          onClick={() => {
+                          className={`match-card-team-row ${isOspiteWinner ? 'is-winner' : m.disputato && !isDraw ? 'is-loser' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
                             if (onOpenSquadraModal) onOpenSquadraModal(m.squadraOspite);
                             else onSelectTeamFilter(m.squadraOspite);
                           }}
                           title={onOpenSquadraModal ? `Visualizza scheda squadra ${m.squadraOspite}` : `Filtra incontri per ${m.squadraOspite}`}
                         >
                           <div className="match-card-team-left">
-                            <span className="team-role-tag role-ospite">OSPITE</span>
                             <TeamLogo
                               teamName={m.squadraOspite}
                               className="team-society-logo"
@@ -327,25 +322,16 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                             <div className="match-card-name-wrapper">
                               <MarqueeText
                                 text={m.squadraOspite}
-                                style={{
-                                  fontSize: '13.5px',
-                                  fontWeight: isOspiteWinner ? '700' : '600',
-                                  color: isOspiteWinner ? 'var(--color-primary-700, #1d4ed8)' : 'var(--text-dark)',
-                                }}
+                                className={`team-name-text ${isOspiteWinner ? 'name-winner' : m.disputato && !isDraw ? 'name-loser' : 'name-neutral'}`}
                               />
                             </div>
-                            {isOspiteWinner && (
-                              <span className="winner-trophy" title="Vincitore incontro">
-                                <i className="bi bi-trophy-fill text-warning"></i>
-                              </span>
-                            )}
                           </div>
 
                           <div
-                            className={`match-card-score-box ${isOspiteWinner
+                            className={`match-card-score-digit ${isOspiteWinner
                               ? 'score-winner'
-                              : m.disputato
-                                ? 'score-played'
+                              : m.disputato && !isDraw
+                                ? 'score-loser'
                                 : 'score-pending'
                               }`}
                           >
@@ -354,49 +340,31 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                         </div>
                       </div>
 
-                      {/* Card Bottom: Summary & Referto FITeT */}
-                      <div className="match-card-bottom">
-                        <div className="match-card-summary">
-                          {m.disputato ? (
-                            <span>
-                              Risultato: <strong style={{ color: 'var(--text-dark)' }}>{m.risultato}</strong>
-                              {isCasaWinner && ''}
-                              {isOspiteWinner && ''}
-                              {m.vincitore === 'pareggio' && ' • Pareggio'}
-                            </span>
+                      {/* Card Bottom: Subtle Referto action if available, or Draw label */}
+                      {(hasReferto || isDraw) && (
+                        <div className="match-card-bottom">
+                          {isDraw ? (
+                            <span className="match-card-draw-label">Pareggio</span>
                           ) : (
-                            <span></span>
+                            <span />
+                          )}
+
+                          {hasReferto && (
+                            <button
+                              type="button"
+                              className="btn-referto-link"
+                              title="Visualizza referto di gara e risultati completi"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenReferto(m);
+                              }}
+                            >
+                              <span>Referto</span>
+                              <i className="bi bi-chevron-right ms-1"></i>
+                            </button>
                           )}
                         </div>
-
-                        {m.refertoUrl && shouldShowReferto(m) && (
-                          <button
-                            type="button"
-                            className="btn-referto-link"
-                            title="Visualizza referto di gara e risultati completi"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenReferto(m);
-                            }}
-                          >
-                            <span>Dettaglio partita</span>
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                              <polyline points="15 3 21 3 21 9"></polyline>
-                              <line x1="10" y1="14" x2="21" y2="3"></line>
-                            </svg>
-                          </button>
-                        )}
-                      </div>
+                      )}
                     </article>
                   );
                 })}

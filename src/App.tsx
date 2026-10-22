@@ -286,7 +286,7 @@ export const App: React.FC = () => {
               />
             </main>
           ) : (
-            <div style={{ textAlign: 'center', padding: '50px 20px', minHeight: 'calc(100vh - 142px' }}>
+            <div style={{ textAlign: 'center', padding: '50px 20px', minHeight: 'calc(100vh - 245px' }}>
               <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(37, 99, 235, 0.1)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '18px', color: 'var(--color-primary-600, #2563eb);', fontSize: '28px' }}>
                 <i className="bi bi-trophy-fill"></i>
               </div>

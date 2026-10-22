@@ -960,7 +960,7 @@ body {
    ========================================================================== */
 
 .portal-main {
-  min-height: calc(100vh - 142px);
+  min-height: calc(100vh - 245px);
   position: relative;
   background: var(--bg-container);
 }
@@ -1407,103 +1407,90 @@ body {
 }
 
 /* Individual Match Card */
+/* ==========================================================================
+   MINIMALIST "LESS IS MORE" MATCH CARD
+   Typography & Weight-Driven Hierarchy (No Artificial Badges/Borders)
+   ========================================================================== */
 .match-card {
   background: var(--bg-container, #ffffff);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 14px 16px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  padding: 13px 15px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  gap: 9px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
   position: relative;
 }
 
 .match-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-  border-color: #cbd5e1;
+  border-color: var(--border-input, #cbd5e1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
-/* Match Card Top */
+.match-card.has-referto {
+  cursor: pointer;
+}
+
+/* Match Card Top: Meta line */
 .match-card-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
   font-size: 11.5px;
-  flex-wrap: wrap;
+  line-height: 1.2;
 }
 
-.match-card-top-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.match-phase-badge {
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.4px;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.match-phase-badge.phase-andata {
-  background: #e0f2fe;
-  color: #0369a1;
-  border: 1px solid #bae6fd;
-}
-
-.match-phase-badge.phase-ritorno {
-  background: #f3e8ff;
-  color: #7e22ce;
-  border: 1px solid #e9d5ff;
-}
-
-.match-card-datetime {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-dark);
-}
-
-.match-card-top-right {
+.match-card-meta {
   display: flex;
   align-items: center;
   gap: 6px;
+  color: var(--text-muted, #64748b);
+  font-size: 11.5px;
 }
 
-.match-status-badge {
+.match-meta-datetime {
+  font-weight: 500;
+  color: var(--text-muted, #64748b);
+}
+
+.match-meta-dot {
+  opacity: 0.4;
   font-size: 10px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
 }
 
-.match-status-badge.status-disputato {
-  background: #dcfce7;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
+.match-meta-phase {
+  font-weight: 500;
+  color: var(--text-muted, #64748b);
 }
 
-.match-status-badge.status-programmato {
-  background: #f1f5f9;
-  color: #64748b;
-  border: 1px solid #e2e8f0;
+.match-card-status {
+  font-size: 11px;
+}
+
+.match-status-label {
+  font-size: 11px;
+}
+
+.match-status-label.status-disputato {
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  letter-spacing: 0.02em;
+}
+
+.match-status-label.status-programmato {
+  font-weight: 400;
+  color: var(--text-muted, #94a3b8);
 }
 
 /* Teams Container */
 .match-card-teams {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 0;
-  border-top: 1px solid #f1f5f9;
-  border-bottom: 1px solid #f1f5f9;
+  gap: 7px;
+  padding: 2px 0;
 }
 
 .match-card-team-row {
@@ -1511,137 +1498,130 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 3px 0;
   cursor: pointer;
-  transition: background-color 0.15s ease;
 }
 
-.match-card-team-row:hover {
-  background: rgba(0, 0, 0, 0.03);
-}
-
-.match-card-team-row.is-winner {
-  background: rgba(37, 99, 235, 0.04);
+.match-card-team-row:hover .team-name-text {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .match-card-team-left {
-  display: grid;
-  grid-template-columns: 44px 24px 1fr 1em;
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-}
-
-.team-role-tag {
-  font-size: 8.5px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  padding: 2px 4px;
-  border-radius: 3px;
-  flex-shrink: 0;
-}
-
-.team-role-tag.role-casa {
-  background: #eff6ff;
-  color: #2563eb;
-  border: 1px solid #dbeafe;
-}
-
-.team-role-tag.role-ospite {
-  background: #f8fafc;
-  color: #64748b;
-  border: 1px solid #e2e8f0;
 }
 
 .match-card-name-wrapper {
   flex: 1;
   min-width: 0;
   overflow: hidden;
+}
+
+/* Weight-driven typography hierarchy for team names */
+.team-name-text {
   font-size: 13.5px;
+  line-height: 1.35;
 }
 
-.winner-trophy {
-  font-size: 13px;
-  flex-shrink: 0;
-  margin-left: 4px;
-  display: inline-flex;
-  align-items: center;
+.team-name-text.name-winner,
+.team-name-text.name-winner .marquee-text-content {
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
 }
 
-/* Score Box */
-.match-card-score-box {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.team-name-text.name-loser,
+.team-name-text.name-loser .marquee-text-content {
+  font-weight: 400;
+  color: var(--text-muted, #64748b);
+  opacity: 0.85;
+}
+
+.team-name-text.name-neutral,
+.team-name-text.name-neutral .marquee-text-content {
+  font-weight: 500;
+  color: var(--text-dark, #0f172a);
+}
+
+/* Pure tabular score digits - No box, no border, no background */
+.match-card-score-digit {
   font-family: var(--font-sans);
-  font-size: 15px;
-  font-weight: 800;
+  font-size: 16px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 18px;
   flex-shrink: 0;
 }
 
-.match-card-score-box.score-winner {
-  background: #dcfce7;
-  color: #15803d;
-  border: 1px solid #86efac;
-  box-shadow: 0 1px 2px rgba(22, 163, 74, 0.12);
+.match-card-score-digit.score-winner {
+  font-weight: 800;
+  color: var(--text-dark, #0f172a);
 }
 
-.match-card-score-box.score-played {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+.match-card-score-digit.score-loser {
+  font-weight: 400;
+  color: var(--text-muted, #64748b);
+  opacity: 0.85;
 }
 
-.match-card-score-box.score-pending {
-  background: #f8fafc;
-  color: #94a3b8;
-  border: 1px dashed #cbd5e1;
+.match-card-score-digit.score-pending {
+  font-weight: 400;
+  font-size: 15px;
+  color: var(--text-muted, #94a3b8);
+  opacity: 0.6;
 }
 
-/* Card Bottom */
+/* Card Bottom: Minimal and subtle */
 .match-card-bottom {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
-  font-size: 11.5px;
-  color: var(--text-muted);
+  padding-top: 6px;
+  border-top: 1px solid var(--border-light, #f1f5f9);
+  margin-top: 2px;
 }
 
-.match-card-summary {
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.match-card-draw-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .btn-referto-link {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
-  font-size: 11px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--text-muted, #64748b);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  margin-left: auto;
+  box-shadow: none !important;
 }
 
 .btn-referto-link:hover {
-  background: #2563eb;
-  color: #ffffff;
-  border-color: #2563eb;
+  color: var(--text-dark, #0f172a);
+  background: transparent;
+  border-color: transparent;
+}
+
+.btn-referto-link i {
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+.btn-referto-link:hover i {
+  transform: translateX(2px);
 }
 
 /* Empty State */
@@ -2707,89 +2687,67 @@ body.modal-open {
 [data-theme="dark"] .match-card {
   background: #0b1426;
   border-color: #1a2d52;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: none;
 }
 
 [data-theme="dark"] .match-card:hover {
-  border-color: #2563eb;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  border-color: #2e4a7a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
-[data-theme="dark"] .match-phase-badge.phase-andata {
-  background: rgba(3, 105, 161, 0.25);
-  color: #38bdf8;
-  border-color: rgba(56, 189, 248, 0.4);
-}
-
-[data-theme="dark"] .match-phase-badge.phase-ritorno {
-  background: rgba(126, 34, 206, 0.25);
-  color: #c084fc;
-  border-color: rgba(192, 132, 252, 0.4);
-}
-
-[data-theme="dark"] .match-status-badge.status-disputato {
-  background: rgba(34, 197, 94, 0.2);
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.35);
-}
-
-[data-theme="dark"] .match-status-badge.status-programmato {
-  background: #142342;
+[data-theme="dark"] .match-meta-datetime,
+[data-theme="dark"] .match-meta-phase,
+[data-theme="dark"] .match-status-label.status-disputato {
   color: #8899b5;
-  border-color: #1c3258;
 }
 
-[data-theme="dark"] .match-card-teams {
-  border-color: #142342;
-}
-
-[data-theme="dark"] .match-card-team-row:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-[data-theme="dark"] .match-card-team-row.is-winner {
-  background: rgba(37, 99, 235, 0.12);
-}
-
-[data-theme="dark"] .team-role-tag.role-casa {
-  background: rgba(37, 99, 235, 0.2);
-  color: #60a5fa;
-  border-color: rgba(96, 165, 250, 0.3);
-}
-
-[data-theme="dark"] .team-role-tag.role-ospite {
-  background: #101d38;
-  color: #94a3b8;
-  border-color: #1e355f;
-}
-
-[data-theme="dark"] .match-card-score-box.score-winner {
-  background: rgba(34, 197, 94, 0.22);
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.4);
-}
-
-[data-theme="dark"] .match-card-score-box.score-played {
-  background: #101d38;
-  color: #cbd5e1;
-  border-color: #1e355f;
-}
-
-[data-theme="dark"] .match-card-score-box.score-pending {
-  background: #091224;
+[data-theme="dark"] .match-status-label.status-programmato {
   color: #64748b;
-  border-color: #1a2d52;
+}
+
+[data-theme="dark"] .team-name-text.name-winner,
+[data-theme="dark"] .team-name-text.name-winner .marquee-text-content {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .team-name-text.name-loser,
+[data-theme="dark"] .team-name-text.name-loser .marquee-text-content {
+  color: #8899b5;
+  opacity: 0.8;
+}
+
+[data-theme="dark"] .team-name-text.name-neutral,
+[data-theme="dark"] .team-name-text.name-neutral .marquee-text-content {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .match-card-score-digit.score-winner {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .match-card-score-digit.score-loser {
+  color: #8899b5;
+  opacity: 0.8;
+}
+
+[data-theme="dark"] .match-card-score-digit.score-pending {
+  color: #64748b;
+}
+
+[data-theme="dark"] .match-card-bottom {
+  border-top-color: #14223d;
+}
+
+[data-theme="dark"] .match-card-draw-label {
+  color: #8899b5;
 }
 
 [data-theme="dark"] .btn-referto-link {
-  background: #122244;
-  color: #93c5fd;
-  border-color: #1d4ed8;
+  color: #8899b5;
 }
 
 [data-theme="dark"] .btn-referto-link:hover {
-  background: #2563eb;
-  color: #ffffff;
+  color: #f1f5f9;
 }
 
 [data-theme="dark"] .no-matches-found {
@@ -2900,50 +2858,7 @@ body.modal-open {
   animation-play-state: paused;
 }
 
-/* ==========================================================================
-   REFERTO BUTTON STYLING
-   ========================================================================== */
-.btn-referto-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--color-primary-700);
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  border-radius: 6px;
-  cursor: pointer;
-  text-decoration: none;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-  font-family: inherit;
-}
 
-.btn-referto-link:hover {
-  background: var(--color-primary-700);
-  color: #ffffff;
-  border-color: var(--color-primary-700);
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(22, 61, 107, 0.22);
-}
-
-.btn-referto-link:active {
-  transform: translateY(0);
-}
-
-[data-theme="dark"] .btn-referto-link {
-  background: #122244;
-  color: #93c5fd;
-  border-color: #1d4ed8;
-}
-
-[data-theme="dark"] .btn-referto-link:hover {
-  background: #2563eb;
-  color: #ffffff;
-  border-color: #3b82f6;
-  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.35);
-}
 
 /* ==========================================================================
    REFERTO MODAL STYLES (Light & Dark Mode)
