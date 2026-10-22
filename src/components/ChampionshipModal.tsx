@@ -140,6 +140,51 @@ function getChampionshipSerieKey(c: ChampionshipItem): SerieGroupKey {
   return 'altri';
 }
 
+/**
+ * Rimuove il prefisso ridondante dal nome del campionato se già mostrato nel cat-badge.
+ * Es. "D/1 Gir. Nord" con categoria "D/1" -> "Gir. Nord"
+ * Es. "Serie A - A/1 Gir.U" con categoria "Serie A" -> "A/1 Gir.U"
+ * Es. "C/2 Gir. B" con categoria "C/2" -> "Gir. B"
+ */
+function cleanChampionshipCardName(nome: string, categoria: string): string {
+  if (!nome) return '';
+  const trimmedNome = nome.trim();
+  const trimmedCat = (categoria || '').trim();
+
+  if (!trimmedCat) return trimmedNome;
+
+  const catWithoutSlash = trimmedCat.replace('/', '');
+  const catWithSlash = trimmedCat.includes('/')
+    ? trimmedCat
+    : trimmedCat.replace(/^([a-zA-Z]+)(\d+)$/, '$1/$2');
+
+  const catVariants = Array.from(
+    new Set([
+      trimmedCat,
+      catWithoutSlash,
+      catWithSlash,
+      trimmedCat.replace(/^Serie\s+/i, ''),
+      `Serie ${trimmedCat.replace(/^Serie\s+/i, '')}`,
+    ])
+  ).filter(Boolean);
+
+  // Ordina per lunghezza decrescente per rimuovere prima i prefissi più specifici
+  catVariants.sort((a, b) => b.length - a.length);
+
+  for (const variant of catVariants) {
+    const escaped = variant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^${escaped}\\s*(?:[-–—:/]\\s*|\\s+)`, 'i');
+    if (regex.test(trimmedNome)) {
+      const cleaned = trimmedNome.replace(regex, '').trim();
+      if (cleaned.length > 0) {
+        return cleaned;
+      }
+    }
+  }
+
+  return trimmedNome;
+}
+
 interface ChampionshipModalProps {
   isOpen: boolean;
   currentCamId: number;
@@ -333,7 +378,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
         </div>
 
         <div className="championship-card-name">
-          <strong>{champ.nome}</strong>
+          <strong>{cleanChampionshipCardName(champ.nome, champ.categoria)}</strong>
         </div>
 
         <div className="championship-card-footer">
