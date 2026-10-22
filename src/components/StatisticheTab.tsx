@@ -457,7 +457,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
               <div className="official-title-group">
                 <span className="official-crown">⭐</span>
                 <div>
-                  <div className="official-main-title">RANKING PRINCIPALE ATLETI — PERCENTUALE VITTORIE (%pv)</div>
+                  <div className="official-main-title"> PERCENTUALE VITTORIE (%pv)</div>
                   <div className="official-main-sub">
                     Graduatoria di Rendimento Ufficiale FITeT • Criterio Federale di Efficienza Singolare
                   </div>

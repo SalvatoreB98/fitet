@@ -577,10 +577,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
               <div className="official-title-group">
                 <span className="official-crown">👑</span>
                 <div>
-                  <div className="official-main-title">TABELLONE GENERALE COMPLETO — TUTTE LE METRICHE</div>
-                  <div className="official-main-sub">
-                    Vista orizzontale a 10 colonne: clicca sulle intestazioni per riordinare
-                  </div>
+                  <div className="official-main-title">CLASSIFICA - TUTTE LE METRICHE</div>
                 </div>
               </div>
               <div className="official-badge-group">
