@@ -139,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({
               title={favoritesCount > 0 ? `Atleti Preferiti (${favoritesCount})` : 'Atleti Preferiti'}
               aria-label="Atleti Preferiti"
             >
-              <i className={favoritesCount > 0 ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
+              <i className={favoritesCount > 0 ? 'bi bi-person-hearts text-warning' : 'bi bi-person-hearts'}></i>
               {favoritesCount > 0 && (
                 <span className="portal-quick-fav-badge">{favoritesCount}</span>
               )}

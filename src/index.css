@@ -1291,9 +1291,7 @@ body {
   background-color: #e5eaee;
 }
 
-.grid-table .grid-data-row:hover {
-  background-color: #e5eaee !important;
-}
+.grid-table .grid-data-row:hover {}
 
 .grid-cell {
   display: flex;
