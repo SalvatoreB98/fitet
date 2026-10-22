@@ -74,17 +74,9 @@ class ViewsService {
     return this.viewsMap[clean] || 0;
   }
 
-  private lastServerCallTimes: Record<string, number> = {};
-
   async incrementViews(key: string): Promise<number> {
     if (!key) return 0;
     const clean = key.toLowerCase().trim();
-    const now = Date.now();
-    const lastTime = this.lastServerCallTimes[clean] || 0;
-    if (now - lastTime < 2000) {
-      return this.getViews(clean);
-    }
-    this.lastServerCallTimes[clean] = now;
 
     // 1. Prova Vercel KV / Upstash Redis se configurato (atomico e globale su tutte le lambda)
     const kv = this.getKvConfig();

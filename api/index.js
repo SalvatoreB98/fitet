@@ -252,16 +252,9 @@ var ViewsService = class {
     }
     return this.viewsMap[clean] || 0;
   }
-  lastServerCallTimes = {};
   async incrementViews(key) {
     if (!key) return 0;
     const clean = key.toLowerCase().trim();
-    const now = Date.now();
-    const lastTime = this.lastServerCallTimes[clean] || 0;
-    if (now - lastTime < 2e3) {
-      return this.getViews(clean);
-    }
-    this.lastServerCallTimes[clean] = now;
     const kv = this.getKvConfig();
     if (kv) {
       try {
@@ -922,7 +915,29 @@ var athlete_mapping_default = {
   "DI PIETRO ENRICO": "764692",
   "SABATINO DOMENICO": "599328",
   "CALABRESE ADRIANO": "765478",
-  "CALABRESE A - DI PIETRO E": "770422"
+  "CALABRESE A - DI PIETRO E": "770422",
+  "PAVEL MAYA ANDREEA": "768518",
+  "PARMIGIANI LUDOVICA": "768136",
+  "THAI KIM LAN ELENA": "716869",
+  "BUSNARDO MILENA": "726000",
+  "NIKOLIC MARINA": "741853",
+  "SERCER INES": "598693",
+  "MACCALLI MILENA": "728748",
+  "PERCHINENNA VALENTINA": "719075",
+  "DEMONTE STEFANIA": "713327",
+  "MURAWSKA SANDRA": "846218",
+  "CAIANI ISOTTA": "726199",
+  "ARMANINI ELISA": "709835",
+  "SARTORI GINEVRA": "735754",
+  "BERNARDINELLO SUSANNA": "789690",
+  "YAVORIVSKA EVELINA": "759637",
+  "OVELAR JARA LUCERO ARAMI": "767129",
+  "FRANZOI SARA": "743327",
+  "LAVORATTI CARLOTTA": "739574",
+  "CAPUANO NICOLE": "763065",
+  "AVESANI FRANCESCA": "595275",
+  "GINI BEATRICE": "696097",
+  "SILVESTRI FRANCA": "633845"
 };
 
 // server/services/athleteResolver.ts

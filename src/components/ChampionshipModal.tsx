@@ -460,6 +460,16 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
 
         {/* Region Filter Tabs */}
         <div className="championship-regions-bar">
+          <button
+            type="button"
+            className={`region-pill ${selectedRegion === 'Tutti' && !searchQuery ? 'active' : ''}`}
+            onClick={() => {
+              setSelectedRegion('Tutti');
+              setSearchQuery('');
+            }}
+          >
+            Tutti ({campionati.length})
+          </button>
           {userRegion && (
             <button
               type="button"
@@ -487,16 +497,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
             {countNazionale > 0 && <span className="pill-badge">{countNazionale}</span>}
           </button>
 
-          <button
-            type="button"
-            className={`region-pill ${selectedRegion === 'Tutti' && !searchQuery ? 'active' : ''}`}
-            onClick={() => {
-              setSelectedRegion('Tutti');
-              setSearchQuery('');
-            }}
-          >
-            Tutti ({campionati.length})
-          </button>
+
 
           {/* Other Regions Dropdown */}
           <div className="region-select-wrapper">

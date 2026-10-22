@@ -33,15 +33,19 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [imgError, setImgError] = useState<boolean>(false);
   const [viewsCount, setViewsCount] = useState<number>(0);
+  const lastTrackedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const key = atletaId || athleteName || '';
-    if (key) {
-      const v = recordAndGetAthleteViews(key, (serverViews) => {
-        setViewsCount(serverViews);
-      });
-      setViewsCount(v);
-    }
+    const key = (atletaId || athleteName || '').toLowerCase().trim();
+    if (!key) return;
+
+    if (lastTrackedKeyRef.current === key) return;
+    lastTrackedKeyRef.current = key;
+
+    const v = recordAndGetAthleteViews(key, (serverViews) => {
+      setViewsCount(serverViews);
+    });
+    setViewsCount(v);
   }, [atletaId, athleteName]);
 
   // Partite nel campionato attualmente aperto
