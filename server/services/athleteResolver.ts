@@ -53,16 +53,24 @@ export class AthleteResolver {
 
     // Dynamic resolution via FITeT autocomplete
     try {
-      // First try with surname
-      const surname = cleanName.split(' ')[0];
-      const results = await FitetClient.searchAtleta(surname);
+      // First try with full name (faster & most exact)
+      let results = await FitetClient.searchAtleta(cleanName);
       
       const norm = (s: string) => s.replace(/[^a-zA-Z]/g, '').toUpperCase();
       const target = norm(cleanName);
 
-      const exact = results.find(
+      let exact = results.find(
         (r) => norm(r.value) === target || norm(r.value).includes(target) || target.includes(norm(r.value))
       );
+
+      // If not found, try with first word (surname)
+      if (!exact && cleanName.includes(' ')) {
+        const surname = cleanName.split(' ')[0];
+        results = await FitetClient.searchAtleta(surname);
+        exact = results.find(
+          (r) => norm(r.value) === target || norm(r.value).includes(target) || target.includes(norm(r.value))
+        );
+      }
 
       if (exact) {
         this.mapping[cleanName] = exact.id;

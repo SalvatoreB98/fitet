@@ -937,7 +937,113 @@ var athlete_mapping_default = {
   "CAPUANO NICOLE": "763065",
   "AVESANI FRANCESCA": "595275",
   "GINI BEATRICE": "696097",
-  "SILVESTRI FRANCA": "633845"
+  "SILVESTRI FRANCA": "633845",
+  "ABBASI MONJEZI AMIREZZA": "846496",
+  "GALVANO NICOLAS DANIEL": "811124",
+  "FANTONI MATTEO": "728594",
+  "TOMASI STEFANO": "596611",
+  "ABBASI MONJEZI A - FANTONI M": "847627",
+  "DURAN GIRALT MARC": "827167",
+  "PICIULIN GABRIELE": "707200",
+  "RAGNI LORENZO": "587923",
+  "DURAN GIRALT M - PICIULIN G": "849712",
+  "DURAN GIRALT M - RAGNI L": "849180",
+  "BELIK SIMON": "828281",
+  "PAVAN FEDERICO": "591339",
+  "MORO GIACOMO": "597344",
+  "PAVAN F - BELIK S": "848809",
+  "FELKEL GRZEGORZ ADAM": "846467",
+  "BACIOCCHI ALESSANDRO": "601698",
+  "MIRO' I LLORENTE MARC": "826666",
+  "LUCESOLI FRANCESCO": "590354",
+  "BACIOCCHI A - FELKEL GRZEGORZ A": "848808",
+  "BACIOCCHI A - MIRO' I L": "849802",
+  "VOVK PETROVSKI BRIN": "823196",
+  "SANCHI TOMAS": "772105",
+  "PAULINA ERIK": "735744",
+  "SANCHI T - VOVK PETROVSKI B": "847745",
+  "FELIPPI LUCCA VINCENZO": "825520",
+  "SPINICCHIA SIMONE": "600387",
+  "LOMBARDI ANDREA": "748809",
+  "CAPELLETTI CARLO": "669956",
+  "FELIPPI LUCCA V - SPINICCHIA S": "849713",
+  "LOMBARDI A - SPINICCHIA S": "848375",
+  "ALLEGRANZA GIACOMO": "725893",
+  "CAMPAGNA GIULIO": "747105",
+  "MERZLIKIN TARAS": "767250",
+  "ALLEGRANZA G - CAMPAGNA G": "847744",
+  "ALLEGRANZA G - MERZLIKIN T": "849727",
+  "RINIOTIS ANASTASIOS": "765607",
+  "GARELLO SIMONE": "728034",
+  "SERETTI DAMIANO": "594736",
+  "RINIOTIS A - SERETTI D": "849179",
+  "COSIMI GABRIELE": "824599",
+  "DE BERNARDO LUIGI": "737670",
+  "DI SARRO ROBERTO": "707622",
+  "COSIMI G - DE BERNARDO L": "847753",
+  "DI LISIO GIOVANNI": "731084",
+  "AMOROSO TIZIANO": "761870",
+  "PRIGIONIERO MATTEO": "834335",
+  "RUSCITTO MARINELLI JOSE' RAFAEL": "612548",
+  "DI LISIO G - AMOROSO T": "848411",
+  "DI LISIO G - RUSCITTO MARINELLI J": "731271",
+  "IANNETTA ARTURO": "589402",
+  "MANNA LEONARDO": "589405",
+  "MAURIELLO MASSIMO": "589445",
+  "PETRELLA FRANCESCO": "611869",
+  "IANNETTA A - PETRELLA F": "848743",
+  "DI CESARE EUGENIO": "723877",
+  "COSIMI BERNARDO": "594962",
+  "MINERVINI MAURO PASQUALINO": "805574",
+  "DI CESARE E - MINERVINI MAURO P": "847751",
+  "GIANNINI FRANCESCO": "600524",
+  "LANDOLFI POMPEI MARIO": "595050",
+  "ROSA MICHELE": "718234",
+  "GIANNINI F - ROSA M": "738146",
+  "TAMBURRI RICCARDO": "846665",
+  "CICCHINO VINCENZO": "721263",
+  "CIFELLI AMBRA": "828899",
+  "IARUSSI NICOLA": "831579",
+  "CICCHINO V - IARUSSI N": "848744",
+  "IARUSSI N - TAMBURRI R": "849561",
+  "MASTROGIUSEPPE NICOLO'": "751292",
+  "PRIGIONIERO DANIELE": "613388",
+  "RUSCITTO MARINELLI ADRIANA": "701082",
+  "CAPOCEFALO GIOVANNI": "827295",
+  "RUSCITTO MARINELLI A - PRIGIONIERO D": "849560",
+  "LORETO DARIO": "697946",
+  "BALDERI LORENZO": "710834",
+  "CANTELLA FILIPPO": "711731",
+  "ZOCCATELLI TOMMASO": "736787",
+  "VENDRAMIN FABRIZIO": "772550",
+  "FLAMINIO MATTEO": "824622",
+  "SARONNI DANIELE LUIGI": "747134",
+  "COLLI LEONARDO": "590702",
+  "SEGATTA MICHELE": "777712",
+  "ARLIA NICOLE": "725242",
+  "DRAGOMAN ANDREEA": "767319",
+  "STEFANOVA NIKOLETA": "594841",
+  "SZOCS BERNADETTE CYNTHIA": "767065",
+  "KRZYSIEK PAULINA ALEKSANDRA": "831562",
+  "KOLISH ANASTASIIA": "810643",
+  "TOFANT ANA": "741711",
+  "JOARDAR OISHIKI": "846602",
+  "CERRITELLI MARGHERITA": "732943",
+  "CLAPA ANDREEA TEODORA": "758270",
+  "MONFARDINI GAIA": "701714",
+  "VIVARELLI DEBORA": "597808",
+  "OPRANDI MELISSA": "749220",
+  "CIOBANU IRINA": "825113",
+  "RONCALLO VALENTINA": "711608",
+  "SIMON TEODORA": "810679",
+  "CRISCIONE NICOLETTA": "730274",
+  "MINURRI SOFIA": "735898",
+  "SEU FRANCESCA": "731341",
+  "CHASSELIN PAULINE CARINNE OLIVIA": "827817",
+  "PLAIAN TANIA MARIA": "765375",
+  "CARNOVALE MIRIAM BENEDETTA": "721848",
+  "FONTANA ROBERTO": "593082",
+  "MELONI SIRIO": "742767"
 };
 
 // server/services/athleteResolver.ts
@@ -981,13 +1087,19 @@ var AthleteResolver = class {
       return this.mapping[cleanName];
     }
     try {
-      const surname = cleanName.split(" ")[0];
-      const results = await FitetClient.searchAtleta(surname);
+      let results = await FitetClient.searchAtleta(cleanName);
       const norm = (s) => s.replace(/[^a-zA-Z]/g, "").toUpperCase();
       const target = norm(cleanName);
-      const exact = results.find(
+      let exact = results.find(
         (r) => norm(r.value) === target || norm(r.value).includes(target) || target.includes(norm(r.value))
       );
+      if (!exact && cleanName.includes(" ")) {
+        const surname = cleanName.split(" ")[0];
+        results = await FitetClient.searchAtleta(surname);
+        exact = results.find(
+          (r) => norm(r.value) === target || norm(r.value).includes(target) || target.includes(norm(r.value))
+        );
+      }
       if (exact) {
         this.mapping[cleanName] = exact.id;
         this.saveMapping();
@@ -1470,6 +1582,7 @@ function parseStatisticheAtleti(html, athleteMapping = {}) {
     const percentualeVittorie = parseFloat(percText) || 0;
     const athleteId = athleteMapping[nomeText] || athleteMapping[nomeText.toUpperCase()] || null;
     atleti.push({
+      posizione: atleti.length + 1,
       nazionalita,
       bandieraUrl,
       atleta: nomeText,
@@ -1739,10 +1852,198 @@ function parseDettaglioAtleta(html, atletaId, partiteRanking) {
   };
 }
 
-// server/parsers/squadraParser.ts
+// server/parsers/headToHeadParser.ts
 import * as cheerio8 from "cheerio";
-function parseDettaglioSquadra(html, squadraId, camId, logoUrl) {
+function parseHeadToHead(html, atleta1Id, atleta2Id, fallbackAtleta1Nome, fallbackAtleta2Nome) {
   const $ = cheerio8.load(html);
+  const rows = $("table tr");
+  let atleta1Nome = fallbackAtleta1Nome || `Atleta ${atleta1Id}`;
+  let atleta2Nome = fallbackAtleta2Nome || `Atleta ${atleta2Id}`;
+  const nomi = $("p.nomi");
+  if (nomi.length >= 2) {
+    const n1 = $(nomi[0]).text().trim();
+    const n2 = $(nomi[1]).text().trim();
+    if (n1 && !n1.toLowerCase().includes("incontrati")) atleta1Nome = n1;
+    if (n2 && !n2.toLowerCase().includes("incontrati")) atleta2Nome = n2;
+  }
+  const norm = (s) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const target1 = norm(atleta1Nome);
+  const target2 = norm(atleta2Nome);
+  let v1 = 0;
+  let v2 = 0;
+  const incontri = [];
+  rows.slice(2).each((_, tr) => {
+    const tds = $(tr).find("td");
+    if (tds.length < 5) return;
+    const anno = $(tds[0]).text().trim();
+    const data = $(tds[1]).text().trim();
+    const gara = $(tds[2]).text().trim();
+    const vincente = $(tds[3]).text().trim();
+    if (!data || !data.includes("/")) return;
+    const sWin = parseInt($(tds[4]).text().trim(), 10) || 3;
+    const sLose = parseInt($(tds[6]).text().trim(), 10) || 0;
+    const vincenteNorm = norm(vincente);
+    const isV1 = vincenteNorm.includes(target1) || target1.includes(vincenteNorm) || !vincenteNorm.includes(target2) && !target2.includes(vincenteNorm) && vincenteNorm.length > 0;
+    if (isV1) {
+      v1++;
+    } else {
+      v2++;
+    }
+    const setAtleta1 = isV1 ? sWin : sLose;
+    const setAtleta2 = isV1 ? sLose : sWin;
+    incontri.push({
+      anno,
+      data,
+      gara,
+      vincente,
+      punteggio: `${setAtleta1} - ${setAtleta2}`,
+      setAtleta1,
+      setAtleta2,
+      isVittoriaAtleta1: isV1
+    });
+  });
+  return {
+    atleta1: {
+      id: atleta1Id,
+      nome: atleta1Nome,
+      vittorie: v1,
+      fotoUrl: `https://portale.fitet.org/images/atleti/${atleta1Id}.jpg`
+    },
+    atleta2: {
+      id: atleta2Id,
+      nome: atleta2Nome,
+      vittorie: v2,
+      fotoUrl: `https://portale.fitet.org/images/atleti/${atleta2Id}.jpg`
+    },
+    totaleIncontri: incontri.length,
+    incontri
+  };
+}
+
+// server/services/headToHeadService.ts
+var TTL_HEAD_TO_HEAD = 24 * 60 * 60 * 1e3;
+var DEFAULT_ID_CLASS = 247;
+var HeadToHeadService = class {
+  /**
+   * Recupera il confronto diretto (Testa a Testa) tra due atleti
+   * Supporta sia ID federali che nomi atleti (risolti automaticamente)
+   */
+  async getHeadToHead(atleta1, atleta2, idClass = DEFAULT_ID_CLASS) {
+    let id1 = atleta1.trim();
+    let id2 = atleta2.trim();
+    let name1 = "";
+    let name2 = "";
+    if (!/^\d+$/.test(id1)) {
+      name1 = id1;
+      const resolved = await athleteResolver.resolveAthleteId(id1);
+      if (resolved) id1 = resolved;
+    }
+    if (!/^\d+$/.test(id2)) {
+      name2 = id2;
+      const resolved = await athleteResolver.resolveAthleteId(id2);
+      if (resolved) id2 = resolved;
+    }
+    const cacheKey = `h2h_${id1}_${id2}_${idClass}`;
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+    if (!/^\d+$/.test(id1) || !/^\d+$/.test(id2)) {
+      return {
+        atleta1: { id: id1, nome: name1 || id1, vittorie: 0 },
+        atleta2: { id: id2, nome: name2 || id2, vittorie: 0 },
+        totaleIncontri: 0,
+        incontri: []
+      };
+    }
+    try {
+      const url = `https://portale.fitet.org/risultati/new_rank/head_head.php?ATLETA=${id1}&AVVERSARIO=${id2}&ZU=1&ID_CLASS=${idClass}`;
+      const html = await FitetClient.fetchHtml(url, false);
+      const data = parseHeadToHead(html, id1, id2, name1, name2);
+      cacheService.set(cacheKey, data, TTL_HEAD_TO_HEAD);
+      return data;
+    } catch (err) {
+      console.warn(`[HeadToHeadService] Errore fetch testa a testa ${id1} vs ${id2}:`, err);
+      return {
+        atleta1: { id: id1, nome: name1 || id1, vittorie: 0 },
+        atleta2: { id: id2, nome: name2 || id2, vittorie: 0 },
+        totaleIncontri: 0,
+        incontri: []
+      };
+    }
+  }
+  /**
+   * Arricchisce gli incontri ranking (soprattutto gare di torneo)
+   * incrociando i risultati dei set dal Testa a Testa
+   */
+  async enrichRankingMatches(atletaId, partite, idClass = DEFAULT_ID_CLASS) {
+    if (!partite) return partite;
+    const neededOpponents = /* @__PURE__ */ new Set();
+    if (Array.isArray(partite.tornei)) {
+      for (const t of partite.tornei) {
+        if (!t.risultatoSet && t.avversario) {
+          neededOpponents.add(t.avversario.toUpperCase().trim());
+        }
+      }
+    }
+    if (Array.isArray(partite.campionato)) {
+      for (const c of partite.campionato) {
+        if (!c.risultatoSet && c.avversario) {
+          neededOpponents.add(c.avversario.toUpperCase().trim());
+        }
+      }
+    }
+    if (neededOpponents.size === 0) return partite;
+    const opponentsList = Array.from(neededOpponents).slice(0, 10);
+    const batchSize = 5;
+    const h2hMap = /* @__PURE__ */ new Map();
+    for (let i = 0; i < opponentsList.length; i += batchSize) {
+      const chunk = opponentsList.slice(i, i + batchSize);
+      await Promise.all(
+        chunk.map(async (oppName) => {
+          try {
+            const h2h = await this.getHeadToHead(atletaId, oppName, idClass);
+            if (h2h && h2h.incontri.length > 0) {
+              h2hMap.set(oppName, h2h);
+            }
+          } catch (err) {
+          }
+        })
+      );
+    }
+    if (Array.isArray(partite.tornei)) {
+      for (const t of partite.tornei) {
+        if (t.risultatoSet) continue;
+        const oppName = t.avversario.toUpperCase().trim();
+        const h2h = h2hMap.get(oppName);
+        if (!h2h) continue;
+        t.avversarioId = h2h.atleta2.id;
+        const enc = h2h.incontri.find((e) => e.data === t.data);
+        if (enc) {
+          t.risultatoSet = enc.punteggio;
+        }
+      }
+    }
+    if (Array.isArray(partite.campionato)) {
+      for (const c of partite.campionato) {
+        if (c.risultatoSet) continue;
+        const oppName = c.avversario.toUpperCase().trim();
+        const h2h = h2hMap.get(oppName);
+        if (!h2h) continue;
+        c.avversarioId = h2h.atleta2.id;
+        const enc = h2h.incontri.find((e) => e.data === c.data);
+        if (enc) {
+          c.risultatoSet = enc.punteggio;
+        }
+      }
+    }
+    return partite;
+  }
+};
+var headToHeadService = new HeadToHeadService();
+
+// server/parsers/squadraParser.ts
+import * as cheerio9 from "cheerio";
+function parseDettaglioSquadra(html, squadraId, camId, logoUrl) {
+  const $ = cheerio9.load(html);
   const titleText = $("table tr:first-child").text().replace(/\s+/g, " ").trim();
   const teamNameMatch = titleText.match(/Atleti della squadra:\s*(.+)$/i);
   const nome = teamNameMatch ? teamNameMatch[1].trim() : "Squadra " + squadraId;
@@ -1813,7 +2114,7 @@ function parseDettaglioSquadra(html, squadraId, camId, logoUrl) {
 }
 
 // server/parsers/refertoParser.ts
-import * as cheerio9 from "cheerio";
+import * as cheerio10 from "cheerio";
 function resolveFitetUrl(src) {
   if (!src) return void 0;
   if (src.startsWith("http")) return src;
@@ -1821,7 +2122,7 @@ function resolveFitetUrl(src) {
   return `https://portale.fitet.org/${clean}`;
 }
 function parseRefertoIncontro(html, incontroId, camId, formulaId) {
-  const $ = cheerio9.load(html);
+  const $ = cheerio10.load(html);
   const $incontri = $("p.incontro");
   let casaNome = "";
   let ospiteNome = "";
@@ -1960,7 +2261,7 @@ function parseRefertoIncontro(html, incontroId, camId, formulaId) {
   };
 }
 function parseDettaglioPartita(html, partitaId) {
-  const $ = cheerio9.load(html);
+  const $ = cheerio10.load(html);
   const rows = $('table[width="716"] > tr, table[width="716"] > tbody > tr');
   let headerRow = rows.eq(0);
   let detailRow = rows.eq(1);
@@ -2070,7 +2371,7 @@ function parseDettaglioPartita(html, partitaId) {
 }
 
 // server/app.ts
-import * as cheerio10 from "cheerio";
+import * as cheerio11 from "cheerio";
 var app = express();
 app.use(cors());
 app.use(express.json());
@@ -2275,6 +2576,14 @@ app.get("/api/atleta/:id", async (req, res) => {
       try {
         const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);
         partiteRanking = parsePartiteRanking(iframeHtml, id);
+        const idClassMatch = iframeUrl.match(/\/html\/(\d+)\//i);
+        const currentIdClass = idClassMatch ? parseInt(idClassMatch[1], 10) : 247;
+        headToHeadService.enrichRankingMatches(id, partiteRanking, currentIdClass).then((enriched) => {
+          const updatedAtleta = parseDettaglioAtleta(html, id, enriched);
+          cacheService.set(cacheKey, updatedAtleta, TTL_ATLETA);
+        }).catch((enrichErr) => {
+          console.warn(`[HeadToHead] Background enrichment warning for athlete ${id}:`, enrichErr);
+        });
       } catch (iframeErr) {
         console.warn(`Could not fetch ranking matches iframe for athlete ${id}:`, iframeErr);
       }
@@ -2285,6 +2594,21 @@ app.get("/api/atleta/:id", async (req, res) => {
   } catch (error) {
     console.error(`Error fetching athlete ${id}:`, error);
     res.status(500).json({ error: "Errore nel recupero della scheda atleta", details: error.message });
+  }
+});
+app.get("/api/head-to-head", async (req, res) => {
+  const atleta1 = req.query.atleta1;
+  const atleta2 = req.query.atleta2;
+  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) : 247;
+  if (!atleta1 || !atleta2) {
+    return res.status(400).json({ error: "Parametri atleta1 e atleta2 obbligatori" });
+  }
+  try {
+    const data = await headToHeadService.getHeadToHead(atleta1, atleta2, idClass);
+    res.json(data);
+  } catch (error) {
+    console.error(`Error in head-to-head ${atleta1} vs ${atleta2}:`, error);
+    res.status(500).json({ error: "Errore nel recupero del testa a testa", details: error.message });
   }
 });
 app.post("/api/atleta/:id/view", async (req, res) => {
@@ -2449,7 +2773,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
       if (found) {
         squadraNome = found.squadra;
         const classHtml = await FitetClient.fetchClassifica(cam);
-        const $c = cheerio10.load(classHtml);
+        const $c = cheerio11.load(classHtml);
         $c('a[href*="SQUADRA="]').each((_, el) => {
           const text = $c(el).text().trim();
           if (text.toUpperCase() === found.squadra.toUpperCase()) {
@@ -2471,7 +2795,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
     }
     const url = `https://portale.fitet.org/risultati/campionati/dettaglio_percentuali.php?IDA=${atletaId}&CAM=${cam}&SQUADRA=${squadraId}`;
     const html = await FitetClient.fetchHtml(url);
-    const $p = cheerio10.load(html);
+    const $p = cheerio11.load(html);
     const matches = [];
     if (!squadraNome) {
       const headerText = $p("table tr").first().text();

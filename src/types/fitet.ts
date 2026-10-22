@@ -184,6 +184,8 @@ export interface PartitaRankingCampionato {
   risultato: string;
   isVittoria: boolean;
   avversario: string;
+  avversarioId?: string;
+  risultatoSet?: string;
   sesso?: string;
   stato?: string;
 }
@@ -193,6 +195,8 @@ export interface PartitaRankingTorneo {
   torneo: string;
   gara: string;
   avversario: string;
+  avversarioId?: string;
+  risultatoSet?: string;
   fase?: string;
   risultato: string;
   isVittoria: boolean;
@@ -290,4 +294,32 @@ export interface AtletaCampionatoPartiteResponse {
   squadra?: string;
   matches: PartitaCampionatoAtleta[];
   error?: string;
+}
+
+export interface HeadToHeadIncontro {
+  anno: string;
+  data: string;
+  gara: string;
+  vincente: string;
+  punteggio: string;
+  setAtleta1: number;
+  setAtleta2: number;
+  isVittoriaAtleta1: boolean;
+}
+
+export interface HeadToHeadData {
+  atleta1: {
+    id: string;
+    nome: string;
+    vittorie: number;
+    fotoUrl?: string;
+  };
+  atleta2: {
+    id: string;
+    nome: string;
+    vittorie: number;
+    fotoUrl?: string;
+  };
+  totaleIncontri: number;
+  incontri: HeadToHeadIncontro[];
 }

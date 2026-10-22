@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
 import { fetchAtleta, fetchAtletaCampionatoPartite } from '../services/api';
 import { RatingChart } from './RatingChart';
+import { HeadToHeadModal } from './HeadToHeadModal';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { MarqueeText } from './MarqueeText';
 import { recordAndGetAthleteViews } from '../utils/athleteViews';
@@ -77,6 +78,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [rankingFilter, setRankingFilter] = useState<'tutti' | 'campionato' | 'tornei'>('tutti');
   const [viewMode, setViewMode] = useState<'slider' | 'list'>('slider');
   const [analyticsTab, setAnalyticsTab] = useState<'chart' | 'table'>('chart');
+  const [h2hOpponent, setH2hOpponent] = useState<{ id?: string; name: string } | null>(null);
 
   // Slider navigation
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -431,6 +433,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   titolo: string;
                   sottotitolo?: string;
                   avversario: string;
+                  avversarioId?: string;
+                  risultatoSet?: string;
                   fase?: string;
                   risultato: string;
                   isVittoria: boolean;
@@ -445,6 +449,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       data: m.data,
                       titolo: m.campionato,
                       avversario: m.avversario,
+                      avversarioId: m.avversarioId,
+                      risultatoSet: m.risultatoSet,
                       risultato: m.risultato,
                       isVittoria: m.isVittoria,
                       punti: m.punti,
@@ -461,6 +467,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       titolo: m.torneo,
                       sottotitolo: m.gara,
                       avversario: m.avversario,
+                      avversarioId: m.avversarioId,
+                      risultatoSet: m.risultatoSet,
                       fase: m.fase,
                       risultato: m.risultato,
                       isVittoria: m.isVittoria,
@@ -690,6 +698,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         titolo: string;
                         sottotitolo?: string;
                         avversario: string;
+                        avversarioId?: string;
                         giornata?: number;
                         fase?: string;
                         isVittoria: boolean;
@@ -727,9 +736,10 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                             titolo: m.titolo,
                             sottotitolo: m.sottotitolo,
                             avversario: m.avversario,
+                            avversarioId: m.avversarioId,
                             fase: m.fase,
                             isVittoria: m.isVittoria,
-                            risultatoSet: matchingGirone?.risultatoSet,
+                            risultatoSet: m.risultatoSet || matchingGirone?.risultatoSet,
                             sets: matchingGirone?.sets,
                             punti: m.punti,
                             rawRisultato: m.risultato,
@@ -912,7 +922,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                   </div>
 
                                   {/* Middle Row: Opponent Name & Event Details */}
-                                  <div style={{ marginBottom: '8px' }}>
+                                    <div style={{ marginBottom: '8px' }}>
                                     <div
                                       style={{
                                         fontWeight: '700',
@@ -921,6 +931,9 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                         overflow: 'hidden',
                                         textOverflow: 'ellipsis',
                                         whiteSpace: 'nowrap',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
                                       }}
                                     >
                                       {onSelectAthlete ? (
@@ -939,6 +952,32 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                       ) : (
                                         <span title={`Avversario: ${m.avversario}`}>vs {m.avversario}</span>
                                       )}
+
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setH2hOpponent({ id: m.avversarioId, name: m.avversario });
+                                        }}
+                                        title={`Visualizza Testa a Testa contro ${m.avversario}`}
+                                        style={{
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '3px',
+                                          padding: '1px 6px',
+                                          borderRadius: '4px',
+                                          fontSize: '10px',
+                                          fontWeight: 700,
+                                          background: 'rgba(59, 130, 246, 0.1)',
+                                          color: 'var(--color-primary-600, #2563eb)',
+                                          border: '1px solid rgba(59, 130, 246, 0.25)',
+                                          cursor: 'pointer',
+                                          flexShrink: 0,
+                                        }}
+                                      >
+                                        <i className="bi bi-arrow-left-right" style={{ fontSize: '9px' }}></i>
+                                        H2H
+                                      </button>
                                     </div>
 
                                     <MarqueeText
@@ -1030,6 +1069,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                             fontVariantNumeric: 'tabular-nums',
                                           }}
                                         >
+                                          {m.isVittoria ? 'V' : 'P'}
                                         </div>
                                       )}
                                     </div>
@@ -1092,7 +1132,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                     )}
 
                                     <div style={{ minWidth: 0 }}>
-                                      <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         {onSelectAthlete ? (
                                           <button
                                             type="button"
@@ -1109,6 +1149,32 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                         ) : (
                                           <span>vs {m.avversario}</span>
                                         )}
+
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setH2hOpponent({ id: m.avversarioId, name: m.avversario });
+                                          }}
+                                          title={`Visualizza Testa a Testa contro ${m.avversario}`}
+                                          style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '3px',
+                                            padding: '1px 5px',
+                                            borderRadius: '4px',
+                                            fontSize: '9.5px',
+                                            fontWeight: 700,
+                                            background: 'rgba(59, 130, 246, 0.1)',
+                                            color: 'var(--color-primary-600, #2563eb)',
+                                            border: '1px solid rgba(59, 130, 246, 0.25)',
+                                            cursor: 'pointer',
+                                            flexShrink: 0,
+                                          }}
+                                        >
+                                          <i className="bi bi-arrow-left-right" style={{ fontSize: '8.5px' }}></i>
+                                          H2H
+                                        </button>
                                       </div>
                                       <div
                                         className="match-event-title-scroll"
@@ -1153,7 +1219,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                         </span>
                                       ) : (
                                         <span style={{ fontSize: '13px', fontWeight: '800', color: m.isVittoria ? '#16a34a' : '#dc2626' }}>
-                                          {m.isVittoria ? '1 - 0' : '0 - 1'}
+                                          {m.isVittoria ? 'V' : 'P'}
                                         </span>
                                       )}
                                     </div>
@@ -1258,6 +1324,19 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Modal Testa a Testa con l'avversario selezionato */}
+      {h2hOpponent && (
+        <HeadToHeadModal
+          isOpen={true}
+          atleta1Id={currentAtletaId}
+          atleta1Nome={currentAthleteName}
+          atleta2Id={h2hOpponent.id}
+          atleta2Nome={h2hOpponent.name}
+          onClose={() => setH2hOpponent(null)}
+          onSelectAthlete={onSelectAthlete}
+        />
+      )}
     </div>,
     document.body
   );

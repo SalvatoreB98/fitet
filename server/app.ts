@@ -11,6 +11,7 @@ import { parseClassifica } from './parsers/classificaParser';
 import { parseCalendario } from './parsers/calendarioParser';
 import { parseStatisticheAtleti } from './parsers/statisticheParser';
 import { parseDettaglioAtleta, extractRankingIframeUrl, parsePartiteRanking } from './parsers/atletaParser';
+import { headToHeadService } from './services/headToHeadService';
 import { parseDettaglioSquadra } from './parsers/squadraParser';
 import { parseRefertoIncontro, parseDettaglioPartita } from './parsers/refertoParser';
 import * as cheerio from 'cheerio';
@@ -298,6 +299,21 @@ app.get('/api/atleta/:id', async (req, res) => {
             try {
                 const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);
                 partiteRanking = parsePartiteRanking(iframeHtml, id);
+
+                // Extract idClass from iframeUrl if available (e.g. /html/247/...)
+                const idClassMatch = iframeUrl.match(/\/html\/(\d+)\//i);
+                const currentIdClass = idClassMatch ? parseInt(idClassMatch[1], 10) : 247;
+
+                // Non-blocking background enrichment of set scores into cache
+                headToHeadService
+                    .enrichRankingMatches(id, partiteRanking, currentIdClass)
+                    .then((enriched) => {
+                        const updatedAtleta = parseDettaglioAtleta(html, id, enriched);
+                        cacheService.set(cacheKey, updatedAtleta, TTL_ATLETA);
+                    })
+                    .catch((enrichErr) => {
+                        console.warn(`[HeadToHead] Background enrichment warning for athlete ${id}:`, enrichErr);
+                    });
             } catch (iframeErr) {
                 console.warn(`Could not fetch ranking matches iframe for athlete ${id}:`, iframeErr);
             }
@@ -312,7 +328,26 @@ app.get('/api/atleta/:id', async (req, res) => {
     }
 });
 
-// 5b. Athlete Real Views tracking
+// 5b. Head-to-Head (Testa a Testa tra due atleti)
+app.get('/api/head-to-head', async (req, res) => {
+    const atleta1 = req.query.atleta1 as string;
+    const atleta2 = req.query.atleta2 as string;
+    const idClass = req.query.idClass ? parseInt(req.query.idClass as string, 10) : 247;
+
+    if (!atleta1 || !atleta2) {
+        return res.status(400).json({ error: 'Parametri atleta1 e atleta2 obbligatori' });
+    }
+
+    try {
+        const data = await headToHeadService.getHeadToHead(atleta1, atleta2, idClass);
+        res.json(data);
+    } catch (error: any) {
+        console.error(`Error in head-to-head ${atleta1} vs ${atleta2}:`, error);
+        res.status(500).json({ error: 'Errore nel recupero del testa a testa', details: error.message });
+    }
+});
+
+// 5c. Athlete Real Views tracking
 app.post('/api/atleta/:id/view', async (req, res) => {
     const { id } = req.params;
     if (!id) return res.status(400).json({ error: 'ID atleta mancante' });

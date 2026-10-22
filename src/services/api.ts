@@ -7,6 +7,7 @@ import {
   DettaglioSquadra,
   AthleteSearchResult,
   AtletaCampionatoPartiteResponse,
+  HeadToHeadData,
 } from '../types/fitet';
 
 const API_BASE = '/api';
@@ -120,6 +121,23 @@ export async function fetchAtletaCampionatoPartite(
   const res = await fetch(`${API_BASE}/atleta-campionato-partite?${params.toString()}`);
   if (!res.ok) {
     throw new Error(`Errore caricamento partite campionato (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function fetchHeadToHead(
+  atleta1: string,
+  atleta2: string,
+  idClass = 247
+): Promise<HeadToHeadData> {
+  const params = new URLSearchParams({
+    atleta1,
+    atleta2,
+    idClass: String(idClass),
+  });
+  const res = await fetch(`${API_BASE}/head-to-head?${params.toString()}`);
+  if (!res.ok) {
+    throw new Error(`Errore caricamento testa a testa (${res.status})`);
   }
   return res.json();
 }
