@@ -183,6 +183,15 @@ body {
   transition: box-shadow 0.25s ease;
 }
 
+nav {
+  position: fixed;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+}
+
 /* Header with Clean Federal Solid Background */
 .portal-header {
   position: relative;
@@ -1044,6 +1053,7 @@ body {
   min-height: calc(100vh - 245px);
   position: relative;
   background: var(--bg-container);
+  margin-top: 140px;
 }
 
 .tab-pane {
