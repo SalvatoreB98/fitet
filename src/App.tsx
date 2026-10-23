@@ -485,6 +485,7 @@ export const App: React.FC = () => {
         >
           <ClassificheRankingTab
             onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+            onOpenSearchModal={() => setIsSearchModalOpen(true)}
           />
         </div>
 

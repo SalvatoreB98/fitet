@@ -5,6 +5,7 @@ import './ClassificheRankingTab.css';
 
 export interface ClassificheRankingTabProps {
   onOpenAtletaModal: (atletaId: string, nome: string) => void;
+  onOpenSearchModal?: () => void;
 }
 
 export const REGIONS_COMIT = [
@@ -34,6 +35,7 @@ export const REGIONS_COMIT = [
 
 export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
   onOpenAtletaModal,
+  onOpenSearchModal,
 }) => {
   const [sesso, setSesso] = useState<'M' | 'F'>('M');
   const [comitId, setComitId] = useState<number>(0); // 0 = Nazionale
@@ -110,16 +112,27 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            className="ranking-refresh-btn"
-            onClick={() => loadRanking(page, sesso, comitId, true)}
-            disabled={loading || refreshing}
-            title="Aggiorna dati classifica"
-          >
-            <i className={`bi bi-arrow-clockwise ${refreshing ? 'spin-anim' : ''}`}></i>
-            <span>{refreshing ? 'Aggiornamento...' : 'Aggiorna'}</span>
-          </button>
+          <div className="ranking-header-actions">
+            <button
+              type="button"
+              className="ranking-refresh-btn"
+              onClick={() => onOpenSearchModal?.()}
+              title="Cerca atleta"
+            >
+              <i className="bi bi-search"></i>
+              <span>Cerca atleta</span>
+            </button>
+            <button
+              type="button"
+              className="ranking-refresh-btn"
+              onClick={() => loadRanking(page, sesso, comitId, true)}
+              disabled={loading || refreshing}
+              title="Aggiorna dati classifica"
+            >
+              <i className={`bi bi-arrow-clockwise ${refreshing ? 'spin-anim' : ''}`}></i>
+              <span>{refreshing ? 'Aggiornamento...' : 'Aggiorna'}</span>
+            </button>
+          </div>
         </div>
 
         <div className="ranking-controls-row">

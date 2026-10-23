@@ -572,6 +572,13 @@
   gap: 12px;
 }
 
+.home-athlete-top .title-wrapper {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .home-athlete-profile {
   display: flex;
   align-items: center;
@@ -919,4 +926,4 @@
   cursor: pointer;
   padding-top: 6px;
   border-top: 1px solid var(--border-light, #f1f5f9);
-}
+}

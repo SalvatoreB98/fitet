@@ -107,7 +107,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             });
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     });
   }, [favoriteAthletes]);
 
@@ -141,7 +141,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         const num = parseInt(stored, 10);
         if (!isNaN(num) && num > 0) return num;
       }
-    } catch {}
+    } catch { }
     return null;
   }, [currentCamId]);
 
@@ -252,43 +252,45 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 onClick={() => onOpenAtletaModal(athlete.id, athlete.name)}
               >
                 <div className="home-athlete-top">
-                  <div className="home-athlete-profile">
-                    <div className="home-athlete-avatar-wrap">
-                      <AthleteAvatar
-                        atletaId={athlete.id}
-                        nome={athlete.name}
-                        size={46}
-                      />
+                  <div className="title-wrapper">
+                    <div className="home-athlete-profile">
+                      <div className="home-athlete-avatar-wrap">
+                        <AthleteAvatar
+                          atletaId={athlete.id}
+                          nome={athlete.name}
+                          size={46}
+                        />
+                      </div>
+                      <div className="home-athlete-info">
+                        <h4 className="home-card-title" title={athlete.name}>
+                          {athlete.name}
+                        </h4>
+                        {athlete.squadra ? (
+                          <div className="home-athlete-team" title={athlete.squadra}>
+                            <span>{athlete.squadra}</span>
+                          </div>
+                        ) : (
+                          <div className="home-athlete-team">
+                            <i className="bi bi-person"></i>
+                            <span>Tessera #{athlete.id}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div className="home-athlete-info">
-                      <h4 className="home-card-title" title={athlete.name}>
-                        {athlete.name}
-                      </h4>
-                      {athlete.squadra ? (
-                        <div className="home-athlete-team" title={athlete.squadra}>
-                          <span>{athlete.squadra}</span>
-                        </div>
-                      ) : (
-                        <div className="home-athlete-team">
-                          <i className="bi bi-person"></i>
-                          <span>Tessera #{athlete.id}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
 
-                  <button
-                    type="button"
-                    className="home-card-fav-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeAthleteFavorite(athlete.id);
-                    }}
-                    title="Rimuovi atleta dai preferiti"
-                    aria-label="Rimuovi atleta dai preferiti"
-                  >
-                    <i className="bi bi-star-fill text-warning"></i>
-                  </button>
+                    <button
+                      type="button"
+                      className="home-card-fav-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeAthleteFavorite(athlete.id);
+                      }}
+                      title="Rimuovi atleta dai preferiti"
+                      aria-label="Rimuovi atleta dai preferiti"
+                    >
+                      <i className="bi bi-star-fill text-warning"></i>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="home-athlete-stats-row">
