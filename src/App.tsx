@@ -232,7 +232,7 @@ export const App: React.FC = () => {
       url.searchParams.set('cam', String(camId));
       if (annoId !== 41) url.searchParams.set('anno', String(annoId));
       else url.searchParams.delete('anno');
-      window.history.replaceState({}, '', url.toString());
+      window.history.replaceState({ ...(window.history.state || {}), cam: camId, anno: annoId }, '', url.toString());
       localStorage.setItem('fitet_selected_cam', String(camId));
     }
   }, [camId, annoId, showIntro]);
@@ -243,18 +243,7 @@ export const App: React.FC = () => {
     setAnnoId(newAnno);
   };
 
-  const handleTabChange = (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => {
-    setActiveTab(tab);
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      if (tab !== 'home') {
-        url.searchParams.set('tab', tab);
-      } else {
-        url.searchParams.delete('tab');
-      }
-      window.history.replaceState({}, '', url.toString());
-    }
-    // Smoothly scroll to the portal navigation / top of content if user was scrolled down
+  const scrollToNav = () => {
     const nav = document.querySelector('.portal-nav');
     if (nav) {
       const rect = nav.getBoundingClientRect();
@@ -270,6 +259,71 @@ export const App: React.FC = () => {
         }
       }
     }
+  };
+
+  // Sync initial tab into history state on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (activeTab !== 'home') {
+        url.searchParams.set('tab', activeTab);
+      } else {
+        url.searchParams.delete('tab');
+      }
+      window.history.replaceState({ ...(window.history.state || {}), tab: activeTab }, '', url.toString());
+    }
+  }, []);
+
+  // Listen to browser back / forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      const validTabs = ['home', 'classifica', 'calendario', 'statistiche', 'cercaAtleta'] as const;
+
+      const targetTab = tabParam && (validTabs as readonly string[]).includes(tabParam)
+        ? (tabParam as typeof validTabs[number])
+        : 'home';
+
+      setActiveTab(targetTab);
+
+      // Check if cam also changed
+      const urlCam = urlParams.get('cam');
+      if (urlCam && /^\d+$/.test(urlCam)) {
+        const parsedCam = parseInt(urlCam, 10);
+        setCamId((prev) => (prev !== parsedCam ? parsedCam : prev));
+      }
+      const urlAnno = urlParams.get('anno');
+      if (urlAnno && /^\d+$/.test(urlAnno)) {
+        const parsedAnno = parseInt(urlAnno, 10);
+        setAnnoId((prev) => (prev !== parsedAnno ? parsedAnno : prev));
+      }
+
+      scrollToNav();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleTabChange = (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => {
+    if (tab === activeTab) {
+      scrollToNav();
+      return;
+    }
+
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (tab !== 'home') {
+        url.searchParams.set('tab', tab);
+      } else {
+        url.searchParams.delete('tab');
+      }
+      window.history.pushState({ ...(window.history.state || {}), tab }, '', url.toString());
+    }
+
+    scrollToNav();
   };
 
   const handleOpenSquadra = (teamName: string, squadraId?: string) => {
