@@ -27,6 +27,7 @@ export const IntroMotionGraphic: React.FC<IntroMotionGraphicProps> = ({ onComple
     };
 
     window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   return (

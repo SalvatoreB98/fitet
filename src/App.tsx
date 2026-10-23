@@ -389,15 +389,6 @@ export const App: React.FC = () => {
                   <i className="bi bi-trophy me-2"></i>
                   Scegli Campionato
                 </button>
-                <button
-                  type="button"
-                  className="btn-action"
-                  style={{ background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
-                  onClick={() => handleTabChange('home')}
-                >
-                  <i className="bi bi-house-door me-2"></i>
-                  Torna alla Home
-                </button>
               </div>
             </div>
           ) : null}
@@ -441,15 +432,7 @@ export const App: React.FC = () => {
                   <i className="bi bi-trophy me-2"></i>
                   Scegli Campionato
                 </button>
-                <button
-                  type="button"
-                  className="btn-action"
-                  style={{ background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
-                  onClick={() => handleTabChange('home')}
-                >
-                  <i className="bi bi-house-door me-2"></i>
-                  Torna alla Home
-                </button>
+
               </div>
             </div>
           ) : null}
@@ -485,15 +468,6 @@ export const App: React.FC = () => {
                 >
                   <i className="bi bi-trophy me-2"></i>
                   Scegli Campionato
-                </button>
-                <button
-                  type="button"
-                  className="btn-action"
-                  style={{ background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
-                  onClick={() => handleTabChange('home')}
-                >
-                  <i className="bi bi-house-door me-2"></i>
-                  Torna alla Home
                 </button>
               </div>
             </div>

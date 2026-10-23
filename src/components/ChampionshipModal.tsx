@@ -35,9 +35,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [userRegion, setUserRegion] = useState<string>(getCachedUserRegion);
-  const [selectedRegion, setSelectedRegion] = useState<string>(() => {
-    return getCachedUserRegion() || 'Tutti';
-  });
+  const [selectedRegion, setSelectedRegion] = useState<string>('Tutti');
   const [hasGeoLocation, setHasGeoLocation] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return !!localStorage.getItem('fitet_detected_region');
@@ -63,15 +61,6 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
     let isCancelled = false;
     detectUserRegion().then((detected) => {
       if (!isCancelled && detected) {
-        setUserRegion((prevUserRegion) => {
-          setSelectedRegion((prevSelected) => {
-            if (prevSelected === prevUserRegion || prevSelected === 'Tutti' || !prevSelected) {
-              return detected;
-            }
-            return prevSelected;
-          });
-          return detected;
-        });
         setHasGeoLocation(true);
       }
     });
@@ -270,6 +259,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
               placeholder="Cerca per girone, serie o regione (es. D1, C2, Serie A, Girone A)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
             />
             {searchQuery && (
               <button

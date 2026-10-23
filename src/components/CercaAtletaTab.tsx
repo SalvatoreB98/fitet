@@ -110,15 +110,15 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
     <div className={`cerca-atleta-container ${compactMode ? 'is-compact' : ''}`}>
 
       {!hideHeader && (
-      <div className="cerca-atleta-header">
-        <div className="cerca-atleta-icon-box">
-          <i className="bi bi-search"></i>
+        <div className="cerca-atleta-header">
+          <div className="cerca-atleta-icon-box">
+            <i className="bi bi-search"></i>
+          </div>
+          <h2>Ricerca Atleta FITeT</h2>
+          <p>
+            Cerca qualsiasi atleta tesserato per cognome e nome per consultare scheda ranking, punti e storico posizioni.
+          </p>
         </div>
-        <h2>Ricerca Atleta FITeT</h2>
-        <p>
-          Cerca qualsiasi atleta tesserato per cognome e nome per consultare scheda ranking, punti e storico posizioni.
-        </p>
-      </div>
       )}
 
 
@@ -178,7 +178,7 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <i className="bi bi-star-fill text-warning" style={{ fontSize: '16px' }}></i>
               <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, fontFamily: 'var(--font-serif)', color: 'var(--text-main, #0f172a)' }}>
-                I Tuoi Atleti Preferiti
+                Accesso rapido ai tuoi Atleti Preferiti
               </h3>
               <span className="cerca-atleta-favorites-count-badge">
                 {favorites.length}

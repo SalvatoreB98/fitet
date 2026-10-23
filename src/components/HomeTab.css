@@ -721,6 +721,7 @@
   color: #ffffff;
   border: none;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--color-primary-500);
 }
 
 .home-empty-btn:hover {

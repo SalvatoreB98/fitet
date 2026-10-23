@@ -336,16 +336,6 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="portal-nav" ref={navRef}>
         <button
           type="button"
-          data-tab="home"
-          className={`portal-nav-tab ${activeTab === 'home' ? 'active' : ''}`}
-          onClick={(e) => handleTabClick('home', e)}
-        >
-          <i className="bi bi-house-door-fill"></i>
-          <span>Home</span>
-        </button>
-
-        <button
-          type="button"
           data-tab="classifica"
           className={`portal-nav-tab ${activeTab === 'classifica' ? 'active' : ''}`}
           onClick={(e) => handleTabClick('classifica', e)}
