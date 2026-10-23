@@ -558,490 +558,490 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
               {/* Sezione Partite e Dettagli */}
               <div id="athlete-partite-details-section">
-                  {/* Sezione Partite: Girone Attivo / Incontri Ufficiali Ranking FITeT */}
-                  {(() => {
-                    const parseDateIT = (str: string): number => {
-                      if (!str) return 0;
-                      const parts = str.split('/');
-                      if (parts.length === 3) {
-                        return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10)).getTime();
-                      }
-                      return 0;
-                    };
-
-                    const rankingCampionato = atleta.partiteRanking?.campionato || [];
-                    const rankingTornei = atleta.partiteRanking?.tornei || [];
-                    const totalRankingCampionato = rankingCampionato.length;
-                    const totalRankingTornei = rankingTornei.length;
-                    const totalRankingMatches = totalRankingCampionato + totalRankingTornei;
-                    const hasGironeMatches = Boolean(campionatoPartite && campionatoPartite.length > 0);
-
-                    // Build unified ranking matches array
-                    const unifiedRankingMatches: Array<{
-                      tipo: 'campionato' | 'torneo';
-                      data: string;
-                      titolo: string;
-                      sottotitolo?: string;
-                      avversario: string;
-                      avversarioId?: string;
-                      risultatoSet?: string;
-                      fase?: string;
-                      risultato: string;
-                      isVittoria: boolean;
-                      punti?: number;
-                      stato?: string;
-                    }> = [];
-
-                    if (rankingFilter === 'tutti' || rankingFilter === 'campionato') {
-                      rankingCampionato.forEach((m) => {
-                        unifiedRankingMatches.push({
-                          tipo: 'campionato',
-                          data: m.data,
-                          titolo: m.campionato,
-                          avversario: m.avversario,
-                          avversarioId: m.avversarioId,
-                          risultatoSet: m.risultatoSet,
-                          risultato: m.risultato,
-                          isVittoria: m.isVittoria,
-                          punti: m.punti,
-                          stato: m.stato,
-                        });
-                      });
+                {/* Sezione Partite: Girone Attivo / Incontri Ufficiali Ranking FITeT */}
+                {(() => {
+                  const parseDateIT = (str: string): number => {
+                    if (!str) return 0;
+                    const parts = str.split('/');
+                    if (parts.length === 3) {
+                      return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10)).getTime();
                     }
+                    return 0;
+                  };
 
-                    if (rankingFilter === 'tutti' || rankingFilter === 'tornei') {
-                      rankingTornei.forEach((m) => {
-                        unifiedRankingMatches.push({
-                          tipo: 'torneo',
-                          data: m.data,
-                          titolo: m.torneo,
-                          sottotitolo: m.gara,
-                          avversario: m.avversario,
-                          avversarioId: m.avversarioId,
-                          risultatoSet: m.risultatoSet,
-                          fase: m.fase,
-                          risultato: m.risultato,
-                          isVittoria: m.isVittoria,
-                          stato: m.stato,
-                        });
+                  const rankingCampionato = atleta.partiteRanking?.campionato || [];
+                  const rankingTornei = atleta.partiteRanking?.tornei || [];
+                  const totalRankingCampionato = rankingCampionato.length;
+                  const totalRankingTornei = rankingTornei.length;
+                  const totalRankingMatches = totalRankingCampionato + totalRankingTornei;
+                  const hasGironeMatches = Boolean(campionatoPartite && campionatoPartite.length > 0);
+
+                  // Build unified ranking matches array
+                  const unifiedRankingMatches: Array<{
+                    tipo: 'campionato' | 'torneo';
+                    data: string;
+                    titolo: string;
+                    sottotitolo?: string;
+                    avversario: string;
+                    avversarioId?: string;
+                    risultatoSet?: string;
+                    fase?: string;
+                    risultato: string;
+                    isVittoria: boolean;
+                    punti?: number;
+                    stato?: string;
+                  }> = [];
+
+                  if (rankingFilter === 'tutti' || rankingFilter === 'campionato') {
+                    rankingCampionato.forEach((m) => {
+                      unifiedRankingMatches.push({
+                        tipo: 'campionato',
+                        data: m.data,
+                        titolo: m.campionato,
+                        avversario: m.avversario,
+                        avversarioId: m.avversarioId,
+                        risultatoSet: m.risultatoSet,
+                        risultato: m.risultato,
+                        isVittoria: m.isVittoria,
+                        punti: m.punti,
+                        stato: m.stato,
                       });
-                    }
+                    });
+                  }
 
-                    unifiedRankingMatches.sort((a, b) => parseDateIT(b.data) - parseDateIT(a.data));
+                  if (rankingFilter === 'tutti' || rankingFilter === 'tornei') {
+                    rankingTornei.forEach((m) => {
+                      unifiedRankingMatches.push({
+                        tipo: 'torneo',
+                        data: m.data,
+                        titolo: m.torneo,
+                        sottotitolo: m.gara,
+                        avversario: m.avversario,
+                        avversarioId: m.avversarioId,
+                        risultatoSet: m.risultatoSet,
+                        fase: m.fase,
+                        risultato: m.risultato,
+                        isVittoria: m.isVittoria,
+                        stato: m.stato,
+                      });
+                    });
+                  }
 
-                    const activeTabResolved = (camId && hasGironeMatches) ? matchTab : 'ranking';
+                  unifiedRankingMatches.sort((a, b) => parseDateIT(b.data) - parseDateIT(a.data));
 
-                    // Nessuna partita disponibile (né girone né ranking): nascondi l'intera sezione
-                    if (!hasGironeMatches && totalRankingMatches === 0 && !loadingPartite) return null;
+                  const activeTabResolved = (camId && hasGironeMatches) ? matchTab : 'ranking';
 
-                    return (
-                      <div className="modal-campionato-partite-section" style={{ marginTop: '20px', marginBottom: '20px' }}>
-                        {/* Header Row: Title & Switcher */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  // Nessuna partita disponibile (né girone né ranking): nascondi l'intera sezione
+                  if (!hasGironeMatches && totalRankingMatches === 0 && !loadingPartite) return null;
 
-                          </div>
+                  return (
+                    <div className="modal-campionato-partite-section" style={{ marginTop: '20px', marginBottom: '20px' }}>
+                      {/* Header Row: Title & Switcher */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
 
-                          {/* Switcher visibile solo se esistono sia partite del girone sia partite ranking */}
-                          {camId && hasGironeMatches && totalRankingMatches > 0 && (
-                            <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                              <button
-                                type="button"
-                                onClick={() => setMatchTab('girone')}
-                                style={{
-                                  padding: '4px 10px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  borderRadius: '6px',
-                                  background: activeTabResolved === 'girone' ? 'var(--color-primary-600)' : 'transparent',
-                                  color: activeTabResolved === 'girone' ? '#ffffff' : 'var(--text-muted)',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.15s ease',
-                                }}
-                              >
-                                Girone Corrente {campionatoPartite && campionatoPartite.length > 0 ? `(${campionatoPartite.length})` : ''}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setMatchTab('ranking')}
-                                style={{
-                                  padding: '4px 10px',
-                                  fontSize: '11px',
-                                  fontWeight: 600,
-                                  border: 'none',
-                                  borderRadius: '6px',
-                                  background: activeTabResolved === 'ranking' ? 'var(--color-primary-600)' : 'transparent',
-                                  color: activeTabResolved === 'ranking' ? '#ffffff' : 'var(--text-muted)',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.15s ease',
-                                }}
-                              >
-                                Tutte le Partite FITeT {totalRankingMatches > 0 ? `(${totalRankingMatches})` : ''}
-                              </button>
-                            </div>
-                          )}
                         </div>
 
-                        {/* Breakdown Pill for Ranking Points if viewing ranking matches */}
-                        {activeTabResolved === 'ranking' && atleta.partiteRanking?.dettaglioPunti && atleta.partiteRanking.dettaglioPunti?.puntiIniziali && (
+                        {/* Switcher visibile solo se esistono sia partite del girone sia partite ranking */}
+                        {camId && hasGironeMatches && totalRankingMatches > 0 && (
+                          <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                            <button
+                              type="button"
+                              onClick={() => setMatchTab('girone')}
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                border: 'none',
+                                borderRadius: '6px',
+                                background: activeTabResolved === 'girone' ? 'var(--color-primary-600)' : 'transparent',
+                                color: activeTabResolved === 'girone' ? '#ffffff' : 'var(--text-muted)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              Girone Corrente {campionatoPartite && campionatoPartite.length > 0 ? `(${campionatoPartite.length})` : ''}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setMatchTab('ranking')}
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                border: 'none',
+                                borderRadius: '6px',
+                                background: activeTabResolved === 'ranking' ? 'var(--color-primary-600)' : 'transparent',
+                                color: activeTabResolved === 'ranking' ? '#ffffff' : 'var(--text-muted)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                            >
+                              Tutte le Partite FITeT {totalRankingMatches > 0 ? `(${totalRankingMatches})` : ''}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Breakdown Pill for Ranking Points if viewing ranking matches */}
+                      {activeTabResolved === 'ranking' && atleta.partiteRanking?.dettaglioPunti && atleta.partiteRanking.dettaglioPunti?.puntiIniziali && (
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            flexWrap: 'wrap',
+                            padding: '7px 12px',
+                            borderRadius: '8px',
+                            background: 'var(--bg-th)',
+                            border: '1px solid var(--border-color)',
+                            fontSize: '11.5px',
+                            color: 'var(--text-muted)',
+                            marginBottom: '10px',
+                          }}
+                        >
+                          <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
+                            <i className="bi bi-pie-chart-fill me-1 text-primary"></i>
+                            Punti Ranking:
+                          </span>
+                          {atleta.partiteRanking.dettaglioPunti.puntiIniziali !== undefined && (
+                            <span>Iniziali: <strong style={{ color: 'var(--text-dark)' }}>{atleta.partiteRanking.dettaglioPunti.puntiIniziali}</strong></span>
+                          )}
+                          {atleta.partiteRanking.dettaglioPunti.campionato !== undefined && (
+                            <span>Campionato: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.campionato}</strong></span>
+                          )}
+                          {atleta.partiteRanking.dettaglioPunti.tornei !== undefined && (
+                            <span>Tornei: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.tornei}</strong></span>
+                          )}
+                          {atleta.partiteRanking.dettaglioPunti.vittorieTornei !== undefined && (
+                            <span>Vittorie Tornei: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.vittorieTornei}</strong></span>
+                          )}
+                          {atleta.partiteRanking.dettaglioPunti.finali !== undefined && (
+                            <span>Totale: <strong style={{ color: 'var(--color-primary-600)' }}>{atleta.partiteRanking.dettaglioPunti.finali} pt</strong></span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Ranking Sub-Filter Buttons (Tutti / Campionato / Tornei) */}
+                      {activeTabResolved === 'ranking' && totalRankingCampionato > 0 && totalRankingTornei > 0 && (
+                        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setRankingFilter('tutti')}
+                            style={{
+                              padding: '3px 10px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              borderRadius: '999px',
+                              border: '1px solid var(--border-color)',
+                              background: rankingFilter === 'tutti' ? 'var(--color-primary-600)' : 'var(--bg-th)',
+                              color: rankingFilter === 'tutti' ? '#ffffff' : 'var(--text-muted)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Tutti ({totalRankingMatches})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRankingFilter('campionato')}
+                            style={{
+                              padding: '3px 10px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              borderRadius: '999px',
+                              border: '1px solid var(--border-color)',
+                              background: rankingFilter === 'campionato' ? 'var(--color-primary-600)' : 'var(--bg-th)',
+                              color: rankingFilter === 'campionato' ? '#ffffff' : 'var(--text-muted)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Campionato ({totalRankingCampionato})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRankingFilter('tornei')}
+                            style={{
+                              padding: '3px 10px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              borderRadius: '999px',
+                              border: '1px solid var(--border-color)',
+                              background: rankingFilter === 'tornei' ? 'var(--color-primary-600)' : 'var(--bg-th)',
+                              color: rankingFilter === 'tornei' ? '#ffffff' : 'var(--text-muted)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Tornei ({totalRankingTornei})
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Active Tab View 1: Girone Corrente Header/Notice */}
+                      {activeTabResolved === 'girone' && (
+                        <>
                           <div
                             style={{
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '12px',
-                              flexWrap: 'wrap',
-                              padding: '7px 12px',
-                              borderRadius: '8px',
-                              background: 'var(--bg-th)',
-                              border: '1px solid var(--border-color)',
+                              gap: '6px',
                               fontSize: '11.5px',
                               color: 'var(--text-muted)',
                               marginBottom: '10px',
+                              lineHeight: '1.35',
                             }}
                           >
-                            <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
-                              <i className="bi bi-pie-chart-fill me-1 text-primary"></i>
-                              Punti Ranking:
+                            <i className="bi bi-info-circle text-primary" style={{ fontSize: '12px', flexShrink: 0 }}></i>
+                            <span>
+                              Le partite disputate nel campionato in corso potrebbero non essere ancora convalidate nei punti ranking ufficiali.
                             </span>
-                            {atleta.partiteRanking.dettaglioPunti.puntiIniziali !== undefined && (
-                              <span>Iniziali: <strong style={{ color: 'var(--text-dark)' }}>{atleta.partiteRanking.dettaglioPunti.puntiIniziali}</strong></span>
-                            )}
-                            {atleta.partiteRanking.dettaglioPunti.campionato !== undefined && (
-                              <span>Campionato: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.campionato}</strong></span>
-                            )}
-                            {atleta.partiteRanking.dettaglioPunti.tornei !== undefined && (
-                              <span>Tornei: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.tornei}</strong></span>
-                            )}
-                            {atleta.partiteRanking.dettaglioPunti.vittorieTornei !== undefined && (
-                              <span>Vittorie Tornei: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.vittorieTornei}</strong></span>
-                            )}
-                            {atleta.partiteRanking.dettaglioPunti.finali !== undefined && (
-                              <span>Totale: <strong style={{ color: 'var(--color-primary-600)' }}>{atleta.partiteRanking.dettaglioPunti.finali} pt</strong></span>
-                            )}
                           </div>
-                        )}
 
-                        {/* Ranking Sub-Filter Buttons (Tutti / Campionato / Tornei) */}
-                        {activeTabResolved === 'ranking' && totalRankingCampionato > 0 && totalRankingTornei > 0 && (
-                          <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-                            <button
-                              type="button"
-                              onClick={() => setRankingFilter('tutti')}
-                              style={{
-                                padding: '3px 10px',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                borderRadius: '999px',
-                                border: '1px solid var(--border-color)',
-                                background: rankingFilter === 'tutti' ? 'var(--color-primary-600)' : 'var(--bg-th)',
-                                color: rankingFilter === 'tutti' ? '#ffffff' : 'var(--text-muted)',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Tutti ({totalRankingMatches})
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setRankingFilter('campionato')}
-                              style={{
-                                padding: '3px 10px',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                borderRadius: '999px',
-                                border: '1px solid var(--border-color)',
-                                background: rankingFilter === 'campionato' ? 'var(--color-primary-600)' : 'var(--bg-th)',
-                                color: rankingFilter === 'campionato' ? '#ffffff' : 'var(--text-muted)',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Campionato ({totalRankingCampionato})
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setRankingFilter('tornei')}
-                              style={{
-                                padding: '3px 10px',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                borderRadius: '999px',
-                                border: '1px solid var(--border-color)',
-                                background: rankingFilter === 'tornei' ? 'var(--color-primary-600)' : 'var(--bg-th)',
-                                color: rankingFilter === 'tornei' ? '#ffffff' : 'var(--text-muted)',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Tornei ({totalRankingTornei})
-                            </button>
-                          </div>
-                        )}
+                          {loadingPartite && (
+                            <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                              <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                              Caricamento partite del girone...
+                            </div>
+                          )}
 
-                        {/* Active Tab View 1: Girone Corrente Header/Notice */}
-                        {activeTabResolved === 'girone' && (
-                          <>
+                          {!loadingPartite && (!campionatoPartite || campionatoPartite.length === 0) && (
+                            <div style={{ padding: '14px', textAlign: 'center', background: 'var(--bg-th)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+                              <i className="bi bi-shield-slash me-1"></i>
+                              Nessuna partita disputata registrata in questo girone per questo atleta.
+                              {totalRankingMatches > 0 && (
+                                <div style={{ marginTop: '8px' }}>
+                                  <button
+                                    type="button"
+                                    className="btn-action"
+                                    onClick={() => setMatchTab('ranking')}
+                                    style={{ padding: '4px 12px', fontSize: '11.5px', borderRadius: '6px' }}
+                                  >
+                                    Visualizza tutti gli incontri ufficiali FITeT ({totalRankingMatches})
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* Active Tab View 2: Official FITeT Ranking Matches empty state */}
+                      {activeTabResolved === 'ranking' && unifiedRankingMatches.length === 0 && (
+                        <div style={{ padding: '16px', textAlign: 'center', background: 'var(--bg-th)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+                          <i className="bi bi-clock-history me-1"></i>
+                          Incontri al momento non disponibili
+                        </div>
+                      )}
+
+                      {/* Render matches slider / list whenever there are matches in the active tab */}
+                      {(() => {
+                        interface MatchCardItem {
+                          id: string;
+                          tipo: 'girone' | 'campionato' | 'torneo';
+                          data: string;
+                          titolo: string;
+                          sottotitolo?: string;
+                          avversario: string;
+                          avversarioId?: string;
+                          giornata?: number;
+                          fase?: string;
+                          isVittoria: boolean;
+                          risultatoSet?: string;
+                          sets?: string[];
+                          punti?: number;
+                          rawRisultato?: string;
+                        }
+
+                        let matchesToDisplay: MatchCardItem[] = [];
+
+                        if (activeTabResolved === 'girone' && campionatoPartite && campionatoPartite.length > 0) {
+                          matchesToDisplay = campionatoPartite.map((m, idx) => {
+                            const matchingRanking = unifiedRankingMatches.find(
+                              (rm) => rm.avversario.toUpperCase().trim() === m.avversario.toUpperCase().trim()
+                            );
+                            return {
+                              id: `girone-${idx}`,
+                              tipo: 'girone',
+                              data: `G${m.giornata}`,
+                              titolo: campionatoNome || 'Campionato Girone',
+                              sottotitolo: squadraCampionato || undefined,
+                              avversario: m.avversario,
+                              avversarioId: matchingRanking?.avversarioId,
+                              giornata: m.giornata,
+                              isVittoria: m.isVittoria,
+                              risultatoSet: m.risultatoSet,
+                              sets: m.sets,
+                            };
+                          });
+                        } else if (activeTabResolved === 'ranking' && unifiedRankingMatches.length > 0) {
+                          matchesToDisplay = unifiedRankingMatches.map((m, idx) => {
+                            const matchingGirone = campionatoPartite?.find(
+                              (gp) => gp.avversario.toUpperCase().trim() === m.avversario.toUpperCase().trim()
+                            );
+
+                            return {
+                              id: `ranking-${idx}`,
+                              tipo: m.tipo,
+                              data: m.data,
+                              titolo: m.titolo,
+                              sottotitolo: m.sottotitolo,
+                              avversario: m.avversario,
+                              avversarioId: m.avversarioId,
+                              fase: m.fase,
+                              isVittoria: m.isVittoria,
+                              risultatoSet: m.risultatoSet || matchingGirone?.risultatoSet,
+                              sets: matchingGirone?.sets,
+                              punti: m.punti,
+                              rawRisultato: m.risultato,
+                            };
+                          });
+                        }
+
+                        if (matchesToDisplay.length === 0) return null;
+
+                        return (
+                          <div style={{ marginTop: '8px', minHeight: '180px' }}>
+                            {/* Slider Navigation Bar */}
                             <div
                               style={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '6px',
-                                fontSize: '11.5px',
-                                color: 'var(--text-muted)',
-                                marginBottom: '10px',
-                                lineHeight: '1.35',
+                                justifyContent: 'space-between',
+                                marginBottom: '8px',
+                                flexWrap: 'wrap',
+                                gap: '8px',
                               }}
                             >
-                              <i className="bi bi-info-circle text-primary" style={{ fontSize: '12px', flexShrink: 0 }}></i>
-                              <span>
-                                Le partite disputate nel campionato in corso potrebbero non essere ancora convalidate nei punti ranking ufficiali.
-                              </span>
-                            </div>
-
-                            {loadingPartite && (
-                              <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)', fontSize: '12px' }}>
-                                <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                                Caricamento partite del girone...
+                              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
+                                  {matchesToDisplay.length} {matchesToDisplay.length === 1 ? 'partita' : 'partite'}
+                                </span>
                               </div>
-                            )}
 
-                            {!loadingPartite && (!campionatoPartite || campionatoPartite.length === 0) && (
-                              <div style={{ padding: '14px', textAlign: 'center', background: 'var(--bg-th)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '12.5px' }}>
-                                <i className="bi bi-shield-slash me-1"></i>
-                                Nessuna partita disputata registrata in questo girone per questo atleta.
-                                {totalRankingMatches > 0 && (
-                                  <div style={{ marginTop: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {/* Toggle Slider vs Elenco */}
+                                <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setViewMode('slider')}
+                                    title="Vista Slider"
+                                    style={{
+                                      padding: '2px 8px',
+                                      fontSize: '11px',
+                                      fontWeight: 600,
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      background: viewMode === 'slider' ? 'var(--color-primary-600)' : 'transparent',
+                                      color: viewMode === 'slider' ? '#ffffff' : 'var(--text-muted)',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.15s ease',
+                                    }}
+                                  >
+                                    <i className="bi bi-collection-play me-1"></i>Slider
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setViewMode('list')}
+                                    title="Vista Elenco"
+                                    style={{
+                                      padding: '2px 8px',
+                                      fontSize: '11px',
+                                      fontWeight: 600,
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      background: viewMode === 'list' ? 'var(--color-primary-600)' : 'transparent',
+                                      color: viewMode === 'list' ? '#ffffff' : 'var(--text-muted)',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.15s ease',
+                                    }}
+                                  >
+                                    <i className="bi bi-list-ul me-1"></i>Elenco
+                                  </button>
+                                </div>
+
+                                {/* Navigation Arrows for Slider */}
+                                {viewMode === 'slider' && matchesToDisplay.length > 1 && (
+                                  <div style={{ display: 'flex', gap: '4px' }}>
                                     <button
                                       type="button"
-                                      className="btn-action"
-                                      onClick={() => setMatchTab('ranking')}
-                                      style={{ padding: '4px 12px', fontSize: '11.5px', borderRadius: '6px' }}
+                                      onClick={() => scrollSlider('prev')}
+                                      disabled={!canScrollLeft}
+                                      title="Partita precedente"
+                                      style={{
+                                        width: '28px',
+                                        height: '28px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-card, #ffffff)',
+                                        color: canScrollLeft ? 'var(--text-dark)' : 'var(--text-muted)',
+                                        cursor: canScrollLeft ? 'pointer' : 'default',
+                                        opacity: canScrollLeft ? 1 : 0.35,
+                                        transition: 'all 0.15s ease',
+                                      }}
                                     >
-                                      Visualizza tutti gli incontri ufficiali FITeT ({totalRankingMatches})
+                                      <i className="bi bi-chevron-left" style={{ fontSize: '12px' }}></i>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => scrollSlider('next')}
+                                      disabled={!canScrollRight}
+                                      title="Partita successiva"
+                                      style={{
+                                        width: '28px',
+                                        height: '28px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-color)',
+                                        background: 'var(--bg-card, #ffffff)',
+                                        color: canScrollRight ? 'var(--text-dark)' : 'var(--text-muted)',
+                                        cursor: canScrollRight ? 'pointer' : 'default',
+                                        opacity: canScrollRight ? 1 : 0.35,
+                                        transition: 'all 0.15s ease',
+                                      }}
+                                    >
+                                      <i className="bi bi-chevron-right" style={{ fontSize: '12px' }}></i>
                                     </button>
                                   </div>
                                 )}
                               </div>
-                            )}
-                          </>
-                        )}
+                            </div>
 
-                        {/* Active Tab View 2: Official FITeT Ranking Matches empty state */}
-                        {activeTabResolved === 'ranking' && unifiedRankingMatches.length === 0 && (
-                          <div style={{ padding: '16px', textAlign: 'center', background: 'var(--bg-th)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '12.5px' }}>
-                            <i className="bi bi-clock-history me-1"></i>
-                            Incontri al momento non disponibili
-                          </div>
-                        )}
-
-                        {/* Render matches slider / list whenever there are matches in the active tab */}
-                        {(() => {
-                          interface MatchCardItem {
-                            id: string;
-                            tipo: 'girone' | 'campionato' | 'torneo';
-                            data: string;
-                            titolo: string;
-                            sottotitolo?: string;
-                            avversario: string;
-                            avversarioId?: string;
-                            giornata?: number;
-                            fase?: string;
-                            isVittoria: boolean;
-                            risultatoSet?: string;
-                            sets?: string[];
-                            punti?: number;
-                            rawRisultato?: string;
-                          }
-
-                          let matchesToDisplay: MatchCardItem[] = [];
-
-                          if (activeTabResolved === 'girone' && campionatoPartite && campionatoPartite.length > 0) {
-                            matchesToDisplay = campionatoPartite.map((m, idx) => {
-                              const matchingRanking = unifiedRankingMatches.find(
-                                (rm) => rm.avversario.toUpperCase().trim() === m.avversario.toUpperCase().trim()
-                              );
-                              return {
-                                id: `girone-${idx}`,
-                                tipo: 'girone',
-                                data: `G${m.giornata}`,
-                                titolo: campionatoNome || 'Campionato Girone',
-                                sottotitolo: squadraCampionato || undefined,
-                                avversario: m.avversario,
-                                avversarioId: matchingRanking?.avversarioId,
-                                giornata: m.giornata,
-                                isVittoria: m.isVittoria,
-                                risultatoSet: m.risultatoSet,
-                                sets: m.sets,
-                              };
-                            });
-                          } else if (activeTabResolved === 'ranking' && unifiedRankingMatches.length > 0) {
-                            matchesToDisplay = unifiedRankingMatches.map((m, idx) => {
-                              const matchingGirone = campionatoPartite?.find(
-                                (gp) => gp.avversario.toUpperCase().trim() === m.avversario.toUpperCase().trim()
-                              );
-
-                              return {
-                                id: `ranking-${idx}`,
-                                tipo: m.tipo,
-                                data: m.data,
-                                titolo: m.titolo,
-                                sottotitolo: m.sottotitolo,
-                                avversario: m.avversario,
-                                avversarioId: m.avversarioId,
-                                fase: m.fase,
-                                isVittoria: m.isVittoria,
-                                risultatoSet: m.risultatoSet || matchingGirone?.risultatoSet,
-                                sets: matchingGirone?.sets,
-                                punti: m.punti,
-                                rawRisultato: m.risultato,
-                              };
-                            });
-                          }
-
-                          if (matchesToDisplay.length === 0) return null;
-
-                          return (
-                            <div style={{ marginTop: '8px', minHeight: '180px' }}>
-                              {/* Slider Navigation Bar */}
+                            {/* Match Cards Display: Slider track or List */}
+                            {viewMode === 'slider' ? (
                               <div
+                                ref={sliderRef}
+                                onScroll={handleSliderScroll}
                                 style={{
                                   display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  marginBottom: '8px',
-                                  flexWrap: 'wrap',
-                                  gap: '8px',
+                                  gap: '10px',
+                                  overflowX: 'auto',
+                                  scrollSnapType: 'x mandatory',
+                                  paddingBottom: '6px',
+                                  scrollbarWidth: 'thin',
+                                  WebkitOverflowScrolling: 'touch',
                                 }}
                               >
-                                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
-                                    {matchesToDisplay.length} {matchesToDisplay.length === 1 ? 'partita' : 'partite'}
-                                  </span>
-                                </div>
+                                {matchesToDisplay.map((m, idx) => {
+                                  const matchDateNorm = normDate(m.data);
+                                  const oppNameKey = (m.avversario || '').toUpperCase().trim();
+                                  const oppIdKey = m.avversarioId || '';
+                                  const h2hMatch =
+                                    (oppIdKey && matchDateNorm ? h2hScores[`${oppIdKey}_${matchDateNorm}`] : null) ||
+                                    (oppNameKey && matchDateNorm ? h2hScores[`${oppNameKey}_${matchDateNorm}`] : null) ||
+                                    (oppIdKey ? h2hScores[oppIdKey] : null) ||
+                                    (oppNameKey ? h2hScores[oppNameKey] : null);
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  {/* Toggle Slider vs Elenco */}
-                                  <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => setViewMode('slider')}
-                                      title="Vista Slider"
-                                      style={{
-                                        padding: '2px 8px',
-                                        fontSize: '11px',
-                                        fontWeight: 600,
-                                        border: 'none',
-                                        borderRadius: '4px',
-                                        background: viewMode === 'slider' ? 'var(--color-primary-600)' : 'transparent',
-                                        color: viewMode === 'slider' ? '#ffffff' : 'var(--text-muted)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s ease',
-                                      }}
-                                    >
-                                      <i className="bi bi-collection-play me-1"></i>Slider
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setViewMode('list')}
-                                      title="Vista Elenco"
-                                      style={{
-                                        padding: '2px 8px',
-                                        fontSize: '11px',
-                                        fontWeight: 600,
-                                        border: 'none',
-                                        borderRadius: '4px',
-                                        background: viewMode === 'list' ? 'var(--color-primary-600)' : 'transparent',
-                                        color: viewMode === 'list' ? '#ffffff' : 'var(--text-muted)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s ease',
-                                      }}
-                                    >
-                                      <i className="bi bi-list-ul me-1"></i>Elenco
-                                    </button>
-                                  </div>
+                                  const exactScore = m.risultatoSet || h2hMatch?.punteggio;
+                                  const isFetchingScore = !exactScore && Boolean((oppIdKey && loadingH2h[oppIdKey]) || (oppNameKey && loadingH2h[oppNameKey]));
 
-                                  {/* Navigation Arrows for Slider */}
-                                  {viewMode === 'slider' && matchesToDisplay.length > 1 && (
-                                    <div style={{ display: 'flex', gap: '4px' }}>
-                                      <button
-                                        type="button"
-                                        onClick={() => scrollSlider('prev')}
-                                        disabled={!canScrollLeft}
-                                        title="Partita precedente"
-                                        style={{
-                                          width: '28px',
-                                          height: '28px',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          borderRadius: '6px',
-                                          border: '1px solid var(--border-color)',
-                                          background: 'var(--bg-card, #ffffff)',
-                                          color: canScrollLeft ? 'var(--text-dark)' : 'var(--text-muted)',
-                                          cursor: canScrollLeft ? 'pointer' : 'default',
-                                          opacity: canScrollLeft ? 1 : 0.35,
-                                          transition: 'all 0.15s ease',
-                                        }}
-                                      >
-                                        <i className="bi bi-chevron-left" style={{ fontSize: '12px' }}></i>
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => scrollSlider('next')}
-                                        disabled={!canScrollRight}
-                                        title="Partita successiva"
-                                        style={{
-                                          width: '28px',
-                                          height: '28px',
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          borderRadius: '6px',
-                                          border: '1px solid var(--border-color)',
-                                          background: 'var(--bg-card, #ffffff)',
-                                          color: canScrollRight ? 'var(--text-dark)' : 'var(--text-muted)',
-                                          cursor: canScrollRight ? 'pointer' : 'default',
-                                          opacity: canScrollRight ? 1 : 0.35,
-                                          transition: 'all 0.15s ease',
-                                        }}
-                                      >
-                                        <i className="bi bi-chevron-right" style={{ fontSize: '12px' }}></i>
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Match Cards Display: Slider track or List */}
-                              {viewMode === 'slider' ? (
-                                <div
-                                  ref={sliderRef}
-                                  onScroll={handleSliderScroll}
-                                  style={{
-                                    display: 'flex',
-                                    gap: '10px',
-                                    overflowX: 'auto',
-                                    scrollSnapType: 'x mandatory',
-                                    paddingBottom: '6px',
-                                    scrollbarWidth: 'thin',
-                                    WebkitOverflowScrolling: 'touch',
-                                  }}
-                                >
-                                  {matchesToDisplay.map((m, idx) => {
-                                    const matchDateNorm = normDate(m.data);
-                                    const oppNameKey = (m.avversario || '').toUpperCase().trim();
-                                    const oppIdKey = m.avversarioId || '';
-                                    const h2hMatch =
-                                      (oppIdKey && matchDateNorm ? h2hScores[`${oppIdKey}_${matchDateNorm}`] : null) ||
-                                      (oppNameKey && matchDateNorm ? h2hScores[`${oppNameKey}_${matchDateNorm}`] : null) ||
-                                      (oppIdKey ? h2hScores[oppIdKey] : null) ||
-                                      (oppNameKey ? h2hScores[oppNameKey] : null);
-
-                                    const exactScore = m.risultatoSet || h2hMatch?.punteggio;
-                                    const isFetchingScore = !exactScore && Boolean((oppIdKey && loadingH2h[oppIdKey]) || (oppNameKey && loadingH2h[oppNameKey]));
-
-                                    return (
-                                      <div
-                                        key={m.id || idx}
-                                        className="atleta-match-card"
+                                  return (
+                                    <div
+                                      key={m.id || idx}
+                                      className="atleta-match-card"
                                       style={{
                                         flex: '0 0 min(280px, 82%)',
                                         scrollSnapAlign: 'start',
@@ -1139,7 +1139,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                             }}
                                           >
                                             <i className="bi bi-arrow-left-right" style={{ fontSize: '9px' }}></i>
-                                            H2H
+                                            Storico (testa a testa)
                                           </button>
                                         </div>
 
@@ -1250,37 +1250,37 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                     </div>
                                   );
                                 })}
-                                </div>
-                              ) : (
-                                <div
-                                  style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '8px',
-                                    maxHeight: '340px',
-                                    minHeight: '146px',
-                                    overflowY: 'auto',
-                                    paddingRight: '4px',
-                                    scrollbarWidth: 'thin',
-                                  }}
-                                >
-                                  {matchesToDisplay.map((m, idx) => {
-                                    const matchDateNorm = normDate(m.data);
-                                    const oppNameKey = (m.avversario || '').toUpperCase().trim();
-                                    const oppIdKey = m.avversarioId || '';
-                                    const h2hMatch =
-                                      (oppIdKey && matchDateNorm ? h2hScores[`${oppIdKey}_${matchDateNorm}`] : null) ||
-                                      (oppNameKey && matchDateNorm ? h2hScores[`${oppNameKey}_${matchDateNorm}`] : null) ||
-                                      (oppIdKey ? h2hScores[oppIdKey] : null) ||
-                                      (oppNameKey ? h2hScores[oppNameKey] : null);
+                              </div>
+                            ) : (
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '8px',
+                                  maxHeight: '340px',
+                                  minHeight: '146px',
+                                  overflowY: 'auto',
+                                  paddingRight: '4px',
+                                  scrollbarWidth: 'thin',
+                                }}
+                              >
+                                {matchesToDisplay.map((m, idx) => {
+                                  const matchDateNorm = normDate(m.data);
+                                  const oppNameKey = (m.avversario || '').toUpperCase().trim();
+                                  const oppIdKey = m.avversarioId || '';
+                                  const h2hMatch =
+                                    (oppIdKey && matchDateNorm ? h2hScores[`${oppIdKey}_${matchDateNorm}`] : null) ||
+                                    (oppNameKey && matchDateNorm ? h2hScores[`${oppNameKey}_${matchDateNorm}`] : null) ||
+                                    (oppIdKey ? h2hScores[oppIdKey] : null) ||
+                                    (oppNameKey ? h2hScores[oppNameKey] : null);
 
-                                    const exactScore = m.risultatoSet || h2hMatch?.punteggio;
-                                    const isFetchingScore = !exactScore && Boolean((oppIdKey && loadingH2h[oppIdKey]) || (oppNameKey && loadingH2h[oppNameKey]));
+                                  const exactScore = m.risultatoSet || h2hMatch?.punteggio;
+                                  const isFetchingScore = !exactScore && Boolean((oppIdKey && loadingH2h[oppIdKey]) || (oppNameKey && loadingH2h[oppNameKey]));
 
-                                    return (
-                                      <div
-                                        key={m.id || idx}
-                                        className="atleta-match-list-item"
+                                  return (
+                                    <div
+                                      key={m.id || idx}
+                                      className="atleta-match-list-item"
                                       style={{
                                         display: 'flex',
                                         alignItems: 'center',
@@ -1362,7 +1362,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                               }}
                                             >
                                               <i className="bi bi-arrow-left-right" style={{ fontSize: '8.5px' }}></i>
-                                              H2H
+                                              Storico Scontri
                                             </button>
                                           </div>
                                           <div
@@ -1423,115 +1423,115 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                     </div>
                                   );
                                 })}
-                                </div>
-                              )}
-
-                              {/* Subtle note about federale ranking data format */}
-                              {activeTabResolved === 'ranking' && (
-                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                  <i className="bi bi-info-circle text-primary" style={{ flexShrink: 0 }}></i>
-                                  <span>
-                                    <strong>Dato Federale Ranking:</strong> La FITeT nei tabulati graduatoria registra l'esito (Vittoria/Sconfitta) e i punti; i set numerici sono registrati nei referti ufficiali di gara.
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    );
-                  })()}
-
-                  {/* Historical Analytics (Sub-Tabs: Grafico vs Tabella) */}
-                  <div style={{ marginTop: '16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                      {atleta.storicoClassifica.length > 0 && (
-                        <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                          <button
-                            type="button"
-                            onClick={() => setAnalyticsTab('chart')}
-                            style={{
-                              padding: '3px 10px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              border: 'none',
-                              borderRadius: '4px',
-                              background: analyticsTab === 'chart' ? 'var(--color-primary-600)' : 'transparent',
-                              color: analyticsTab === 'chart' ? '#ffffff' : 'var(--text-muted)',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease',
-                            }}
-                          >
-                            <i className="bi bi-graph-up me-1"></i>Grafico
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setAnalyticsTab('table')}
-                            style={{
-                              padding: '3px 10px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              border: 'none',
-                              borderRadius: '4px',
-                              background: analyticsTab === 'table' ? 'var(--color-primary-600)' : 'transparent',
-                              color: analyticsTab === 'table' ? '#ffffff' : 'var(--text-muted)',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease',
-                            }}
-                          >
-                            <i className="bi bi-table me-1"></i>Tabella ({atleta.storicoClassifica.length})
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{ minHeight: '260px' }}>
-                      {analyticsTab === 'chart' ? (
-                        <RatingChart data={atleta.storicoClassifica} athleteName={atleta.anagrafica.nome} hideTitle={true} />
-                      ) : (
-                        atleta.storicoClassifica.length > 0 && (
-                          <div style={{ maxHeight: '250px', minHeight: '240px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px', scrollbarWidth: 'thin' }}>
-                            <div className="modal-ranking-grid">
-                              <div className="grid-header-row">
-                                <div className="grid-th text-center">Data Rilevazione</div>
-                                <div className="grid-th text-center">Categoria</div>
-                                <div className="grid-th text-center">Punti Classifica</div>
-                                <div className="grid-th text-center">Posizione</div>
                               </div>
-                              {[...atleta.storicoClassifica].reverse().map((s, idx) => (
-                                <div key={idx} className="grid-data-row">
-                                  <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.data}</div>
-                                  <div className="grid-cell text-center">
-                                    <span className="badge badge-neutral">{s.categoria ? `${s.categoria}ª` : '-'}</span>
-                                  </div>
-                                  <div className="grid-cell text-center" style={{ fontWeight: '700', color: 'var(--color-primary-600)' }}>{s.punti} pt</div>
-                                  <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.posizione ? `#${s.posizione.toLocaleString('it-IT')}` : '-'}</div>
-                                </div>
-                              ))}
-                            </div>
+                            )}
+
+                            {/* Subtle note about federale ranking data format */}
+                            {activeTabResolved === 'ranking' && (
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <i className="bi bi-info-circle text-primary" style={{ flexShrink: 0 }}></i>
+                                <span>
+                                  <strong>Dato Federale Ranking:</strong> La FITeT nei tabulati graduatoria registra l'esito (Vittoria/Sconfitta) e i punti; i set numerici sono registrati nei referti ufficiali di gara.
+                                </span>
+                              </div>
+                            )}
                           </div>
-                        )
-                      )}
+                        );
+                      })()}
                     </div>
+                  );
+                })()}
+
+                {/* Historical Analytics (Sub-Tabs: Grafico vs Tabella) */}
+                <div style={{ marginTop: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                    {atleta.storicoClassifica.length > 0 && (
+                      <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                        <button
+                          type="button"
+                          onClick={() => setAnalyticsTab('chart')}
+                          style={{
+                            padding: '3px 10px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            border: 'none',
+                            borderRadius: '4px',
+                            background: analyticsTab === 'chart' ? 'var(--color-primary-600)' : 'transparent',
+                            color: analyticsTab === 'chart' ? '#ffffff' : 'var(--text-muted)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <i className="bi bi-graph-up me-1"></i>Grafico
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAnalyticsTab('table')}
+                          style={{
+                            padding: '3px 10px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            border: 'none',
+                            borderRadius: '4px',
+                            background: analyticsTab === 'table' ? 'var(--color-primary-600)' : 'transparent',
+                            color: analyticsTab === 'table' ? '#ffffff' : 'var(--text-muted)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <i className="bi bi-table me-1"></i>Tabella ({atleta.storicoClassifica.length})
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ minHeight: '260px' }}>
+                    {analyticsTab === 'chart' ? (
+                      <RatingChart data={atleta.storicoClassifica} athleteName={atleta.anagrafica.nome} hideTitle={true} />
+                    ) : (
+                      atleta.storicoClassifica.length > 0 && (
+                        <div style={{ maxHeight: '250px', minHeight: '240px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px', scrollbarWidth: 'thin' }}>
+                          <div className="modal-ranking-grid">
+                            <div className="grid-header-row">
+                              <div className="grid-th text-center">Data Rilevazione</div>
+                              <div className="grid-th text-center">Categoria</div>
+                              <div className="grid-th text-center">Punti Classifica</div>
+                              <div className="grid-th text-center">Posizione</div>
+                            </div>
+                            {[...atleta.storicoClassifica].reverse().map((s, idx) => (
+                              <div key={idx} className="grid-data-row">
+                                <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.data}</div>
+                                <div className="grid-cell text-center">
+                                  <span className="badge badge-neutral">{s.categoria ? `${s.categoria}ª` : '-'}</span>
+                                </div>
+                                <div className="grid-cell text-center" style={{ fontWeight: '700', color: 'var(--color-primary-600)' }}>{s.punti} pt</div>
+                                <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.posizione ? `#${s.posizione.toLocaleString('it-IT')}` : '-'}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    )}
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
+      </div>
 
-        {/* Modal Testa a Testa con l'avversario selezionato */}
-        {h2hOpponent && (
-          <HeadToHeadModal
-            isOpen={true}
-            atleta1Id={currentAtletaId}
-            atleta1Nome={currentAthleteName}
-            atleta2Id={h2hOpponent.id}
-            atleta2Nome={h2hOpponent.name}
-            onClose={() => setH2hOpponent(null)}
-            onSelectAthlete={onSelectAthlete}
-          />
-        )}
+      {/* Modal Testa a Testa con l'avversario selezionato */}
+      {h2hOpponent && (
+        <HeadToHeadModal
+          isOpen={true}
+          atleta1Id={currentAtletaId}
+          atleta1Nome={currentAthleteName}
+          atleta2Id={h2hOpponent.id}
+          atleta2Nome={h2hOpponent.name}
+          onClose={() => setH2hOpponent(null)}
+          onSelectAthlete={onSelectAthlete}
+        />
+      )}
     </div>,
     document.body
   );
