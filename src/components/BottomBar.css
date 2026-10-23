@@ -125,6 +125,9 @@
     0 0 0 1px rgba(255, 255, 255, 0.08) inset;
 }
 
+[data-theme="light"] .portal-bottom-bar {
+  box-shadow: 0px 0px 20px #0000007c;
+}
 [data-theme="dark"] .bottom-bar-item {
   color: #94a3b8;
 }
