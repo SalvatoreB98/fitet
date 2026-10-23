@@ -66,7 +66,19 @@ export const App: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta'>('classifica');
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
-  const [selectedAthlete, setSelectedAthlete] = useState<{ id: string; name: string; fromReferto?: boolean } | null>(null);
+  // Stack di modali atleta: ogni apertura crea una nuova istanza senza chiudere le precedenti
+  const [athleteStack, setAthleteStack] = useState<Array<{ key: string; id: string; name: string; fromReferto?: boolean }>>([]);
+  const athleteKeyCounter = useRef(0);
+  const setSelectedAthlete = (a: { id: string; name: string; fromReferto?: boolean }) => {
+    setAthleteStack((prev) => {
+      const top = prev[prev.length - 1];
+      if (top && top.id === a.id && top.name === a.name) return prev;
+      athleteKeyCounter.current += 1;
+      return [...prev, { key: `athlete-${athleteKeyCounter.current}`, ...a }];
+    });
+  };
+  const closeTopAthlete = () => setAthleteStack((prev) => prev.slice(0, -1));
+  const selectedAthlete = athleteStack.length > 0 ? athleteStack[athleteStack.length - 1] : null;
   const [selectedSquadra, setSelectedSquadra] = useState<{ id: string; name: string } | null>(null);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -435,17 +447,19 @@ export const App: React.FC = () => {
       />
 
       {/* Athlete Detail Profile Modal */}
-      {selectedAthlete && (
+      {athleteStack.map((a, index) => (
         <AtletaModal
-          atletaId={selectedAthlete.id}
-          athleteName={selectedAthlete.name}
+          key={a.key}
+          atletaId={a.id}
+          athleteName={a.name}
           camId={camId !== null ? String(camId) : undefined}
           campionatoNome={data?.championship?.nome}
-          returnLabel={selectedAthlete.fromReferto ? 'Torna al referto' : 'Indietro'}
-          onClose={() => setSelectedAthlete(null)}
+          returnLabel={a.fromReferto ? 'Torna al referto' : 'Indietro'}
+          isTopModal={index === athleteStack.length - 1}
+          onClose={closeTopAthlete}
           onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
         />
-      )}
+      ))}
 
       {/* Team Details & Athletes Modal */}
       {selectedSquadra && (

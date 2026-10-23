@@ -17,6 +17,7 @@ interface AtletaModalProps {
   campionatoNome?: string | null;
   onClose: () => void;
   onSelectAthlete?: (id: string, name: string) => void;
+  isTopModal?: boolean;
 }
 
 export const AtletaModal: React.FC<AtletaModalProps> = ({
@@ -27,6 +28,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   campionatoNome,
   onClose,
   onSelectAthlete,
+  isTopModal = true,
 }) => {
   useBodyScrollLock(true);
   const { isFavorite, toggleFavorite } = useFavoriteAthletes();
@@ -189,6 +191,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   }, [atletaId, camId, athleteName]);
 
   useEffect(() => {
+    if (!isTopModal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
@@ -197,7 +200,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [onClose]);
+  }, [onClose, isTopModal]);
 
   if (typeof document === 'undefined') return null;
 
@@ -448,34 +451,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       aria-controls="athlete-partite-details-collapse"
                       title={showPartiteDettagli ? 'Nascondi le partite e i dettagli' : 'Visualizza le partite e i dettagli'}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                        <div
-                          style={{
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '10px',
-                            background: showPartiteDettagli ? 'rgba(37, 99, 235, 0.14)' : 'rgba(37, 99, 235, 0.08)',
-                            color: 'var(--color-primary-600, #2563eb)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '17px',
-                            flexShrink: 0,
-                          }}
-                        >
-                          <i className={showPartiteDettagli ? 'bi bi-calendar2-check-fill' : 'bi bi-calendar2-range'}></i>
-                        </div>
-                        <div style={{ textAlign: 'left', minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-dark, #0f172a)' }}>
-                            {showPartiteDettagli ? 'Nascondi partite e dettagli' : 'Visualizza partite e dettagli'}
-                          </div>
-                          <div style={{ fontSize: '11.5px', color: 'var(--text-muted, #64748b)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {showPartiteDettagli
-                              ? 'Incontri disputati, set, score e andamento ranking'
-                              : `${totalMatchesAvailable > 0 ? `${totalMatchesAvailable} incontri registrati • ` : ''}Storico partite e grafico ranking`}
-                          </div>
-                        </div>
-                      </div>
 
                       <div
                         style={{
@@ -491,7 +466,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                           flexShrink: 0,
                         }}
                       >
-                        <span>{showPartiteDettagli ? 'Nascondi ↑' : 'Visualizza ↓'}</span>
+                        <span>{showPartiteDettagli ? 'Nascondi ↑' : 'Visualizza altri dettagli e partite ↓'}</span>
                         <i className={`bi ${showPartiteDettagli ? 'bi-chevron-up' : 'bi-chevron-down'}`}></i>
                       </div>
                     </button>
@@ -575,6 +550,9 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                     const activeTabResolved = (camId && hasGironeMatches) ? matchTab : 'ranking';
 
+                    // Nessuna partita disponibile (né girone né ranking): nascondi l'intera sezione
+                    if (!hasGironeMatches && totalRankingMatches === 0 && !loadingPartite) return null;
+
                     return (
                       <div className="modal-campionato-partite-section" style={{ marginTop: '20px', marginBottom: '20px' }}>
                         {/* Header Row: Title & Switcher */}
@@ -584,7 +562,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               <i className="bi bi-trophy-fill me-1 text-warning"></i>
                               {activeTabResolved === 'girone'
                                 ? `Partite nel Campionato ${campionatoNome ? `(${campionatoNome})` : ''}`
-                                : 'Incontri Ufficiali FITeT (Ranking)'}
+                                : 'Incontri Ufficiali Tornei'}
                             </div>
                             {activeTabResolved === 'girone' && squadraCampionato && (
                               <span className="badge badge-neutral" style={{ fontSize: '11px' }}>
@@ -593,8 +571,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                             )}
                           </div>
 
-                          {/* Segmented Switcher if both girone & ranking exist */}
-                          {camId && (
+                          {/* Switcher visibile solo se esistono sia partite del girone sia partite ranking */}
+                          {camId && hasGironeMatches && totalRankingMatches > 0 && (
                             <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
                               <button
                                 type="button"
