@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useFavoriteAthletes, FavoriteAthlete, saveFavoriteAthlete } from '../utils/favorites';
 import { fetchAtleta } from '../services/api';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { SearchAtletaModal } from './SearchAtletaModal';
 
 interface FavoritesModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   const [confirmClear, setConfirmClear] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const syncedRef = useRef<boolean>(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // Sincronizza in background i dati dei preferiti con l'ultimo snapshot ufficiale (ranking reale, punti)
   useEffect(() => {
@@ -74,13 +76,15 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // Se la ricerca è aperta, è lei a gestire ESC
+        if (isSearchOpen) return;
         e.stopPropagation();
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isSearchOpen]);
 
   // Focus filter input when modal opens with multiple favorites
   useEffect(() => {
@@ -307,27 +311,22 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 <span style={{ color: '#d97706', fontWeight: 600 }}>⭐</span> nella scheda di un atleta o durante la ricerca
                 per averli sempre a portata di mano.
               </p>
-              {onGoToSearch && (
-                <button
-                  type="button"
-                  className="btn-action"
-                  style={{
-                    padding: '9px 20px',
-                    fontSize: '13.5px',
-                    borderRadius: '20px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}
-                  onClick={() => {
-                    onClose();
-                    onGoToSearch();
-                  }}
-                >
-                  <i className="bi bi-search"></i>
-                  Cerca Atleti da Salvare
-                </button>
-              )}
+              <button
+                type="button"
+                className="btn-action"
+                style={{
+                  padding: '9px 20px',
+                  fontSize: '13.5px',
+                  borderRadius: '20px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+                onClick={() => setIsSearchOpen(true)}
+              >
+                <i className="bi bi-search"></i>
+                Cerca Atleti da Salvare
+              </button>
             </div>
           )}
 
@@ -477,29 +476,24 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
             }}
           >
             <div>
-              {onGoToSearch && (
-                <button
-                  type="button"
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--color-primary-600, #2563eb)',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    padding: 0,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
-                  onClick={() => {
-                    onClose();
-                    onGoToSearch();
-                  }}
-                >
-                  <i className="bi bi-plus-circle"></i>
-                  Cerca altri atleti
-                </button>
-              )}
+              <button
+                type="button"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-primary-600, #2563eb)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+                onClick={() => setIsSearchOpen(true)}
+              >
+                <i className="bi bi-plus-circle"></i>
+                Cerca altri atleti
+              </button>
             </div>
 
             <div>
@@ -559,6 +553,16 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* Modale ricerca atleta */}
+        <SearchAtletaModal
+          isOpen={isSearchOpen}
+          onClose={() => setIsSearchOpen(false)}
+          onSelectAthlete={(id, name) => {
+            onClose();
+            onSelectAthlete(id, name);
+          }}
+        />
       </div>
     </div>,
     document.body

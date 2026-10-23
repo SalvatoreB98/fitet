@@ -8,12 +8,16 @@ interface CercaAtletaTabProps {
   onOpenAtletaModal: (id: string, name: string) => void;
   compactMode?: boolean;
   autoFocus?: boolean;
+  hideHeader?: boolean;
+  hideFavorites?: boolean;
 }
 
 export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
   onOpenAtletaModal,
   compactMode = false,
   autoFocus = false,
+  hideHeader = false,
+  hideFavorites = false,
 }) => {
   const { favorites, isFavorite, toggleFavorite } = useFavoriteAthletes();
   const [query, setQuery] = useState('');
@@ -105,6 +109,7 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
   return (
     <div className={`cerca-atleta-container ${compactMode ? 'is-compact' : ''}`}>
 
+      {!hideHeader && (
       <div className="cerca-atleta-header">
         <div className="cerca-atleta-icon-box">
           <i className="bi bi-search"></i>
@@ -114,6 +119,7 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
           Cerca qualsiasi atleta tesserato per cognome e nome per consultare scheda ranking, punti e storico posizioni.
         </p>
       </div>
+      )}
 
 
       {/* Search Input Bar */}
@@ -166,7 +172,7 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
       </div>
 
       {/* Pinned Favorite Athletes Shelf when idle / no active search */}
-      {!hasSearched && favorites.length > 0 && (
+      {!hideFavorites && !hasSearched && favorites.length > 0 && (
         <div className="cerca-atleta-favorites-section">
           <div className="cerca-atleta-favorites-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
