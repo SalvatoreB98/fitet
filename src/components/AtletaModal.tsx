@@ -1310,10 +1310,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   {/* Historical Analytics (Sub-Tabs: Grafico vs Tabella) */}
                   <div style={{ marginTop: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                      <div style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--color-primary-600)', letterSpacing: '0.04em' }}>
-                        <i className="bi bi-graph-up-arrow me-1 text-primary"></i>
-                        Andamento Ranking Ufficiale
-                      </div>
                       {atleta.storicoClassifica.length > 0 && (
                         <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
                           <button
