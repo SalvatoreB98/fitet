@@ -35,7 +35,7 @@ export async function fetchDashboard(cam: number, anno = 41, refresh = false): P
 }
 
 export async function fetchAtleta(id: string, refresh = false): Promise<DettaglioAtleta> {
-  const url = `${API_BASE}/atleta/${id}${refresh ? '?refresh=true' : ''}`;
+  const url = `${API_BASE}/atleta/${encodeURIComponent(id)}${refresh ? '?refresh=true' : ''}`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Errore caricamento scheda atleta (${res.status}): ${res.statusText}`);

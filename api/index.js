@@ -1043,7 +1043,15 @@ var athlete_mapping_default = {
   "PLAIAN TANIA MARIA": "765375",
   "CARNOVALE MIRIAM BENEDETTA": "721848",
   "FONTANA ROBERTO": "593082",
-  "MELONI SIRIO": "742767"
+  "MELONI SIRIO": "742767",
+  "CEREA GIACOMO": "655182",
+  "SIMI TOMMASO": "773696",
+  "AUGUSTINE EMMANUEL DAMILARE": "816711",
+  "BISI PAOLO": "587915",
+  "MALPASSI RICCARDO": "607455",
+  "INDINO GIULIA": "725608",
+  "PUGNO LEONARDO NAOYA": "774557",
+  "AUSTRIA GIANLUCA": "718453"
 };
 
 // server/services/athleteResolver.ts
@@ -1673,7 +1681,12 @@ function parsePartiteRanking(html, atletaId) {
         const ris = $(cells[3]).text().trim();
         const sesso = cells.length >= 5 ? $(cells[4]).text().trim() : void 0;
         const stato = cells.length >= 6 ? $(cells[5]).text().trim() : void 0;
-        const avversario = cells.length >= 7 ? $(cells[6]).text().trim() : $(cells[cells.length - 1]).text().trim();
+        const $avvCell = cells.length >= 7 ? $(cells[6]) : $(cells[cells.length - 1]);
+        const avversario = $avvCell.text().trim();
+        const $link = $avvCell.find("a");
+        const href = $link.attr("href") || $link.attr("onclick") || "";
+        const idMatch = href.match(/AVVERSARIO=(\d+)/i) || href.match(/ATLETA=(\d+)/i) || href.match(/atleti\/(\d+)/i) || href.match(/(\d{4,})/);
+        const avversarioId = idMatch ? idMatch[1] : void 0;
         const isVittoria = ris.toUpperCase() === "V";
         result.campionato.push({
           data,
@@ -1682,6 +1695,7 @@ function parsePartiteRanking(html, atletaId) {
           risultato: ris,
           isVittoria,
           avversario,
+          avversarioId,
           sesso,
           stato
         });
@@ -1697,7 +1711,12 @@ function parsePartiteRanking(html, atletaId) {
         const torneo = $(cells[1]).text().trim();
         const gara = $(cells[2]).text().trim();
         const stato = $(cells[3]).text().trim();
-        const avversario = $(cells[4]).text().trim();
+        const $avvCell = $(cells[4]);
+        const avversario = $avvCell.text().trim();
+        const $link = $avvCell.find("a");
+        const href = $link.attr("href") || $link.attr("onclick") || "";
+        const idMatch = href.match(/AVVERSARIO=(\d+)/i) || href.match(/ATLETA=(\d+)/i) || href.match(/atleti\/(\d+)/i) || href.match(/(\d{4,})/);
+        const avversarioId = idMatch ? idMatch[1] : void 0;
         const fase = cells.length >= 6 ? $(cells[5]).text().trim() : void 0;
         const ris = cells.length >= 7 ? $(cells[6]).text().trim() : $(cells[cells.length - 1]).text().trim();
         const isVittoria = ris.toUpperCase() === "V";
@@ -1708,6 +1727,7 @@ function parsePartiteRanking(html, atletaId) {
           gara,
           stato,
           avversario,
+          avversarioId,
           fase,
           risultato: ris,
           isVittoria,
@@ -1730,8 +1750,8 @@ function parseDettaglioAtleta(html, atletaId, partiteRanking) {
   const photoImg = $('img[src*="/atleti/"]').first();
   const photoSrc = photoImg.attr("src") || "";
   const photoMatch = photoSrc.match(/atleti\/(\d+)\.jpg/i);
-  const fotoId = photoMatch ? photoMatch[1] : atletaId;
-  const fotoUrl = `https://portale.fitet.org/images/atleti/${fotoId}.jpg`;
+  const fotoId = photoMatch ? photoMatch[1] : atletaId || "";
+  const fotoUrl = fotoId && /^\d+$/.test(fotoId) ? `https://portale.fitet.org/images/atleti/${fotoId}.jpg` : "";
   const getFieldValue = (label) => {
     let result = "";
     $("td").each((_, td) => {
@@ -2555,7 +2575,12 @@ app.get("/api/atleta/:id", async (req, res) => {
     return res.status(400).json({ error: "ID atleta non valido" });
   }
   if (!/^\d+$/.test(id)) {
-    const cleanName = decodeURIComponent(id).trim();
+    let cleanName = id;
+    try {
+      cleanName = decodeURIComponent(id);
+    } catch {
+    }
+    cleanName = cleanName.trim();
     const resolvedId = await athleteResolver.resolveAthleteId(cleanName);
     if (resolvedId) {
       id = resolvedId;

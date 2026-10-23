@@ -84,11 +84,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [viewMode, setViewMode] = useState<'slider' | 'list'>('slider');
   const [analyticsTab, setAnalyticsTab] = useState<'chart' | 'table'>('chart');
   const [h2hOpponent, setH2hOpponent] = useState<{ id?: string; name: string } | null>(null);
-  const [showPartiteDettagli, setShowPartiteDettagli] = useState<boolean>(false);
-
-  useEffect(() => {
-    setShowPartiteDettagli(false);
-  }, [atletaId]);
 
   // Slider navigation
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -115,12 +110,13 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       setCanScrollLeft(false);
       setCanScrollRight(sliderRef.current.scrollWidth > sliderRef.current.clientWidth + 10);
     }
-  }, [matchTab, rankingFilter, campionatoPartite, viewMode, showPartiteDettagli]);
+  }, [matchTab, rankingFilter, campionatoPartite, viewMode]);
 
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
     setError(null);
+    setImgError(false);
 
     fetchAtleta(atletaId)
       .then((data) => {
@@ -298,18 +294,22 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     flexShrink: 0,
                   }}
                 >
-                  {!imgError && atleta.anagrafica.fotoUrl ? (
-                    <img
-                      src={atleta.anagrafica.fotoUrl}
-                      alt={atleta.anagrafica.nome}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      onError={() => setImgError(true)}
-                    />
-                  ) : (
-                    <span style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-muted)' }}>
-                      {atleta.anagrafica.nome.slice(0, 2)}
-                    </span>
-                  )}
+                  {(() => {
+                    const athletePhoto = atleta.anagrafica.fotoUrl || (atleta.id && /^\d+$/.test(atleta.id) ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg` : null);
+                    return !imgError && athletePhoto ? (
+                      <img
+                        src={athletePhoto}
+                        alt={atleta.anagrafica.nome}
+                        referrerPolicy="no-referrer"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={() => setImgError(true)}
+                      />
+                    ) : (
+                      <span style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-muted)' }}>
+                        {atleta.anagrafica.nome.slice(0, 2)}
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 <div style={{ flex: '1 1 200px', minWidth: 0 }}>
@@ -387,6 +387,36 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                 const posText = pos ? `#${pos.toLocaleString('it-IT')}` : (stato || 'Fuori Quadro');
                 const posSub = hasRecord ? `Record: ${record}` : (dataAgg ? `Al ${dataAgg}` : 'Nazionale');
 
+                // Fallback winrate & matches calculation if fragment-1 riepilogo has 0
+                const allRankingMatches = [
+                  ...(atleta.partiteRanking?.campionato || []),
+                  ...(atleta.partiteRanking?.tornei || []),
+                ];
+                let partiteGiocate = atleta.riepilogo.partiteGiocate;
+                let partiteVinte = atleta.riepilogo.partiteVinte;
+                let partitePerse = atleta.riepilogo.partitePerse;
+                let percPositiva = atleta.riepilogo.percentualePositiva;
+                let puntiNetto = atleta.riepilogo.puntiTotali;
+
+                if (partiteGiocate === 0 && allRankingMatches.length > 0) {
+                  partiteGiocate = allRankingMatches.length;
+                  partiteVinte = allRankingMatches.filter((m) => m.isVittoria).length;
+                  partitePerse = partiteGiocate - partiteVinte;
+                  percPositiva = Math.round((partiteVinte / partiteGiocate) * 100);
+                } else if (partiteGiocate === 0 && campionatoPartite && campionatoPartite.length > 0) {
+                  partiteGiocate = campionatoPartite.length;
+                  partiteVinte = campionatoPartite.filter((m) => m.isVittoria).length;
+                  partitePerse = partiteGiocate - partiteVinte;
+                  percPositiva = Math.round((partiteVinte / partiteGiocate) * 100);
+                } else if (percPositiva === 0 && partiteGiocate > 0 && partiteVinte > 0) {
+                  percPositiva = Math.round((partiteVinte / partiteGiocate) * 100);
+                }
+
+                if (puntiNetto === 0 && atleta.partiteRanking?.dettaglioPunti) {
+                  const diff = (atleta.partiteRanking.dettaglioPunti.campionato || 0) + (atleta.partiteRanking.dettaglioPunti.tornei || 0);
+                  if (diff !== 0) puntiNetto = diff;
+                }
+
                 return (
                   <div className="overview-stats-section" style={{ paddingBottom: '18px', borderBottom: '1px solid var(--border-light, #f1f5f9)', marginBottom: '18px' }}>
                     <div className="overview-stats-card">
@@ -410,23 +440,23 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         <div className="overview-stat-divider" aria-hidden="true" />
 
                         {/* 3. Partite V/G */}
-                        <div className="overview-stat-col" title={`Partite vinte: ${atleta.riepilogo.partiteVinte}, giocate: ${atleta.riepilogo.partiteGiocate}, perse: ${atleta.riepilogo.partitePerse}`}>
+                        <div className="overview-stat-col" title={`Partite vinte: ${partiteVinte}, giocate: ${partiteGiocate}, perse: ${partitePerse}`}>
                           <span className="overview-stat-label">Partite V/G</span>
                           <MarqueeText className="overview-stat-value">
-                            {atleta.riepilogo.partiteVinte} <span className="overview-stat-slash">/</span> {atleta.riepilogo.partiteGiocate}
+                            {partiteVinte} <span className="overview-stat-slash">/</span> {partiteGiocate}
                           </MarqueeText>
-                          <MarqueeText className="overview-stat-sub" text={`Perse: ${atleta.riepilogo.partitePerse}`} />
+                          <MarqueeText className="overview-stat-sub" text={`Perse: ${partitePerse}`} />
                         </div>
 
                         <div className="overview-stat-divider" aria-hidden="true" />
 
                         {/* 4. % Vittorie */}
-                        <div className="overview-stat-col" title={`% Vittorie: ${atleta.riepilogo.percentualePositiva}%, Guadagno netto: ${atleta.riepilogo.puntiTotali} pt`}>
+                        <div className="overview-stat-col" title={`% Vittorie: ${percPositiva}%, Guadagno netto: ${puntiNetto} pt`}>
                           <span className="overview-stat-label">% Vittorie</span>
-                          <MarqueeText className="overview-stat-value" text={`${atleta.riepilogo.percentualePositiva}%`} />
+                          <MarqueeText className="overview-stat-value" text={`${percPositiva}%`} />
                           <MarqueeText
                             className="overview-stat-sub"
-                            text={atleta.riepilogo.puntiTotali > 0 ? `+${atleta.riepilogo.puntiTotali} pt netti` : `${atleta.riepilogo.puntiTotali} pt`}
+                            text={puntiNetto > 0 ? `+${puntiNetto} pt netti` : `${puntiNetto} pt`}
                           />
                         </div>
                       </div>
@@ -435,48 +465,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                 );
               })()}
 
-              {/* Collapse Toggle Button per Partite e Dettagli */}
-              {(() => {
-                const rankingCount = (atleta.partiteRanking?.campionato.length || 0) + (atleta.partiteRanking?.tornei.length || 0);
-                const gironeCount = campionatoPartite?.length || 0;
-                const totalMatchesAvailable = rankingCount + gironeCount;
-
-                return (
-                  <div style={{ marginTop: '16px', marginBottom: showPartiteDettagli ? '16px' : '6px' }}>
-                    <button
-                      type="button"
-                      className="btn-toggle-partite-dettagli"
-                      onClick={() => setShowPartiteDettagli((prev) => !prev)}
-                      aria-expanded={showPartiteDettagli}
-                      aria-controls="athlete-partite-details-collapse"
-                      title={showPartiteDettagli ? 'Nascondi le partite e i dettagli' : 'Visualizza le partite e i dettagli'}
-                    >
-
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          color: 'var(--text-dark)',
-                          background: 'rgba(37, 99, 235, 0.08)',
-                          padding: '6px 14px',
-                          borderRadius: '20px',
-                          flexShrink: 0,
-                        }}
-                      >
-                        <span>{showPartiteDettagli ? 'Nascondi ↑' : 'Visualizza altri dettagli e partite ↓'}</span>
-                        <i className={`bi ${showPartiteDettagli ? 'bi-chevron-up' : 'bi-chevron-down'}`}></i>
-                      </div>
-                    </button>
-                  </div>
-                );
-              })()}
-
-              {/* Sezione Partite e Dettagli (Collassabile) */}
-              {showPartiteDettagli && (
-                <div id="athlete-partite-details-collapse" className="athlete-details-collapse-content">
+              {/* Sezione Partite e Dettagli */}
+              <div id="athlete-partite-details-section">
                   {/* Sezione Partite: Girone Attivo / Incontri Ufficiali Ranking FITeT */}
                   {(() => {
                     const parseDateIT = (str: string): number => {
@@ -773,18 +763,24 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                           let matchesToDisplay: MatchCardItem[] = [];
 
                           if (activeTabResolved === 'girone' && campionatoPartite && campionatoPartite.length > 0) {
-                            matchesToDisplay = campionatoPartite.map((m, idx) => ({
-                              id: `girone-${idx}`,
-                              tipo: 'girone',
-                              data: `G${m.giornata}`,
-                              titolo: campionatoNome || 'Campionato Girone',
-                              sottotitolo: squadraCampionato || undefined,
-                              avversario: m.avversario,
-                              giornata: m.giornata,
-                              isVittoria: m.isVittoria,
-                              risultatoSet: m.risultatoSet,
-                              sets: m.sets,
-                            }));
+                            matchesToDisplay = campionatoPartite.map((m, idx) => {
+                              const matchingRanking = unifiedRankingMatches.find(
+                                (rm) => rm.avversario.toUpperCase().trim() === m.avversario.toUpperCase().trim()
+                              );
+                              return {
+                                id: `girone-${idx}`,
+                                tipo: 'girone',
+                                data: `G${m.giornata}`,
+                                titolo: campionatoNome || 'Campionato Girone',
+                                sottotitolo: squadraCampionato || undefined,
+                                avversario: m.avversario,
+                                avversarioId: matchingRanking?.avversarioId,
+                                giornata: m.giornata,
+                                isVittoria: m.isVittoria,
+                                risultatoSet: m.risultatoSet,
+                                sets: m.sets,
+                              };
+                            });
                           } else if (activeTabResolved === 'ranking' && unifiedRankingMatches.length > 0) {
                             matchesToDisplay = unifiedRankingMatches.map((m, idx) => {
                               const matchingGirone = campionatoPartite?.find(
@@ -812,7 +808,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                           if (matchesToDisplay.length === 0) return null;
 
                           return (
-                            <div style={{ marginTop: '8px' }}>
+                            <div style={{ marginTop: '8px', minHeight: '180px' }}>
                               {/* Slider Navigation Bar */}
                               <div
                                 style={{
@@ -1004,7 +1000,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                               className="atleta-opponent-link"
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                onSelectAthlete(m.avversario, m.avversario);
+                                                const oppId = m.avversarioId || m.avversario;
+                                                onSelectAthlete(oppId, m.avversario);
                                               }}
                                               title={`Apri profilo di ${m.avversario}`}
                                             >
@@ -1146,6 +1143,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                     flexDirection: 'column',
                                     gap: '8px',
                                     maxHeight: '340px',
+                                    minHeight: '146px',
                                     overflowY: 'auto',
                                     paddingRight: '4px',
                                     scrollbarWidth: 'thin',
@@ -1201,7 +1199,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                                 className="atleta-opponent-link"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  onSelectAthlete(m.avversario, m.avversario);
+                                                  const oppId = m.avversarioId || m.avversario;
+                                                  onSelectAthlete(oppId, m.avversario);
                                                 }}
                                                 title={`Apri profilo di ${m.avversario}`}
                                               >
@@ -1350,78 +1349,53 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       )}
                     </div>
 
-                    {analyticsTab === 'chart' ? (
-                      <RatingChart data={atleta.storicoClassifica} athleteName={atleta.anagrafica.nome} hideTitle={true} />
-                    ) : (
-                      atleta.storicoClassifica.length > 0 && (
-                        <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px', scrollbarWidth: 'thin' }}>
-                          <div className="modal-ranking-grid">
-                            <div className="grid-header-row">
-                              <div className="grid-th text-center">Data Rilevazione</div>
-                              <div className="grid-th text-center">Categoria</div>
-                              <div className="grid-th text-center">Punti Classifica</div>
-                              <div className="grid-th text-center">Posizione</div>
-                            </div>
-                            {[...atleta.storicoClassifica].reverse().map((s, idx) => (
-                              <div key={idx} className="grid-data-row">
-                                <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.data}</div>
-                                <div className="grid-cell text-center">
-                                  <span className="badge badge-neutral">{s.categoria ? `${s.categoria}ª` : '-'}</span>
-                                </div>
-                                <div className="grid-cell text-center" style={{ fontWeight: '700', color: 'var(--color-primary-600)' }}>{s.punti} pt</div>
-                                <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.posizione ? `#${s.posizione.toLocaleString('it-IT')}` : '-'}</div>
+                    <div style={{ minHeight: '260px' }}>
+                      {analyticsTab === 'chart' ? (
+                        <RatingChart data={atleta.storicoClassifica} athleteName={atleta.anagrafica.nome} hideTitle={true} />
+                      ) : (
+                        atleta.storicoClassifica.length > 0 && (
+                          <div style={{ maxHeight: '250px', minHeight: '240px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px', scrollbarWidth: 'thin' }}>
+                            <div className="modal-ranking-grid">
+                              <div className="grid-header-row">
+                                <div className="grid-th text-center">Data Rilevazione</div>
+                                <div className="grid-th text-center">Categoria</div>
+                                <div className="grid-th text-center">Punti Classifica</div>
+                                <div className="grid-th text-center">Posizione</div>
                               </div>
-                            ))}
+                              {[...atleta.storicoClassifica].reverse().map((s, idx) => (
+                                <div key={idx} className="grid-data-row">
+                                  <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.data}</div>
+                                  <div className="grid-cell text-center">
+                                    <span className="badge badge-neutral">{s.categoria ? `${s.categoria}ª` : '-'}</span>
+                                  </div>
+                                  <div className="grid-cell text-center" style={{ fontWeight: '700', color: 'var(--color-primary-600)' }}>{s.punti} pt</div>
+                                  <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.posizione ? `#${s.posizione.toLocaleString('it-IT')}` : '-'}</div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-
-                  {/* Bottom close button to quickly collapse back */}
-                  <div style={{ textAlign: 'center', marginTop: '18px', paddingBottom: '4px' }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowPartiteDettagli(false)}
-                      style={{
-                        background: 'none',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '20px',
-                        padding: '6px 16px',
-                        fontSize: '11.5px',
-                        fontWeight: 600,
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <i className="bi bi-chevron-up"></i>
-                      Nascondi partite e dettagli
-                    </button>
+                        )
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
-
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Modal Testa a Testa con l'avversario selezionato */}
-      {h2hOpponent && (
-        <HeadToHeadModal
-          isOpen={true}
-          atleta1Id={currentAtletaId}
-          atleta1Nome={currentAthleteName}
-          atleta2Id={h2hOpponent.id}
-          atleta2Nome={h2hOpponent.name}
-          onClose={() => setH2hOpponent(null)}
-          onSelectAthlete={onSelectAthlete}
-        />
-      )}
+        {/* Modal Testa a Testa con l'avversario selezionato */}
+        {h2hOpponent && (
+          <HeadToHeadModal
+            isOpen={true}
+            atleta1Id={currentAtletaId}
+            atleta1Nome={currentAthleteName}
+            atleta2Id={h2hOpponent.id}
+            atleta2Nome={h2hOpponent.name}
+            onClose={() => setH2hOpponent(null)}
+            onSelectAthlete={onSelectAthlete}
+          />
+        )}
     </div>,
     document.body
   );

@@ -273,7 +273,11 @@ app.get('/api/atleta/:id', async (req, res) => {
 
     // Se l'ID non è puramente numerico (es. passato il nome atleta), risolvilo dinamicamente
     if (!/^\d+$/.test(id)) {
-        const cleanName = decodeURIComponent(id).trim();
+        let cleanName = id;
+        try {
+            cleanName = decodeURIComponent(id);
+        } catch {}
+        cleanName = cleanName.trim();
         const resolvedId = await athleteResolver.resolveAthleteId(cleanName);
         if (resolvedId) {
             id = resolvedId;

@@ -110,7 +110,12 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
         const ris = $(cells[3]).text().trim();
         const sesso = cells.length >= 5 ? $(cells[4]).text().trim() : undefined;
         const stato = cells.length >= 6 ? $(cells[5]).text().trim() : undefined;
-        const avversario = cells.length >= 7 ? $(cells[6]).text().trim() : $(cells[cells.length - 1]).text().trim();
+        const $avvCell = cells.length >= 7 ? $(cells[6]) : $(cells[cells.length - 1]);
+        const avversario = $avvCell.text().trim();
+        const $link = $avvCell.find('a');
+        const href = $link.attr('href') || $link.attr('onclick') || '';
+        const idMatch = href.match(/AVVERSARIO=(\d+)/i) || href.match(/ATLETA=(\d+)/i) || href.match(/atleti\/(\d+)/i) || href.match(/(\d{4,})/);
+        const avversarioId = idMatch ? idMatch[1] : undefined;
         const isVittoria = ris.toUpperCase() === 'V';
 
         result.campionato.push({
@@ -120,6 +125,7 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
           risultato: ris,
           isVittoria,
           avversario,
+          avversarioId,
           sesso,
           stato,
         });
@@ -137,7 +143,12 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
         const torneo = $(cells[1]).text().trim();
         const gara = $(cells[2]).text().trim();
         const stato = $(cells[3]).text().trim();
-        const avversario = $(cells[4]).text().trim();
+        const $avvCell = $(cells[4]);
+        const avversario = $avvCell.text().trim();
+        const $link = $avvCell.find('a');
+        const href = $link.attr('href') || $link.attr('onclick') || '';
+        const idMatch = href.match(/AVVERSARIO=(\d+)/i) || href.match(/ATLETA=(\d+)/i) || href.match(/atleti\/(\d+)/i) || href.match(/(\d{4,})/);
+        const avversarioId = idMatch ? idMatch[1] : undefined;
         const fase = cells.length >= 6 ? $(cells[5]).text().trim() : undefined;
         const ris = cells.length >= 7 ? $(cells[6]).text().trim() : $(cells[cells.length - 1]).text().trim();
         const isVittoria = ris.toUpperCase() === 'V';
@@ -149,6 +160,7 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
           gara,
           stato,
           avversario,
+          avversarioId,
           fase,
           risultato: ris,
           isVittoria,
@@ -185,8 +197,8 @@ export function parseDettaglioAtleta(
   const photoImg = $('img[src*="/atleti/"]').first();
   const photoSrc = photoImg.attr('src') || '';
   const photoMatch = photoSrc.match(/atleti\/(\d+)\.jpg/i);
-  const fotoId = photoMatch ? photoMatch[1] : atletaId;
-  const fotoUrl = `https://portale.fitet.org/images/atleti/${fotoId}.jpg`;
+  const fotoId = photoMatch ? photoMatch[1] : (atletaId || '');
+  const fotoUrl = fotoId && /^\d+$/.test(fotoId) ? `https://portale.fitet.org/images/atleti/${fotoId}.jpg` : '';
 
   // Helper to extract value by field label
   const getFieldValue = (label: string): string => {

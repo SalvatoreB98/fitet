@@ -228,6 +228,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                         <img
                           src={player1.fotoUrl}
                           alt={player1.nome}
+                          referrerPolicy="no-referrer"
                           onError={() => setImg1Error(true)}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
@@ -307,6 +308,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                         <img
                           src={player2.fotoUrl}
                           alt={player2.nome}
+                          referrerPolicy="no-referrer"
                           onError={() => setImg2Error(true)}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />

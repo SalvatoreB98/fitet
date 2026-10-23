@@ -2768,38 +2768,6 @@ body.modal-open {
 }
 
 /* ==========================================================================
-   ATHLETE MODAL COLLAPSE TOGGLE (Partite e Dettagli)
-   ========================================================================== */
-.btn-toggle-partite-dettagli {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  background: none;
-  border: none;
-}
-
-
-@keyframes athleteDetailsFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.athlete-details-collapse-content {
-  animation: athleteDetailsFadeIn 0.25s ease-out;
-}
-
-/* ==========================================================================
    MODAL STAT BOXES (Light & Dark Adaptive)
    ========================================================================== */
 .modal-stat-boxes {
