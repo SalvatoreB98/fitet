@@ -625,58 +625,60 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                   onClick={() => onOpenAtletaModal(item.id, item.name)}
                 >
                   <div className="home-athlete-top">
-                    <div className="home-athlete-profile">
-                      <div className="home-athlete-avatar-wrap">
-                        <AthleteAvatar
-                          atletaId={item.id}
-                          nome={item.name}
-                          size={42}
-                        />
-                      </div>
-                      <div className="home-athlete-info">
-                        <h4 className="home-card-title" title={item.name}>
-                          {item.name}
-                        </h4>
-                        <div className="home-athlete-team">
-                          {item.squadra ? (
-                            <span title={item.squadra}>{item.squadra}</span>
-                          ) : (
-                            <span>Tessera #{item.id}</span>
-                          )}
+                    <div className="title-wrapper">
+                      <div className="home-athlete-profile">
+                        <div className="home-athlete-avatar-wrap">
+                          <AthleteAvatar
+                            atletaId={item.id}
+                            nome={item.name}
+                            size={42}
+                          />
+                        </div>
+                        <div className="home-athlete-info">
+                          <h4 className="home-card-title" title={item.name}>
+                            {item.name}
+                          </h4>
+                          <div className="home-athlete-team">
+                            {item.squadra ? (
+                              <span title={item.squadra}>{item.squadra}</span>
+                            ) : (
+                              <span>Tessera #{item.id}</span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <button
-                        type="button"
-                        className="home-card-fav-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleAthleteFavorite({
-                            id: item.id,
-                            name: item.name,
-                            squadra: item.squadra,
-                          });
-                        }}
-                        title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-                        aria-label="Salva come preferito"
-                      >
-                        <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
-                      </button>
-                      <button
-                        type="button"
-                        className="home-card-fav-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeAthlete(item.id);
-                        }}
-                        title="Rimuovi da cronologia"
-                        aria-label="Rimuovi da cronologia"
-                        style={{ fontSize: '13px' }}
-                      >
-                        <i className="bi bi-x-lg"></i>
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          type="button"
+                          className="home-card-fav-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleAthleteFavorite({
+                              id: item.id,
+                              name: item.name,
+                              squadra: item.squadra,
+                            });
+                          }}
+                          title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                          aria-label="Salva come preferito"
+                        >
+                          <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
+                        </button>
+                        <button
+                          type="button"
+                          className="home-card-fav-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeAthlete(item.id);
+                          }}
+                          title="Rimuovi da cronologia"
+                          aria-label="Rimuovi da cronologia"
+                          style={{ fontSize: '13px' }}
+                        >
+                          <i className="bi bi-x-lg"></i>
+                        </button>
+                      </div>
                     </div>
                   </div>
 

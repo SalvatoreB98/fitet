@@ -35,7 +35,6 @@
     0 0 0 1px rgba(255, 255, 255, 0.6) inset;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   max-width: 520px;
-  width: auto;
   position: absolute;
   bottom: 0;
 }
@@ -159,7 +158,6 @@
   .portal-bottom-bar {
     gap: 4px;
     padding: 5px 8px;
-    width: 100%;
     max-width: 400px;
     justify-content: space-between;
   }

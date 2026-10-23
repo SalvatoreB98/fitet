@@ -113,15 +113,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
           </div>
 
           <div className="ranking-header-actions">
-            <button
-              type="button"
-              className="ranking-refresh-btn"
-              onClick={() => onOpenSearchModal?.()}
-              title="Cerca atleta"
-            >
-              <i className="bi bi-search"></i>
-              <span>Cerca atleta</span>
-            </button>
+
             <button
               type="button"
               className="ranking-refresh-btn"
@@ -131,6 +123,16 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
             >
               <i className={`bi bi-arrow-clockwise ${refreshing ? 'spin-anim' : ''}`}></i>
               <span>{refreshing ? 'Aggiornamento...' : 'Aggiorna'}</span>
+            </button>
+
+            <button
+              type="button"
+              className="ranking-refresh-btn"
+              onClick={() => onOpenSearchModal?.()}
+              title="Cerca atleta"
+            >
+              <i className="bi bi-search"></i>
+              <span>Cerca atleta</span>
             </button>
           </div>
         </div>
@@ -160,7 +162,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
           <div className="ranking-region-select-wrap">
             <label htmlFor="ranking-region-select" className="ranking-select-label">
               <i className="bi bi-geo-alt-fill me-1"></i>
-              Ambito:
+              Regione:
             </label>
             <div className="ranking-select-inner">
               <select

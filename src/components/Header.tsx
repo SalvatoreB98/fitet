@@ -148,22 +148,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="portal-header-actions" ref={menuRef}>
-            {/* Quick Favorite Star Button */}
-            {onOpenFavoritesModal && (
-              <button
-                type="button"
-                className={`portal-quick-fav-btn ${favoritesCount > 0 ? 'has-favorites' : ''}`}
-                onClick={onOpenFavoritesModal}
-                title={favoritesCount > 0 ? `Atleti Preferiti (${favoritesCount})` : 'Atleti Preferiti'}
-                aria-label="Atleti Preferiti"
-              >
-                <i className={favoritesCount > 0 ? 'bi bi-person-hearts text-warning' : 'bi bi-person-hearts'}></i>
-                {favoritesCount > 0 && (
-                  <span className="portal-quick-fav-badge">{favoritesCount}</span>
-                )}
-              </button>
-            )}
-
             {/* Burger Button in Alto a Destra */}
             <button
               type="button"
