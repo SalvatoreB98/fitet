@@ -1051,7 +1051,12 @@ var athlete_mapping_default = {
   "MALPASSI RICCARDO": "607455",
   "INDINO GIULIA": "725608",
   "PUGNO LEONARDO NAOYA": "774557",
-  "AUSTRIA GIANLUCA": "718453"
+  "AUSTRIA GIANLUCA": "718453",
+  "SCHINELLA NOEMI": "822267",
+  "GALLINGANI GABRIELE": "746856",
+  "CASTALDO MARCO": "758326",
+  "ZILIANI LUCA": "587881",
+  "PASSARO MATTEO": "743676"
 };
 
 // server/services/athleteResolver.ts
@@ -1996,33 +2001,59 @@ var HeadToHeadService = class {
    */
   async enrichRankingMatches(atletaId, partite, idClass = DEFAULT_ID_CLASS) {
     if (!partite) return partite;
-    const neededOpponents = /* @__PURE__ */ new Set();
+    const neededOpponents = /* @__PURE__ */ new Map();
     if (Array.isArray(partite.tornei)) {
       for (const t of partite.tornei) {
         if (!t.risultatoSet && t.avversario) {
-          neededOpponents.add(t.avversario.toUpperCase().trim());
+          const key = t.avversario.toUpperCase().trim();
+          if (!neededOpponents.has(key)) {
+            neededOpponents.set(key, { id: t.avversarioId, name: t.avversario });
+          } else if (t.avversarioId && !neededOpponents.get(key).id) {
+            neededOpponents.get(key).id = t.avversarioId;
+          }
         }
       }
     }
     if (Array.isArray(partite.campionato)) {
       for (const c of partite.campionato) {
         if (!c.risultatoSet && c.avversario) {
-          neededOpponents.add(c.avversario.toUpperCase().trim());
+          const key = c.avversario.toUpperCase().trim();
+          if (!neededOpponents.has(key)) {
+            neededOpponents.set(key, { id: c.avversarioId, name: c.avversario });
+          } else if (c.avversarioId && !neededOpponents.get(key).id) {
+            neededOpponents.get(key).id = c.avversarioId;
+          }
         }
       }
     }
     if (neededOpponents.size === 0) return partite;
-    const opponentsList = Array.from(neededOpponents).slice(0, 10);
+    const opponentsList = Array.from(neededOpponents.entries()).slice(0, 15);
     const batchSize = 5;
     const h2hMap = /* @__PURE__ */ new Map();
+    const normDate = (d) => {
+      if (!d) return "";
+      const parts = d.trim().split(/[\/\-\.]/);
+      if (parts.length === 3) {
+        let [day, month, year] = parts;
+        day = String(parseInt(day, 10));
+        month = String(parseInt(month, 10));
+        if (year.length === 2) year = `20${year}`;
+        return `${day}/${month}/${year}`;
+      }
+      return d.trim();
+    };
     for (let i = 0; i < opponentsList.length; i += batchSize) {
       const chunk = opponentsList.slice(i, i + batchSize);
       await Promise.all(
-        chunk.map(async (oppName) => {
+        chunk.map(async ([key, opp]) => {
           try {
-            const h2h = await this.getHeadToHead(atletaId, oppName, idClass);
+            const target = opp.id || opp.name;
+            const h2h = await this.getHeadToHead(atletaId, target, idClass);
             if (h2h && h2h.incontri.length > 0) {
-              h2hMap.set(oppName, h2h);
+              h2hMap.set(key, h2h);
+              if (opp.id) h2hMap.set(opp.id, h2h);
+              if (h2h.atleta2.id) h2hMap.set(h2h.atleta2.id, h2h);
+              if (h2h.atleta2.nome) h2hMap.set(h2h.atleta2.nome.toUpperCase().trim(), h2h);
             }
           } catch (err) {
           }
@@ -2033,10 +2064,11 @@ var HeadToHeadService = class {
       for (const t of partite.tornei) {
         if (t.risultatoSet) continue;
         const oppName = t.avversario.toUpperCase().trim();
-        const h2h = h2hMap.get(oppName);
+        const h2h = t.avversarioId && h2hMap.get(t.avversarioId) || h2hMap.get(oppName);
         if (!h2h) continue;
-        t.avversarioId = h2h.atleta2.id;
-        const enc = h2h.incontri.find((e) => e.data === t.data);
+        if (h2h.atleta2.id) t.avversarioId = h2h.atleta2.id;
+        const targetDate = normDate(t.data);
+        const enc = h2h.incontri.find((e) => normDate(e.data) === targetDate) || (h2h.incontri.length === 1 ? h2h.incontri[0] : void 0);
         if (enc) {
           t.risultatoSet = enc.punteggio;
         }
@@ -2046,10 +2078,11 @@ var HeadToHeadService = class {
       for (const c of partite.campionato) {
         if (c.risultatoSet) continue;
         const oppName = c.avversario.toUpperCase().trim();
-        const h2h = h2hMap.get(oppName);
+        const h2h = c.avversarioId && h2hMap.get(c.avversarioId) || h2hMap.get(oppName);
         if (!h2h) continue;
-        c.avversarioId = h2h.atleta2.id;
-        const enc = h2h.incontri.find((e) => e.data === c.data);
+        if (h2h.atleta2.id) c.avversarioId = h2h.atleta2.id;
+        const targetDate = normDate(c.data);
+        const enc = h2h.incontri.find((e) => normDate(e.data) === targetDate) || (h2h.incontri.length === 1 ? h2h.incontri[0] : void 0);
         if (enc) {
           c.risultatoSet = enc.punteggio;
         }
@@ -2603,12 +2636,11 @@ app.get("/api/atleta/:id", async (req, res) => {
         partiteRanking = parsePartiteRanking(iframeHtml, id);
         const idClassMatch = iframeUrl.match(/\/html\/(\d+)\//i);
         const currentIdClass = idClassMatch ? parseInt(idClassMatch[1], 10) : 247;
-        headToHeadService.enrichRankingMatches(id, partiteRanking, currentIdClass).then((enriched) => {
-          const updatedAtleta = parseDettaglioAtleta(html, id, enriched);
-          cacheService.set(cacheKey, updatedAtleta, TTL_ATLETA);
-        }).catch((enrichErr) => {
+        try {
+          partiteRanking = await headToHeadService.enrichRankingMatches(id, partiteRanking, currentIdClass);
+        } catch (enrichErr) {
           console.warn(`[HeadToHead] Background enrichment warning for athlete ${id}:`, enrichErr);
-        });
+        }
       } catch (iframeErr) {
         console.warn(`Could not fetch ranking matches iframe for athlete ${id}:`, iframeErr);
       }
@@ -2782,31 +2814,61 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
   if (!atletaId || !cam) {
     return res.status(400).json({ error: "Parametri atletaId e cam obbligatori" });
   }
-  const cacheKey = `atleta_camp_partite_${cam}_${atletaId}_${squadraId || "auto"}`;
+  const force = req.query.force === "true";
+  const cacheKey = `atleta_camp_partite_${cam}_${atletaId}_${squadraId || "auto"}_v2`;
   const cached = cacheService.get(cacheKey);
-  if (cached) {
+  if (cached && !force) {
     return res.json(cached);
   }
   try {
     let squadraNome;
     if (!squadraId) {
-      const statHtml = await FitetClient.fetchStatisticheAtleti(cam);
-      const stats = parseStatisticheAtleti(statHtml);
-      const found = stats.find(
-        (s) => s.atletaId && String(s.atletaId) === String(atletaId) || atletaNome && s.atleta.toUpperCase().trim() === atletaNome.toUpperCase().trim()
-      );
-      if (found) {
-        squadraNome = found.squadra;
-        const classHtml = await FitetClient.fetchClassifica(cam);
-        const $c = cheerio11.load(classHtml);
-        $c('a[href*="SQUADRA="]').each((_, el) => {
-          const text = $c(el).text().trim();
-          if (text.toUpperCase() === found.squadra.toUpperCase()) {
+      try {
+        const statHtml = await FitetClient.fetchStatisticheAtleti(cam);
+        const stats = parseStatisticheAtleti(statHtml);
+        const found = stats.find(
+          (s) => s.atletaId && String(s.atletaId) === String(atletaId) || atletaNome && s.atleta.toUpperCase().trim() === atletaNome.toUpperCase().trim()
+        );
+        if (found) {
+          squadraNome = found.squadra;
+          const classHtml = await FitetClient.fetchClassifica(cam);
+          const $c = cheerio11.load(classHtml);
+          $c('a[href*="SQUADRA="]').each((_, el) => {
+            const text = $c(el).text().trim();
+            if (text.toUpperCase() === found.squadra.toUpperCase()) {
+              const href = $c(el).attr("href") || "";
+              const m = href.match(/SQUADRA=(\d+)/i);
+              if (m) squadraId = m[1];
+            }
+          });
+        }
+      } catch {
+      }
+      if (!squadraId) {
+        try {
+          const classHtml = await FitetClient.fetchClassifica(cam);
+          const $c = cheerio11.load(classHtml);
+          const candidateTeams = [];
+          $c('a[href*="SQUADRA="]').each((_, el) => {
             const href = $c(el).attr("href") || "";
             const m = href.match(/SQUADRA=(\d+)/i);
-            if (m) squadraId = m[1];
+            if (m) candidateTeams.push({ id: m[1], name: $c(el).text().trim() });
+          });
+          for (const team of candidateTeams) {
+            try {
+              const testUrl = `https://portale.fitet.org/risultati/campionati/dettaglio_percentuali.php?IDA=${atletaId}&CAM=${cam}&SQUADRA=${team.id}`;
+              const testHtml = await FitetClient.fetchHtml(testUrl);
+              const rowCount = (testHtml.match(/<tr[\s\S]*?<\/tr>/gi) || []).length;
+              if (rowCount > 2) {
+                squadraId = team.id;
+                squadraNome = team.name;
+                break;
+              }
+            } catch {
+            }
           }
-        });
+        } catch {
+        }
       }
     }
     if (!squadraId) {
@@ -2822,11 +2884,18 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
     const html = await FitetClient.fetchHtml(url);
     const $p = cheerio11.load(html);
     const matches = [];
+    const headerText = $p("table tr").first().text();
     if (!squadraNome) {
-      const headerText = $p("table tr").first().text();
       const sqMatch = headerText.match(/Squadra:\s*([^\n\t\-]+)/i);
       if (sqMatch) {
         squadraNome = sqMatch[1].trim();
+      }
+    }
+    let targetAthleteName = atletaNome;
+    if (!targetAthleteName) {
+      const atMatch = headerText.match(/Atleta:\s*([^\n\t\-]+)/i);
+      if (atMatch) {
+        targetAthleteName = atMatch[1].trim();
       }
     }
     $p("table tr").each((i, tr) => {
@@ -2846,7 +2915,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
       }
       const set1 = parseInt(cells[13], 10) || 0;
       const set2 = parseInt(cells[14], 10) || 0;
-      const isPlayer1 = atletaNome ? atleta1.toUpperCase().includes(atletaNome.toUpperCase()) || atletaNome.toUpperCase().includes(atleta1.toUpperCase()) : !atleta2.toUpperCase().includes(atletaNome?.toUpperCase() || "");
+      const isPlayer1 = targetAthleteName ? atleta1.toUpperCase().includes(targetAthleteName.toUpperCase()) || targetAthleteName.toUpperCase().includes(atleta1.toUpperCase()) : true;
       const avversario = isPlayer1 ? atleta2 : atleta1;
       const setVinti = isPlayer1 ? set1 : set2;
       const setPersi = isPlayer1 ? set2 : set1;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
-import { fetchAtleta, fetchAtletaCampionatoPartite } from '../services/api';
+import { fetchAtleta, fetchAtletaCampionatoPartite, fetchHeadToHead } from '../services/api';
 import { RatingChart } from './RatingChart';
 import { HeadToHeadModal } from './HeadToHeadModal';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
@@ -19,6 +19,19 @@ interface AtletaModalProps {
   onSelectAthlete?: (id: string, name: string) => void;
   isTopModal?: boolean;
 }
+
+const normDate = (d?: string): string => {
+  if (!d) return '';
+  const parts = d.trim().split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    let [day, month, year] = parts;
+    day = String(parseInt(day, 10));
+    month = String(parseInt(month, 10));
+    if (year.length === 2) year = `20${year}`;
+    return `${day}/${month}/${year}`;
+  }
+  return d.trim();
+};
 
 export const AtletaModal: React.FC<AtletaModalProps> = ({
   atletaId,
@@ -84,6 +97,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [viewMode, setViewMode] = useState<'slider' | 'list'>('slider');
   const [analyticsTab, setAnalyticsTab] = useState<'chart' | 'table'>('chart');
   const [h2hOpponent, setH2hOpponent] = useState<{ id?: string; name: string } | null>(null);
+  const [h2hScores, setH2hScores] = useState<Record<string, { punteggio: string }>>({});
+  const [loadingH2h, setLoadingH2h] = useState<Record<string, boolean>>({});
 
   // Slider navigation
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -185,6 +200,82 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       isMounted = false;
     };
   }, [atletaId, camId, athleteName]);
+
+  // Recupera in automatico i risultati set tramite la chiamata head_to_head per tutti gli incontri privi di punteggio set
+  useEffect(() => {
+    if (!currentAtletaId) return;
+
+    const allMatches = [
+      ...(campionatoPartite || []),
+      ...(atleta?.partiteRanking?.campionato || []),
+      ...(atleta?.partiteRanking?.tornei || []),
+    ];
+
+    const missingOpponents = new Map<string, { id?: string; name: string }>();
+
+    for (const m of allMatches) {
+      if (!m.risultatoSet && m.avversario) {
+        const oppName = m.avversario.toUpperCase().trim();
+        const oppId = (m as any).avversarioId;
+        const key = oppId || oppName;
+        if (!h2hScores[key] && !loadingH2h[key] && !missingOpponents.has(key)) {
+          missingOpponents.set(key, { id: oppId, name: m.avversario });
+        }
+      }
+    }
+
+    if (missingOpponents.size === 0) return;
+
+    let isMounted = true;
+
+    setLoadingH2h((prev) => {
+      const next = { ...prev };
+      missingOpponents.forEach((_, key) => {
+        next[key] = true;
+      });
+      return next;
+    });
+
+    missingOpponents.forEach((opp, key) => {
+      const oppParam = opp.id || opp.name;
+      fetchHeadToHead(currentAtletaId, oppParam)
+        .then((data) => {
+          if (!isMounted) return;
+          setH2hScores((prev) => {
+            const next = { ...prev };
+            if (data && data.incontri && data.incontri.length > 0) {
+              const nameKey = (data.atleta2.nome || opp.name).toUpperCase().trim();
+              const idKey = data.atleta2.id || opp.id;
+
+              data.incontri.forEach((enc) => {
+                const dateKey = normDate(enc.data);
+                const scoreObj = { punteggio: enc.punteggio };
+                if (idKey && dateKey) next[`${idKey}_${dateKey}`] = scoreObj;
+                if (nameKey && dateKey) next[`${nameKey}_${dateKey}`] = scoreObj;
+              });
+
+              const firstEnc = { punteggio: data.incontri[0].punteggio };
+              if (idKey && !next[idKey]) next[idKey] = firstEnc;
+              if (nameKey && !next[nameKey]) next[nameKey] = firstEnc;
+              next[key] = firstEnc;
+            }
+            return next;
+          });
+        })
+        .catch(() => {
+          // Ignorato per non bloccare la UI
+        })
+        .finally(() => {
+          if (isMounted) {
+            setLoadingH2h((prev) => ({ ...prev, [key]: false }));
+          }
+        });
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentAtletaId, campionatoPartite, atleta?.partiteRanking]);
 
   useEffect(() => {
     if (!isTopModal) return;
@@ -934,10 +1025,23 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                     WebkitOverflowScrolling: 'touch',
                                   }}
                                 >
-                                  {matchesToDisplay.map((m, idx) => (
-                                    <div
-                                      key={m.id || idx}
-                                      className="atleta-match-card"
+                                  {matchesToDisplay.map((m, idx) => {
+                                    const matchDateNorm = normDate(m.data);
+                                    const oppNameKey = (m.avversario || '').toUpperCase().trim();
+                                    const oppIdKey = m.avversarioId || '';
+                                    const h2hMatch =
+                                      (oppIdKey && matchDateNorm ? h2hScores[`${oppIdKey}_${matchDateNorm}`] : null) ||
+                                      (oppNameKey && matchDateNorm ? h2hScores[`${oppNameKey}_${matchDateNorm}`] : null) ||
+                                      (oppIdKey ? h2hScores[oppIdKey] : null) ||
+                                      (oppNameKey ? h2hScores[oppNameKey] : null);
+
+                                    const exactScore = m.risultatoSet || h2hMatch?.punteggio;
+                                    const isFetchingScore = !exactScore && Boolean((oppIdKey && loadingH2h[oppIdKey]) || (oppNameKey && loadingH2h[oppNameKey]));
+
+                                    return (
+                                      <div
+                                        key={m.id || idx}
+                                        className="atleta-match-card"
                                       style={{
                                         flex: '0 0 min(280px, 82%)',
                                         scrollSnapAlign: 'start',
@@ -1097,7 +1201,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                                         {/* Right: The big numeric outcome */}
                                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexShrink: 0 }}>
-                                          {m.risultatoSet ? (
+                                          {exactScore ? (
                                             <div
                                               style={{
                                                 fontSize: '16px',
@@ -1106,7 +1210,17 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                                 fontVariantNumeric: 'tabular-nums',
                                               }}
                                             >
-                                              {m.risultatoSet}
+                                              {exactScore}
+                                            </div>
+                                          ) : isFetchingScore ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.8 }}>
+                                              <span
+                                                className="spinner-border spinner-border-sm"
+                                                role="status"
+                                                aria-hidden="true"
+                                                style={{ width: '12px', height: '12px', borderWidth: '2px', color: m.isVittoria ? '#16a34a' : '#dc2626' }}
+                                              />
+                                              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Set...</span>
                                             </div>
                                           ) : m.punti !== undefined ? (
                                             <div
@@ -1124,17 +1238,18 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                               style={{
                                                 fontSize: '14px',
                                                 fontWeight: '800',
-                                                color: m.isVittoria ? '#16a34a' : '#dc2626',
+                                                color: 'var(--text-muted)',
                                                 fontVariantNumeric: 'tabular-nums',
                                               }}
                                             >
-                                              {m.isVittoria ? 'V' : 'P'}
+                                              -
                                             </div>
                                           )}
                                         </div>
                                       </div>
                                     </div>
-                                  ))}
+                                  );
+                                })}
                                 </div>
                               ) : (
                                 <div
@@ -1149,10 +1264,23 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                     scrollbarWidth: 'thin',
                                   }}
                                 >
-                                  {matchesToDisplay.map((m, idx) => (
-                                    <div
-                                      key={m.id || idx}
-                                      className="atleta-match-list-item"
+                                  {matchesToDisplay.map((m, idx) => {
+                                    const matchDateNorm = normDate(m.data);
+                                    const oppNameKey = (m.avversario || '').toUpperCase().trim();
+                                    const oppIdKey = m.avversarioId || '';
+                                    const h2hMatch =
+                                      (oppIdKey && matchDateNorm ? h2hScores[`${oppIdKey}_${matchDateNorm}`] : null) ||
+                                      (oppNameKey && matchDateNorm ? h2hScores[`${oppNameKey}_${matchDateNorm}`] : null) ||
+                                      (oppIdKey ? h2hScores[oppIdKey] : null) ||
+                                      (oppNameKey ? h2hScores[oppNameKey] : null);
+
+                                    const exactScore = m.risultatoSet || h2hMatch?.punteggio;
+                                    const isFetchingScore = !exactScore && Boolean((oppIdKey && loadingH2h[oppIdKey]) || (oppNameKey && loadingH2h[oppNameKey]));
+
+                                    return (
+                                      <div
+                                        key={m.id || idx}
+                                        className="atleta-match-list-item"
                                       style={{
                                         display: 'flex',
                                         alignItems: 'center',
@@ -1270,23 +1398,31 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                                         {/* Numeric Result */}
                                         <div style={{ minWidth: '40px', textAlign: 'right' }}>
-                                          {m.risultatoSet ? (
-                                            <span style={{ fontSize: '14px', fontWeight: '800', color: m.isVittoria ? '#16a34a' : '#dc2626' }}>
-                                              {m.risultatoSet}
+                                          {exactScore ? (
+                                            <span style={{ fontSize: '14px', fontWeight: '800', color: m.isVittoria ? '#16a34a' : '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+                                              {exactScore}
                                             </span>
+                                          ) : isFetchingScore ? (
+                                            <span
+                                              className="spinner-border spinner-border-sm"
+                                              role="status"
+                                              aria-hidden="true"
+                                              style={{ width: '11px', height: '11px', borderWidth: '2px', color: m.isVittoria ? '#16a34a' : '#dc2626' }}
+                                            />
                                           ) : m.punti !== undefined ? (
-                                            <span style={{ fontSize: '12.5px', fontWeight: '800', color: m.punti > 0 ? '#16a34a' : m.punti < 0 ? '#dc2626' : 'var(--text-muted)' }}>
+                                            <span style={{ fontSize: '12.5px', fontWeight: '800', color: m.punti > 0 ? '#16a34a' : m.punti < 0 ? '#dc2626' : 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
                                               {m.punti > 0 ? `+${m.punti}` : m.punti} pt
                                             </span>
                                           ) : (
-                                            <span style={{ fontSize: '13px', fontWeight: '800', color: m.isVittoria ? '#16a34a' : '#dc2626' }}>
-                                              {m.isVittoria ? 'V' : 'P'}
+                                            <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-muted)' }}>
+                                              -
                                             </span>
                                           )}
                                         </div>
                                       </div>
                                     </div>
-                                  ))}
+                                  );
+                                })}
                                 </div>
                               )}
 

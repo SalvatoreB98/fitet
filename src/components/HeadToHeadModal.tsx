@@ -95,7 +95,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
   const p2Rate = 100 - p1Rate;
 
   return createPortal(
-    <div className="modal-backdrop-simple" onClick={onClose} style={{ zIndex: 1060 }}>
+    <div className="modal-backdrop-simple modal-h2h-backdrop" onClick={onClose} style={{ zIndex: 1600 }}>
       <div
         className="modal-card-simple"
         onClick={(e) => e.stopPropagation()}

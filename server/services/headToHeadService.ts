@@ -80,12 +80,17 @@ export class HeadToHeadService {
     if (!partite) return partite;
 
     // Raccoglie tutti gli avversari unici che necessitano del punteggio set
-    const neededOpponents = new Set<string>();
+    const neededOpponents = new Map<string, { id?: string; name: string }>();
 
     if (Array.isArray(partite.tornei)) {
       for (const t of partite.tornei) {
         if (!t.risultatoSet && t.avversario) {
-          neededOpponents.add(t.avversario.toUpperCase().trim());
+          const key = t.avversario.toUpperCase().trim();
+          if (!neededOpponents.has(key)) {
+            neededOpponents.set(key, { id: t.avversarioId, name: t.avversario });
+          } else if (t.avversarioId && !neededOpponents.get(key)!.id) {
+            neededOpponents.get(key)!.id = t.avversarioId;
+          }
         }
       }
     }
@@ -93,65 +98,92 @@ export class HeadToHeadService {
     if (Array.isArray(partite.campionato)) {
       for (const c of partite.campionato) {
         if (!c.risultatoSet && c.avversario) {
-          neededOpponents.add(c.avversario.toUpperCase().trim());
+          const key = c.avversario.toUpperCase().trim();
+          if (!neededOpponents.has(key)) {
+            neededOpponents.set(key, { id: c.avversarioId, name: c.avversario });
+          } else if (c.avversarioId && !neededOpponents.get(key)!.id) {
+            neededOpponents.get(key)!.id = c.avversarioId;
+          }
         }
       }
     }
 
     if (neededOpponents.size === 0) return partite;
 
-    // Limita per performance ai primi 10 avversari più recenti
-    const opponentsList = Array.from(neededOpponents).slice(0, 10);
-
-    // Eseguiamo le chiamate a blocchi di 5 per evitare sovraccarichi
+    // Processa gli avversari unici
+    const opponentsList = Array.from(neededOpponents.entries()).slice(0, 15);
     const batchSize = 5;
     const h2hMap = new Map<string, HeadToHeadData>();
+
+    const normDate = (d?: string) => {
+      if (!d) return '';
+      const parts = d.trim().split(/[\/\-\.]/);
+      if (parts.length === 3) {
+        let [day, month, year] = parts;
+        day = String(parseInt(day, 10));
+        month = String(parseInt(month, 10));
+        if (year.length === 2) year = `20${year}`;
+        return `${day}/${month}/${year}`;
+      }
+      return d.trim();
+    };
 
     for (let i = 0; i < opponentsList.length; i += batchSize) {
       const chunk = opponentsList.slice(i, i + batchSize);
       await Promise.all(
-        chunk.map(async (oppName) => {
+        chunk.map(async ([key, opp]) => {
           try {
-            const h2h = await this.getHeadToHead(atletaId, oppName, idClass);
+            const target = opp.id || opp.name;
+            const h2h = await this.getHeadToHead(atletaId, target, idClass);
             if (h2h && h2h.incontri.length > 0) {
-              h2hMap.set(oppName, h2h);
+              h2hMap.set(key, h2h);
+              if (opp.id) h2hMap.set(opp.id, h2h);
+              if (h2h.atleta2.id) h2hMap.set(h2h.atleta2.id, h2h);
+              if (h2h.atleta2.nome) h2hMap.set(h2h.atleta2.nome.toUpperCase().trim(), h2h);
             }
           } catch (err) {
-            // Ignorato silenziosamente per non bloccare il caricamento principale
+            // Ignorato silenziosamente per non bloccare
           }
         })
       );
     }
 
-    // Ora abbiniamo i punteggi per ogni partita di torneo
+    // Abbiniamo i punteggi per ogni partita di torneo
     if (Array.isArray(partite.tornei)) {
       for (const t of partite.tornei) {
         if (t.risultatoSet) continue;
         const oppName = t.avversario.toUpperCase().trim();
-        const h2h = h2hMap.get(oppName);
+        const h2h = (t.avversarioId && h2hMap.get(t.avversarioId)) || h2hMap.get(oppName);
         if (!h2h) continue;
 
-        t.avversarioId = h2h.atleta2.id;
+        if (h2h.atleta2.id) t.avversarioId = h2h.atleta2.id;
 
-        // Cerca incontro con la stessa data
-        const enc = h2h.incontri.find((e) => e.data === t.data);
+        const targetDate = normDate(t.data);
+        const enc =
+          h2h.incontri.find((e) => normDate(e.data) === targetDate) ||
+          (h2h.incontri.length === 1 ? h2h.incontri[0] : undefined);
+
         if (enc) {
           t.risultatoSet = enc.punteggio;
         }
       }
     }
 
-    // Abbiniamo anche per partite di campionato se mancante
+    // Abbiniamo per partite di campionato
     if (Array.isArray(partite.campionato)) {
       for (const c of partite.campionato) {
         if (c.risultatoSet) continue;
         const oppName = c.avversario.toUpperCase().trim();
-        const h2h = h2hMap.get(oppName);
+        const h2h = (c.avversarioId && h2hMap.get(c.avversarioId)) || h2hMap.get(oppName);
         if (!h2h) continue;
 
-        c.avversarioId = h2h.atleta2.id;
+        if (h2h.atleta2.id) c.avversarioId = h2h.atleta2.id;
 
-        const enc = h2h.incontri.find((e) => e.data === c.data);
+        const targetDate = normDate(c.data);
+        const enc =
+          h2h.incontri.find((e) => normDate(e.data) === targetDate) ||
+          (h2h.incontri.length === 1 ? h2h.incontri[0] : undefined);
+
         if (enc) {
           c.risultatoSet = enc.punteggio;
         }
