@@ -198,9 +198,6 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
               {/* Versus Showcase Banner */}
               <div
                 style={{
-                  background: 'var(--bg-card, #ffffff)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '12px',
                   padding: '16px 14px',
                   marginBottom: '16px',
                   position: 'relative',
