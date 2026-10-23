@@ -61,18 +61,7 @@ export const TeamLogo: React.FC<TeamLogoProps> = ({
       <div
         className={`team-logo-fallback ${className}`}
         style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRadius: '6px',
-          background: 'var(--bg-th, #f1f5f9)',
-          border: '1px solid var(--border-color, #cbd5e1)',
-          color: 'var(--color-primary-600, #0284c7)',
-          fontWeight: 700,
           fontSize: typeof size === 'number' ? Math.max(10, size * 0.35) : '11px',
-          letterSpacing: '-0.2px',
-          overflow: 'hidden',
-          flexShrink: 0,
           ...dimensionStyles,
           ...style,
         }}

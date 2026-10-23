@@ -296,21 +296,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', width: '100%' }}>
           <button
             type="button"
-            className="athlete-row-star-btn"
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: '2px',
-              cursor: 'pointer',
-              fontSize: '12.5px',
-              color: isFav ? '#f59e0b' : 'var(--text-muted, #94a3b8)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: isFav ? 1 : 0.45,
-              transition: 'all 0.15s ease',
-              flexShrink: 0,
-            }}
+            className={`athlete-row-star-btn favorite-star-btn ${isFav ? 'is-fav' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
               toggleFavorite({
@@ -325,33 +311,11 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
             <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
           </button>
           <AthleteAvatar atletaId={a.atletaId} nome={a.atleta} />
-          <span
-            style={{
-              fontWeight: '600',
-              fontSize: '12.5px',
-              color: 'var(--text-dark)',
-              whiteSpace: 'nowrap',
-              textOverflow: 'ellipsis',
-              overflow: 'hidden',
-            }}
-            title={a.atleta}
-          >
+          <span className="athlete-name-cell" title={a.atleta}>
             {a.atleta}
           </span>
           {a.nazionalita && a.nazionalita !== 'IT' && (
-            <span
-              style={{
-                fontSize: '9.5px',
-                fontWeight: '700',
-                padding: '1px 4px',
-                borderRadius: '3px',
-                background: '#fee2e2',
-                color: '#b91c1c',
-                border: '1px solid #fecaca',
-                flexShrink: 0,
-              }}
-              title={`Nazionalità: ${a.nazionalita}`}
-            >
+            <span className="badge-nationality-flag" title={`Nazionalità: ${a.nazionalita}`}>
               {a.nazionalita}
             </span>
           )}
@@ -365,15 +329,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
     <div className="grid-cell text-center" style={{ padding: '0 4px', justifyContent: 'center' }}>
       <button
         type="button"
-        className="btn-action"
-        style={{
-          padding: '3px 8px',
-          fontSize: '11px',
-          fontWeight: 600,
-          whiteSpace: 'nowrap',
-          justifyContent: 'center',
-          minWidth: '20px',
-        }}
+        className="btn-action btn-scheda-compact"
         onClick={(e) => {
           e.stopPropagation();
           onOpenAtletaModal(a.atletaId || a.atleta, a.atleta);
@@ -915,18 +871,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
       </div>
 
       {/* Table Footnote */}
-      <div
-        style={{
-          padding: '10px 20px',
-          fontSize: '11px',
-          color: '#64748b',
-          borderTop: '1px solid #e2e8f0',
-          display: 'flex',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '8px',
-        }}
-      >
+      <div className="table-portal-footer">
         <div>
           <span className="badge pct-100" style={{ marginRight: '4px' }}>
             100%

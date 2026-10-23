@@ -742,18 +742,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
       )}
 
       {/* Legend Footnote */}
-      <div
-        style={{
-          padding: '10px 20px',
-          fontSize: '11px',
-          color: '#64748b',
-          display: 'flex',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '8px',
-          borderTop: '1px solid #e2e8f0',
-        }}
-      >
+      <div className="table-portal-footer">
       </div>
     </div>
   );

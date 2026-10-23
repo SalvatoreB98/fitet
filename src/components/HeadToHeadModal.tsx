@@ -97,44 +97,13 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
   return createPortal(
     <div className="modal-backdrop-simple modal-h2h-backdrop" onClick={onClose} style={{ zIndex: 1600 }}>
       <div
-        className="modal-card-simple"
+        className="modal-card-simple h2h-modal-card"
         onClick={(e) => e.stopPropagation()}
-        style={{
-          maxWidth: '560px',
-          width: '94%',
-          maxHeight: '90vh',
-          display: 'flex',
-          flexDirection: 'column',
-          borderRadius: '16px',
-          overflow: 'hidden',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        }}
       >
         {/* Modal Header */}
-        <div
-          style={{
-            padding: '14px 18px',
-            borderBottom: '1px solid var(--border-color)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            background: 'var(--bg-th, #f8fafc)',
-          }}
-        >
+        <div className="h2h-modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
-              style={{
-                width: '30px',
-                height: '30px',
-                borderRadius: '8px',
-                background: 'rgba(59, 130, 246, 0.12)',
-                color: 'var(--color-primary-600, #2563eb)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '15px',
-              }}
-            >
+            <span className="h2h-header-icon">
               <i className="bi bi-arrow-left-right"></i>
             </span>
             <div>
@@ -151,18 +120,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Chiudi"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '18px',
-              color: 'var(--text-muted)',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '6px',
-            }}
+            className="h2h-close-button"
           >
             <i className="bi bi-x-lg"></i>
           </button>
@@ -178,16 +136,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
           )}
 
           {error && !loading && (
-            <div
-              style={{
-                padding: '14px',
-                borderRadius: '8px',
-                background: 'rgba(239, 68, 68, 0.08)',
-                color: '#dc2626',
-                fontSize: '12.5px',
-                textAlign: 'center',
-              }}
-            >
+            <div className="h2h-error-banner">
               <i className="bi bi-exclamation-triangle me-1"></i>
               {error}
             </div>
@@ -196,31 +145,11 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
           {!loading && !error && (
             <>
               {/* Versus Showcase Banner */}
-              <div
-                style={{
-                  padding: '16px 14px',
-                  marginBottom: '16px',
-                  position: 'relative',
-                  overflow: 'hidden',
-                }}
-              >
+              <div className="h2h-versus-banner">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                   {/* Player 1 Card */}
                   <div style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center' }}>
-                    <div
-                      style={{
-                        width: '54px',
-                        height: '54px',
-                        borderRadius: '50%',
-                        overflow: 'hidden',
-                        margin: '0 auto 6px',
-                        border: '2px solid var(--color-primary-600, #2563eb)',
-                        background: '#e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
+                    <div className="h2h-player-avatar-circle is-p1">
                       {player1.fotoUrl && !img1Error ? (
                         <img
                           src={player1.fotoUrl}
@@ -233,17 +162,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                         <i className="bi bi-person-fill" style={{ fontSize: '28px', color: '#94a3b8' }}></i>
                       )}
                     </div>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: '13px',
-                        color: 'var(--text-dark)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title={player1.nome}
-                    >
+                    <div className="h2h-player-name-text" title={player1.nome}>
                       {player1.nome}
                     </div>
                     <div style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600, marginTop: '2px' }}>
@@ -253,17 +172,8 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
 
                   {/* Central Score */}
                   <div style={{ flexShrink: 0, textAlign: 'center', padding: '0 8px' }}>
-                    <div
-                      style={{
-                        fontSize: '28px',
-                        fontWeight: 900,
-                        color: 'var(--text-dark)',
-                        letterSpacing: '1px',
-                        lineHeight: 1,
-                        fontVariantNumeric: 'tabular-nums',
-                      }}
-                    >
-                      <span style={{ color: player1.vittorie >= player2.vittorie ? '#16a34a' : 'var(--text-dark)' }}>
+                    <div className="h2h-central-score">
+                      <span style={{ color: player1.vittorie >= player2.vittorie ? '#ffffffff' : 'var(--text-dark)' }}>
                         {player1.vittorie}
                       </span>
                       <span style={{ color: 'var(--text-muted)', margin: '0 6px', fontSize: '20px' }}>-</span>
@@ -271,36 +181,14 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                         {player2.vittorie}
                       </span>
                     </div>
-                    <div
-                      style={{
-                        fontSize: '10.5px',
-                        color: 'var(--text-muted)',
-                        fontWeight: 600,
-                        textTransform: 'uppercase',
-                        marginTop: '4px',
-                        letterSpacing: '0.5px',
-                      }}
-                    >
+                    <div className="h2h-matches-label">
                       {totalMatches} {totalMatches === 1 ? 'partita' : 'partite'}
                     </div>
                   </div>
 
                   {/* Player 2 Card */}
                   <div style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center' }}>
-                    <div
-                      style={{
-                        width: '54px',
-                        height: '54px',
-                        borderRadius: '50%',
-                        overflow: 'hidden',
-                        margin: '0 auto 6px',
-                        border: '2px solid var(--border-color)',
-                        background: '#e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
+                    <div className="h2h-player-avatar-circle">
                       {player2.fotoUrl && !img2Error ? (
                         <img
                           src={player2.fotoUrl}
@@ -313,30 +201,12 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                         <i className="bi bi-person-fill" style={{ fontSize: '28px', color: '#94a3b8' }}></i>
                       )}
                     </div>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: '13px',
-                        color: 'var(--text-dark)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title={player2.nome}
-                    >
+                    <div className="h2h-player-name-text" title={player2.nome}>
                       {onSelectAthlete && player2.id ? (
                         <button
                           type="button"
                           onClick={() => onSelectAthlete(player2.id, player2.nome)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--color-primary-600, #2563eb)',
-                            fontWeight: 700,
-                            padding: 0,
-                            cursor: 'pointer',
-                            fontSize: 'inherit',
-                          }}
+                          className="h2h-player-link-inline"
                         >
                           {player2.nome}
                         </button>
@@ -353,15 +223,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                 {/* Win Distribution Progress Bar */}
                 {totalMatches > 0 && (
                   <div style={{ marginTop: '14px' }}>
-                    <div
-                      style={{
-                        height: '6px',
-                        borderRadius: '999px',
-                        background: '#e2e8f0',
-                        display: 'flex',
-                        overflow: 'hidden',
-                      }}
-                    >
+                    <div className="h2h-progress-track">
                       <div
                         style={{
                           width: `${p1Rate}%`,
@@ -391,16 +253,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                 </h4>
 
                 {(!data?.incontri || data.incontri.length === 0) ? (
-                  <div
-                    style={{
-                      padding: '24px 16px',
-                      textAlign: 'center',
-                      background: 'var(--bg-th, #f8fafc)',
-                      borderRadius: '8px',
-                      color: 'var(--text-muted)',
-                      fontSize: '12.5px',
-                    }}
-                  >
+                  <div className="h2h-empty-box">
                     <i className="bi bi-shield-slash me-1"></i>
                     Nessun precedente registrato tra questi due atleti nel database FITeT.
                   </div>
@@ -409,33 +262,10 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                     {data.incontri.map((enc, idx) => {
                       const isVittoria = enc.isVittoriaAtleta1;
                       return (
-                        <div
-                          key={idx}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '10px 12px',
-                            background: 'var(--bg-card, #ffffff)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '8px',
-                            gap: '10px',
-                            transition: 'all 0.15s ease',
-                          }}
-                        >
+                        <div key={idx} className="h2h-match-item">
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
-                              <span
-                                style={{
-                                  padding: '1px 6px',
-                                  borderRadius: '4px',
-                                  fontSize: '10px',
-                                  fontWeight: 700,
-                                  background: isVittoria ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                  color: isVittoria ? '#16a34a' : '#dc2626',
-                                  border: `1px solid ${isVittoria ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                                }}
-                              >
+                              <span className={`h2h-badge-result ${isVittoria ? 'is-vinta' : 'is-persa'}`}>
                                 {isVittoria ? 'VINTA' : 'PERSA'}
                               </span>
 
@@ -450,17 +280,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                               )}
                             </div>
 
-                            <div
-                              style={{
-                                fontSize: '12px',
-                                fontWeight: 600,
-                                color: 'var(--text-dark)',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                              title={enc.gara}
-                            >
+                            <div className="h2h-match-title" title={enc.gara}>
                               {enc.gara}
                             </div>
                           </div>
@@ -468,13 +288,8 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                           {/* Set Score */}
                           <div style={{ textAlign: 'right', flexShrink: 0 }}>
                             <span
-                              style={{
-                                fontSize: '16px',
-                                fontWeight: 900,
-                                color: isVittoria ? '#16a34a' : '#dc2626',
-                                fontVariantNumeric: 'tabular-nums',
-                                letterSpacing: '0.5px',
-                              }}
+                              className="h2h-match-score"
+                              style={{ color: isVittoria ? '#16a34a' : '#dc2626' }}
                             >
                               {enc.punteggio}
                             </span>

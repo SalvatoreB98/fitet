@@ -43,37 +43,14 @@ export const SearchAtletaModal: React.FC<SearchAtletaModalProps> = ({
       >
         <div className="modal-header-simple">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
-            <div
-              style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.12)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#ffffff',
-                fontSize: '18px',
-                flexShrink: 0,
-              }}
-            >
+            <div className="modal-header-icon-box is-white">
               <i className="bi bi-search"></i>
             </div>
             <div style={{ minWidth: 0 }}>
-              <h3
-                id="search-atleta-modal-title"
-                style={{
-                  margin: 0,
-                  fontSize: '1.25rem',
-                  fontFamily: 'var(--font-serif)',
-                  fontWeight: 700,
-                  color: '#ffffff',
-                  letterSpacing: '-0.01em',
-                }}
-              >
+              <h3 id="search-atleta-modal-title" className="modal-header-title-serif">
                 Cerca Atleta
               </h3>
-              <div style={{ fontSize: '11.5px', color: '#bfdbfe', marginTop: '2px' }}>
+              <div className="modal-header-subtext">
                 Trova un atleta e aprine la scheda
               </div>
             </div>

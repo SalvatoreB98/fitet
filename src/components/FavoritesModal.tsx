@@ -146,46 +146,14 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         {/* Header */}
         <div className="modal-header-simple">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
-            <div
-              style={{
-                width: '38px',
-                height: '38px',
-                borderRadius: '8px',
-                background: 'rgba(255, 255, 255, 0.12)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fbbf24',
-                fontSize: '20px',
-                flexShrink: 0,
-              }}
-            >
+            <div className="modal-header-icon-box is-amber">
               <i className="bi bi-star-fill"></i>
             </div>
             <div style={{ minWidth: 0, overflow: 'hidden' }}>
-              <h3
-                id="favorites-modal-title"
-                style={{
-                  margin: 0,
-                  fontSize: '1.25rem',
-                  fontFamily: 'var(--font-serif)',
-                  fontWeight: 700,
-                  color: '#ffffff',
-                  letterSpacing: '-0.01em',
-                }}
-              >
+              <h3 id="favorites-modal-title" className="modal-header-title-serif">
                 Atleti Preferiti
               </h3>
-              <div
-                style={{
-                  fontSize: '11.5px',
-                  color: '#bfdbfe',
-                  marginTop: '2px',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
+              <div className="modal-header-subtext">
                 {favorites.length === 0
                   ? 'Nessun atleta salvato nei preferiti'
                   : `${favorites.length} ${favorites.length === 1 ? 'atleta salvato' : 'atleti salvati'} per un accesso rapido`}
@@ -208,30 +176,13 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         <div className="modal-body-simple" style={{ padding: '18px 20px', maxHeight: '78vh', overflowY: 'auto' }}>
           {/* Quick Filter when multiple favorites */}
           {favorites.length > 3 && (
-            <div style={{ marginBottom: '16px', position: 'relative' }}>
-              <i
-                className="bi bi-search"
-                style={{
-                  position: 'absolute',
-                  left: '12px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted, #94a3b8)',
-                  fontSize: '13px',
-                }}
-              />
+            <div className="modal-search-wrapper">
+              <i className="bi bi-search modal-search-icon" />
               <input
                 ref={searchInputRef}
                 type="text"
-                className="cerca-atleta-input"
-                style={{
-                  paddingLeft: '34px',
-                  paddingRight: filterText ? '32px' : '12px',
-                  fontSize: '13px',
-                  height: '38px',
-                  borderRadius: '6px',
-                  width: '100%',
-                }}
+                className="cerca-atleta-input modal-search-input-field"
+                style={{ paddingRight: filterText ? '32px' : '12px' }}
                 placeholder="Filtra tra i tuoi atleti preferiti..."
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
@@ -240,17 +191,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilterText('')}
-                  style={{
-                    position: 'absolute',
-                    right: '10px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-muted, #94a3b8)',
-                    cursor: 'pointer',
-                    padding: '2px 4px',
-                  }}
+                  className="modal-search-clear-btn"
                   title="Cancella filtro"
                 >
                   <i className="bi bi-x-circle-fill"></i>
@@ -261,67 +202,21 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
           {/* Empty State */}
           {favorites.length === 0 && (
-            <div
-              style={{
-                textAlign: 'center',
-                padding: '48px 20px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <div
-                style={{
-                  width: '64px',
-                  height: '64px',
-                  borderRadius: '50%',
-                  background: 'rgba(251, 191, 36, 0.12)',
-                  color: '#d97706',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '28px',
-                  marginBottom: '16px',
-                }}
-              >
+            <div className="modal-empty-state-box">
+              <div className="modal-empty-state-icon-amber">
                 <i className="bi bi-star"></i>
               </div>
-              <h4
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: '1.2rem',
-                  fontWeight: 700,
-                  color: 'var(--text-main, #0f172a)',
-                  margin: '0 0 8px 0',
-                }}
-              >
+              <h4 className="modal-empty-state-title">
                 Nessun Atleta nei Preferiti
               </h4>
-              <p
-                style={{
-                  color: 'var(--text-muted, #64748b)',
-                  fontSize: '13.5px',
-                  maxWidth: '400px',
-                  lineHeight: 1.5,
-                  margin: '0 0 24px 0',
-                }}
-              >
+              <p className="modal-empty-state-desc">
                 Aggiungi atleti ai preferiti cliccando sull&apos;icona della stella{' '}
                 <span style={{ color: '#d97706', fontWeight: 600 }}>⭐</span> nella scheda di un atleta o durante la ricerca
                 per averli sempre a portata di mano.
               </p>
               <button
                 type="button"
-                className="btn-action"
-                style={{
-                  padding: '9px 20px',
-                  fontSize: '13.5px',
-                  borderRadius: '20px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
+                className="btn-action modal-empty-action-btn"
                 onClick={() => setIsSearchOpen(true)}
               >
                 <i className="bi bi-search"></i>
@@ -342,13 +237,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
           {/* Favorites Grid */}
           {filtered.length > 0 && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: '12px',
-              }}
-            >
+            <div className="modal-cards-grid">
               {filtered.map((fav: FavoriteAthlete) => {
                 const hasImgError = failedImgs[fav.id];
                 const fotoUrl = fav.fotoUrl || `https://portale.fitet.org/images/atleti/${fav.id}.jpg`;
@@ -461,34 +350,11 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
         {/* Footer */}
         {favorites.length > 0 && (
-          <div
-            style={{
-              padding: '12px 20px',
-              borderTop: '1px solid var(--border-light, #f1f5f9)',
-              background: 'var(--bg-th, #f8fafc)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '12px',
-              color: 'var(--text-muted, #64748b)',
-              flexWrap: 'wrap',
-              gap: '8px',
-            }}
-          >
+          <div className="modal-footer-bar">
             <div>
               <button
                 type="button"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--color-primary-600, #2563eb)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  padding: 0,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
+                className="modal-footer-add-btn"
                 onClick={() => setIsSearchOpen(true)}
               >
                 <i className="bi bi-plus-circle"></i>
@@ -500,14 +366,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
               {!confirmClear ? (
                 <button
                   type="button"
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-muted, #94a3b8)',
-                    cursor: 'pointer',
-                    fontSize: '11.5px',
-                    padding: '2px 6px',
-                  }}
+                  className="modal-footer-clear-btn"
                   onClick={() => setConfirmClear(true)}
                   title="Elimina tutti gli atleti salvati"
                 >
@@ -518,16 +377,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   <span style={{ color: '#dc2626' }}>Confermi?</span>
                   <button
                     type="button"
-                    style={{
-                      background: '#fee2e2',
-                      border: '1px solid #fca5a5',
-                      color: '#b91c1c',
-                      borderRadius: '4px',
-                      padding: '2px 8px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
+                    className="modal-footer-confirm-btn"
                     onClick={() => {
                       clearAllFavorites();
                       setConfirmClear(false);
@@ -537,13 +387,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   </button>
                   <button
                     type="button"
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--text-muted, #64748b)',
-                      cursor: 'pointer',
-                      fontSize: '11px',
-                    }}
+                    className="modal-footer-cancel-btn"
                     onClick={() => setConfirmClear(false)}
                   >
                     Annulla

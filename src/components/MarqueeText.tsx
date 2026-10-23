@@ -69,23 +69,12 @@ export const MarqueeText: React.FC<MarqueeTextProps> = ({
     <div
       ref={containerRef}
       className={`marquee-text-wrapper ${isOverflowing ? 'has-overflow' : ''} ${className}`}
-      style={{
-        overflow: 'hidden',
-        whiteSpace: 'nowrap',
-        width: '100%',
-        minWidth: 0,
-        position: 'relative',
-        display: 'block',
-        textAlign: isOverflowing ? 'left' : undefined,
-      }}
       title={title || (stringVal ? stringVal : undefined)}
     >
       <span
         ref={textRef}
         className={`marquee-text-content ${isOverflowing ? 'is-scrolling' : ''}`}
         style={{
-          display: 'inline-block',
-          whiteSpace: 'nowrap',
           ...style,
           ...(isOverflowing
             ? ({

@@ -251,15 +251,10 @@ const SingleChart: React.FC<SingleChartProps> = ({ data, metric, height = 220 })
       {/* Floating Tooltip */}
       {hoveredPoint && (
         <div
-          className="position-absolute bg-white text-dark p-2 rounded shadow-sm border border-primary-subtle small"
+          className="position-absolute bg-white text-dark p-2 rounded border border-primary-subtle small chart-tooltip-floating"
           style={{
             left: `${(hoveredPoint.x / width) * 90}%`,
             top: `${(hoveredPoint.y / height) * 100}%`,
-            transform: 'translate(-50%, -125%)',
-            pointerEvents: 'none',
-            zIndex: 100,
-            minWidth: '150px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
           }}
         >
           <div className="fw-bold text-primary mb-1">
@@ -315,7 +310,7 @@ export const RatingChart: React.FC<RatingChartProps> = ({ data, athleteName, hid
 
         {/* Metric Selector Buttons */}
         {hasPositions && (
-          <div style={{ display: 'inline-flex', gap: '3px', background: 'var(--bg-th)', padding: '3px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+          <div className="pill-switcher-container">
             <button
               type="button"
               className={`btn-chart-toggle ${metric === 'posizione' ? 'is-active' : ''}`}

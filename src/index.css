@@ -5658,3 +5658,1081 @@ body.modal-open {
   border: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: none;
 }
+
+/* ==========================================================================
+   EXTRACTED COMPONENT & STRUCTURAL CLASSES (Refactored from Inline Styles)
+   ========================================================================== */
+
+/* --- App Initial State & Feedback States --- */
+.no-championship-screen {
+  text-align: center;
+  padding: 50px 20px;
+  min-height: calc(100vh - 245px);
+}
+
+.no-championship-icon-badge {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(37, 99, 235, 0.1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  color: var(--color-primary-600, #2563eb);
+  font-size: 28px;
+}
+
+.no-championship-title {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--text-main, #0f172a);
+  margin-bottom: 8px;
+}
+
+.no-championship-desc {
+  color: var(--text-muted, #64748b);
+  max-width: 440px;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 auto 20px auto;
+}
+
+.no-championship-btn {
+  padding: 10px 24px;
+  font-size: 14.5px;
+  border-radius: 24px;
+  margin-bottom: 32px;
+}
+
+.no-championship-search-section {
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: left;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  padding-top: 28px;
+}
+
+.portal-loading-state {
+  text-align: center;
+  padding: 60px 20px;
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.portal-error-alert {
+  padding: 14px 20px;
+  background: #fee2e2;
+  border-bottom: 1px solid #fca5a5;
+  color: #991b1b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+[data-theme="dark"] .portal-error-alert {
+  background: rgba(239, 68, 68, 0.15);
+  border-bottom-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+/* --- Common Modal Headers, Search & Footers --- */
+.modal-header-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.modal-header-icon-box.is-amber {
+  color: #fbbf24;
+  font-size: 20px;
+}
+
+.modal-header-icon-box.is-white {
+  color: #ffffff;
+  font-size: 18px;
+}
+
+.modal-header-title-serif {
+  margin: 0;
+  font-size: 1.25rem;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.modal-header-subtext {
+  font-size: 11.5px;
+  color: #bfdbfe;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.modal-search-wrapper {
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.modal-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted, #94a3b8);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.modal-search-input-field {
+  padding-left: 34px;
+  font-size: 13px;
+  height: 38px;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.modal-search-clear-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.modal-empty-state-box {
+  text-align: center;
+  padding: 48px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-empty-state-icon-amber {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(251, 191, 36, 0.12);
+  color: #d97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: 16px;
+}
+
+.modal-empty-state-title {
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-main, #0f172a);
+  margin: 0 0 8px 0;
+}
+
+.modal-empty-state-desc {
+  color: var(--text-muted, #64748b);
+  font-size: 13.5px;
+  max-width: 400px;
+  line-height: 1.5;
+  margin: 0 0 24px 0;
+}
+
+.modal-footer-bar {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-light, #f1f5f9);
+  background: var(--bg-th, #f8fafc);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modal-footer-add-btn {
+  background: none;
+  border: none;
+  color: var(--color-primary-600, #2563eb);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.modal-footer-clear-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  font-size: 11.5px;
+  padding: 2px 6px;
+}
+
+.modal-footer-confirm-btn {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-footer-cancel-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.modal-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+/* --- Head to Head Modal --- */
+.h2h-modal-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-th, #f8fafc);
+}
+
+.h2h-header-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--color-primary-600, #2563eb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+}
+
+.h2h-close-button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--text-muted);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.h2h-error-banner {
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.h2h-versus-banner {
+  padding: 16px 14px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.h2h-player-avatar-circle {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  overflow: hidden;
+  margin: 0 auto 6px;
+  border: 2px solid var(--border-color);
+  background: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.h2h-player-avatar-circle.is-p1 {
+  border-color: var(--color-primary-600, #2563eb);
+}
+
+.h2h-player-name-text {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h2h-central-score {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--text-dark);
+  letter-spacing: 1px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.h2h-matches-label {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+
+.h2h-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  display: flex;
+  overflow: hidden;
+}
+
+[data-theme="dark"] .h2h-progress-track {
+  background: #1e293b;
+}
+
+.h2h-match-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  gap: 10px;
+  transition: all 0.15s ease;
+}
+
+.h2h-badge-result {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.h2h-badge-result.is-vinta {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.h2h-badge-result.is-persa {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.h2h-match-score {
+  font-size: 16px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
+}
+
+.h2h-empty-box {
+  padding: 24px 16px;
+  text-align: center;
+  background: var(--bg-th, #f8fafc);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+/* --- Squadra Modal Components --- */
+.squadra-header-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.squadra-header-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.squadra-error-banner {
+  padding: 16px;
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  border: 1px solid #fca5a5;
+}
+
+.squadra-roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.squadra-roster-thead-tr {
+  background: var(--bg-th, #f1f5f9);
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.squadra-doppio-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 5px;
+  background: var(--bg-th, #e2e8f0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+/* --- Atleta Modal Components & Match List --- */
+.atleta-profile-bar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-light, #f1f5f9);
+  flex-wrap: wrap;
+}
+
+.atleta-profile-photo-wrap {
+  width: 74px;
+  height: 74px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-th);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.atleta-profile-meta-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill-switcher-container {
+  display: inline-flex;
+  background: var(--bg-th);
+  padding: 2px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.pill-switcher-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pill-switcher-btn.active {
+  background: var(--color-primary-600);
+  color: #ffffff;
+}
+
+.btn-h2h-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--color-primary-600, #2563eb);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.btn-h2h-inline:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.atleta-match-slider-container {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.atleta-match-slider-card {
+  flex: 0 0 min(280px, 82%);
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 11px 13px;
+  min-height: 130px;
+  box-sizing: border-box;
+}
+
+.atleta-match-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 340px;
+  min-height: 146px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+
+.atleta-match-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  gap: 10px;
+  flex-wrap: wrap;
+  transition: all 0.15s ease;
+}
+
+.atleta-rating-table-wrap {
+  max-height: 250px;
+  min-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  scrollbar-width: thin;
+}
+
+.slider-nav-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card, #ffffff);
+  transition: all 0.15s ease;
+}
+
+.slider-nav-btn:disabled {
+  color: var(--text-muted);
+  cursor: default;
+  opacity: 0.35;
+}
+
+.slider-nav-btn:not(:disabled) {
+  color: var(--text-dark);
+  cursor: pointer;
+  opacity: 1;
+}
+
+.slider-nav-btn:not(:disabled):hover {
+  background: var(--bg-th, #f1f5f9);
+}
+
+.match-badge-outcome {
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.match-badge-outcome.is-win {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.match-badge-outcome.is-loss {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.match-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light, #f1f5f9);
+  gap: 8px;
+  margin-top: auto;
+}
+
+/* --- Shared Table & Grid Portal Footer --- */
+.table-portal-footer {
+  padding: 10px 20px;
+  font-size: 11px;
+  color: var(--text-muted, #64748b);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+/* --- Favorite Star Toggle Button --- */
+.favorite-star-btn {
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.favorite-star-btn.is-fav {
+  color: #f59e0b;
+  opacity: 1;
+}
+
+.favorite-star-btn:not(.is-fav) {
+  color: var(--text-muted, #94a3b8);
+  opacity: 0.45;
+}
+
+/* --- Marquee Text Component --- */
+.marquee-text-wrapper {
+  overflow: hidden;
+  white-space: nowrap;
+  width: 100%;
+  min-width: 0;
+  position: relative;
+  display: block;
+}
+
+.marquee-text-wrapper.has-overflow {
+  text-align: left;
+}
+
+.marquee-text-content {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* --- Athlete Avatar & Team Logo Badges --- */
+.athlete-avatar-wrapper {
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--bg-th, #f1f5f9);
+  border: 1px solid var(--border-color, #cbd5e1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.athlete-avatar-initials {
+  font-weight: 700;
+  color: var(--text-muted, #64748b);
+  letter-spacing: -0.3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.team-logo-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--bg-th, #f1f5f9);
+  border: 1px solid var(--border-color, #cbd5e1);
+  color: var(--color-primary-600, #0284c7);
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+/* --- Modal Badges & Feedback Helpers --- */
+.modal-badge-pill {
+  background: rgba(255, 255, 255, 0.15);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.btn-modal-refresh {
+  padding: 4px 10px;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.modal-error-box {
+  padding: 16px;
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 8px;
+  border: 1px solid #fca5a5;
+  font-size: 13.5px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+[data-theme="dark"] .modal-error-box {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.ranking-points-breakdown {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: var(--bg-th);
+  border: 1px solid var(--border-color);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.badge-pill-filter {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-th);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.badge-pill-filter.active {
+  background: var(--color-primary-600);
+  color: #ffffff;
+}
+
+.chart-tooltip-floating {
+  transform: translate(-50%, -125%);
+  pointer-events: none;
+  z-index: 100;
+  min-width: 150px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* --- Additional Squadra & Atleta Modal Classes --- */
+.squadra-modal-card {
+  max-width: 880px;
+  width: 95%;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.squadra-header-logo-box {
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 2px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.squadra-header-title {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #ffffff;
+  letter-spacing: -0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.squadra-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.squadra-roster-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-th, #f1f5f9);
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.squadra-table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-container, #ffffff);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.mini-progress-track {
+  width: 36px;
+  height: 5px;
+  background: var(--border-color, #e2e8f0);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.modal-empty-notice {
+  padding: 14px;
+  text-align: center;
+  background: var(--bg-th);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.atleta-opponent-wrap {
+  font-weight: 700;
+  font-size: 13.5px;
+  color: var(--text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.atleta-list-opponent-wrap {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.match-sets-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.match-score-big {
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.ranking-federale-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.h2h-modal-card {
+  max-width: 560px;
+  width: 94%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.h2h-player-link-inline {
+  background: none;
+  border: none;
+  color: var(--color-primary-600, #2563eb);
+  font-weight: 700;
+  padding: 0;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.modal-empty-action-btn {
+  padding: 9px 20px;
+  font-size: 13.5px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.atleta-tab-notice-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  line-height: 1.35;
+}
+
+.athlete-name-cell {
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--text-dark);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.badge-nationality-flag {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .badge-nationality-flag {
+  background: rgba(220, 38, 38, 0.2);
+  color: #fca5a5;
+  border-color: rgba(220, 38, 38, 0.35);
+}
+
+.btn-scheda-compact {
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  justify-content: center;
+  min-width: 20px;
+}
+
+.h2h-match-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.squadra-section-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.squadra-roster-name {
+  font-weight: 600;
+  color: var(--text-dark);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.squadra-roster-name.is-clickable {
+  color: var(--color-primary-600, #0284c7);
+}
+
+.squadra-doppio-badge {
+  font-size: 9.5px;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.squadra-rank-pos {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.squadra-rank-pts {
+  font-size: 10.5px;
+  color: var(--color-primary-600, #0284c7);
+  font-weight: 600;
+}
+
+.squadra-roster-tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.15s ease;
+}
+
+.squadra-roster-tr.is-clickable {
+  cursor: pointer;
+}
+
+
+

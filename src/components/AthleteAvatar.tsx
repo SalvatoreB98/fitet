@@ -41,15 +41,6 @@ export const AthleteAvatar: React.FC<AthleteAvatarProps> = ({
         height: dimension,
         minWidth: dimension,
         minHeight: dimension,
-        borderRadius: '5px',
-        overflow: 'hidden',
-        background: 'var(--bg-th, #f1f5f9)',
-        border: '1px solid var(--border-color, #cbd5e1)',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
         ...style,
       }}
       title={`Foto ${nome}`}
@@ -65,14 +56,9 @@ export const AthleteAvatar: React.FC<AthleteAvatarProps> = ({
         />
       ) : (
         <span
+          className="athlete-avatar-initials"
           style={{
             fontSize: typeof size === 'number' ? `${Math.max(9, size * 0.38)}px` : '10.5px',
-            fontWeight: 700,
-            color: 'var(--text-muted, #64748b)',
-            letterSpacing: '-0.3px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
           }}
         >
           {initials || <i className="bi bi-person-fill" style={{ fontSize: typeof size === 'number' ? `${Math.max(12, size * 0.52)}px` : '13px' }} />}

@@ -301,20 +301,19 @@ export const App: React.FC = () => {
               />
             </main>
           ) : (
-            <div style={{ textAlign: 'center', padding: '50px 20px', minHeight: 'calc(100vh - 245px' }}>
-              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(37, 99, 235, 0.1)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '18px', color: 'var(--color-primary-600, #2563eb);', fontSize: '28px' }}>
+            <div className="no-championship-screen">
+              <div className="no-championship-icon-badge">
                 <i className="bi bi-trophy-fill"></i>
               </div>
-              <h2 style={{ fontSize: '1.45rem', fontWeight: 700, color: 'var(--text-main, #0f172a)', marginBottom: '8px' }}>
+              <h2 className="no-championship-title">
                 Nessun Campionato Selezionato
               </h2>
-              <p style={{ color: 'var(--text-muted, #64748b)', maxWidth: '440px', fontSize: '14px', lineHeight: 1.5, margin: '0 auto 20px auto' }}>
+              <p className="no-championship-desc">
                 Scegli il campionato FITeT da consultare tra tutti i campionati nazionali o della tua regione, oppure cerca direttamente un atleta qui sotto.
               </p>
               <button
                 type="button"
-                className="btn-action"
-                style={{ padding: '10px 24px', fontSize: '14.5px', borderRadius: '24px', marginBottom: '32px' }}
+                className="btn-action no-championship-btn"
                 onClick={() => setIsChampionshipModalOpen(true)}
               >
                 <i className="bi bi-trophy me-2"></i>
@@ -322,7 +321,7 @@ export const App: React.FC = () => {
               </button>
 
               {/* Quick Athlete Search on Initial Screen */}
-              <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'left', borderTop: '1px solid var(--border-color, #e2e8f0)', paddingTop: '28px' }}>
+              <div className="no-championship-search-section">
                 <CercaAtletaTab
                   onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
                   compactMode={true}
@@ -335,7 +334,7 @@ export const App: React.FC = () => {
 
       {/* Loading Indicator */}
       {loading && !data && (
-        <div style={{ textAlign: 'center', padding: '60px 20px', minHeight: '400px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="portal-loading-state">
           <div className="spinner-border text-primary mb-3" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
             <span className="visually-hidden">Caricamento...</span>
           </div>
@@ -350,7 +349,7 @@ export const App: React.FC = () => {
 
       {/* Error Alert */}
       {error && (
-        <div style={{ padding: '14px 20px', background: '#fee2e2', borderBottom: '1px solid #fca5a5', color: '#991b1b', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="portal-error-alert">
           <div>
             <strong>Errore di connessione a portale.fitet.org:</strong> {error}
           </div>

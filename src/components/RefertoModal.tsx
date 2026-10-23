@@ -143,16 +143,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Referto Ufficiale di Gara</h3>
-              <span
-                style={{
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  fontSize: '11px',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  fontWeight: 600,
-                  letterSpacing: '0.5px',
-                }}
-              >
+              <span className="modal-badge-pill">
                 FITeT
               </span>
             </div>
@@ -164,11 +155,10 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               type="button"
-              className="btn-action"
+              className="btn-action btn-modal-refresh"
               onClick={() => loadRefertoData(true)}
               disabled={refreshing || loading}
               title="Aggiorna referto da portale FITeT"
-              style={{ padding: '4px 10px', fontSize: '11px', background: 'rgba(255,255,255,0.12)', color: '#fff', borderColor: 'rgba(255,255,255,0.2)' }}
             >
               {refreshing ? (
                 <>
@@ -205,18 +195,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
           )}
 
           {error && !referto && (
-            <div
-              style={{
-                padding: '16px',
-                background: '#fee2e2',
-                color: '#b91c1c',
-                borderRadius: '8px',
-                border: '1px solid #fca5a5',
-                fontSize: '13.5px',
-                marginBottom: '16px',
-                textAlign: 'center',
-              }}
-            >
+            <div className="modal-error-box">
               <div style={{ fontWeight: 700, marginBottom: '6px' }}>Impossibile caricare il referto</div>
               <div style={{ fontSize: '12.5px', marginBottom: '12px' }}>{error}</div>
               <button className="btn-action" onClick={() => loadRefertoData(true)}>

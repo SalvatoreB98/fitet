@@ -301,7 +301,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
               <h3 style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 Scheda Ranking FITeT
               </h3>
-              <div style={{ fontSize: '11px', color: '#bfdbfe', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div className="modal-header-subtext">
                 Tessera / ID: {atleta?.id || (/^\d+$/.test(atletaId) ? atletaId : 'In risoluzione...')} • Classifica Unica Nazionale
               </div>
             </div>
@@ -343,16 +343,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           )}
 
           {error && (
-            <div
-              style={{
-                padding: '12px 16px',
-                background: '#fee2e2',
-                color: '#b91c1c',
-                borderRadius: '6px',
-                fontSize: '13px',
-                marginBottom: '16px',
-              }}
-            >
+            <div className="modal-error-box">
               <strong>Errore:</strong> {error}
             </div>
           )}
@@ -360,31 +351,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           {atleta && !loading && (
             <div>
               {/* Profile Bar */}
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '16px',
-                  alignItems: 'center',
-                  paddingBottom: '16px',
-                  marginBottom: '16px',
-                  borderBottom: '1px solid var(--border-light, #f1f5f9)',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <div
-                  style={{
-                    width: '74px',
-                    height: '74px',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    background: 'var(--bg-th)',
-                    border: '1px solid var(--border-color)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
+              <div className="atleta-profile-bar">
+                <div className="atleta-profile-photo-wrap">
                   {(() => {
                     const athletePhoto = atleta.anagrafica.fotoUrl || (atleta.id && /^\d+$/.test(atleta.id) ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg` : null);
                     return !imgError && athletePhoto ? (
@@ -413,7 +381,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                   {/* Secondary subtle metadata text: Birth date and Profile Views */}
                   {(atleta.anagrafica.dataNascita || viewsCount > 0) && (
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <div className="atleta-profile-meta-sub">
                       {atleta.anagrafica.dataNascita && (
                         <span>
                           <i className="bi bi-calendar3 me-1" style={{ fontSize: '11px' }}></i>
@@ -644,38 +612,18 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                         {/* Switcher visibile solo se esistono sia partite del girone sia partite ranking */}
                         {camId && hasGironeMatches && totalRankingMatches > 0 && (
-                          <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                          <div className="pill-switcher-container">
                             <button
                               type="button"
                               onClick={() => setMatchTab('girone')}
-                              style={{
-                                padding: '4px 10px',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                border: 'none',
-                                borderRadius: '6px',
-                                background: activeTabResolved === 'girone' ? 'var(--color-primary-600)' : 'transparent',
-                                color: activeTabResolved === 'girone' ? '#ffffff' : 'var(--text-muted)',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                              }}
+                              className={`pill-switcher-btn ${activeTabResolved === 'girone' ? 'active' : ''}`}
                             >
                               Girone Corrente {campionatoPartite && campionatoPartite.length > 0 ? `(${campionatoPartite.length})` : ''}
                             </button>
                             <button
                               type="button"
                               onClick={() => setMatchTab('ranking')}
-                              style={{
-                                padding: '4px 10px',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                border: 'none',
-                                borderRadius: '6px',
-                                background: activeTabResolved === 'ranking' ? 'var(--color-primary-600)' : 'transparent',
-                                color: activeTabResolved === 'ranking' ? '#ffffff' : 'var(--text-muted)',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                              }}
+                              className={`pill-switcher-btn ${activeTabResolved === 'ranking' ? 'active' : ''}`}
                             >
                               Tutte le Partite FITeT {totalRankingMatches > 0 ? `(${totalRankingMatches})` : ''}
                             </button>
@@ -685,21 +633,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                       {/* Breakdown Pill for Ranking Points if viewing ranking matches */}
                       {activeTabResolved === 'ranking' && atleta.partiteRanking?.dettaglioPunti && atleta.partiteRanking.dettaglioPunti?.puntiIniziali && (
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            flexWrap: 'wrap',
-                            padding: '7px 12px',
-                            borderRadius: '8px',
-                            background: 'var(--bg-th)',
-                            border: '1px solid var(--border-color)',
-                            fontSize: '11.5px',
-                            color: 'var(--text-muted)',
-                            marginBottom: '10px',
-                          }}
-                        >
+                        <div className="ranking-points-breakdown">
                           <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
                             <i className="bi bi-pie-chart-fill me-1 text-primary"></i>
                             Punti Ranking:
@@ -728,48 +662,21 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                           <button
                             type="button"
                             onClick={() => setRankingFilter('tutti')}
-                            style={{
-                              padding: '3px 10px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              borderRadius: '999px',
-                              border: '1px solid var(--border-color)',
-                              background: rankingFilter === 'tutti' ? 'var(--color-primary-600)' : 'var(--bg-th)',
-                              color: rankingFilter === 'tutti' ? '#ffffff' : 'var(--text-muted)',
-                              cursor: 'pointer',
-                            }}
+                            className={`badge-pill-filter ${rankingFilter === 'tutti' ? 'active' : ''}`}
                           >
                             Tutti ({totalRankingMatches})
                           </button>
                           <button
                             type="button"
                             onClick={() => setRankingFilter('campionato')}
-                            style={{
-                              padding: '3px 10px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              borderRadius: '999px',
-                              border: '1px solid var(--border-color)',
-                              background: rankingFilter === 'campionato' ? 'var(--color-primary-600)' : 'var(--bg-th)',
-                              color: rankingFilter === 'campionato' ? '#ffffff' : 'var(--text-muted)',
-                              cursor: 'pointer',
-                            }}
+                            className={`badge-pill-filter ${rankingFilter === 'campionato' ? 'active' : ''}`}
                           >
                             Campionato ({totalRankingCampionato})
                           </button>
                           <button
                             type="button"
                             onClick={() => setRankingFilter('tornei')}
-                            style={{
-                              padding: '3px 10px',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              borderRadius: '999px',
-                              border: '1px solid var(--border-color)',
-                              background: rankingFilter === 'tornei' ? 'var(--color-primary-600)' : 'var(--bg-th)',
-                              color: rankingFilter === 'tornei' ? '#ffffff' : 'var(--text-muted)',
-                              cursor: 'pointer',
-                            }}
+                            className={`badge-pill-filter ${rankingFilter === 'tornei' ? 'active' : ''}`}
                           >
                             Tornei ({totalRankingTornei})
                           </button>
@@ -779,17 +686,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       {/* Active Tab View 1: Girone Corrente Header/Notice */}
                       {activeTabResolved === 'girone' && (
                         <>
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              fontSize: '11.5px',
-                              color: 'var(--text-muted)',
-                              marginBottom: '10px',
-                              lineHeight: '1.35',
-                            }}
-                          >
+                          <div className="atleta-tab-notice-line">
                             <i className="bi bi-info-circle text-primary" style={{ fontSize: '12px', flexShrink: 0 }}></i>
                             <span>
                               Le partite disputate nel campionato in corso potrebbero non essere ancora convalidate nei punti ranking ufficiali.
@@ -804,7 +701,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                           )}
 
                           {!loadingPartite && (!campionatoPartite || campionatoPartite.length === 0) && (
-                            <div style={{ padding: '14px', textAlign: 'center', background: 'var(--bg-th)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+                            <div className="modal-empty-notice">
                               <i className="bi bi-shield-slash me-1"></i>
                               Nessuna partita disputata registrata in questo girone per questo atleta.
                               {totalRankingMatches > 0 && (
@@ -826,7 +723,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                       {/* Active Tab View 2: Official FITeT Ranking Matches empty state */}
                       {activeTabResolved === 'ranking' && unifiedRankingMatches.length === 0 && (
-                        <div style={{ padding: '16px', textAlign: 'center', background: 'var(--bg-th)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+                        <div className="modal-empty-notice">
                           <i className="bi bi-clock-history me-1"></i>
                           Incontri al momento non disponibili
                         </div>
@@ -919,22 +816,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 {/* Toggle Slider vs Elenco */}
-                                <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                                <div className="pill-switcher-container">
                                   <button
                                     type="button"
                                     onClick={() => setViewMode('slider')}
                                     title="Vista Slider"
-                                    style={{
-                                      padding: '2px 8px',
-                                      fontSize: '11px',
-                                      fontWeight: 600,
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      background: viewMode === 'slider' ? 'var(--color-primary-600)' : 'transparent',
-                                      color: viewMode === 'slider' ? '#ffffff' : 'var(--text-muted)',
-                                      cursor: 'pointer',
-                                      transition: 'all 0.15s ease',
-                                    }}
+                                    className={`pill-switcher-btn ${viewMode === 'slider' ? 'active' : ''}`}
                                   >
                                     <i className="bi bi-collection-play me-1"></i>Slider
                                   </button>
@@ -942,17 +829,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                     type="button"
                                     onClick={() => setViewMode('list')}
                                     title="Vista Elenco"
-                                    style={{
-                                      padding: '2px 8px',
-                                      fontSize: '11px',
-                                      fontWeight: 600,
-                                      border: 'none',
-                                      borderRadius: '4px',
-                                      background: viewMode === 'list' ? 'var(--color-primary-600)' : 'transparent',
-                                      color: viewMode === 'list' ? '#ffffff' : 'var(--text-muted)',
-                                      cursor: 'pointer',
-                                      transition: 'all 0.15s ease',
-                                    }}
+                                    className={`pill-switcher-btn ${viewMode === 'list' ? 'active' : ''}`}
                                   >
                                     <i className="bi bi-list-ul me-1"></i>Elenco
                                   </button>
@@ -966,20 +843,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                       onClick={() => scrollSlider('prev')}
                                       disabled={!canScrollLeft}
                                       title="Partita precedente"
-                                      style={{
-                                        width: '28px',
-                                        height: '28px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        borderRadius: '6px',
-                                        border: '1px solid var(--border-color)',
-                                        background: 'var(--bg-card, #ffffff)',
-                                        color: canScrollLeft ? 'var(--text-dark)' : 'var(--text-muted)',
-                                        cursor: canScrollLeft ? 'pointer' : 'default',
-                                        opacity: canScrollLeft ? 1 : 0.35,
-                                        transition: 'all 0.15s ease',
-                                      }}
+                                      className="slider-nav-btn"
                                     >
                                       <i className="bi bi-chevron-left" style={{ fontSize: '12px' }}></i>
                                     </button>
@@ -988,20 +852,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                       onClick={() => scrollSlider('next')}
                                       disabled={!canScrollRight}
                                       title="Partita successiva"
-                                      style={{
-                                        width: '28px',
-                                        height: '28px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        borderRadius: '6px',
-                                        border: '1px solid var(--border-color)',
-                                        background: 'var(--bg-card, #ffffff)',
-                                        color: canScrollRight ? 'var(--text-dark)' : 'var(--text-muted)',
-                                        cursor: canScrollRight ? 'pointer' : 'default',
-                                        opacity: canScrollRight ? 1 : 0.35,
-                                        transition: 'all 0.15s ease',
-                                      }}
+                                      className="slider-nav-btn"
                                     >
                                       <i className="bi bi-chevron-right" style={{ fontSize: '12px' }}></i>
                                     </button>
@@ -1015,15 +866,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               <div
                                 ref={sliderRef}
                                 onScroll={handleSliderScroll}
-                                style={{
-                                  display: 'flex',
-                                  gap: '10px',
-                                  overflowX: 'auto',
-                                  scrollSnapType: 'x mandatory',
-                                  paddingBottom: '6px',
-                                  scrollbarWidth: 'thin',
-                                  WebkitOverflowScrolling: 'touch',
-                                }}
+                                className="atleta-match-slider-container"
                               >
                                 {matchesToDisplay.map((m, idx) => {
                                   const matchDateNorm = normDate(m.data);
@@ -1041,33 +884,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                   return (
                                     <div
                                       key={m.id || idx}
-                                      className="atleta-match-card"
-                                      style={{
-                                        flex: '0 0 min(280px, 82%)',
-                                        scrollSnapAlign: 'start',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        justifyContent: 'space-between',
-                                        padding: '11px 13px',
-                                        minHeight: '130px',
-                                        boxSizing: 'border-box',
-                                      }}
+                                      className="atleta-match-card atleta-match-slider-card"
                                     >
                                       {/* Top Row: Outcome badge, Date, and Match type */}
                                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                          <span
-                                            style={{
-                                              padding: '2px 7px',
-                                              borderRadius: '4px',
-                                              fontSize: '11px',
-                                              fontWeight: '700',
-                                              background: m.isVittoria ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                              color: m.isVittoria ? '#16a34a' : '#dc2626',
-                                              border: `1px solid ${m.isVittoria ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                                              flexShrink: 0,
-                                            }}
-                                          >
+                                          <span className={`match-badge-outcome ${m.isVittoria ? 'is-win' : 'is-loss'}`}>
                                             {m.isVittoria ? 'VINTA' : 'PERSA'}
                                           </span>
 
@@ -1085,19 +907,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                                       {/* Middle Row: Opponent Name & Event Details */}
                                       <div style={{ marginBottom: '8px' }}>
-                                        <div
-                                          style={{
-                                            fontWeight: '700',
-                                            fontSize: '13.5px',
-                                            color: 'var(--text-dark)',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                          }}
-                                        >
+                                        <div className="atleta-opponent-wrap">
                                           {onSelectAthlete ? (
                                             <button
                                               type="button"
@@ -1123,20 +933,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                               setH2hOpponent({ id: m.avversarioId, name: m.avversario });
                                             }}
                                             title={`Visualizza Testa a Testa contro ${m.avversario}`}
-                                            style={{
-                                              display: 'inline-flex',
-                                              alignItems: 'center',
-                                              gap: '3px',
-                                              padding: '1px 6px',
-                                              borderRadius: '4px',
-                                              fontSize: '10px',
-                                              fontWeight: 700,
-                                              background: 'rgba(59, 130, 246, 0.1)',
-                                              color: 'var(--color-primary-600, #2563eb)',
-                                              border: '1px solid rgba(59, 130, 246, 0.25)',
-                                              cursor: 'pointer',
-                                              flexShrink: 0,
-                                            }}
+                                            className="btn-h2h-inline"
                                           >
                                             <i className="bi bi-arrow-left-right" style={{ fontSize: '9px' }}></i>
                                             Storico (testa a testa)
@@ -1159,31 +956,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                       </div>
 
                                       {/* Bottom Row: Set Details and Prominent Numeric Score */}
-                                      <div
-                                        style={{
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'space-between',
-                                          paddingTop: '8px',
-                                          borderTop: '1px solid var(--border-light, #f1f5f9)',
-                                          gap: '8px',
-                                          marginTop: 'auto',
-                                        }}
-                                      >
+                                      <div className="match-card-footer">
                                         {/* Left: Set partials as clean text without pill frames */}
                                         <div style={{ minWidth: 0, flex: 1 }}>
                                           {m.sets && m.sets.length > 0 ? (
                                             <span
-                                              style={{
-                                                fontSize: '11px',
-                                                color: 'var(--text-muted)',
-                                                fontVariantNumeric: 'tabular-nums',
-                                                letterSpacing: '0.02em',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap',
-                                                display: 'block',
-                                              }}
+                                              className="match-sets-text"
                                               title={m.sets.join(', ')}
                                             >
                                               {m.sets.join(', ')}
@@ -1203,12 +981,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexShrink: 0 }}>
                                           {exactScore ? (
                                             <div
-                                              style={{
-                                                fontSize: '16px',
-                                                fontWeight: '800',
-                                                color: m.isVittoria ? '#16a34a' : '#dc2626',
-                                                fontVariantNumeric: 'tabular-nums',
-                                              }}
+                                              className="match-score-big"
+                                              style={{ color: m.isVittoria ? '#16a34a' : '#dc2626' }}
                                             >
                                               {exactScore}
                                             </div>
@@ -1252,18 +1026,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                 })}
                               </div>
                             ) : (
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '8px',
-                                  maxHeight: '340px',
-                                  minHeight: '146px',
-                                  overflowY: 'auto',
-                                  paddingRight: '4px',
-                                  scrollbarWidth: 'thin',
-                                }}
-                              >
+                              <div className="atleta-match-list-container">
                                 {matchesToDisplay.map((m, idx) => {
                                   const matchDateNorm = normDate(m.data);
                                   const oppNameKey = (m.avversario || '').toUpperCase().trim();
@@ -1280,30 +1043,10 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                   return (
                                     <div
                                       key={m.id || idx}
-                                      className="atleta-match-list-item"
-                                      style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        padding: '9px 12px',
-                                        gap: '10px',
-                                        flexWrap: 'wrap',
-                                        transition: 'all 0.15s ease',
-                                      }}
+                                      className="atleta-match-list-item atleta-match-list-row"
                                     >
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 180px' }}>
-                                        <span
-                                          style={{
-                                            padding: '2px 7px',
-                                            borderRadius: '4px',
-                                            fontSize: '11px',
-                                            fontWeight: '700',
-                                            background: m.isVittoria ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                            color: m.isVittoria ? '#16a34a' : '#dc2626',
-                                            border: `1px solid ${m.isVittoria ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                                            flexShrink: 0,
-                                          }}
-                                        >
+                                        <span className={`match-badge-outcome ${m.isVittoria ? 'is-win' : 'is-loss'}`}>
                                           {m.isVittoria ? 'VINTA' : 'PERSA'}
                                         </span>
 
@@ -1320,7 +1063,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                         )}
 
                                         <div style={{ minWidth: 0 }}>
-                                          <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          <div className="atleta-list-opponent-wrap">
                                             {onSelectAthlete ? (
                                               <button
                                                 type="button"
@@ -1346,20 +1089,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                                 setH2hOpponent({ id: m.avversarioId, name: m.avversario });
                                               }}
                                               title={`Visualizza Testa a Testa contro ${m.avversario}`}
-                                              style={{
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '3px',
-                                                padding: '1px 5px',
-                                                borderRadius: '4px',
-                                                fontSize: '9.5px',
-                                                fontWeight: 700,
-                                                background: 'rgba(59, 130, 246, 0.1)',
-                                                color: 'var(--color-primary-600, #2563eb)',
-                                                border: '1px solid rgba(59, 130, 246, 0.25)',
-                                                cursor: 'pointer',
-                                                flexShrink: 0,
-                                              }}
+                                              className="btn-h2h-inline"
                                             >
                                               <i className="bi bi-arrow-left-right" style={{ fontSize: '8.5px' }}></i>
                                               Storico Scontri
@@ -1428,7 +1158,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                             {/* Subtle note about federale ranking data format */}
                             {activeTabResolved === 'ranking' && (
-                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              <div className="ranking-federale-note">
                                 <i className="bi bi-info-circle text-primary" style={{ flexShrink: 0 }}></i>
                                 <span>
                                   <strong>Dato Federale Ranking:</strong> La FITeT nei tabulati graduatoria registra l'esito (Vittoria/Sconfitta) e i punti; i set numerici sono registrati nei referti ufficiali di gara.
@@ -1446,38 +1176,18 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                 <div style={{ marginTop: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                     {atleta.storicoClassifica.length > 0 && (
-                      <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                      <div className="pill-switcher-container">
                         <button
                           type="button"
                           onClick={() => setAnalyticsTab('chart')}
-                          style={{
-                            padding: '3px 10px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            border: 'none',
-                            borderRadius: '4px',
-                            background: analyticsTab === 'chart' ? 'var(--color-primary-600)' : 'transparent',
-                            color: analyticsTab === 'chart' ? '#ffffff' : 'var(--text-muted)',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
-                          }}
+                          className={`pill-switcher-btn ${analyticsTab === 'chart' ? 'active' : ''}`}
                         >
                           <i className="bi bi-graph-up me-1"></i>Grafico
                         </button>
                         <button
                           type="button"
                           onClick={() => setAnalyticsTab('table')}
-                          style={{
-                            padding: '3px 10px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            border: 'none',
-                            borderRadius: '4px',
-                            background: analyticsTab === 'table' ? 'var(--color-primary-600)' : 'transparent',
-                            color: analyticsTab === 'table' ? '#ffffff' : 'var(--text-muted)',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
-                          }}
+                          className={`pill-switcher-btn ${analyticsTab === 'table' ? 'active' : ''}`}
                         >
                           <i className="bi bi-table me-1"></i>Tabella ({atleta.storicoClassifica.length})
                         </button>
@@ -1490,7 +1200,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       <RatingChart data={atleta.storicoClassifica} athleteName={atleta.anagrafica.nome} hideTitle={true} />
                     ) : (
                       atleta.storicoClassifica.length > 0 && (
-                        <div style={{ maxHeight: '250px', minHeight: '240px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px', scrollbarWidth: 'thin' }}>
+                        <div className="atleta-rating-table-wrap">
                           <div className="modal-ranking-grid">
                             <div className="grid-header-row">
                               <div className="grid-th text-center">Data Rilevazione</div>

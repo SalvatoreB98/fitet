@@ -81,15 +81,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
   return createPortal(
     <div className="modal-backdrop-simple modal-referto-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div
-        className="modal-card-simple referto-modal-card"
-        style={{
-          maxWidth: '880px',
-          width: '95%',
-          maxHeight: '92vh',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
+        className="modal-card-simple referto-modal-card squadra-modal-card"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Simple Blue Header matching the app's design system */}
@@ -99,41 +91,14 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
               teamName={displayName}
               logoUrl={data?.logoUrl}
               size={44}
-              style={{
-                borderRadius: '8px',
-                background: '#ffffff',
-                border: '1px solid rgba(255, 255, 255, 0.25)',
-                padding: '2px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-              }}
+              className="squadra-header-logo-box"
             />
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: '1.2rem',
-                    color: '#ffffff',
-                    letterSpacing: '-0.2px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                  title={displayName}
-                >
+                <h3 className="squadra-header-title" title={displayName}>
                   {displayName}
                 </h3>
-                <span
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.15)',
-                    fontSize: '11px',
-                    padding: '2px 8px',
-                    borderRadius: '12px',
-                    fontWeight: 600,
-                    color: '#e0f2fe',
-                    letterSpacing: '0.3px',
-                  }}
-                >
+                <span className="modal-badge-pill">
                   FITeT #{camId}
                 </span>
               </div>
@@ -145,21 +110,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
             {onFilterCalendario && (
               <button
                 type="button"
-                className="btn-action"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  color: '#ffffff',
-                  border: '1px solid rgba(255, 255, 255, 0.25)',
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  fontSize: '11.5px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'background 0.15s ease',
-                }}
+                className="btn-action squadra-header-filter-btn"
                 onClick={() => {
                   onFilterCalendario(displayName);
                   onClose();
@@ -198,17 +149,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
           )}
 
           {error && !data && (
-            <div
-              style={{
-                padding: '16px',
-                background: '#fee2e2',
-                color: '#b91c1c',
-                borderRadius: '8px',
-                fontSize: '13px',
-                marginBottom: '16px',
-                border: '1px solid #fca5a5',
-              }}
-            >
+            <div className="squadra-error-banner">
               <strong>Errore:</strong> {error}
               <div style={{ marginTop: '10px' }}>
                 <button
@@ -293,77 +234,25 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
               </div>
 
               {/* Roster Section Header */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingBottom: '8px',
-                  marginBottom: '10px',
-                  borderBottom: '1px solid var(--border-color)',
-                  flexWrap: 'wrap',
-                  gap: '6px',
-                }}
-              >
+              <div className="squadra-section-header">
                 <div>
-                  <h4
-                    style={{
-                      margin: 0,
-                      fontSize: '14.5px',
-                      fontWeight: 700,
-                      color: 'var(--text-dark)',
-                    }}
-                  >
+                  <h4 className="squadra-section-title">
                     Statistiche Individuali
                   </h4>
                   <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
                     Clicca su un atleta per visualizzare la scheda anagrafica federale e lo storico punti
                   </div>
                 </div>
-                <span
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: 'var(--text-muted)',
-                    background: 'var(--bg-th, #f1f5f9)',
-                    padding: '2px 8px',
-                    borderRadius: '10px',
-                    border: '1px solid var(--border-color)',
-                  }}
-                >
+                <span className="squadra-roster-count">
                   {data.atleti.length} {data.atleti.length === 1 ? 'record' : 'record'}
                 </span>
               </div>
 
               {/* Roster Table */}
-              <div
-                style={{
-                  overflowX: 'auto',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  background: 'var(--bg-container, #ffffff)',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-                }}
-              >
-                <table
-                  style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    fontSize: '12.5px',
-                    textAlign: 'left',
-                  }}
-                >
+              <div className="squadra-table-wrapper">
+                <table className="squadra-roster-table">
                   <thead>
-                    <tr
-                      style={{
-                        background: 'var(--bg-th, #f1f5f9)',
-                        color: 'var(--text-muted)',
-                        fontSize: '11px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.3px',
-                        borderBottom: '2px solid var(--border-color)',
-                      }}
-                    >
+                    <tr className="squadra-roster-thead-tr">
                       <th style={{ padding: '10px 12px' }}>Atleta</th>
                       <th style={{ padding: '10px 10px', textAlign: 'center' }}>Ranking</th>
                       <th style={{ padding: '10px 8px', textAlign: 'center' }} title="Partite Disputate">PD</th>
@@ -392,12 +281,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                               onOpenAtletaModal(a.atletaId, a.nome);
                             }
                           }}
-                          style={{
-                            borderBottom: '1px solid var(--border-color)',
-                            cursor: isClickable ? 'pointer' : 'default',
-                            transition: 'background-color 0.15s ease',
-                          }}
-                          className={isClickable ? 'hover-row-highlight' : ''}
+                          className={`squadra-roster-tr ${isClickable ? 'is-clickable hover-row-highlight' : ''}`}
                           title={isClickable ? `Visualizza scheda federale di ${a.nome}` : undefined}
                         >
                           {/* Athlete Info */}
@@ -405,17 +289,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               {a.isDoppio ? (
                                 <div
-                                  style={{
-                                    width: '30px',
-                                    height: '30px',
-                                    borderRadius: '5px',
-                                    background: 'var(--bg-th, #e2e8f0)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '13px',
-                                    flexShrink: 0,
-                                  }}
+                                  className="squadra-doppio-avatar"
                                   title="Coppia di doppio"
                                 >
                                   <i className="bi bi-people-fill text-secondary"></i>
@@ -424,15 +298,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                                 <AthleteAvatar atletaId={a.atletaId} nome={a.nome} size={30} />
                               )}
                               <div style={{ minWidth: 0 }}>
-                                <div
-                                  style={{
-                                    fontWeight: 600,
-                                    color: isClickable ? 'var(--color-primary-600, #0284c7)' : 'var(--text-dark)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                  }}
-                                >
+                                <div className={`squadra-roster-name ${isClickable ? 'is-clickable' : ''}`}>
                                   <span style={{ textDecoration: isClickable ? 'underline' : 'none', textUnderlineOffset: '2px' }}>
                                     {a.nome}
                                   </span>
@@ -441,15 +307,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                                   )}
                                 </div>
                                 {a.isDoppio && (
-                                  <span
-                                    style={{
-                                      fontSize: '9.5px',
-                                      color: 'var(--text-muted)',
-                                      fontWeight: 700,
-                                      textTransform: 'uppercase',
-                                      letterSpacing: '0.4px',
-                                    }}
-                                  >
+                                  <span className="squadra-doppio-badge">
                                     Doppio
                                   </span>
                                 )}
@@ -464,24 +322,12 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                             ) : a.rankPosizione || a.rankPunti ? (
                               <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
                                 {a.rankPosizione && (
-                                  <span
-                                    style={{
-                                      fontSize: '11.5px',
-                                      fontWeight: 700,
-                                      color: 'var(--text-dark)',
-                                    }}
-                                  >
+                                  <span className="squadra-rank-pos">
                                     #{a.rankPosizione}
                                   </span>
                                 )}
                                 {a.rankPunti !== null && (
-                                  <span
-                                    style={{
-                                      fontSize: '10.5px',
-                                      color: 'var(--color-primary-600, #0284c7)',
-                                      fontWeight: 600,
-                                    }}
-                                  >
+                                  <span className="squadra-rank-pts">
                                     {a.rankPunti.toLocaleString('it-IT')} pt
                                   </span>
                                 )}
@@ -532,15 +378,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                               >
                                 {a.percentualeVittorie}%
                               </span>
-                              <div
-                                style={{
-                                  width: '36px',
-                                  height: '5px',
-                                  background: 'var(--border-color, #e2e8f0)',
-                                  borderRadius: '3px',
-                                  overflow: 'hidden',
-                                }}
-                              >
+                              <div className="mini-progress-track">
                                 <div
                                   style={{
                                     width: `${a.percentualeVittorie}%`,
