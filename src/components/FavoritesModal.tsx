@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useFavoriteAthletes, FavoriteAthlete } from '../utils/favorites';
+import { useFavoriteAthletes, FavoriteAthlete, saveFavoriteAthlete } from '../utils/favorites';
+import { fetchAtleta } from '../services/api';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 
 interface FavoritesModalProps {
@@ -22,6 +23,51 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   const [failedImgs, setFailedImgs] = useState<Record<string, boolean>>({});
   const [confirmClear, setConfirmClear] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const syncedRef = useRef<boolean>(false);
+
+  // Sincronizza in background i dati dei preferiti con l'ultimo snapshot ufficiale (ranking reale, punti)
+  useEffect(() => {
+    if (!isOpen || favorites.length === 0 || syncedRef.current) return;
+    syncedRef.current = true;
+
+    favorites.forEach((fav) => {
+      if (!fav.id || !/^\d+$/.test(fav.id)) return;
+      fetchAtleta(fav.id)
+        .then((data) => {
+          const storico = data.storicoClassifica || [];
+          const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
+          const rankingReale = ultimoSnapshot?.posizione ?? undefined;
+          const puntiReali = data.anagrafica.punti || ultimoSnapshot?.punti || undefined;
+          const catReale = data.anagrafica.categoria || ultimoSnapshot?.categoria || undefined;
+
+          if (
+            (rankingReale !== undefined && rankingReale !== fav.ranking) ||
+            (puntiReali !== undefined && puntiReali !== fav.punti) ||
+            (catReale !== undefined && catReale !== fav.categoria) ||
+            (!fav.squadra && data.anagrafica.societa)
+          ) {
+            saveFavoriteAthlete({
+              id: data.id,
+              name: data.anagrafica.nome,
+              squadra: data.anagrafica.societa || fav.squadra,
+              ranking: rankingReale ?? fav.ranking,
+              punti: puntiReali ?? fav.punti,
+              categoria: catReale ?? fav.categoria,
+              dataNascita: data.anagrafica.dataNascita || fav.dataNascita,
+              fotoUrl: data.anagrafica.fotoUrl || fav.fotoUrl,
+            });
+          }
+        })
+        .catch(() => {});
+    });
+  }, [isOpen, favorites]);
+
+  // Reset del sync quando si chiude il modale
+  useEffect(() => {
+    if (!isOpen) {
+      syncedRef.current = false;
+    }
+  }, [isOpen]);
 
   // Close modal on Escape key
   useEffect(() => {
@@ -66,6 +112,16 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
     return parts[0].slice(0, 2).toUpperCase();
+  };
+
+  const formatCategoria = (cat?: string): string | null => {
+    if (!cat) return null;
+    const trimmed = cat.trim();
+    const num = trimmed.replace(/\D/g, '');
+    if (num) {
+      return `${num}ª Cat.`;
+    }
+    return trimmed;
   };
 
   if (!isOpen || typeof document === 'undefined') return null;
@@ -344,23 +400,42 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                         </div>
                       )}
                       <div className="favorite-card-tags">
-                        {fav.ranking && (
-                          <span className="favorite-card-tag ranking-tag">
-                            #{fav.ranking}
-                          </span>
-                        )}
+                        {(() => {
+                          const rankingVal = typeof fav.ranking === 'string' ? parseInt(fav.ranking, 10) : fav.ranking;
+                          return rankingVal ? (
+                            <span
+                              className="favorite-card-tag ranking-tag"
+                              title={`Ranking Nazionale: Posizione #${rankingVal}`}
+                            >
+                              <i className="bi bi-trophy-fill" style={{ fontSize: '9.5px' }}></i>
+                              Rank #{rankingVal}
+                            </span>
+                          ) : null;
+                        })()}
                         {fav.punti !== undefined && (
-                          <span className="favorite-card-tag points-tag">
-                            {fav.punti} pt
+                          <span
+                            className="favorite-card-tag points-tag"
+                            title={`Punti Classifica: ${Math.round(fav.punti).toLocaleString('it-IT')} pt`}
+                          >
+                            <i className="bi bi-graph-up" style={{ fontSize: '9.5px' }}></i>
+                            {Math.round(fav.punti).toLocaleString('it-IT')} pt
                           </span>
                         )}
                         {fav.categoria && (
-                          <span className="favorite-card-tag cat-tag">
-                            {fav.categoria}
+                          <span
+                            className="favorite-card-tag cat-tag"
+                            title={`Categoria: ${formatCategoria(fav.categoria)}`}
+                          >
+                            <i className="bi bi-person-badge-fill" style={{ fontSize: '9.5px' }}></i>
+                            {formatCategoria(fav.categoria)}
                           </span>
                         )}
-                        <span className="favorite-card-tag id-tag">
-                          ID {fav.id}
+                        <span
+                          className="favorite-card-tag id-tag"
+                          title={fav.tessera ? `Tessera FITeT: ${fav.tessera}` : `ID Federale FITeT: ${fav.id}`}
+                        >
+                          <i className="bi bi-person-vcard" style={{ fontSize: '9.5px' }}></i>
+                          {fav.tessera ? `Tess. ${fav.tessera}` : `ID ${fav.id}`}
                         </span>
                       </div>
                     </div>

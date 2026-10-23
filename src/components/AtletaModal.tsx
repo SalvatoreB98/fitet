@@ -7,7 +7,7 @@ import { HeadToHeadModal } from './HeadToHeadModal';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { MarqueeText } from './MarqueeText';
 import { recordAndGetAthleteViews } from '../utils/athleteViews';
-import { useFavoriteAthletes } from '../utils/favorites';
+import { useFavoriteAthletes, saveFavoriteAthlete } from '../utils/favorites';
 
 interface AtletaModalProps {
   atletaId: string;
@@ -43,13 +43,16 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const isFav = isFavorite(currentAtletaId) || isFavorite(currentAthleteName);
 
   const handleToggleFavorite = () => {
+    const storico = atleta?.storicoClassifica || [];
+    const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
+
     toggleFavorite({
       id: currentAtletaId,
       name: currentAthleteName,
       squadra: atleta?.anagrafica?.societa || squadraCampionato || undefined,
-      ranking: atleta?.storicoClassifica?.[0]?.posizione ?? undefined,
-      punti: atleta?.anagrafica?.punti ?? undefined,
-      categoria: atleta?.anagrafica?.categoria ?? undefined,
+      ranking: ultimoSnapshot?.posizione ?? undefined,
+      punti: atleta?.anagrafica?.punti ?? ultimoSnapshot?.punti ?? undefined,
+      categoria: atleta?.anagrafica?.categoria ?? ultimoSnapshot?.categoria ?? undefined,
       dataNascita: atleta?.anagrafica?.dataNascita ?? undefined,
       fotoUrl: atleta?.anagrafica?.fotoUrl ?? undefined,
     });
@@ -117,6 +120,22 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
         if (isMounted) {
           setAtleta(data);
           setLoading(false);
+
+          // Se l'atleta è nei preferiti, mantieni sincronizzati ranking reale, punti e categoria
+          if (isFavorite(data.id) || isFavorite(data.anagrafica.nome)) {
+            const storico = data.storicoClassifica || [];
+            const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
+            saveFavoriteAthlete({
+              id: data.id,
+              name: data.anagrafica.nome,
+              squadra: data.anagrafica.societa || undefined,
+              ranking: ultimoSnapshot?.posizione ?? undefined,
+              punti: data.anagrafica.punti ?? ultimoSnapshot?.punti ?? undefined,
+              categoria: data.anagrafica.categoria ?? ultimoSnapshot?.categoria ?? undefined,
+              dataNascita: data.anagrafica.dataNascita ?? undefined,
+              fotoUrl: data.anagrafica.fotoUrl ?? undefined,
+            });
+          }
 
           // Se non c'è un campionato attivo aperto, mostra direttamente il tab del ranking
           if (!camId) {

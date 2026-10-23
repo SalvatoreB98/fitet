@@ -2675,29 +2675,45 @@ body.modal-open {
   align-items: center;
   gap: 5px;
   flex-wrap: wrap;
-  margin-top: 3px;
+  margin-top: 4px;
 }
 
 .favorite-card-tag {
-  font-size: 10.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3.5px;
+  font-size: 11px;
   font-weight: 600;
-  padding: 1px 6px;
+  padding: 1.5px 6.5px;
   border-radius: 4px;
   background: var(--bg-th, #f1f5f9);
   color: var(--text-muted, #64748b);
   border: 1px solid var(--border-color, #e2e8f0);
+  line-height: 1.35;
 }
 
 .favorite-card-tag.ranking-tag {
   background: rgba(37, 99, 235, 0.08);
   color: #2563eb;
-  border-color: rgba(37, 99, 235, 0.2);
+  border-color: rgba(37, 99, 235, 0.22);
 }
 
 .favorite-card-tag.points-tag {
   background: rgba(16, 185, 129, 0.08);
   color: #059669;
-  border-color: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.22);
+}
+
+.favorite-card-tag.cat-tag {
+  background: rgba(139, 92, 246, 0.08);
+  color: #7c3aed;
+  border-color: rgba(139, 92, 246, 0.22);
+}
+
+.favorite-card-tag.id-tag {
+  background: rgba(100, 116, 139, 0.08);
+  color: #475569;
+  border-color: rgba(100, 116, 139, 0.2);
 }
 
 [data-theme="dark"] .favorite-card-tag {
@@ -2707,15 +2723,27 @@ body.modal-open {
 }
 
 [data-theme="dark"] .favorite-card-tag.ranking-tag {
-  background: rgba(59, 130, 246, 0.15);
+  background: rgba(59, 130, 246, 0.16);
   color: #93c5fd;
-  border-color: rgba(59, 130, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.32);
 }
 
 [data-theme="dark"] .favorite-card-tag.points-tag {
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(16, 185, 129, 0.16);
   color: #6ee7b7;
-  border-color: rgba(16, 185, 129, 0.3);
+  border-color: rgba(16, 185, 129, 0.32);
+}
+
+[data-theme="dark"] .favorite-card-tag.cat-tag {
+  background: rgba(167, 139, 250, 0.16);
+  color: #c4b5fd;
+  border-color: rgba(167, 139, 250, 0.32);
+}
+
+[data-theme="dark"] .favorite-card-tag.id-tag {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.3);
 }
 
 .favorite-card-star-btn {
