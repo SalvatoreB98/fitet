@@ -1,107 +1,140 @@
-import fs from 'fs';
-import path from 'path';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 
+// Carica variabili d'ambiente in locale da .env
+dotenv.config();
+
+/**
+ * ViewsService - Supabase Persistent View Tracking
+ * 
+ * Si collega alla tabella "views" di Supabase (PostgreSQL) per tracciare
+ * e incrementare atomicamente le visualizzazioni degli atleti, persistendo
+ * i dati su database cloud in modo affidabile tra i deploy di Vercel.
+ */
 class ViewsService {
-  private filePath: string;
-  private viewsMap: Record<string, number> = {};
+  private supabase: SupabaseClient | null = null;
+  private memoryCache: Map<string, number> = new Map();
 
   constructor() {
-    const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
-    const dir = isServerless ? path.join('/tmp', 'fitet_cache') : path.resolve(process.cwd(), 'server', 'cache');
-    try {
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-    } catch (err) {
-      console.warn('Views directory init fallback to memory-only:', err);
-    }
-    this.filePath = path.join(dir, 'athlete_views.json');
-    this.load();
+    this.initClient();
   }
 
-  private load() {
-    try {
-      if (fs.existsSync(this.filePath)) {
-        const raw = fs.readFileSync(this.filePath, 'utf8');
-        this.viewsMap = JSON.parse(raw);
-      }
-    } catch {
-      this.viewsMap = {};
-    }
-  }
+  private initClient() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
-  private save() {
-    try {
-      fs.writeFileSync(this.filePath, JSON.stringify(this.viewsMap, null, 2), 'utf8');
-    } catch (err) {
-      console.warn('Error saving athlete views:', err);
-    }
-  }
-
-  private getKvConfig() {
-    const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-    const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-    if (kvUrl && kvToken) {
-      return { url: kvUrl, token: kvToken };
-    }
-    return null;
-  }
-
-  async getViews(key: string): Promise<number> {
-    if (!key) return 0;
-    const clean = key.toLowerCase().trim();
-
-    // 1. Prova Vercel KV / Upstash Redis se configurato
-    const kv = this.getKvConfig();
-    if (kv) {
+    if (url && key) {
       try {
-        const res = await fetch(`${kv.url}/get/athlete_views:${encodeURIComponent(clean)}`, {
-          headers: { Authorization: `Bearer ${kv.token}` },
+        this.supabase = createClient(url, key, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+          },
         });
-        if (res.ok) {
-          const data: any = await res.json();
-          if (data && data.result !== null && data.result !== undefined) {
-            return parseInt(data.result, 10) || 0;
-          }
-          return 0;
+        console.log('✅ [ViewsService] Supabase connesso con successo.');
+      } catch (err) {
+        console.error('❌ [ViewsService] Errore inizializzazione client Supabase:', err);
+        this.supabase = null;
+      }
+    } else {
+      console.warn('⚠️ [ViewsService] Credenziali SUPABASE_URL / KEY non trovate: fallback in memoria locale.');
+    }
+  }
+
+  /**
+   * Converte l'id atleta in numero valido (es. "593082" -> 593082)
+   */
+  private parsePlayerId(id: string): number | null {
+    if (!id) return null;
+    const clean = id.replace(/\D/g, '');
+    if (!clean) return null;
+    const parsed = parseInt(clean, 10);
+    return isNaN(parsed) ? null : parsed;
+  }
+
+  /**
+   * Incrementa atomicamente il contatore delle visualizzazioni per un determinato atleta.
+   */
+  async incrementViews(id: string): Promise<number> {
+    if (!id) return 0;
+    const playerId = this.parsePlayerId(id);
+    const cacheKey = String(playerId ?? id);
+
+    // 1. Incremento su Supabase
+    if (this.supabase && playerId !== null) {
+      try {
+        // Tentativo 1: Chiamata a funzione RPC atomica ad alta concorrenza
+        const { data: rpcCount, error: rpcError } = await this.supabase.rpc('increment_athlete_views', {
+          player_id: playerId,
+        });
+
+        if (!rpcError && typeof rpcCount === 'number') {
+          this.memoryCache.set(cacheKey, rpcCount);
+          return rpcCount;
+        }
+
+        // Tentativo 2 (fallback): Upsert diretto con onConflict
+        const { data: existing } = await this.supabase
+          .from('views')
+          .select('count')
+          .eq('playerId', playerId)
+          .maybeSingle();
+
+        const nextCount = ((existing?.count as number) || 0) + 1;
+
+        const { error: upsertErr } = await this.supabase
+          .from('views')
+          .upsert(
+            { playerId, count: nextCount },
+            { onConflict: 'playerId' }
+          );
+
+        if (!upsertErr) {
+          this.memoryCache.set(cacheKey, nextCount);
+          return nextCount;
+        } else {
+          console.error(`[ViewsService] Errore upsert views per atleta ${playerId}:`, upsertErr);
         }
       } catch (err) {
-        console.warn('Vercel KV get error, fallback to local:', err);
+        console.error(`[ViewsService] Errore imprevisto Supabase incrementViews per ${playerId}:`, err);
       }
     }
 
-    // 2. Fallback su memoria / cache locale
-    return this.viewsMap[clean] || 0;
-  }
-
-  async incrementViews(key: string): Promise<number> {
-    if (!key) return 0;
-    const clean = key.toLowerCase().trim();
-
-    // 1. Prova Vercel KV / Upstash Redis se configurato (atomico e globale su tutte le lambda)
-    const kv = this.getKvConfig();
-    if (kv) {
-      try {
-        const res = await fetch(`${kv.url}/incr/athlete_views:${encodeURIComponent(clean)}`, {
-          headers: { Authorization: `Bearer ${kv.token}` },
-        });
-        if (res.ok) {
-          const data: any = await res.json();
-          if (data && typeof data.result === 'number') {
-            return data.result;
-          }
-        }
-      } catch (err) {
-        console.warn('Vercel KV incr error, fallback to local:', err);
-      }
-    }
-
-    // 2. Fallback su memoria / cache locale
-    const current = this.viewsMap[clean] || 0;
+    // 2. Fallback memory-safe
+    const current = this.memoryCache.get(cacheKey) || 0;
     const next = current + 1;
-    this.viewsMap[clean] = next;
-    this.save();
+    this.memoryCache.set(cacheKey, next);
     return next;
+  }
+
+  /**
+   * Recupera il contatore delle visualizzazioni per un determinato atleta.
+   */
+  async getViews(id: string): Promise<number> {
+    if (!id) return 0;
+    const playerId = this.parsePlayerId(id);
+    const cacheKey = String(playerId ?? id);
+
+    // 1. Lettura da Supabase
+    if (this.supabase && playerId !== null) {
+      try {
+        const { data, error } = await this.supabase
+          .from('views')
+          .select('count')
+          .eq('playerId', playerId)
+          .maybeSingle();
+
+        if (!error && data && typeof data.count === 'number') {
+          this.memoryCache.set(cacheKey, data.count);
+          return data.count;
+        }
+      } catch (err) {
+        console.error(`[ViewsService] Errore lettura Supabase getViews per ${playerId}:`, err);
+      }
+    }
+
+    // 2. Fallback memory-safe
+    return this.memoryCache.get(cacheKey) || 0;
   }
 }
 

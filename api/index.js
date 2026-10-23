@@ -1,7 +1,7 @@
 // server/app.ts
 import express from "express";
 import cors from "cors";
-import path6 from "path";
+import path5 from "path";
 
 // server/services/fitetClient.ts
 var BASE_URL = "https://portale.fitet.org";
@@ -187,102 +187,108 @@ var CacheService = class {
 var cacheService = new CacheService();
 
 // server/services/viewsService.ts
-import fs2 from "fs";
-import path2 from "path";
+import { createClient } from "@supabase/supabase-js";
+import dotenv from "dotenv";
+dotenv.config();
 var ViewsService = class {
-  filePath;
-  viewsMap = {};
+  supabase = null;
+  memoryCache = /* @__PURE__ */ new Map();
   constructor() {
-    const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
-    const dir = isServerless ? path2.join("/tmp", "fitet_cache") : path2.resolve(process.cwd(), "server", "cache");
-    try {
-      if (!fs2.existsSync(dir)) {
-        fs2.mkdirSync(dir, { recursive: true });
-      }
-    } catch (err) {
-      console.warn("Views directory init fallback to memory-only:", err);
-    }
-    this.filePath = path2.join(dir, "athlete_views.json");
-    this.load();
+    this.initClient();
   }
-  load() {
-    try {
-      if (fs2.existsSync(this.filePath)) {
-        const raw = fs2.readFileSync(this.filePath, "utf8");
-        this.viewsMap = JSON.parse(raw);
-      }
-    } catch {
-      this.viewsMap = {};
-    }
-  }
-  save() {
-    try {
-      fs2.writeFileSync(this.filePath, JSON.stringify(this.viewsMap, null, 2), "utf8");
-    } catch (err) {
-      console.warn("Error saving athlete views:", err);
-    }
-  }
-  getKvConfig() {
-    const kvUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-    const kvToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
-    if (kvUrl && kvToken) {
-      return { url: kvUrl, token: kvToken };
-    }
-    return null;
-  }
-  async getViews(key) {
-    if (!key) return 0;
-    const clean = key.toLowerCase().trim();
-    const kv = this.getKvConfig();
-    if (kv) {
+  initClient() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (url && key) {
       try {
-        const res = await fetch(`${kv.url}/get/athlete_views:${encodeURIComponent(clean)}`, {
-          headers: { Authorization: `Bearer ${kv.token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.result !== null && data.result !== void 0) {
-            return parseInt(data.result, 10) || 0;
+        this.supabase = createClient(url, key, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false
           }
-          return 0;
+        });
+        console.log("\u2705 [ViewsService] Supabase connesso con successo.");
+      } catch (err) {
+        console.error("\u274C [ViewsService] Errore inizializzazione client Supabase:", err);
+        this.supabase = null;
+      }
+    } else {
+      console.warn("\u26A0\uFE0F [ViewsService] Credenziali SUPABASE_URL / KEY non trovate: fallback in memoria locale.");
+    }
+  }
+  /**
+   * Converte l'id atleta in numero valido (es. "593082" -> 593082)
+   */
+  parsePlayerId(id) {
+    if (!id) return null;
+    const clean = id.replace(/\D/g, "");
+    if (!clean) return null;
+    const parsed = parseInt(clean, 10);
+    return isNaN(parsed) ? null : parsed;
+  }
+  /**
+   * Incrementa atomicamente il contatore delle visualizzazioni per un determinato atleta.
+   */
+  async incrementViews(id) {
+    if (!id) return 0;
+    const playerId = this.parsePlayerId(id);
+    const cacheKey = String(playerId ?? id);
+    if (this.supabase && playerId !== null) {
+      try {
+        const { data: rpcCount, error: rpcError } = await this.supabase.rpc("increment_athlete_views", {
+          player_id: playerId
+        });
+        if (!rpcError && typeof rpcCount === "number") {
+          this.memoryCache.set(cacheKey, rpcCount);
+          return rpcCount;
+        }
+        const { data: existing } = await this.supabase.from("views").select("count").eq("playerId", playerId).maybeSingle();
+        const nextCount = (existing?.count || 0) + 1;
+        const { error: upsertErr } = await this.supabase.from("views").upsert(
+          { playerId, count: nextCount },
+          { onConflict: "playerId" }
+        );
+        if (!upsertErr) {
+          this.memoryCache.set(cacheKey, nextCount);
+          return nextCount;
+        } else {
+          console.error(`[ViewsService] Errore upsert views per atleta ${playerId}:`, upsertErr);
         }
       } catch (err) {
-        console.warn("Vercel KV get error, fallback to local:", err);
+        console.error(`[ViewsService] Errore imprevisto Supabase incrementViews per ${playerId}:`, err);
       }
     }
-    return this.viewsMap[clean] || 0;
-  }
-  async incrementViews(key) {
-    if (!key) return 0;
-    const clean = key.toLowerCase().trim();
-    const kv = this.getKvConfig();
-    if (kv) {
-      try {
-        const res = await fetch(`${kv.url}/incr/athlete_views:${encodeURIComponent(clean)}`, {
-          headers: { Authorization: `Bearer ${kv.token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && typeof data.result === "number") {
-            return data.result;
-          }
-        }
-      } catch (err) {
-        console.warn("Vercel KV incr error, fallback to local:", err);
-      }
-    }
-    const current = this.viewsMap[clean] || 0;
+    const current = this.memoryCache.get(cacheKey) || 0;
     const next = current + 1;
-    this.viewsMap[clean] = next;
-    this.save();
+    this.memoryCache.set(cacheKey, next);
     return next;
+  }
+  /**
+   * Recupera il contatore delle visualizzazioni per un determinato atleta.
+   */
+  async getViews(id) {
+    if (!id) return 0;
+    const playerId = this.parsePlayerId(id);
+    const cacheKey = String(playerId ?? id);
+    if (this.supabase && playerId !== null) {
+      try {
+        const { data, error } = await this.supabase.from("views").select("count").eq("playerId", playerId).maybeSingle();
+        if (!error && data && typeof data.count === "number") {
+          this.memoryCache.set(cacheKey, data.count);
+          return data.count;
+        }
+      } catch (err) {
+        console.error(`[ViewsService] Errore lettura Supabase getViews per ${playerId}:`, err);
+      }
+    }
+    return this.memoryCache.get(cacheKey) || 0;
   }
 };
 var viewsService = new ViewsService();
 
 // server/services/athleteResolver.ts
-import fs3 from "fs";
-import path3 from "path";
+import fs2 from "fs";
+import path2 from "path";
 import * as cheerio from "cheerio";
 
 // server/data/athlete_mapping.json
@@ -1090,13 +1096,13 @@ var AthleteResolver = class {
   mapping;
   constructor() {
     this.mapping = { ...athlete_mapping_default };
-    this.mappingFile = path3.resolve(process.cwd(), "server", "data", "athlete_mapping.json");
+    this.mappingFile = path2.resolve(process.cwd(), "server", "data", "athlete_mapping.json");
     this.loadMapping();
   }
   loadMapping() {
     try {
-      if (fs3.existsSync(this.mappingFile)) {
-        const content = fs3.readFileSync(this.mappingFile, "utf8");
+      if (fs2.existsSync(this.mappingFile)) {
+        const content = fs2.readFileSync(this.mappingFile, "utf8");
         this.mapping = { ...athlete_mapping_default, ...JSON.parse(content) };
       }
     } catch {
@@ -1105,7 +1111,7 @@ var AthleteResolver = class {
   }
   saveMapping() {
     try {
-      fs3.writeFileSync(this.mappingFile, JSON.stringify(this.mapping, null, 2), "utf8");
+      fs2.writeFileSync(this.mappingFile, JSON.stringify(this.mapping, null, 2), "utf8");
     } catch {
     }
   }
@@ -1188,11 +1194,11 @@ var AthleteResolver = class {
 var athleteResolver = new AthleteResolver();
 
 // server/services/teamResolver.ts
-import fs4 from "fs";
-import path4 from "path";
+import fs3 from "fs";
+import path3 from "path";
 import * as cheerio2 from "cheerio";
 var TeamResolver = class {
-  cacheFilePath = path4.resolve(process.cwd(), "server", "data", "team_logos.json");
+  cacheFilePath = path3.resolve(process.cwd(), "server", "data", "team_logos.json");
   logos = {
     "ASD TENNISTAVOLO NUOVA LUZZI": "https://portale.fitet.org/images/societa/3260.jpg",
     "TENNISTAVOLO CASTROVILLARI": "https://portale.fitet.org/images/societa/3164.jpg",
@@ -1204,8 +1210,8 @@ var TeamResolver = class {
   }
   loadFromDisk() {
     try {
-      if (fs4.existsSync(this.cacheFilePath)) {
-        const raw = fs4.readFileSync(this.cacheFilePath, "utf-8");
+      if (fs3.existsSync(this.cacheFilePath)) {
+        const raw = fs3.readFileSync(this.cacheFilePath, "utf-8");
         const parsed = JSON.parse(raw);
         if (typeof parsed === "object") {
           this.logos = { ...this.logos, ...parsed };
@@ -1217,9 +1223,9 @@ var TeamResolver = class {
   }
   saveToDisk() {
     try {
-      const dir = path4.dirname(this.cacheFilePath);
-      if (!fs4.existsSync(dir)) fs4.mkdirSync(dir, { recursive: true });
-      fs4.writeFileSync(this.cacheFilePath, JSON.stringify(this.logos, null, 2), "utf-8");
+      const dir = path3.dirname(this.cacheFilePath);
+      if (!fs3.existsSync(dir)) fs3.mkdirSync(dir, { recursive: true });
+      fs3.writeFileSync(this.cacheFilePath, JSON.stringify(this.logos, null, 2), "utf-8");
     } catch (e) {
       console.error("Error saving team_logos.json:", e);
     }
@@ -1270,8 +1276,8 @@ var TeamResolver = class {
 var teamResolver = new TeamResolver();
 
 // server/services/championshipCatalog.ts
-import fs5 from "fs";
-import path5 from "path";
+import fs4 from "fs";
+import path4 from "path";
 import * as cheerio3 from "cheerio";
 var REGIONI = [
   { id: 19, nome: "Calabria" },
@@ -1304,7 +1310,7 @@ var NAZIONALI = [
   { cid: 7, nome: "Paralimpici Naz." }
 ];
 var ChampionshipCatalog = class {
-  cacheFilePath = path5.resolve(process.cwd(), "server", "data", "campionati.json");
+  cacheFilePath = path4.resolve(process.cwd(), "server", "data", "campionati.json");
   memoryCache = null;
   lastFetched = 0;
   TTL = 24 * 60 * 60 * 1e3;
@@ -1314,12 +1320,12 @@ var ChampionshipCatalog = class {
   }
   loadFromDisk() {
     try {
-      if (fs5.existsSync(this.cacheFilePath)) {
-        const raw = fs5.readFileSync(this.cacheFilePath, "utf-8");
+      if (fs4.existsSync(this.cacheFilePath)) {
+        const raw = fs4.readFileSync(this.cacheFilePath, "utf-8");
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           this.memoryCache = parsed;
-          const stat = fs5.statSync(this.cacheFilePath);
+          const stat = fs4.statSync(this.cacheFilePath);
           this.lastFetched = stat.mtimeMs;
         }
       }
@@ -1329,9 +1335,9 @@ var ChampionshipCatalog = class {
   }
   saveToDisk(data) {
     try {
-      const dir = path5.dirname(this.cacheFilePath);
-      if (!fs5.existsSync(dir)) fs5.mkdirSync(dir, { recursive: true });
-      fs5.writeFileSync(this.cacheFilePath, JSON.stringify(data, null, 2), "utf-8");
+      const dir = path4.dirname(this.cacheFilePath);
+      if (!fs4.existsSync(dir)) fs4.mkdirSync(dir, { recursive: true });
+      fs4.writeFileSync(this.cacheFilePath, JSON.stringify(data, null, 2), "utf-8");
     } catch (e) {
       console.error("Error saving campionati.json to disk:", e);
     }
@@ -2990,11 +2996,11 @@ app.post("/api/refresh", async (req, res) => {
   }
 });
 if (!process.env.VERCEL) {
-  const distPath = path6.resolve(process.cwd(), "dist");
+  const distPath = path5.resolve(process.cwd(), "dist");
   app.use(express.static(distPath));
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
-    const indexFile = path6.join(distPath, "index.html");
+    const indexFile = path5.join(distPath, "index.html");
     res.sendFile(indexFile, (err) => {
       if (err) res.status(404).send("Not Found");
     });
