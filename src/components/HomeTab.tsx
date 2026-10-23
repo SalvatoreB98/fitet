@@ -6,6 +6,7 @@ import {
   saveFavoriteAthlete,
   FavoriteAthlete,
 } from '../utils/favorites';
+import { useRecentHistory } from '../utils/history';
 import { fetchAtleta } from '../services/api';
 import { AthleteAvatar } from './AthleteAvatar';
 import { SearchAtletaModal } from './SearchAtletaModal';
@@ -47,6 +48,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     favorites: favoriteAthletes,
     favoritesCount: athletesCount,
     removeFavorite: removeAthleteFavorite,
+    isFavorite: isFavoriteAthlete,
+    toggleFavorite: toggleAthleteFavorite,
   } = useFavoriteAthletes();
 
   const {
@@ -58,10 +61,19 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     removeFavorite: removeChampFavorite,
   } = useFavoriteChampionships();
 
+  const {
+    recentAthletes,
+    recentChampionships,
+    clearAthletes,
+    clearChampionships,
+    removeAthlete,
+    removeChampionship,
+  } = useRecentHistory();
+
   // Modale Cerca Atleta
   const [isSearchAtletaModalOpen, setIsSearchAtletaModalOpen] = useState(false);
 
-  // Sincronizza in background i dati dei preferiti con l'ultimo snapshot ufficiale (ranking reale, punti)
+  // Sincronizza in background i dati dei preferiti con l'ultimo snapshot ufficiale
   const syncedRef = useRef<boolean>(false);
   useEffect(() => {
     if (favoriteAthletes.length === 0 || syncedRef.current) return;
@@ -95,74 +107,75 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             });
           }
         })
-        .catch(() => { });
+        .catch(() => {});
     });
   }, [favoriteAthletes]);
 
-  // Risolve l'elenco dei campionati preferiti tramite il catalogo campionati e cache
+  // Campionati preferiti risolti con metadata
   const resolvedFavoriteChampionships = useMemo(() => {
-    return favoriteChampIds.map((id) => {
-      const found = campionati.find((c) => c.id === id);
-      if (found) return found;
-      const cached = cachedMeta[id];
-      if (cached) {
-        return {
-          id,
-          nome: cached.nome || `Campionato #${id}`,
-          categoria: cached.categoria || '',
-          regione: cached.regione || 'FITET',
-          anno: cached.anno || annoId,
-          formula: cached.formula,
-        } as ChampionshipItem;
-      }
-      return {
-        id,
-        nome: `Campionato #${id}`,
-        categoria: '',
-        regione: 'FITET',
-        anno: annoId,
-      } as ChampionshipItem;
-    });
-  }, [favoriteChampIds, campionati, cachedMeta, annoId]);
+    return favoriteChampIds
+      .map((id) => {
+        const foundInCatalog = campionati.find((c) => c.id === id);
+        if (foundInCatalog) return foundInCatalog;
+        const cached = cachedMeta[id];
+        if (cached) {
+          return {
+            id,
+            nome: cached.nome,
+            regione: cached.regione,
+            categoria: cached.categoria,
+            anno: cached.anno || 41,
+          } as ChampionshipItem;
+        }
+        return null;
+      })
+      .filter((c): c is ChampionshipItem => c !== null);
+  }, [favoriteChampIds, campionati, cachedMeta]);
 
-  // Campionato attuale / ultimo selezionato (da prop o da localStorage)
+  // Campionato attivo attuale o salvato in localStorage
   const currentOrLastCamId = useMemo(() => {
     if (currentCamId) return currentCamId;
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('fitet_selected_cam');
-      if (saved && /^\d+$/.test(saved)) return parseInt(saved, 10);
-    }
+    try {
+      const stored = localStorage.getItem('fitet_selected_cam');
+      if (stored) {
+        const num = parseInt(stored, 10);
+        if (!isNaN(num) && num > 0) return num;
+      }
+    } catch {}
     return null;
   }, [currentCamId]);
 
-  const currentChampionshipResolved = useMemo(() => {
+  const currentChampionshipResolved = useMemo((): ChampionshipItem | null => {
     if (!currentOrLastCamId) return null;
     const found = campionati.find((c) => c.id === currentOrLastCamId);
     if (found) return found;
+
     if (currentChampionship && currentChampionship.nome) {
       return {
         id: currentOrLastCamId,
         nome: currentChampionship.nome,
+        regione: currentChampionship.regione || '',
         categoria: currentChampionship.categoria || '',
-        regione: currentChampionship.regione || 'FITET',
         anno: annoId,
       } as ChampionshipItem;
     }
+
     const cached = cachedMeta[currentOrLastCamId];
     if (cached) {
       return {
         id: currentOrLastCamId,
-        nome: cached.nome || `Campionato #${currentOrLastCamId}`,
-        categoria: cached.categoria || '',
-        regione: cached.regione || 'FITET',
+        nome: cached.nome,
+        regione: cached.regione,
+        categoria: cached.categoria,
         anno: cached.anno || annoId,
       } as ChampionshipItem;
     }
+
     return {
       id: currentOrLastCamId,
       nome: `Campionato #${currentOrLastCamId}`,
+      regione: '',
       categoria: '',
-      regione: 'FITET',
       anno: annoId,
     } as ChampionshipItem;
   }, [currentOrLastCamId, campionati, currentChampionship, cachedMeta, annoId]);
@@ -177,7 +190,23 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     return trimmed;
   };
 
-  const handleOpenChampionship = (champId: number, champAnno = 41, targetTab: 'classifica' | 'calendario' = 'classifica') => {
+  const formatTimestamp = (timestamp: number): string => {
+    const diff = Date.now() - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) return 'Poco fa';
+    if (minutes < 60) return `${minutes} min fa`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} ore fa`;
+    const days = Math.floor(hours / 24);
+    if (days === 1) return 'Ieri';
+    return `${days} gg fa`;
+  };
+
+  const handleOpenChampionship = (
+    champId: number,
+    champAnno = 41,
+    targetTab: 'classifica' | 'calendario' = 'classifica'
+  ) => {
     onSelectChampionship(champId, champAnno);
     onNavigateTab(targetTab);
   };
@@ -185,333 +214,21 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   return (
     <div className="home-container">
       {/* ───────────────────────────────────────────────────────────
-          DUE MACRO-AZIONI PRINCIPALI (ESPLORA CAMPIONATI & CERCA ATLETA)
+          SEZIONE 1: ATLETI PREFERITI
          ─────────────────────────────────────────────────────────── */}
-      <section className="home-macro-actions" aria-label="Azioni principali del portale">
-        {/* Macro-Azione 1: Esplora Campionati */}
-        <div
-          className="macro-card macro-card-championship"
-          onClick={onOpenChampionshipModal}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onOpenChampionshipModal();
-            }
-          }}
-        >
-          <div className="macro-card-header">
-            <div className="macro-icon-box icon-trophy">
-              <i className="bi bi-trophy-fill"></i>
-            </div>
-            <span className="macro-action-tag">Gironi & Risultati</span>
-          </div>
-
-          <div className="macro-card-body">
-            <h3 className="macro-card-title">Esplora Campionati</h3>
-            <p className="macro-card-desc">
-              Selezione guidata per Regione, Serie e Girone: consulta classifiche a squadre, calendari e risultati.
-            </p>
-          </div>
-
-          <div className="macro-card-footer">
-            <span className="macro-cta-link">
-              <span>Scegli Girone</span>
-              <i className="bi bi-arrow-right"></i>
-            </span>
-          </div>
-        </div>
-
-        {/* Macro-Azione 2: Cerca Atleta (Apre Modale Dedicata) */}
-        <div
-          className="macro-card macro-card-athlete"
-          onClick={() => setIsSearchAtletaModalOpen(true)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              setIsSearchAtletaModalOpen(true);
-            }
-          }}
-        >
-          <div className="macro-card-header">
-            <div className="macro-icon-box icon-search">
-              <i className="bi bi-search"></i>
-            </div>
-            <span className="macro-action-tag">Schede Atleti</span>
-          </div>
-
-          <div className="macro-card-body">
-            <h3 className="macro-card-title">Cerca Atleta</h3>
-            <p className="macro-card-desc">
-              Trova subito qualsiasi tesserato FITeT per consultarne classifica, rendimento e storico partite.
-            </p>
-          </div>
-
-          <div className="macro-card-footer">
-            <span className="macro-cta-link">
-              <span>Apri Ricerca</span>
-              <i className="bi bi-arrow-right"></i>
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {/* ───────────────────────────────────────────────────────────
-          SEZIONE 1: CAMPIONATI PREFERITI (Minimal & Borderless)
-         ─────────────────────────────────────────────────────────── */}
-      <section className="home-section">
-        <div className="home-section-header">
-          <div className="home-section-title-wrap">
-            <div className="home-section-icon trophy">
-              <i className="bi bi-trophy-fill"></i>
-            </div>
-            <h3 className="home-section-title">
-              {resolvedFavoriteChampionships.length > 0 ? 'Campionati Preferiti' : 'Campionato Attuale'}
-              {resolvedFavoriteChampionships.length > 0 && (
-                <span className="home-section-count">
-                  {champCount} {champCount === 1 ? 'salvato' : 'salvati'}
-                </span>
-              )}
-            </h3>
-          </div>
-
-          <button
-            type="button"
-            className="home-section-btn"
-            onClick={onOpenChampionshipModal}
-            title="Aggiungi altri campionati"
-          >
-            <i className="bi bi-plus-lg"></i>
-            <span>Sfoglia Campionati</span>
-          </button>
-        </div>
-
-        {/* Se ci sono preferiti salvati, mostra l'elenco dei preferiti */}
-        {resolvedFavoriteChampionships.length > 0 ? (
-          <div className="home-cards-grid">
-            {resolvedFavoriteChampionships.map((champ) => {
-              const serieKey = getChampionshipSerieKey(champ);
-              const serieConfig = SERIE_CONFIGS[serieKey];
-              const isActive = currentCamId === champ.id;
-              const cleanTitle = cleanChampionshipCardName(champ.nome, champ.categoria);
-
-              return (
-                <div
-                  key={`fav-champ-${champ.id}`}
-                  className={`home-borderless-card ${isActive ? 'is-active-champ' : ''}`}
-                >
-                  <div className="home-card-top">
-                    <div className="home-card-badges">
-                      <span
-                        className="home-soft-pill"
-                        style={{
-                          backgroundColor: `${serieConfig.accent}16`,
-                          color: serieConfig.accent,
-                        }}
-                      >
-                        <i className={`bi ${serieConfig.icon}`}></i>
-                        {champ.categoria || serieConfig.title}
-                      </span>
-                      <span className="home-soft-region">
-                        <i className="bi bi-geo-alt"></i>
-                        {champ.regione || 'Nazionale'}
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="home-card-fav-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeChampFavorite(champ.id);
-                      }}
-                      title="Rimuovi dai preferiti"
-                      aria-label="Rimuovi campionato dai preferiti"
-                    >
-                      <i className="bi bi-star-fill"></i>
-                    </button>
-                  </div>
-
-                  <div
-                    className="home-card-main"
-                    onClick={() => handleOpenChampionship(champ.id, champ.anno || 41, 'classifica')}
-                  >
-                    <h4 className="home-card-title" title={champ.nome}>
-                      {cleanTitle}
-                    </h4>
-                    {cleanTitle !== champ.nome && (
-                      <p className="home-card-sub">{champ.nome}</p>
-                    )}
-                  </div>
-
-                  <div className="home-card-actions">
-                    <button
-                      type="button"
-                      className="home-action-btn btn-main"
-                      onClick={() => handleOpenChampionship(champ.id, champ.anno || 41, 'classifica')}
-                    >
-                      <i className="bi bi-trophy"></i>
-                      <span>Classifica</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="home-action-btn"
-                      onClick={() => handleOpenChampionship(champ.id, champ.anno || 41, 'calendario')}
-                    >
-                      <i className="bi bi-calendar3"></i>
-                      <span>Calendario</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : currentChampionshipResolved ? (
-          /* Se non ci sono preferiti salvati, mostra il campionato attuale / salvato in localStorage */
-          <div className="home-cards-grid">
-            {(() => {
-              const serieKey = getChampionshipSerieKey(currentChampionshipResolved);
-              const serieConfig = SERIE_CONFIGS[serieKey];
-              const cleanTitle = cleanChampionshipCardName(
-                currentChampionshipResolved.nome,
-                currentChampionshipResolved.categoria
-              );
-              const isFav = isFavoriteChamp(currentChampionshipResolved.id);
-
-              return (
-                <div
-                  key={`curr-champ-${currentChampionshipResolved.id}`}
-                  className="home-borderless-card is-active-champ"
-                >
-                  <div className="home-card-top">
-                    <div className="home-card-badges">
-                      <span
-                        className="home-soft-pill"
-                        style={{
-                          backgroundColor: `${serieConfig.accent}16`,
-                          color: serieConfig.accent,
-                        }}
-                      >
-                        <i className={`bi ${serieConfig.icon}`}></i>
-                        {currentChampionshipResolved.categoria || serieConfig.title}
-                      </span>
-                      <span className="home-soft-region">
-                        <i className="bi bi-geo-alt"></i>
-                        {currentChampionshipResolved.regione || 'Nazionale'}
-                      </span>
-                      <span className="home-current-badge">
-                        <i className="bi bi-check-circle-fill"></i> Campionato Attivo
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="home-card-fav-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleChampFavorite(
-                          currentChampionshipResolved.id,
-                          currentChampionshipResolved
-                        );
-                      }}
-                      title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-                      aria-label="Aggiungi o rimuovi dai preferiti"
-                    >
-                      <i className={isFav ? 'bi bi-star-fill' : 'bi bi-star'}></i>
-                    </button>
-                  </div>
-
-                  <div
-                    className="home-card-main"
-                    onClick={() =>
-                      handleOpenChampionship(
-                        currentChampionshipResolved.id,
-                        currentChampionshipResolved.anno || 41,
-                        'classifica'
-                      )
-                    }
-                  >
-                    <h4 className="home-card-title" title={currentChampionshipResolved.nome}>
-                      {cleanTitle}
-                    </h4>
-                    {cleanTitle !== currentChampionshipResolved.nome && (
-                      <p className="home-card-sub">{currentChampionshipResolved.nome}</p>
-                    )}
-                  </div>
-
-                  <div className="home-card-actions">
-                    <button
-                      type="button"
-                      className="home-action-btn btn-main"
-                      onClick={() =>
-                        handleOpenChampionship(
-                          currentChampionshipResolved.id,
-                          currentChampionshipResolved.anno || 41,
-                          'classifica'
-                        )
-                      }
-                    >
-                      <i className="bi bi-trophy"></i>
-                      <span>Classifica</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="home-action-btn"
-                      onClick={() =>
-                        handleOpenChampionship(
-                          currentChampionshipResolved.id,
-                          currentChampionshipResolved.anno || 41,
-                          'calendario'
-                        )
-                      }
-                    >
-                      <i className="bi bi-calendar3"></i>
-                      <span>Calendario</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        ) : (
-          /* Fallback se non c'è nessun campionato preferito né attuale */
-          <div className="home-empty-card">
-            <div className="home-empty-icon icon-trophy">
-              <i className="bi bi-trophy"></i>
-            </div>
-            <h4 className="home-empty-title">Nessun Campionato Selezionato</h4>
-            <p className="home-empty-desc">
-              Scegli il campionato FITeT da consultare dal catalogo, per accedere all'istante ogni volta che apri l'app.
-            </p>
-            <button
-              type="button"
-              className="home-empty-btn"
-              onClick={onOpenChampionshipModal}
-            >
-              <i className="bi bi-plus-lg"></i>
-              <span>Esplora Campionati</span>
-            </button>
-          </div>
-        )}
-      </section>
-
-      {/* ───────────────────────────────────────────────────────────
-          SEZIONE 2: ATLETI PREFERITI (Minimal & Borderless)
-         ─────────────────────────────────────────────────────────── */}
-      <section className="home-section">
+      <section className="home-section" aria-labelledby="heading-fav-athletes">
         <div className="home-section-header">
           <div className="home-section-title-wrap">
             <div className="home-section-icon heart">
-              <i className="bi bi-person-hearts"></i>
+              <i className="bi bi-star-fill text-warning"></i>
             </div>
-            <h3 className="home-section-title">
+            <h3 id="heading-fav-athletes" className="home-section-title">
               Atleti Preferiti
-              <span className="home-section-count">
-                {athletesCount} {athletesCount === 1 ? 'atleta' : 'atleti'}
-              </span>
+              {athletesCount > 0 && (
+                <span className="home-section-count">
+                  {athletesCount} {athletesCount === 1 ? 'salvato' : 'salvati'}
+                </span>
+              )}
             </h3>
           </div>
 
@@ -570,11 +287,10 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                     title="Rimuovi atleta dai preferiti"
                     aria-label="Rimuovi atleta dai preferiti"
                   >
-                    <i className="bi bi-star-fill"></i>
+                    <i className="bi bi-star-fill text-warning"></i>
                   </button>
                 </div>
 
-                {/* Soft Stats Row */}
                 <div className="home-athlete-stats-row">
                   <div className="home-athlete-stat">
                     <span className="home-athlete-stat-label">Ranking</span>
@@ -608,12 +324,12 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         ) : (
           <div className="home-empty-card">
             <div className="home-empty-icon icon-heart">
-              <i className="bi bi-person-hearts"></i>
+              <i className="bi bi-star"></i>
             </div>
             <h4 className="home-empty-title">Nessun Giocatore tra i Preferiti</h4>
             <p className="home-empty-desc">
-              Cerca i tuoi compagni di squadra, avversari o atleti di riferimento e premi sulla stella per salvarli
-              qui e visualizzare all'istante schede tecniche, vittorie e ranking ufficiale.
+              Cerca i tuoi compagni di squadra, avversari o atleti di riferimento e tocca la stella per salvarli
+              qui e consultarli in qualsiasi momento.
             </p>
             <button
               type="button"
@@ -621,13 +337,507 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               onClick={() => setIsSearchAtletaModalOpen(true)}
             >
               <i className="bi bi-search"></i>
-              <span>Cerca e Aggiungi Giocatori</span>
+              <span>Cerca e Aggiungi Atleta</span>
             </button>
           </div>
         )}
       </section>
 
-      {/* Modale Ricerca Atleta Globale */}
+      {/* ───────────────────────────────────────────────────────────
+          SEZIONE 2: CAMPIONATI PREFERITI
+         ─────────────────────────────────────────────────────────── */}
+      <section className="home-section" aria-labelledby="heading-fav-championships">
+        <div className="home-section-header">
+          <div className="home-section-title-wrap">
+            <div className="home-section-icon trophy">
+              <i className="bi bi-trophy-fill text-warning"></i>
+            </div>
+            <h3 id="heading-fav-championships" className="home-section-title">
+              {resolvedFavoriteChampionships.length > 0 ? 'Campionati Preferiti' : 'Campionato Attuale'}
+              {resolvedFavoriteChampionships.length > 0 && (
+                <span className="home-section-count">
+                  {champCount} {champCount === 1 ? 'salvato' : 'salvati'}
+                </span>
+              )}
+            </h3>
+          </div>
+
+          <button
+            type="button"
+            className="home-section-btn"
+            onClick={onOpenChampionshipModal}
+            title="Aggiungi altri campionati"
+          >
+            <i className="bi bi-plus-lg"></i>
+            <span>Sfoglia Campionati</span>
+          </button>
+        </div>
+
+        {resolvedFavoriteChampionships.length > 0 ? (
+          <div className="home-cards-grid">
+            {resolvedFavoriteChampionships.map((champ) => {
+              const serieKey = getChampionshipSerieKey(champ);
+              const serieConfig = SERIE_CONFIGS[serieKey];
+              const isActive = currentCamId === champ.id;
+              const cleanTitle = cleanChampionshipCardName(champ.nome, champ.categoria);
+
+              return (
+                <div
+                  key={`fav-champ-${champ.id}`}
+                  className={`home-borderless-card ${isActive ? 'is-active-champ' : ''}`}
+                >
+                  <div className="home-card-top">
+                    <div className="home-card-badges">
+                      <span
+                        className="home-soft-pill"
+                        style={{
+                          backgroundColor: `${serieConfig.accent}16`,
+                          color: serieConfig.accent,
+                        }}
+                      >
+                        <i className={`bi ${serieConfig.icon}`}></i>
+                        {champ.categoria || serieConfig.title}
+                      </span>
+                      <span className="home-soft-region">
+                        <i className="bi bi-geo-alt"></i>
+                        {champ.regione || 'Nazionale'}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="home-card-fav-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeChampFavorite(champ.id);
+                      }}
+                      title="Rimuovi dai preferiti"
+                      aria-label="Rimuovi campionato dai preferiti"
+                    >
+                      <i className="bi bi-star-fill text-warning"></i>
+                    </button>
+                  </div>
+
+                  <div
+                    className="home-card-main"
+                    onClick={() => handleOpenChampionship(champ.id, champ.anno || 41, 'classifica')}
+                  >
+                    <h4 className="home-card-title" title={champ.nome}>
+                      {cleanTitle}
+                    </h4>
+                    {cleanTitle !== champ.nome && (
+                      <p className="home-card-sub">{champ.nome}</p>
+                    )}
+                  </div>
+
+                  <div className="home-card-actions">
+                    <button
+                      type="button"
+                      className="home-action-btn btn-main"
+                      onClick={() => handleOpenChampionship(champ.id, champ.anno || 41, 'classifica')}
+                    >
+                      <i className="bi bi-trophy"></i>
+                      <span>Classifica</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="home-action-btn"
+                      onClick={() => handleOpenChampionship(champ.id, champ.anno || 41, 'calendario')}
+                    >
+                      <i className="bi bi-calendar3"></i>
+                      <span>Calendario</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : currentChampionshipResolved ? (
+          <div className="home-cards-grid">
+            {(() => {
+              const serieKey = getChampionshipSerieKey(currentChampionshipResolved);
+              const serieConfig = SERIE_CONFIGS[serieKey];
+              const cleanTitle = cleanChampionshipCardName(
+                currentChampionshipResolved.nome,
+                currentChampionshipResolved.categoria
+              );
+              const isFav = isFavoriteChamp(currentChampionshipResolved.id);
+
+              return (
+                <div
+                  key={`curr-champ-${currentChampionshipResolved.id}`}
+                  className="home-borderless-card is-active-champ"
+                >
+                  <div className="home-card-top">
+                    <div className="home-card-badges">
+                      <span
+                        className="home-soft-pill"
+                        style={{
+                          backgroundColor: `${serieConfig.accent}16`,
+                          color: serieConfig.accent,
+                        }}
+                      >
+                        <i className={`bi ${serieConfig.icon}`}></i>
+                        {currentChampionshipResolved.categoria || serieConfig.title}
+                      </span>
+                      <span className="home-soft-region">
+                        <i className="bi bi-geo-alt"></i>
+                        {currentChampionshipResolved.regione || 'Nazionale'}
+                      </span>
+                      <span className="home-current-badge">
+                        <i className="bi bi-check-circle-fill"></i> Attivo
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="home-card-fav-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleChampFavorite(
+                          currentChampionshipResolved.id,
+                          currentChampionshipResolved
+                        );
+                      }}
+                      title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                      aria-label="Aggiungi o rimuovi dai preferiti"
+                    >
+                      <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
+                    </button>
+                  </div>
+
+                  <div
+                    className="home-card-main"
+                    onClick={() =>
+                      handleOpenChampionship(
+                        currentChampionshipResolved.id,
+                        currentChampionshipResolved.anno || 41,
+                        'classifica'
+                      )
+                    }
+                  >
+                    <h4 className="home-card-title" title={currentChampionshipResolved.nome}>
+                      {cleanTitle}
+                    </h4>
+                    {cleanTitle !== currentChampionshipResolved.nome && (
+                      <p className="home-card-sub">{currentChampionshipResolved.nome}</p>
+                    )}
+                  </div>
+
+                  <div className="home-card-actions">
+                    <button
+                      type="button"
+                      className="home-action-btn btn-main"
+                      onClick={() =>
+                        handleOpenChampionship(
+                          currentChampionshipResolved.id,
+                          currentChampionshipResolved.anno || 41,
+                          'classifica'
+                        )
+                      }
+                    >
+                      <i className="bi bi-trophy"></i>
+                      <span>Classifica</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="home-action-btn"
+                      onClick={() =>
+                        handleOpenChampionship(
+                          currentChampionshipResolved.id,
+                          currentChampionshipResolved.anno || 41,
+                          'calendario'
+                        )
+                      }
+                    >
+                      <i className="bi bi-calendar3"></i>
+                      <span>Calendario</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        ) : (
+          <div className="home-empty-card">
+            <div className="home-empty-icon icon-trophy">
+              <i className="bi bi-trophy"></i>
+            </div>
+            <h4 className="home-empty-title">Nessun Campionato Selezionato</h4>
+            <p className="home-empty-desc">
+              Scegli il campionato FITeT da consultare dal catalogo, per accedere all'istante ogni volta che apri l'app.
+            </p>
+            <button
+              type="button"
+              className="home-empty-btn"
+              onClick={onOpenChampionshipModal}
+            >
+              <i className="bi bi-plus-lg"></i>
+              <span>Esplora Campionati</span>
+            </button>
+          </div>
+        )}
+      </section>
+
+      {/* ───────────────────────────────────────────────────────────
+          SEZIONE 3: CRONOLOGIA ATLETI VISITATI
+         ─────────────────────────────────────────────────────────── */}
+      <section className="home-section" aria-labelledby="heading-recent-athletes">
+        <div className="home-section-header">
+          <div className="home-section-title-wrap">
+            <div className="home-section-icon history">
+              <i className="bi bi-clock-history"></i>
+            </div>
+            <h3 id="heading-recent-athletes" className="home-section-title">
+              Cronologia Atleti Visitati
+              {recentAthletes.length > 0 && (
+                <span className="home-section-count">
+                  {recentAthletes.length} {recentAthletes.length === 1 ? 'atleta' : 'atleti'}
+                </span>
+              )}
+            </h3>
+          </div>
+
+          {recentAthletes.length > 0 && (
+            <button
+              type="button"
+              className="home-section-btn text-muted"
+              onClick={clearAthletes}
+              title="Svuota cronologia atleti"
+            >
+              <i className="bi bi-trash3"></i>
+              <span>Svuota</span>
+            </button>
+          )}
+        </div>
+
+        {recentAthletes.length > 0 ? (
+          <div className="home-cards-grid">
+            {recentAthletes.map((item) => {
+              const isFav = isFavoriteAthlete(item.id);
+
+              return (
+                <div
+                  key={`recent-athlete-${item.id}`}
+                  className="home-borderless-card home-athlete-card"
+                  onClick={() => onOpenAtletaModal(item.id, item.name)}
+                >
+                  <div className="home-athlete-top">
+                    <div className="home-athlete-profile">
+                      <div className="home-athlete-avatar-wrap">
+                        <AthleteAvatar
+                          atletaId={item.id}
+                          nome={item.name}
+                          size={42}
+                        />
+                      </div>
+                      <div className="home-athlete-info">
+                        <h4 className="home-card-title" title={item.name}>
+                          {item.name}
+                        </h4>
+                        <div className="home-athlete-team">
+                          {item.squadra ? (
+                            <span title={item.squadra}>{item.squadra}</span>
+                          ) : (
+                            <span>Tessera #{item.id}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        className="home-card-fav-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleAthleteFavorite({
+                            id: item.id,
+                            name: item.name,
+                            squadra: item.squadra,
+                          });
+                        }}
+                        title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                        aria-label="Salva come preferito"
+                      >
+                        <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
+                      </button>
+                      <button
+                        type="button"
+                        className="home-card-fav-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeAthlete(item.id);
+                        }}
+                        title="Rimuovi da cronologia"
+                        aria-label="Rimuovi da cronologia"
+                        style={{ fontSize: '13px' }}
+                      >
+                        <i className="bi bi-x-lg"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="home-card-footer-link" style={{ justifyContent: 'space-between' }}>
+                    <small className="text-muted" style={{ fontSize: '11px' }}>
+                      <i className="bi bi-clock me-1"></i>
+                      {formatTimestamp(item.timestamp)}
+                    </small>
+                    <span>Apri Scheda →</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="home-empty-card" style={{ padding: '24px 16px' }}>
+            <p className="text-muted mb-0" style={{ fontSize: '13px' }}>
+              Nessun atleta visitato di recente. Quando aprirai la scheda di un atleta, apparirà qui per un rapido accesso.
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* ───────────────────────────────────────────────────────────
+          SEZIONE 4: CRONOLOGIA CAMPIONATI VISITATI
+         ─────────────────────────────────────────────────────────── */}
+      <section className="home-section" aria-labelledby="heading-recent-championships">
+        <div className="home-section-header">
+          <div className="home-section-title-wrap">
+            <div className="home-section-icon history">
+              <i className="bi bi-clock-history"></i>
+            </div>
+            <h3 id="heading-recent-championships" className="home-section-title">
+              Cronologia Campionati Visitati
+              {recentChampionships.length > 0 && (
+                <span className="home-section-count">
+                  {recentChampionships.length} {recentChampionships.length === 1 ? 'campionato' : 'campionati'}
+                </span>
+              )}
+            </h3>
+          </div>
+
+          {recentChampionships.length > 0 && (
+            <button
+              type="button"
+              className="home-section-btn text-muted"
+              onClick={clearChampionships}
+              title="Svuota cronologia campionati"
+            >
+              <i className="bi bi-trash3"></i>
+              <span>Svuota</span>
+            </button>
+          )}
+        </div>
+
+        {recentChampionships.length > 0 ? (
+          <div className="home-cards-grid">
+            {recentChampionships.map((item) => {
+              const isFav = isFavoriteChamp(item.id);
+              const serieKey = getChampionshipSerieKey(item);
+              const serieConfig = SERIE_CONFIGS[serieKey];
+              const cleanTitle = cleanChampionshipCardName(item.nome, item.categoria);
+
+              return (
+                <div
+                  key={`recent-champ-${item.id}`}
+                  className="home-borderless-card"
+                  onClick={() => handleOpenChampionship(item.id, item.anno || 41, 'classifica')}
+                >
+                  <div className="home-card-top">
+                    <div className="home-card-badges">
+                      <span
+                        className="home-soft-pill"
+                        style={{
+                          backgroundColor: `${serieConfig.accent}16`,
+                          color: serieConfig.accent,
+                        }}
+                      >
+                        <i className={`bi ${serieConfig.icon}`}></i>
+                        {item.categoria || serieConfig.title}
+                      </span>
+                      <span className="home-soft-region">
+                        <i className="bi bi-geo-alt"></i>
+                        {item.regione || 'Nazionale'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        className="home-card-fav-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleChampFavorite(item.id, item);
+                        }}
+                        title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                        aria-label="Salva campionato come preferito"
+                      >
+                        <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
+                      </button>
+                      <button
+                        type="button"
+                        className="home-card-fav-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeChampionship(item.id);
+                        }}
+                        title="Rimuovi da cronologia"
+                        aria-label="Rimuovi da cronologia"
+                        style={{ fontSize: '13px' }}
+                      >
+                        <i className="bi bi-x-lg"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="home-card-main">
+                    <h4 className="home-card-title" title={item.nome}>
+                      {cleanTitle}
+                    </h4>
+                    {cleanTitle !== item.nome && (
+                      <p className="home-card-sub">{item.nome}</p>
+                    )}
+                  </div>
+
+                  <div className="home-card-actions">
+                    <button
+                      type="button"
+                      className="home-action-btn btn-main"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenChampionship(item.id, item.anno || 41, 'classifica');
+                      }}
+                    >
+                      <i className="bi bi-trophy"></i>
+                      <span>Classifica</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="home-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenChampionship(item.id, item.anno || 41, 'calendario');
+                      }}
+                    >
+                      <i className="bi bi-calendar3"></i>
+                      <span>Calendario</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="home-empty-card" style={{ padding: '24px 16px' }}>
+            <p className="text-muted mb-0" style={{ fontSize: '13px' }}>
+              Nessun campionato visitato di recente. Quando aprirai un campionato dal catalogo, verrà memorizzato qui.
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* Modale Ricerca Atleta */}
       <SearchAtletaModal
         isOpen={isSearchAtletaModalOpen}
         onClose={() => setIsSearchAtletaModalOpen(false)}

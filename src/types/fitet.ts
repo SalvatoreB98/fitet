@@ -258,6 +258,7 @@ export interface ChampionshipInfo {
   nome: string;
   girone: string;
   regione: string;
+  categoria?: string;
 }
 
 export interface DashboardData {
@@ -323,3 +324,27 @@ export interface HeadToHeadData {
   totaleIncontri: number;
   incontri: HeadToHeadIncontro[];
 }
+
+export interface RankingAthleteItem {
+  rank: number;
+  atletaId: string;
+  nome: string;
+  dataNascita: string;
+  settore: string;
+  punti: number;
+  posNazOrVariazione: string;
+  provinciaOrRegione: string;
+  categoria: string;
+}
+
+export interface RankingPageResult {
+  title: string;
+  sesso: 'M' | 'F';
+  isRegionale: boolean;
+  comitId?: number;
+  totalAthletes: number;
+  totalPages: number;
+  currentPage: number;
+  athletes: RankingAthleteItem[];
+}
+

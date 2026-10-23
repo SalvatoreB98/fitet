@@ -14,6 +14,7 @@ import { parseDettaglioAtleta, extractRankingIframeUrl, parsePartiteRanking } fr
 import { headToHeadService } from './services/headToHeadService';
 import { parseDettaglioSquadra } from './parsers/squadraParser';
 import { parseRefertoIncontro, parseDettaglioPartita } from './parsers/refertoParser';
+import { parseRankingHtml } from './parsers/rankingParser';
 import * as cheerio from 'cheerio';
 import {
     DashboardData,
@@ -260,6 +261,42 @@ app.get('/api/statistiche', async (req, res) => {
         res.json(data);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// 4b. Classifiche Nazionali e Regionali FITeT
+app.get('/api/ranking', async (req, res) => {
+    const sesso = (req.query.sesso === 'F' ? 'F' : 'M') as 'M' | 'F';
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const comit = req.query.comit ? String(req.query.comit).trim() : '';
+    const forceRefresh = req.query.refresh === 'true';
+
+    const isRegionale = !!comit && comit !== '0' && comit !== 'all';
+    const comitId = isRegionale ? parseInt(comit, 10) : undefined;
+
+    const cacheKey = `ranking_${sesso}_${isRegionale ? `comit_${comitId}` : 'naz'}_p${page}`;
+
+    try {
+        if (!forceRefresh) {
+            const cached = cacheService.get<any>(cacheKey);
+            if (cached) return res.json(cached);
+        }
+
+        let url = '';
+        if (isRegionale) {
+            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=246&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
+        } else {
+            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=247&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
+        }
+
+        const html = await FitetClient.fetchHtml(url, true);
+        const result = parseRankingHtml(html, sesso, page, comitId);
+
+        cacheService.set(cacheKey, result, 60 * 60 * 1000); // 1 hour TTL
+        res.json(result);
+    } catch (error: any) {
+        console.error('Error fetching ranking:', error);
+        res.status(500).json({ error: 'Errore nel recupero della classifica', details: error.message });
     }
 });
 

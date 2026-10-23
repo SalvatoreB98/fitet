@@ -761,3 +761,162 @@
     justify-content: center;
   }
 }
+
+/* ==========================================================================
+   Borderless Card Styles (Soft Modern Sports Aesthetic)
+   ========================================================================== */
+.home-borderless-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 16px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.home-borderless-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  border-color: rgba(37, 99, 235, 0.25);
+}
+
+.home-borderless-card.is-active-champ {
+  border-color: #10b981;
+  background: linear-gradient(180deg, var(--bg-card, #ffffff) 0%, rgba(16, 185, 129, 0.02) 100%);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.08);
+}
+
+.home-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.home-card-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.home-soft-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.home-soft-region {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  background: var(--bg-th, #f1f5f9);
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.home-current-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #059669;
+  background: rgba(16, 185, 129, 0.12);
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.home-card-main {
+  cursor: pointer;
+  min-width: 0;
+}
+
+.home-card-title {
+  font-family: var(--font-serif, serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+  margin: 0 0 4px 0;
+  line-height: 1.3;
+}
+
+.home-card-sub {
+  color: var(--text-muted, #64748b);
+  font-size: 12px;
+  margin: 0;
+}
+
+.home-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light, #f1f5f9);
+}
+
+.home-action-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-hover, #f8fafc);
+  color: var(--text-main, #1e293b);
+  transition: all 0.15s ease;
+}
+
+.home-action-btn:hover {
+  background: var(--color-primary-light, #eff6ff);
+  color: var(--color-primary-600, #1d538e);
+  border-color: rgba(37, 99, 235, 0.4);
+}
+
+.home-action-btn.btn-main {
+  background: #1d538e;
+  color: #ffffff;
+  border-color: #1d538e;
+}
+
+.home-action-btn.btn-main:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.home-section-icon.history {
+  background: rgba(100, 116, 139, 0.12);
+  color: #475569;
+  border: 1px solid rgba(100, 116, 139, 0.25);
+}
+
+.home-card-footer-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary-500, #2563eb);
+  cursor: pointer;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-light, #f1f5f9);
+}

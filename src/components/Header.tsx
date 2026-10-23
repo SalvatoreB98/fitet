@@ -2,14 +2,19 @@ import React, { useRef, useEffect, useState } from 'react';
 import { getCachedUserRegion } from '../utils/geolocation';
 import { useFavoriteAthletes } from '../utils/favorites';
 
+export type MainViewType = 'home' | 'campionato' | 'classifiche';
+export type ChampionshipTabType = 'classifica' | 'calendario' | 'statistiche';
+
 interface HeaderProps {
+  mainView: MainViewType;
+  onChangeMainView: (view: MainViewType) => void;
   lastUpdated: string | null;
   isRefreshing: boolean;
   onRefresh: () => void;
   theme?: 'light' | 'dark';
   onToggleTheme?: (event?: React.MouseEvent) => void;
-  activeTab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta';
-  onChangeTab: (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => void;
+  activeTab: ChampionshipTabType;
+  onChangeTab: (tab: ChampionshipTabType) => void;
   counts: {
     classifica: number;
     calendario: number;
@@ -20,9 +25,12 @@ interface HeaderProps {
   championshipRegion?: string;
   onOpenChampionshipModal?: () => void;
   onOpenFavoritesModal?: () => void;
+  onOpenSearchModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
+  mainView,
+  onChangeMainView,
   lastUpdated,
   isRefreshing,
   onRefresh,
@@ -36,6 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
   championshipRegion,
   onOpenChampionshipModal,
   onOpenFavoritesModal,
+  onOpenSearchModal,
 }) => {
   const { favoritesCount } = useFavoriteAthletes();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -69,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
     };
   }, [isMenuOpen]);
 
-  const centerTab = (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta', targetBtn?: HTMLElement | null) => {
+  const centerTab = (tab: ChampionshipTabType, targetBtn?: HTMLElement | null) => {
     const nav = navRef.current;
     if (!nav) return;
 
@@ -84,21 +93,16 @@ export const Header: React.FC<HeaderProps> = ({
     });
   };
 
-  const handleTabClick = (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta', e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleTabClick = (tab: ChampionshipTabType, e: React.MouseEvent<HTMLButtonElement>) => {
     centerTab(tab, e.currentTarget);
     onChangeTab(tab);
   };
 
   useEffect(() => {
-    centerTab(activeTab);
-  }, [activeTab]);
-
-  const formattedTime = lastUpdated
-    ? new Date(lastUpdated).toLocaleTimeString('it-IT', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-    : '--:--';
+    if (mainView === 'campionato') {
+      centerTab(activeTab);
+    }
+  }, [activeTab, mainView]);
 
   return (
     <>
@@ -106,30 +110,43 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Official Blue Top Header Bar */}
         <div className="portal-header">
           <div className='portal-header-logo'>
-            <a href="https://portale.fitet.org/">
-              <img className='logo-fitet' src="logo-fitet-portal.png" alt="" />
+            <a href="https://portale.fitet.org/" target="_blank" rel="noopener noreferrer">
+              <img className='logo-fitet' src="logo-fitet-portal.png" alt="FITeT" />
             </a>
           </div>
-          <button
-            type="button"
-            className="portal-title-btn"
-            onClick={onOpenChampionshipModal}
-            title="Cambia campionato FITeT"
-            aria-label="Cambia campionato FITeT"
-          >
-            <div className="portal-title-block">
-              <div className="portal-title-heading-row">
-                <h1>{championshipName || 'CAMPIONATO'}</h1>
-                <span className="championship-switcher-badge" aria-hidden="true">
-                  <i className="bi bi-chevron-down"></i>
-                </span>
+
+          {/* Championship Switcher Button - Shown ONLY in 'campionato' view per user request */}
+          {mainView === 'campionato' ? (
+            <button
+              type="button"
+              className="portal-title-btn"
+              onClick={onOpenChampionshipModal}
+              title="Cambia campionato FITeT"
+              aria-label="Cambia campionato FITeT"
+            >
+              <div className="portal-title-block">
+                <div className="portal-title-heading-row">
+                  <h1>{championshipName || 'CAMPIONATO'}</h1>
+                  <span className="championship-switcher-badge" aria-hidden="true">
+                    <i className="bi bi-chevron-down"></i>
+                  </span>
+                </div>
+                <small>{(championshipRegion || getCachedUserRegion() || 'FITET').toUpperCase()}</small>
               </div>
-              <small>{(championshipRegion || getCachedUserRegion() || 'FITET').toUpperCase()}</small>
+            </button>
+          ) : (
+            <div className="portal-title-block portal-title-static" style={{ cursor: 'default' }}>
+              <div className="portal-title-heading-row">
+                <h1>{mainView === 'home' ? 'PORTALE FITET' : 'CLASSIFICHE'}</h1>
+              </div>
+              <small>{mainView === 'home' ? 'HOME & PREFERITI' : 'RANKING UFFICIALE FITET'}</small>
             </div>
-          </button>
+          )}
+
           <div className="portal-header-sponsor">
             <img className='logo-stag' src="STAG.png" alt="STAG" />
           </div>
+
           <div className="portal-header-actions" ref={menuRef}>
             {/* Quick Favorite Star Button */}
             {onOpenFavoritesModal && (
@@ -178,14 +195,14 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
 
                   <div className="burger-menu-items">
-                    {/* 0. Home Dashboard */}
+                    {/* 1. Home Dashboard */}
                     <button
                       type="button"
                       role="menuitem"
-                      className={`burger-menu-item ${activeTab === 'home' ? 'is-active' : ''}`}
+                      className={`burger-menu-item ${mainView === 'home' ? 'is-active' : ''}`}
                       onClick={() => {
                         setIsMenuOpen(false);
-                        onChangeTab('home');
+                        onChangeMainView('home');
                       }}
                     >
                       <div className="burger-item-icon-box icon-home">
@@ -193,16 +210,86 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                       <div className="burger-item-content">
                         <span className="burger-item-title">Home Dashboard</span>
-                        <span className="burger-item-desc">Campionati e giocatori preferiti</span>
+                        <span className="burger-item-desc">Preferiti, cronologia e accesso rapido</span>
                       </div>
-                      {activeTab === 'home' ? (
+                      {mainView === 'home' ? (
                         <span className="burger-item-badge-active">Attivo</span>
                       ) : (
                         <i className="bi bi-chevron-right burger-item-arrow"></i>
                       )}
                     </button>
 
-                    {/* 1. Atleti Preferiti */}
+                    {/* 2. Campionato */}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={`burger-menu-item ${mainView === 'campionato' ? 'is-active' : ''}`}
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onChangeMainView('campionato');
+                      }}
+                    >
+                      <div className="burger-item-icon-box icon-trophy">
+                        <i className="bi bi-trophy-fill"></i>
+                      </div>
+                      <div className="burger-item-content">
+                        <span className="burger-item-title">Campionato</span>
+                        <span className="burger-item-desc">
+                          {championshipName ? `${championshipName}` : 'Classifica squadre e calendario'}
+                        </span>
+                      </div>
+                      {mainView === 'campionato' ? (
+                        <span className="burger-item-badge-active">Attivo</span>
+                      ) : (
+                        <i className="bi bi-chevron-right burger-item-arrow"></i>
+                      )}
+                    </button>
+
+                    {/* 3. Classifiche Nazionali / Regionali */}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className={`burger-menu-item ${mainView === 'classifiche' ? 'is-active' : ''}`}
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onChangeMainView('classifiche');
+                      }}
+                    >
+                      <div className="burger-item-icon-box icon-star">
+                        <i className="bi bi-bar-chart-fill"></i>
+                      </div>
+                      <div className="burger-item-content">
+                        <span className="burger-item-title">Classifiche Ufficiali</span>
+                        <span className="burger-item-desc">Ranking nazionale e comitati regionali</span>
+                      </div>
+                      {mainView === 'classifiche' ? (
+                        <span className="burger-item-badge-active">Attivo</span>
+                      ) : (
+                        <i className="bi bi-chevron-right burger-item-arrow"></i>
+                      )}
+                    </button>
+
+                    {/* 4. Ricerca / Scheda Atleta (Apre SearchAtletaModal) */}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="burger-menu-item"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onOpenSearchModal?.();
+                      }}
+                    >
+                      <div className="burger-item-icon-box icon-search">
+                        <i className="bi bi-search"></i>
+                      </div>
+                      <div className="burger-item-content">
+                        <span className="burger-item-title">Ricerca Atleta</span>
+                        <span className="burger-item-desc">Cerca atleti e apri schede profilo</span>
+                      </div>
+                      <i className="bi bi-chevron-right burger-item-arrow"></i>
+                    </button>
+
+                    {/* 5. Atleti Preferiti */}
                     {onOpenFavoritesModal && (
                       <button
                         type="button"
@@ -214,7 +301,7 @@ export const Header: React.FC<HeaderProps> = ({
                         }}
                       >
                         <div className="burger-item-icon-box icon-star">
-                          <i className="bi bi-star-fill"></i>
+                          <i className="bi bi-person-hearts"></i>
                         </div>
                         <div className="burger-item-content">
                           <span className="burger-item-title">Atleti Preferiti</span>
@@ -232,31 +319,7 @@ export const Header: React.FC<HeaderProps> = ({
                       </button>
                     )}
 
-                    {/* 2. Ricerca Atleta / Scheda */}
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className={`burger-menu-item ${activeTab === 'cercaAtleta' ? 'is-active' : ''}`}
-                      onClick={() => {
-                        setIsMenuOpen(false);
-                        onChangeTab('cercaAtleta');
-                      }}
-                    >
-                      <div className="burger-item-icon-box icon-search">
-                        <i className="bi bi-person-lines-fill"></i>
-                      </div>
-                      <div className="burger-item-content">
-                        <span className="burger-item-title">Ricerca / Scheda Atleta</span>
-                        <span className="burger-item-desc">Cerca atleti e apri schede ranking</span>
-                      </div>
-                      {activeTab === 'cercaAtleta' ? (
-                        <span className="burger-item-badge-active">Attivo</span>
-                      ) : (
-                        <i className="bi bi-chevron-right burger-item-arrow"></i>
-                      )}
-                    </button>
-
-                    {/* 2. Cambia Campionato */}
+                    {/* 6. Cambia Campionato */}
                     <button
                       type="button"
                       role="menuitem"
@@ -267,7 +330,7 @@ export const Header: React.FC<HeaderProps> = ({
                       }}
                     >
                       <div className="burger-item-icon-box icon-trophy">
-                        <i className="bi bi-trophy-fill"></i>
+                        <i className="bi bi-grid-3x3-gap-fill"></i>
                       </div>
                       <div className="burger-item-content">
                         <span className="burger-item-title">Cambia Campionato</span>
@@ -278,7 +341,7 @@ export const Header: React.FC<HeaderProps> = ({
                       <i className="bi bi-chevron-right burger-item-arrow"></i>
                     </button>
 
-                    {/* 3. Toggle Dark / Light Mode */}
+                    {/* 7. Toggle Dark / Light Mode */}
                     {onToggleTheme && (
                       <div
                         role="menuitem"
@@ -333,51 +396,43 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Sub-Navigation Tabs */}
-        <div className="portal-nav" ref={navRef}>
-          <button
-            type="button"
-            data-tab="classifica"
-            className={`portal-nav-tab ${activeTab === 'classifica' ? 'active' : ''}`}
-            onClick={(e) => handleTabClick('classifica', e)}
-          >
-            <i className="bi bi-trophy"></i>
-            <span>Classifica Squadre</span>
-            <span className="tab-badge">{counts.classifica}</span>
-          </button>
+        {/* Sub-Navigation Tabs: SHOWN ONLY when mainView === 'campionato' */}
+        {mainView === 'campionato' && (
+          <div className="portal-nav" ref={navRef}>
+            <button
+              type="button"
+              data-tab="classifica"
+              className={`portal-nav-tab ${activeTab === 'classifica' ? 'active' : ''}`}
+              onClick={(e) => handleTabClick('classifica', e)}
+            >
+              <i className="bi bi-trophy"></i>
+              <span>Classifica Squadre</span>
+              <span className="tab-badge">{counts.classifica}</span>
+            </button>
 
-          <button
-            type="button"
-            data-tab="calendario"
-            className={`portal-nav-tab ${activeTab === 'calendario' ? 'active' : ''}`}
-            onClick={(e) => handleTabClick('calendario', e)}
-          >
-            <i className="bi bi-calendar3"></i>
-            <span>Calendario & Risultati</span>
-            <span className="tab-badge">{counts.calendario}G</span>
-          </button>
+            <button
+              type="button"
+              data-tab="calendario"
+              className={`portal-nav-tab ${activeTab === 'calendario' ? 'active' : ''}`}
+              onClick={(e) => handleTabClick('calendario', e)}
+            >
+              <i className="bi bi-calendar3"></i>
+              <span>Calendario & Risultati</span>
+              <span className="tab-badge">{counts.calendario}G</span>
+            </button>
 
-          <button
-            type="button"
-            data-tab="statistiche"
-            className={`portal-nav-tab ${activeTab === 'statistiche' ? 'active' : ''}`}
-            onClick={(e) => handleTabClick('statistiche', e)}
-          >
-            <i className="bi bi-person-lines-fill"></i>
-            <span>Statistiche Atleti</span>
-            <span className="tab-badge">{counts.statistiche}</span>
-          </button>
-
-          <button
-            type="button"
-            data-tab="cercaAtleta"
-            className={`portal-nav-tab ${activeTab === 'cercaAtleta' ? 'active' : ''}`}
-            onClick={(e) => handleTabClick('cercaAtleta', e)}
-          >
-            <i className="bi bi-search"></i>
-            <span>Ricerca Atleta</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              data-tab="statistiche"
+              className={`portal-nav-tab ${activeTab === 'statistiche' ? 'active' : ''}`}
+              onClick={(e) => handleTabClick('statistiche', e)}
+            >
+              <i className="bi bi-person-lines-fill"></i>
+              <span>Atleti Girone</span>
+              <span className="tab-badge">{counts.statistiche}</span>
+            </button>
+          </div>
+        )}
       </nav>
 
       <style>{`
@@ -387,10 +442,11 @@ export const Header: React.FC<HeaderProps> = ({
         @keyframes spin {
           from { 
             transform: rotate(0deg);
-            opacity: 0 }
+            opacity: 0;
+          }
           to { 
             transform: rotate(360deg); 
-            opacity: 1 
+            opacity: 1; 
           }
         }
       `}</style>

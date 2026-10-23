@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { flushSync } from 'react-dom';
 import { DashboardData, ChampionshipItem } from './types/fitet';
 import { fetchDashboard, fetchCampionati } from './services/api';
-import { Header } from './components/Header';
+import { Header, MainViewType, ChampionshipTabType } from './components/Header';
 import { ClassificaTab } from './components/ClassificaTab';
 import { CalendarioTab } from './components/CalendarioTab';
 import { StatisticheTab } from './components/StatisticheTab';
@@ -10,10 +10,13 @@ import { AtletaModal } from './components/AtletaModal';
 import { ChampionshipModal } from './components/ChampionshipModal';
 import { SquadraModal } from './components/SquadraModal';
 import { IntroMotionGraphic } from './components/IntroMotionGraphic';
-import { CercaAtletaTab } from './components/CercaAtletaTab';
 import { HomeTab } from './components/HomeTab';
+import { ClassificheRankingTab } from './components/ClassificheRankingTab';
+import { BottomBar } from './components/BottomBar';
+import { SearchAtletaModal } from './components/SearchAtletaModal';
 import { FavoritesModal } from './components/FavoritesModal';
 import { registerTeamLogos } from './utils/teamLogos';
+import { addRecentAthlete, addRecentChampionship } from './utils/history';
 
 export const App: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -46,6 +49,7 @@ export const App: React.FC = () => {
   const [loadingCampionati, setLoadingCampionati] = useState<boolean>(false);
   const [isChampionshipModalOpen, setIsChampionshipModalOpen] = useState<boolean>(false);
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState<boolean>(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
 
   // Motion Graphic Intro on first access only
   const [showIntro, setShowIntro] = useState<boolean>(() => {
@@ -65,21 +69,47 @@ export const App: React.FC = () => {
     }
   };
 
-  const [activeTab, setActiveTab] = useState<'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta'>(() => {
+  // Main 3-view navigation: 'home' | 'campionato' | 'classifiche'
+  const [mainView, setMainView] = useState<MainViewType>(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      if (viewParam && ['home', 'campionato', 'classifiche'].includes(viewParam)) {
+        return viewParam as MainViewType;
+      }
       const tabParam = urlParams.get('tab');
-      if (tabParam && ['home', 'classifica', 'calendario', 'statistiche', 'cercaAtleta'].includes(tabParam)) {
-        return tabParam as any;
+      if (tabParam === 'classifiche') return 'classifiche';
+      const camParam = urlParams.get('cam');
+      if (camParam && ['classifica', 'calendario', 'statistiche'].includes(tabParam || '')) {
+        return 'campionato';
+      }
+      const savedView = localStorage.getItem('fitet_main_view') as MainViewType | null;
+      if (savedView && ['home', 'campionato', 'classifiche'].includes(savedView)) {
+        return savedView;
       }
     }
     return 'home';
   });
+
+  // Championship internal subtabs: 'classifica' | 'calendario' | 'statistiche'
+  const [championshipTab, setChampionshipTab] = useState<ChampionshipTabType>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam && ['classifica', 'calendario', 'statistiche'].includes(tabParam)) {
+        return tabParam as ChampionshipTabType;
+      }
+    }
+    return 'classifica';
+  });
+
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
-  // Stack di modali atleta: ogni apertura crea una nuova istanza senza chiudere le precedenti
+
+  // Athlete modal navigation stack
   const [athleteStack, setAthleteStack] = useState<Array<{ key: string; id: string; name: string; fromReferto?: boolean }>>([]);
   const athleteKeyCounter = useRef(0);
   const setSelectedAthlete = (a: { id: string; name: string; fromReferto?: boolean }) => {
+    addRecentAthlete({ id: a.id, name: a.name });
     setAthleteStack((prev) => {
       const top = prev[prev.length - 1];
       if (top && top.id === a.id && top.name === a.name) return prev;
@@ -113,7 +143,6 @@ export const App: React.FC = () => {
     if (isTransitioningRef.current) return;
     const nextTheme = theme === 'light' ? 'dark' : 'light';
 
-    // Simple and robust circular reveal using View Transition API
     if (typeof document !== 'undefined' && typeof (document as any).startViewTransition === 'function') {
       isTransitioningRef.current = true;
 
@@ -191,6 +220,13 @@ export const App: React.FC = () => {
 
       if (result.championship) {
         document.title = `FITeT ${result.championship.nome} - ${result.championship.regione} | Risultati & Classifica`;
+        addRecentChampionship({
+          id: result.championship.id,
+          nome: result.championship.nome,
+          regione: result.championship.regione,
+          categoria: result.championship.categoria,
+          anno: result.championship.anno,
+        });
       }
     } catch (err: any) {
       setError(err.message || 'Errore nel caricamento dei dati FITeT');
@@ -241,6 +277,27 @@ export const App: React.FC = () => {
     setSelectedTeamFilter(null);
     setCamId(newCam);
     setAnnoId(newAnno);
+    setMainView('campionato');
+    localStorage.setItem('fitet_main_view', 'campionato');
+
+    const match = campionati.find((c) => c.id === newCam);
+    if (match) {
+      addRecentChampionship({
+        id: match.id,
+        nome: match.nome,
+        regione: match.regione,
+        categoria: match.categoria,
+        anno: match.anno || newAnno,
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('cam', String(newCam));
+      url.searchParams.set('view', 'campionato');
+      url.searchParams.set('tab', championshipTab);
+      window.history.pushState({ ...(window.history.state || {}), cam: newCam, view: 'campionato' }, '', url.toString());
+    }
   };
 
   const scrollToNav = () => {
@@ -251,43 +308,61 @@ export const App: React.FC = () => {
         window.scrollTo({ top: window.scrollY + rect.top, behavior: 'smooth' });
       }
     } else {
-      const portal = document.querySelector('.portal-container');
-      if (portal) {
-        const rect = portal.getBoundingClientRect();
-        if (rect.top < 0) {
-          window.scrollTo({ top: window.scrollY + rect.top, behavior: 'smooth' });
-        }
-      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  // Sync initial tab into history state on mount
-  useEffect(() => {
+  const handleMainViewChange = (view: MainViewType) => {
+    setMainView(view);
+    localStorage.setItem('fitet_main_view', view);
+
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
-      if (activeTab !== 'home') {
-        url.searchParams.set('tab', activeTab);
-      } else {
+      if (view === 'home') {
+        url.searchParams.delete('view');
         url.searchParams.delete('tab');
+      } else if (view === 'classifiche') {
+        url.searchParams.set('view', 'classifiche');
+        url.searchParams.delete('tab');
+      } else if (view === 'campionato') {
+        url.searchParams.set('view', 'campionato');
+        url.searchParams.set('tab', championshipTab);
       }
-      window.history.replaceState({ ...(window.history.state || {}), tab: activeTab }, '', url.toString());
+      window.history.pushState({ ...(window.history.state || {}), view }, '', url.toString());
     }
-  }, []);
 
-  // Listen to browser back / forward navigation
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleChampionshipTabChange = (tab: ChampionshipTabType) => {
+    setChampionshipTab(tab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', 'campionato');
+      url.searchParams.set('tab', tab);
+      window.history.pushState({ ...(window.history.state || {}), view: 'campionato', tab }, '', url.toString());
+    }
+    scrollToNav();
+  };
+
+  // Browser back / forward popstate handler
   useEffect(() => {
     const handlePopState = () => {
       const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
       const tabParam = urlParams.get('tab');
-      const validTabs = ['home', 'classifica', 'calendario', 'statistiche', 'cercaAtleta'] as const;
 
-      const targetTab = tabParam && (validTabs as readonly string[]).includes(tabParam)
-        ? (tabParam as typeof validTabs[number])
-        : 'home';
+      if (viewParam === 'classifiche') {
+        setMainView('classifiche');
+      } else if (viewParam === 'campionato' || (urlParams.get('cam') && tabParam && ['classifica', 'calendario', 'statistiche'].includes(tabParam))) {
+        setMainView('campionato');
+        if (tabParam && ['classifica', 'calendario', 'statistiche'].includes(tabParam)) {
+          setChampionshipTab(tabParam as ChampionshipTabType);
+        }
+      } else {
+        setMainView('home');
+      }
 
-      setActiveTab(targetTab);
-
-      // Check if cam also changed
       const urlCam = urlParams.get('cam');
       if (urlCam && /^\d+$/.test(urlCam)) {
         const parsedCam = parseInt(urlCam, 10);
@@ -298,33 +373,11 @@ export const App: React.FC = () => {
         const parsedAnno = parseInt(urlAnno, 10);
         setAnnoId((prev) => (prev !== parsedAnno ? parsedAnno : prev));
       }
-
-      scrollToNav();
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
-
-  const handleTabChange = (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => {
-    if (tab === activeTab) {
-      scrollToNav();
-      return;
-    }
-
-    setActiveTab(tab);
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      if (tab !== 'home') {
-        url.searchParams.set('tab', tab);
-      } else {
-        url.searchParams.delete('tab');
-      }
-      window.history.pushState({ ...(window.history.state || {}), tab }, '', url.toString());
-    }
-
-    scrollToNav();
-  };
 
   const handleOpenSquadra = (teamName: string, squadraId?: string) => {
     let resolvedId = squadraId;
@@ -342,15 +395,17 @@ export const App: React.FC = () => {
       {/* Motion Graphic Intro (first access only) */}
       {showIntro && <IntroMotionGraphic onComplete={handleIntroComplete} />}
 
-      {/* Top Header with integrated nav tabs */}
+      {/* Top Header */}
       <Header
+        mainView={mainView}
+        onChangeMainView={handleMainViewChange}
         lastUpdated={data?.lastUpdated || null}
         isRefreshing={refreshing}
         onRefresh={() => camId && loadDashboard(camId, annoId, true)}
         theme={theme}
         onToggleTheme={handleToggleTheme}
-        activeTab={activeTab}
-        onChangeTab={handleTabChange}
+        activeTab={championshipTab}
+        onChangeTab={handleChampionshipTabChange}
         counts={{
           classifica: data?.classifica.length || 0,
           calendario: data?.calendario.length || 0,
@@ -361,10 +416,11 @@ export const App: React.FC = () => {
         championshipRegion={data?.championship.regione}
         onOpenChampionshipModal={() => setIsChampionshipModalOpen(true)}
         onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
+        onOpenSearchModal={() => setIsSearchModalOpen(true)}
       />
 
-      {/* Loading Indicator for non-home screens */}
-      {loading && !data && activeTab !== 'home' && (
+      {/* Loading Indicator for Championship screen */}
+      {loading && !data && mainView === 'campionato' && (
         <div className="portal-loading-state">
           <div className="spinner-border text-primary mb-3" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
             <span className="visually-hidden">Caricamento...</span>
@@ -379,7 +435,7 @@ export const App: React.FC = () => {
       )}
 
       {/* Error Alert */}
-      {error && (
+      {error && mainView === 'campionato' && (
         <div className="portal-error-alert">
           <div>
             <strong>Errore di connessione a portale.fitet.org:</strong> {error}
@@ -391,12 +447,13 @@ export const App: React.FC = () => {
       )}
 
       {/* Main Content Area: Retains mounted tab panels to eliminate CLS */}
-      <main className="portal-main">
-        {/* Tab Panel: Home */}
+      <main className={`portal-main ${mainView !== 'campionato' ? 'without-portal-nav' : ''}`}>
+        {/* VIEW 1: Home Dashboard */}
         <div
-          className={`tab-pane ${activeTab === 'home' ? 'active' : ''}`}
+          className={`tab-pane ${mainView === 'home' ? 'active' : ''}`}
           role="tabpanel"
           id="tabpanel-home"
+          style={{ display: mainView === 'home' ? 'block' : 'none' }}
         >
           <HomeTab
             currentCamId={camId}
@@ -405,144 +462,161 @@ export const App: React.FC = () => {
             campionati={campionati}
             isLoadingCampionati={loadingCampionati}
             onSelectChampionship={handleSelectChampionship}
-            onNavigateTab={handleTabChange}
+            onNavigateTab={(tab) => {
+              if (tab === 'cercaAtleta') {
+                setIsSearchModalOpen(true);
+              } else if (['classifica', 'calendario', 'statistiche'].includes(tab)) {
+                setMainView('campionato');
+                setChampionshipTab(tab as ChampionshipTabType);
+              }
+            }}
             onOpenChampionshipModal={() => setIsChampionshipModalOpen(true)}
             onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
             dashboardData={data}
           />
         </div>
 
-        {/* Tab Panel: Classifica */}
+        {/* VIEW 2: Classifiche FITeT (Nazionali e Regionali) */}
         <div
-          className={`tab-pane ${activeTab === 'classifica' ? 'active' : ''}`}
+          className={`tab-pane ${mainView === 'classifiche' ? 'active' : ''}`}
           role="tabpanel"
-          id="tabpanel-classifica"
+          id="tabpanel-classifiche"
+          style={{ display: mainView === 'classifiche' ? 'block' : 'none' }}
         >
-          {data ? (
-            <ClassificaTab
-              classifica={data.classifica}
-              onSelectTeam={handleOpenSquadra}
-            />
-          ) : !loading ? (
-            <div className="no-championship-screen">
-              <div className="no-championship-icon-badge">
-                <i className="bi bi-trophy-fill"></i>
-              </div>
-              <h2 className="no-championship-title">
-                Nessun Campionato Selezionato
-              </h2>
-              <p className="no-championship-desc">
-                Scegli il campionato FITeT da consultare per visualizzare la classifica squadre, oppure selezionalo dai preferiti in Home.
-              </p>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn-action no-championship-btn"
-                  onClick={() => setIsChampionshipModalOpen(true)}
-                >
-                  <i className="bi bi-trophy me-2"></i>
-                  Scegli Campionato
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Tab Panel: Calendario */}
-        <div
-          className={`tab-pane ${activeTab === 'calendario' ? 'active' : ''}`}
-          role="tabpanel"
-          id="tabpanel-calendario"
-        >
-          {data ? (
-            <CalendarioTab
-              calendario={data.calendario}
-              selectedTeamFilter={selectedTeamFilter}
-              statisticheAtleti={data.statisticheAtleti}
-              isSubmodalOpen={Boolean(selectedAthlete) || Boolean(selectedSquadra)}
-              currentCamId={camId ?? undefined}
-              onClearTeamFilter={() => setSelectedTeamFilter(null)}
-              onSelectTeamFilter={(team) => setSelectedTeamFilter(team)}
-              onOpenSquadraModal={handleOpenSquadra}
-              onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: true })}
-            />
-          ) : !loading ? (
-            <div className="no-championship-screen">
-              <div className="no-championship-icon-badge">
-                <i className="bi bi-calendar3"></i>
-              </div>
-              <h2 className="no-championship-title">
-                Nessun Campionato Selezionato
-              </h2>
-              <p className="no-championship-desc">
-                Scegli il campionato FITeT da consultare per visualizzare il calendario completo e i risultati.
-              </p>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn-action no-championship-btn"
-                  onClick={() => setIsChampionshipModalOpen(true)}
-                >
-                  <i className="bi bi-trophy me-2"></i>
-                  Scegli Campionato
-                </button>
-
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Tab Panel: Statistiche */}
-        <div
-          className={`tab-pane ${activeTab === 'statistiche' ? 'active' : ''}`}
-          role="tabpanel"
-          id="tabpanel-statistiche"
-        >
-          {data ? (
-            <StatisticheTab
-              statistiche={data.statisticheAtleti}
-              onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-            />
-          ) : !loading ? (
-            <div className="no-championship-screen">
-              <div className="no-championship-icon-badge">
-                <i className="bi bi-person-lines-fill"></i>
-              </div>
-              <h2 className="no-championship-title">
-                Nessun Campionato Selezionato
-              </h2>
-              <p className="no-championship-desc">
-                Scegli il campionato FITeT da consultare per visualizzare le statistiche degli atleti del girone.
-              </p>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="btn-action no-championship-btn"
-                  onClick={() => setIsChampionshipModalOpen(true)}
-                >
-                  <i className="bi bi-trophy me-2"></i>
-                  Scegli Campionato
-                </button>
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Tab Panel: Cerca Atleta */}
-        <div
-          className={`tab-pane ${activeTab === 'cercaAtleta' ? 'active' : ''}`}
-          role="tabpanel"
-          id="tabpanel-cerca-atleta"
-        >
-          <CercaAtletaTab
+          <ClassificheRankingTab
             onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-            autoFocus={activeTab === 'cercaAtleta'}
           />
+        </div>
+
+        {/* VIEW 3: Campionato (Classifica, Calendario, Statistiche) */}
+        <div
+          className={`tab-pane ${mainView === 'campionato' ? 'active' : ''}`}
+          role="tabpanel"
+          id="tabpanel-campionato"
+          style={{ display: mainView === 'campionato' ? 'block' : 'none' }}
+        >
+          {/* SubTab: Classifica */}
+          <div
+            className={`tab-pane ${championshipTab === 'classifica' ? 'active' : ''}`}
+            role="tabpanel"
+            id="tabpanel-classifica"
+            style={{ display: championshipTab === 'classifica' ? 'block' : 'none' }}
+          >
+            {data ? (
+              <ClassificaTab
+                classifica={data.classifica}
+                onSelectTeam={handleOpenSquadra}
+              />
+            ) : !loading ? (
+              <div className="no-championship-screen">
+                <div className="no-championship-icon-badge">
+                  <i className="bi bi-trophy-fill"></i>
+                </div>
+                <h2 className="no-championship-title">
+                  Nessun Campionato Selezionato
+                </h2>
+                <p className="no-championship-desc">
+                  Scegli il campionato FITeT da consultare per visualizzare la classifica squadre, oppure selezionalo dai preferiti in Home.
+                </p>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn-action no-championship-btn"
+                    onClick={() => setIsChampionshipModalOpen(true)}
+                  >
+                    <i className="bi bi-trophy me-2"></i>
+                    Scegli Campionato
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {/* SubTab: Calendario */}
+          <div
+            className={`tab-pane ${championshipTab === 'calendario' ? 'active' : ''}`}
+            role="tabpanel"
+            id="tabpanel-calendario"
+            style={{ display: championshipTab === 'calendario' ? 'block' : 'none' }}
+          >
+            {data ? (
+              <CalendarioTab
+                calendario={data.calendario}
+                selectedTeamFilter={selectedTeamFilter}
+                statisticheAtleti={data.statisticheAtleti}
+                isSubmodalOpen={Boolean(selectedAthlete) || Boolean(selectedSquadra)}
+                currentCamId={camId ?? undefined}
+                onClearTeamFilter={() => setSelectedTeamFilter(null)}
+                onSelectTeamFilter={(team) => setSelectedTeamFilter(team)}
+                onOpenSquadraModal={handleOpenSquadra}
+                onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: true })}
+              />
+            ) : !loading ? (
+              <div className="no-championship-screen">
+                <div className="no-championship-icon-badge">
+                  <i className="bi bi-calendar3"></i>
+                </div>
+                <h2 className="no-championship-title">
+                  Nessun Campionato Selezionato
+                </h2>
+                <p className="no-championship-desc">
+                  Scegli il campionato FITeT da consultare per visualizzare il calendario completo e i risultati.
+                </p>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn-action no-championship-btn"
+                    onClick={() => setIsChampionshipModalOpen(true)}
+                  >
+                    <i className="bi bi-trophy me-2"></i>
+                    Scegli Campionato
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          {/* SubTab: Statistiche */}
+          <div
+            className={`tab-pane ${championshipTab === 'statistiche' ? 'active' : ''}`}
+            role="tabpanel"
+            id="tabpanel-statistiche"
+            style={{ display: championshipTab === 'statistiche' ? 'block' : 'none' }}
+          >
+            {data ? (
+              <StatisticheTab
+                statistiche={data.statisticheAtleti}
+                onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+              />
+            ) : !loading ? (
+              <div className="no-championship-screen">
+                <div className="no-championship-icon-badge">
+                  <i className="bi bi-person-lines-fill"></i>
+                </div>
+                <h2 className="no-championship-title">
+                  Nessun Campionato Selezionato
+                </h2>
+                <p className="no-championship-desc">
+                  Scegli il campionato FITeT da consultare per visualizzare le statistiche degli atleti del girone.
+                </p>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn-action no-championship-btn"
+                    onClick={() => setIsChampionshipModalOpen(true)}
+                  >
+                    <i className="bi bi-trophy me-2"></i>
+                    Scegli Campionato
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="portal-footer mt-5 text-center">
+      <footer className="portal-footer mt-5 text-center" style={{ paddingBottom: '90px' }}>
         <div>
           <strong>Federazione Italiana Tennistavolo (FITeT)</strong>
           {data?.championship?.nome && ` • ${data.championship.nome}`}
@@ -550,6 +624,20 @@ export const App: React.FC = () => {
           <div>Progetto autonomo della community, dati sincronizzati da portale.fitet.org</div>
         </div>
       </footer>
+
+      {/* Fixed Rounded Bottom Bar */}
+      <BottomBar
+        activeView={mainView}
+        onChangeView={handleMainViewChange}
+        onOpenSearchModal={() => setIsSearchModalOpen(true)}
+      />
+
+      {/* Global Search Athlete Modal */}
+      <SearchAtletaModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+      />
 
       {/* Championship Picker Modal */}
       <ChampionshipModal
@@ -566,10 +654,10 @@ export const App: React.FC = () => {
         isOpen={isFavoritesModalOpen}
         onClose={() => setIsFavoritesModalOpen(false)}
         onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-        onGoToSearch={() => handleTabChange('cercaAtleta')}
+        onGoToSearch={() => setIsSearchModalOpen(true)}
       />
 
-      {/* Athlete Detail Profile Modal */}
+      {/* Athlete Detail Profile Modal Stack */}
       {athleteStack.map((a, index) => (
         <AtletaModal
           key={a.key}
@@ -595,7 +683,8 @@ export const App: React.FC = () => {
           onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
           onFilterCalendario={(teamName) => {
             setSelectedTeamFilter(teamName);
-            handleTabChange('calendario');
+            setMainView('campionato');
+            setChampionshipTab('calendario');
           }}
         />
       )}

@@ -8,6 +8,7 @@ import {
   AthleteSearchResult,
   AtletaCampionatoPartiteResponse,
   HeadToHeadData,
+  RankingPageResult,
 } from '../types/fitet';
 
 const API_BASE = '/api';
@@ -141,5 +142,29 @@ export async function fetchHeadToHead(
   }
   return res.json();
 }
+
+export async function fetchRanking(
+  page = 1,
+  sesso: 'M' | 'F' = 'M',
+  comit?: string | number,
+  refresh = false
+): Promise<RankingPageResult> {
+  const params = new URLSearchParams({
+    page: String(page),
+    sesso,
+  });
+  if (comit && String(comit) !== '0' && String(comit) !== 'all') {
+    params.set('comit', String(comit));
+  }
+  if (refresh) {
+    params.set('refresh', 'true');
+  }
+  const res = await fetch(`${API_BASE}/ranking?${params.toString()}`);
+  if (!res.ok) {
+    throw new Error(`Errore caricamento classifica (${res.status})`);
+  }
+  return res.json();
+}
+
 
 

@@ -1,0 +1,766 @@
+/* ==========================================================================
+   ClassificheRankingTab.css - Stile moderno, pulito e leggibile
+   ========================================================================== */
+
+.ranking-tab-container {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px 12px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Filter Card */
+.ranking-filter-card {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 18px;
+  padding: 18px 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ranking-filter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ranking-filter-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ranking-icon-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+  flex-shrink: 0;
+}
+
+.ranking-title {
+  font-family: var(--font-serif, "Cinzel", Georgia, serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-main, #0f172a);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.ranking-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  margin: 3px 0 0;
+}
+
+.ranking-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--btn-secondary-bg, #f8fafc);
+  color: var(--text-main, #334155);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ranking-refresh-btn:hover:not(:disabled) {
+  background: var(--bg-hover, #e2e8f0);
+  border-color: #94a3b8;
+  color: #0284c7;
+}
+
+.ranking-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Controls Row */
+.ranking-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border-color, #e2e8f0);
+}
+
+.ranking-gender-group {
+  display: inline-flex;
+  background: var(--bg-soft, #f1f5f9);
+  padding: 3px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.ranking-gender-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ranking-gender-btn.active {
+  background: var(--card-bg, #ffffff);
+  color: var(--primary, #0284c7);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.ranking-region-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ranking-select-label {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+}
+
+.ranking-select-inner {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ranking-select-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 10px;
+  padding: 7px 34px 7px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main, #1e293b);
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  min-width: 190px;
+}
+
+.ranking-select-input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.ranking-select-chevron {
+  position: absolute;
+  right: 11px;
+  pointer-events: none;
+  color: var(--text-muted, #64748b);
+  font-size: 0.75rem;
+}
+
+/* Summary Strip */
+.ranking-summary-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: var(--bg-soft, #f8fafc);
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  color: var(--text-muted, #475569);
+  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.04));
+}
+
+.ranking-official-title {
+  font-weight: 600;
+  color: var(--text-main, #1e293b);
+  text-transform: capitalize;
+}
+
+.ranking-badges-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ranking-pill-badge {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.76rem;
+  color: var(--text-muted, #475569);
+}
+
+/* Loading & Empty States */
+.ranking-loading-state,
+.ranking-empty-card,
+.ranking-error-card {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 18px;
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.ranking-loading-text {
+  font-size: 0.95rem;
+  color: var(--text-muted, #64748b);
+  font-weight: 500;
+}
+
+.ranking-empty-icon,
+.ranking-error-icon {
+  font-size: 2.5rem;
+  color: #94a3b8;
+}
+
+.ranking-error-icon {
+  color: #ef4444;
+}
+
+/* Table Card */
+.ranking-table-card {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 18px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+}
+
+.ranking-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.88rem;
+}
+
+.ranking-table thead th {
+  background: var(--bg-soft, #f8fafc);
+  color: var(--text-muted, #64748b);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.ranking-table tbody tr {
+  transition: background-color 0.15s ease;
+  cursor: pointer;
+}
+
+.ranking-table tbody tr:hover {
+  background-color: var(--bg-hover, #f1f5f9);
+}
+
+.ranking-table tbody td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border-subtle, #f1f5f9);
+  vertical-align: middle;
+}
+
+.ranking-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Rank column */
+.th-rank,
+.td-rank {
+  width: 58px;
+  text-align: center;
+}
+
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.84rem;
+  background: var(--bg-soft, #f1f5f9);
+  color: var(--text-main, #334155);
+}
+
+.rank-badge-1 {
+  background: linear-gradient(135deg, #fef08a 0%, #facc15 100%);
+  color: #713f12;
+  box-shadow: 0 2px 6px rgba(250, 204, 21, 0.35);
+}
+
+.rank-badge-2 {
+  background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%);
+  color: #1e293b;
+  box-shadow: 0 2px 6px rgba(148, 163, 184, 0.3);
+}
+
+.rank-badge-3 {
+  background: linear-gradient(135deg, #fed7aa 0%, #fdba74 100%);
+  color: #7c2d12;
+  box-shadow: 0 2px 6px rgba(253, 186, 116, 0.35);
+}
+
+.rank-medal.gold {
+  color: #ca8a04;
+}
+.rank-medal.silver {
+  color: #64748b;
+}
+.rank-medal.bronze {
+  color: #ea580c;
+}
+
+/* Athlete cell */
+.athlete-name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.athlete-link-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-main, #0f172a);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.athlete-link-btn:hover .athlete-link-text {
+  color: var(--primary, #0284c7);
+  text-decoration: underline;
+}
+
+.athlete-link-arrow {
+  font-size: 0.72rem;
+  opacity: 0.4;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.athlete-link-btn:hover .athlete-link-arrow {
+  opacity: 1;
+  color: var(--primary, #0284c7);
+  transform: translate(1px, -1px);
+}
+
+.athlete-mobile-meta {
+  font-size: 0.74rem;
+  color: var(--text-muted, #64748b);
+}
+
+/* Points */
+.points-val {
+  font-family: var(--font-mono, monospace);
+  font-weight: 800;
+  font-size: 0.92rem;
+  color: #0284c7;
+}
+
+/* Settore & Categoria */
+.settore-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--bg-soft, #f1f5f9);
+  color: var(--text-muted, #475569);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.cat-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.cat-pill-1 {
+  background: #fef08a;
+  color: #854d0e;
+}
+.cat-pill-2 {
+  background: #fed7aa;
+  color: #9a3412;
+}
+.cat-pill-3 {
+  background: #bbf7d0;
+  color: #166534;
+}
+.cat-pill-4 {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.cat-pill-5 {
+  background: #f1f5f9;
+  color: #475569;
+}
+.cat-pill-6 {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Pagination Bar */
+.ranking-pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-soft, #f8fafc);
+  gap: 12px;
+}
+
+.ranking-page-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--card-bg, #ffffff);
+  color: var(--text-main, #334155);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ranking-page-nav-btn:hover:not(:disabled) {
+  background: var(--bg-hover, #f1f5f9);
+  border-color: #94a3b8;
+  color: #0284c7;
+}
+
+.ranking-page-nav-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ranking-page-indicator {
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748b);
+}
+
+/* Responsive utilities */
+.show-xs {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .hide-xs {
+    display: none !important;
+  }
+  .show-xs {
+    display: block !important;
+  }
+  .hide-sm {
+    display: none !important;
+  }
+  .ranking-controls-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ranking-region-select-wrap {
+    justify-content: space-between;
+  }
+  .ranking-select-input {
+    min-width: 150px;
+    width: 100%;
+  }
+  .ranking-select-inner {
+    flex: 1;
+  }
+  .ranking-gender-group {
+    width: 100%;
+  }
+  .ranking-gender-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 992px) {
+  .hide-md {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   Dark mode adjustments
+   ========================================================================== */
+
+/* 1. Header & Filter Card */
+[data-theme="dark"] .ranking-filter-card {
+  background: #0d1a33;
+  border-color: #1a2d52;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .ranking-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ranking-subtitle {
+  color: #8899b5;
+}
+
+[data-theme="dark"] .ranking-icon-badge {
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4);
+}
+
+[data-theme="dark"] .ranking-refresh-btn {
+  background: #111f3d;
+  border-color: #1a2d52;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ranking-refresh-btn:hover:not(:disabled) {
+  background: #152649;
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .ranking-controls-row {
+  border-top-color: #1a2d52;
+}
+
+/* 2. Gender Group (ranking-gender-group) */
+[data-theme="dark"] .ranking-gender-group {
+  background: #091224;
+  border-color: #1a2d52;
+}
+
+[data-theme="dark"] .ranking-gender-btn {
+  color: #8899b5;
+  background: transparent;
+}
+
+[data-theme="dark"] .ranking-gender-btn:hover:not(.active) {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .ranking-gender-btn.active {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(2, 132, 199, 0.45);
+}
+
+/* 3. Region Selector (ranking-region-select) */
+[data-theme="dark"] .ranking-select-label {
+  color: #8899b5;
+}
+
+[data-theme="dark"] .ranking-select-input {
+  background: #091224;
+  border-color: #1a2d52;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ranking-select-input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+[data-theme="dark"] .ranking-select-input option {
+  background: #0d1a33;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ranking-select-chevron {
+  color: #8899b5;
+}
+
+/* 4. Summary Strip (ranking-summary-strip) */
+[data-theme="dark"] .ranking-summary-strip {
+  background: #091224;
+  border-color: #1a2d52;
+  color: #8899b5;
+}
+
+[data-theme="dark"] .ranking-official-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ranking-pill-badge {
+  background: #0d1a33;
+  border-color: #1a2d52;
+  color: #cbd5e1;
+}
+
+/* 5. Table & Table Card (ranking-table) */
+[data-theme="dark"] .ranking-table-card {
+  background: #0d1a33;
+  border-color: #1a2d52;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .ranking-table {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .ranking-table thead th {
+  background: #091224;
+  color: #8899b5;
+  border-bottom: 1px solid #1a2d52;
+}
+
+[data-theme="dark"] .ranking-table tbody tr {
+  background: transparent;
+}
+
+[data-theme="dark"] .ranking-table tbody tr:hover {
+  background-color: #152649;
+}
+
+[data-theme="dark"] .ranking-table tbody td {
+  border-bottom: 1px solid #14223d;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .rank-badge:not(.rank-badge-1):not(.rank-badge-2):not(.rank-badge-3) {
+  background: #111f3d;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .athlete-link-btn {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .athlete-link-btn:hover .athlete-link-text {
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .athlete-link-arrow {
+  color: #8899b5;
+}
+
+[data-theme="dark"] .athlete-mobile-meta {
+  color: #8899b5;
+}
+
+[data-theme="dark"] .date-text,
+[data-theme="dark"] .posnaz-text {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .provincia-text {
+  color: #8899b5;
+}
+
+[data-theme="dark"] .settore-badge {
+  background: #111f3d;
+  color: #8899b5;
+}
+
+[data-theme="dark"] .points-val {
+  color: #38bdf8;
+}
+
+/* Category pills in dark mode */
+[data-theme="dark"] .cat-pill-4 {
+  background: rgba(2, 132, 199, 0.25);
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .cat-pill-5 {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .cat-pill-6 {
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+}
+
+/* 6. Pagination Bar (ranking-pagination-bar) */
+[data-theme="dark"] .ranking-pagination-bar {
+  background: #091224;
+  border-top: 1px solid #1a2d52;
+  color: #8899b5;
+}
+
+[data-theme="dark"] .ranking-page-indicator {
+  color: #8899b5;
+}
+
+[data-theme="dark"] .ranking-page-indicator strong {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ranking-page-nav-btn {
+  background: #0d1a33;
+  border-color: #1a2d52;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ranking-page-nav-btn:hover:not(:disabled) {
+  background: #152649;
+  border-color: #38bdf8;
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .ranking-page-nav-btn:disabled {
+  opacity: 0.35;
+  color: #64748b;
+  border-color: #1a2d52;
+  background: #0b1426;
+}
+
+/* 7. Loading & Error & Empty States */
+[data-theme="dark"] .ranking-loading-state,
+[data-theme="dark"] .ranking-empty-card,
+[data-theme="dark"] .ranking-error-card {
+  background: #0d1a33;
+  border-color: #1a2d52;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .ranking-loading-text {
+  color: #8899b5;
+}

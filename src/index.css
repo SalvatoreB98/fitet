@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    FITeT Serie D/1 Girone Nord - Modern Federal Sports Portal
    Mathematical CSS Grid Architecture (Zero Legacy HTML Table/TR/TD)
    100% Responsive • Uniform 40px Row Heights • Symmetrical Grid Systems
@@ -1054,6 +1054,16 @@ nav {
   position: relative;
   background: var(--bg-container);
   margin-top: 140px;
+  padding-bottom: 90px;
+}
+
+.portal-main.without-portal-nav {
+  margin-top: 82px;
+}
+
+.portal-title-static {
+  margin: 0 auto;
+  padding: 6px 14px;
 }
 
 .tab-pane {
