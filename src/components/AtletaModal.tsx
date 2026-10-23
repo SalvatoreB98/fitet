@@ -82,6 +82,11 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [viewMode, setViewMode] = useState<'slider' | 'list'>('slider');
   const [analyticsTab, setAnalyticsTab] = useState<'chart' | 'table'>('chart');
   const [h2hOpponent, setH2hOpponent] = useState<{ id?: string; name: string } | null>(null);
+  const [showPartiteDettagli, setShowPartiteDettagli] = useState<boolean>(false);
+
+  useEffect(() => {
+    setShowPartiteDettagli(false);
+  }, [atletaId]);
 
   // Slider navigation
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -108,7 +113,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       setCanScrollLeft(false);
       setCanScrollRight(sliderRef.current.scrollWidth > sliderRef.current.clientWidth + 10);
     }
-  }, [matchTab, rankingFilter, campionatoPartite, viewMode]);
+  }, [matchTab, rankingFilter, campionatoPartite, viewMode, showPartiteDettagli]);
 
   useEffect(() => {
     let isMounted = true;
@@ -427,917 +432,1014 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                 );
               })()}
 
-              {/* Sezione Partite: Girone Attivo / Incontri Ufficiali Ranking FITeT */}
+              {/* Collapse Toggle Button per Partite e Dettagli */}
               {(() => {
-                const parseDateIT = (str: string): number => {
-                  if (!str) return 0;
-                  const parts = str.split('/');
-                  if (parts.length === 3) {
-                    return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10)).getTime();
-                  }
-                  return 0;
-                };
-
-                const rankingCampionato = atleta.partiteRanking?.campionato || [];
-                const rankingTornei = atleta.partiteRanking?.tornei || [];
-                const totalRankingCampionato = rankingCampionato.length;
-                const totalRankingTornei = rankingTornei.length;
-                const totalRankingMatches = totalRankingCampionato + totalRankingTornei;
-                const hasGironeMatches = Boolean(campionatoPartite && campionatoPartite.length > 0);
-
-                // Build unified ranking matches array
-                const unifiedRankingMatches: Array<{
-                  tipo: 'campionato' | 'torneo';
-                  data: string;
-                  titolo: string;
-                  sottotitolo?: string;
-                  avversario: string;
-                  avversarioId?: string;
-                  risultatoSet?: string;
-                  fase?: string;
-                  risultato: string;
-                  isVittoria: boolean;
-                  punti?: number;
-                  stato?: string;
-                }> = [];
-
-                if (rankingFilter === 'tutti' || rankingFilter === 'campionato') {
-                  rankingCampionato.forEach((m) => {
-                    unifiedRankingMatches.push({
-                      tipo: 'campionato',
-                      data: m.data,
-                      titolo: m.campionato,
-                      avversario: m.avversario,
-                      avversarioId: m.avversarioId,
-                      risultatoSet: m.risultatoSet,
-                      risultato: m.risultato,
-                      isVittoria: m.isVittoria,
-                      punti: m.punti,
-                      stato: m.stato,
-                    });
-                  });
-                }
-
-                if (rankingFilter === 'tutti' || rankingFilter === 'tornei') {
-                  rankingTornei.forEach((m) => {
-                    unifiedRankingMatches.push({
-                      tipo: 'torneo',
-                      data: m.data,
-                      titolo: m.torneo,
-                      sottotitolo: m.gara,
-                      avversario: m.avversario,
-                      avversarioId: m.avversarioId,
-                      risultatoSet: m.risultatoSet,
-                      fase: m.fase,
-                      risultato: m.risultato,
-                      isVittoria: m.isVittoria,
-                      stato: m.stato,
-                    });
-                  });
-                }
-
-                unifiedRankingMatches.sort((a, b) => parseDateIT(b.data) - parseDateIT(a.data));
-
-                const activeTabResolved = (camId && hasGironeMatches) ? matchTab : 'ranking';
+                const rankingCount = (atleta.partiteRanking?.campionato.length || 0) + (atleta.partiteRanking?.tornei.length || 0);
+                const gironeCount = campionatoPartite?.length || 0;
+                const totalMatchesAvailable = rankingCount + gironeCount;
 
                 return (
-                  <div className="modal-campionato-partite-section" style={{ marginTop: '20px', marginBottom: '20px' }}>
-                    {/* Header Row: Title & Switcher */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <div style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-dark)', letterSpacing: '0.04em' }}>
-                          <i className="bi bi-trophy-fill me-1 text-warning"></i>
-                          {activeTabResolved === 'girone'
-                            ? `Partite nel Campionato ${campionatoNome ? `(${campionatoNome})` : ''}`
-                            : 'Incontri Ufficiali FITeT (Ranking)'}
+                  <div style={{ marginTop: '16px', marginBottom: showPartiteDettagli ? '16px' : '6px' }}>
+                    <button
+                      type="button"
+                      className="btn-toggle-partite-dettagli"
+                      onClick={() => setShowPartiteDettagli((prev) => !prev)}
+                      aria-expanded={showPartiteDettagli}
+                      aria-controls="athlete-partite-details-collapse"
+                      title={showPartiteDettagli ? 'Nascondi le partite e i dettagli' : 'Visualizza le partite e i dettagli'}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                        <div
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '10px',
+                            background: showPartiteDettagli ? 'rgba(37, 99, 235, 0.14)' : 'rgba(37, 99, 235, 0.08)',
+                            color: 'var(--color-primary-600, #2563eb)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '17px',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <i className={showPartiteDettagli ? 'bi bi-calendar2-check-fill' : 'bi bi-calendar2-range'}></i>
                         </div>
-                        {activeTabResolved === 'girone' && squadraCampionato && (
-                          <span className="badge badge-neutral" style={{ fontSize: '11px' }}>
-                            {squadraCampionato}
-                          </span>
-                        )}
+                        <div style={{ textAlign: 'left', minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-dark, #0f172a)' }}>
+                            {showPartiteDettagli ? 'Nascondi partite e dettagli' : 'Visualizza partite e dettagli'}
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: 'var(--text-muted, #64748b)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {showPartiteDettagli
+                              ? 'Incontri disputati, set, score e andamento ranking'
+                              : `${totalMatchesAvailable > 0 ? `${totalMatchesAvailable} incontri registrati • ` : ''}Storico partite e grafico ranking`}
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Segmented Switcher if both girone & ranking exist */}
-                      {camId && (
-                        <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: 'var(--text-dark)',
+                          background: 'rgba(37, 99, 235, 0.08)',
+                          padding: '6px 14px',
+                          borderRadius: '20px',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <span>{showPartiteDettagli ? 'Nascondi ↑' : 'Visualizza ↓'}</span>
+                        <i className={`bi ${showPartiteDettagli ? 'bi-chevron-up' : 'bi-chevron-down'}`}></i>
+                      </div>
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* Sezione Partite e Dettagli (Collassabile) */}
+              {showPartiteDettagli && (
+                <div id="athlete-partite-details-collapse" className="athlete-details-collapse-content">
+                  {/* Sezione Partite: Girone Attivo / Incontri Ufficiali Ranking FITeT */}
+                  {(() => {
+                    const parseDateIT = (str: string): number => {
+                      if (!str) return 0;
+                      const parts = str.split('/');
+                      if (parts.length === 3) {
+                        return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10)).getTime();
+                      }
+                      return 0;
+                    };
+
+                    const rankingCampionato = atleta.partiteRanking?.campionato || [];
+                    const rankingTornei = atleta.partiteRanking?.tornei || [];
+                    const totalRankingCampionato = rankingCampionato.length;
+                    const totalRankingTornei = rankingTornei.length;
+                    const totalRankingMatches = totalRankingCampionato + totalRankingTornei;
+                    const hasGironeMatches = Boolean(campionatoPartite && campionatoPartite.length > 0);
+
+                    // Build unified ranking matches array
+                    const unifiedRankingMatches: Array<{
+                      tipo: 'campionato' | 'torneo';
+                      data: string;
+                      titolo: string;
+                      sottotitolo?: string;
+                      avversario: string;
+                      avversarioId?: string;
+                      risultatoSet?: string;
+                      fase?: string;
+                      risultato: string;
+                      isVittoria: boolean;
+                      punti?: number;
+                      stato?: string;
+                    }> = [];
+
+                    if (rankingFilter === 'tutti' || rankingFilter === 'campionato') {
+                      rankingCampionato.forEach((m) => {
+                        unifiedRankingMatches.push({
+                          tipo: 'campionato',
+                          data: m.data,
+                          titolo: m.campionato,
+                          avversario: m.avversario,
+                          avversarioId: m.avversarioId,
+                          risultatoSet: m.risultatoSet,
+                          risultato: m.risultato,
+                          isVittoria: m.isVittoria,
+                          punti: m.punti,
+                          stato: m.stato,
+                        });
+                      });
+                    }
+
+                    if (rankingFilter === 'tutti' || rankingFilter === 'tornei') {
+                      rankingTornei.forEach((m) => {
+                        unifiedRankingMatches.push({
+                          tipo: 'torneo',
+                          data: m.data,
+                          titolo: m.torneo,
+                          sottotitolo: m.gara,
+                          avversario: m.avversario,
+                          avversarioId: m.avversarioId,
+                          risultatoSet: m.risultatoSet,
+                          fase: m.fase,
+                          risultato: m.risultato,
+                          isVittoria: m.isVittoria,
+                          stato: m.stato,
+                        });
+                      });
+                    }
+
+                    unifiedRankingMatches.sort((a, b) => parseDateIT(b.data) - parseDateIT(a.data));
+
+                    const activeTabResolved = (camId && hasGironeMatches) ? matchTab : 'ranking';
+
+                    return (
+                      <div className="modal-campionato-partite-section" style={{ marginTop: '20px', marginBottom: '20px' }}>
+                        {/* Header Row: Title & Switcher */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <div style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-dark)', letterSpacing: '0.04em' }}>
+                              <i className="bi bi-trophy-fill me-1 text-warning"></i>
+                              {activeTabResolved === 'girone'
+                                ? `Partite nel Campionato ${campionatoNome ? `(${campionatoNome})` : ''}`
+                                : 'Incontri Ufficiali FITeT (Ranking)'}
+                            </div>
+                            {activeTabResolved === 'girone' && squadraCampionato && (
+                              <span className="badge badge-neutral" style={{ fontSize: '11px' }}>
+                                {squadraCampionato}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Segmented Switcher if both girone & ranking exist */}
+                          {camId && (
+                            <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                              <button
+                                type="button"
+                                onClick={() => setMatchTab('girone')}
+                                style={{
+                                  padding: '4px 10px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  background: activeTabResolved === 'girone' ? 'var(--color-primary-600)' : 'transparent',
+                                  color: activeTabResolved === 'girone' ? '#ffffff' : 'var(--text-muted)',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                              >
+                                Girone Corrente {campionatoPartite && campionatoPartite.length > 0 ? `(${campionatoPartite.length})` : ''}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setMatchTab('ranking')}
+                                style={{
+                                  padding: '4px 10px',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  background: activeTabResolved === 'ranking' ? 'var(--color-primary-600)' : 'transparent',
+                                  color: activeTabResolved === 'ranking' ? '#ffffff' : 'var(--text-muted)',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                }}
+                              >
+                                Tutte le Partite FITeT {totalRankingMatches > 0 ? `(${totalRankingMatches})` : ''}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Breakdown Pill for Ranking Points if viewing ranking matches */}
+                        {activeTabResolved === 'ranking' && atleta.partiteRanking?.dettaglioPunti && atleta.partiteRanking.dettaglioPunti?.puntiIniziali && (
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              flexWrap: 'wrap',
+                              padding: '7px 12px',
+                              borderRadius: '8px',
+                              background: 'var(--bg-th)',
+                              border: '1px solid var(--border-color)',
+                              fontSize: '11.5px',
+                              color: 'var(--text-muted)',
+                              marginBottom: '10px',
+                            }}
+                          >
+                            <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
+                              <i className="bi bi-pie-chart-fill me-1 text-primary"></i>
+                              Punti Ranking:
+                            </span>
+                            {atleta.partiteRanking.dettaglioPunti.puntiIniziali !== undefined && (
+                              <span>Iniziali: <strong style={{ color: 'var(--text-dark)' }}>{atleta.partiteRanking.dettaglioPunti.puntiIniziali}</strong></span>
+                            )}
+                            {atleta.partiteRanking.dettaglioPunti.campionato !== undefined && (
+                              <span>Campionato: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.campionato}</strong></span>
+                            )}
+                            {atleta.partiteRanking.dettaglioPunti.tornei !== undefined && (
+                              <span>Tornei: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.tornei}</strong></span>
+                            )}
+                            {atleta.partiteRanking.dettaglioPunti.vittorieTornei !== undefined && (
+                              <span>Vittorie Tornei: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.vittorieTornei}</strong></span>
+                            )}
+                            {atleta.partiteRanking.dettaglioPunti.finali !== undefined && (
+                              <span>Totale: <strong style={{ color: 'var(--color-primary-600)' }}>{atleta.partiteRanking.dettaglioPunti.finali} pt</strong></span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Ranking Sub-Filter Buttons (Tutti / Campionato / Tornei) */}
+                        {activeTabResolved === 'ranking' && totalRankingCampionato > 0 && totalRankingTornei > 0 && (
+                          <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                            <button
+                              type="button"
+                              onClick={() => setRankingFilter('tutti')}
+                              style={{
+                                padding: '3px 10px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                borderRadius: '999px',
+                                border: '1px solid var(--border-color)',
+                                background: rankingFilter === 'tutti' ? 'var(--color-primary-600)' : 'var(--bg-th)',
+                                color: rankingFilter === 'tutti' ? '#ffffff' : 'var(--text-muted)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Tutti ({totalRankingMatches})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setRankingFilter('campionato')}
+                              style={{
+                                padding: '3px 10px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                borderRadius: '999px',
+                                border: '1px solid var(--border-color)',
+                                background: rankingFilter === 'campionato' ? 'var(--color-primary-600)' : 'var(--bg-th)',
+                                color: rankingFilter === 'campionato' ? '#ffffff' : 'var(--text-muted)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Campionato ({totalRankingCampionato})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setRankingFilter('tornei')}
+                              style={{
+                                padding: '3px 10px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                borderRadius: '999px',
+                                border: '1px solid var(--border-color)',
+                                background: rankingFilter === 'tornei' ? 'var(--color-primary-600)' : 'var(--bg-th)',
+                                color: rankingFilter === 'tornei' ? '#ffffff' : 'var(--text-muted)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Tornei ({totalRankingTornei})
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Active Tab View 1: Girone Corrente Header/Notice */}
+                        {activeTabResolved === 'girone' && (
+                          <>
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '11.5px',
+                                color: 'var(--text-muted)',
+                                marginBottom: '10px',
+                                lineHeight: '1.35',
+                              }}
+                            >
+                              <i className="bi bi-info-circle text-primary" style={{ fontSize: '12px', flexShrink: 0 }}></i>
+                              <span>
+                                Le partite disputate nel campionato in corso potrebbero non essere ancora convalidate nei punti ranking ufficiali.
+                              </span>
+                            </div>
+
+                            {loadingPartite && (
+                              <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                                <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                                Caricamento partite del girone...
+                              </div>
+                            )}
+
+                            {!loadingPartite && (!campionatoPartite || campionatoPartite.length === 0) && (
+                              <div style={{ padding: '14px', textAlign: 'center', background: 'var(--bg-th)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+                                <i className="bi bi-shield-slash me-1"></i>
+                                Nessuna partita disputata registrata in questo girone per questo atleta.
+                                {totalRankingMatches > 0 && (
+                                  <div style={{ marginTop: '8px' }}>
+                                    <button
+                                      type="button"
+                                      className="btn-action"
+                                      onClick={() => setMatchTab('ranking')}
+                                      style={{ padding: '4px 12px', fontSize: '11.5px', borderRadius: '6px' }}
+                                    >
+                                      Visualizza tutti gli incontri ufficiali FITeT ({totalRankingMatches})
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {/* Active Tab View 2: Official FITeT Ranking Matches empty state */}
+                        {activeTabResolved === 'ranking' && unifiedRankingMatches.length === 0 && (
+                          <div style={{ padding: '16px', textAlign: 'center', background: 'var(--bg-th)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '12.5px' }}>
+                            <i className="bi bi-clock-history me-1"></i>
+                            Incontri al momento non disponibili
+                          </div>
+                        )}
+
+                        {/* Render matches slider / list whenever there are matches in the active tab */}
+                        {(() => {
+                          interface MatchCardItem {
+                            id: string;
+                            tipo: 'girone' | 'campionato' | 'torneo';
+                            data: string;
+                            titolo: string;
+                            sottotitolo?: string;
+                            avversario: string;
+                            avversarioId?: string;
+                            giornata?: number;
+                            fase?: string;
+                            isVittoria: boolean;
+                            risultatoSet?: string;
+                            sets?: string[];
+                            punti?: number;
+                            rawRisultato?: string;
+                          }
+
+                          let matchesToDisplay: MatchCardItem[] = [];
+
+                          if (activeTabResolved === 'girone' && campionatoPartite && campionatoPartite.length > 0) {
+                            matchesToDisplay = campionatoPartite.map((m, idx) => ({
+                              id: `girone-${idx}`,
+                              tipo: 'girone',
+                              data: `G${m.giornata}`,
+                              titolo: campionatoNome || 'Campionato Girone',
+                              sottotitolo: squadraCampionato || undefined,
+                              avversario: m.avversario,
+                              giornata: m.giornata,
+                              isVittoria: m.isVittoria,
+                              risultatoSet: m.risultatoSet,
+                              sets: m.sets,
+                            }));
+                          } else if (activeTabResolved === 'ranking' && unifiedRankingMatches.length > 0) {
+                            matchesToDisplay = unifiedRankingMatches.map((m, idx) => {
+                              const matchingGirone = campionatoPartite?.find(
+                                (gp) => gp.avversario.toUpperCase().trim() === m.avversario.toUpperCase().trim()
+                              );
+
+                              return {
+                                id: `ranking-${idx}`,
+                                tipo: m.tipo,
+                                data: m.data,
+                                titolo: m.titolo,
+                                sottotitolo: m.sottotitolo,
+                                avversario: m.avversario,
+                                avversarioId: m.avversarioId,
+                                fase: m.fase,
+                                isVittoria: m.isVittoria,
+                                risultatoSet: m.risultatoSet || matchingGirone?.risultatoSet,
+                                sets: matchingGirone?.sets,
+                                punti: m.punti,
+                                rawRisultato: m.risultato,
+                              };
+                            });
+                          }
+
+                          if (matchesToDisplay.length === 0) return null;
+
+                          return (
+                            <div style={{ marginTop: '8px' }}>
+                              {/* Slider Navigation Bar */}
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  marginBottom: '8px',
+                                  flexWrap: 'wrap',
+                                  gap: '8px',
+                                }}
+                              >
+                                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
+                                    {matchesToDisplay.length} {matchesToDisplay.length === 1 ? 'partita' : 'partite'}
+                                  </span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  {/* Toggle Slider vs Elenco */}
+                                  <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => setViewMode('slider')}
+                                      title="Vista Slider"
+                                      style={{
+                                        padding: '2px 8px',
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        background: viewMode === 'slider' ? 'var(--color-primary-600)' : 'transparent',
+                                        color: viewMode === 'slider' ? '#ffffff' : 'var(--text-muted)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s ease',
+                                      }}
+                                    >
+                                      <i className="bi bi-collection-play me-1"></i>Slider
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setViewMode('list')}
+                                      title="Vista Elenco"
+                                      style={{
+                                        padding: '2px 8px',
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        background: viewMode === 'list' ? 'var(--color-primary-600)' : 'transparent',
+                                        color: viewMode === 'list' ? '#ffffff' : 'var(--text-muted)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s ease',
+                                      }}
+                                    >
+                                      <i className="bi bi-list-ul me-1"></i>Elenco
+                                    </button>
+                                  </div>
+
+                                  {/* Navigation Arrows for Slider */}
+                                  {viewMode === 'slider' && matchesToDisplay.length > 1 && (
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <button
+                                        type="button"
+                                        onClick={() => scrollSlider('prev')}
+                                        disabled={!canScrollLeft}
+                                        title="Partita precedente"
+                                        style={{
+                                          width: '28px',
+                                          height: '28px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          borderRadius: '6px',
+                                          border: '1px solid var(--border-color)',
+                                          background: 'var(--bg-card, #ffffff)',
+                                          color: canScrollLeft ? 'var(--text-dark)' : 'var(--text-muted)',
+                                          cursor: canScrollLeft ? 'pointer' : 'default',
+                                          opacity: canScrollLeft ? 1 : 0.35,
+                                          transition: 'all 0.15s ease',
+                                        }}
+                                      >
+                                        <i className="bi bi-chevron-left" style={{ fontSize: '12px' }}></i>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => scrollSlider('next')}
+                                        disabled={!canScrollRight}
+                                        title="Partita successiva"
+                                        style={{
+                                          width: '28px',
+                                          height: '28px',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          borderRadius: '6px',
+                                          border: '1px solid var(--border-color)',
+                                          background: 'var(--bg-card, #ffffff)',
+                                          color: canScrollRight ? 'var(--text-dark)' : 'var(--text-muted)',
+                                          cursor: canScrollRight ? 'pointer' : 'default',
+                                          opacity: canScrollRight ? 1 : 0.35,
+                                          transition: 'all 0.15s ease',
+                                        }}
+                                      >
+                                        <i className="bi bi-chevron-right" style={{ fontSize: '12px' }}></i>
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Match Cards Display: Slider track or List */}
+                              {viewMode === 'slider' ? (
+                                <div
+                                  ref={sliderRef}
+                                  onScroll={handleSliderScroll}
+                                  style={{
+                                    display: 'flex',
+                                    gap: '10px',
+                                    overflowX: 'auto',
+                                    scrollSnapType: 'x mandatory',
+                                    paddingBottom: '6px',
+                                    scrollbarWidth: 'thin',
+                                    WebkitOverflowScrolling: 'touch',
+                                  }}
+                                >
+                                  {matchesToDisplay.map((m, idx) => (
+                                    <div
+                                      key={m.id || idx}
+                                      className="atleta-match-card"
+                                      style={{
+                                        flex: '0 0 min(280px, 82%)',
+                                        scrollSnapAlign: 'start',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'space-between',
+                                        padding: '11px 13px',
+                                        minHeight: '130px',
+                                        boxSizing: 'border-box',
+                                      }}
+                                    >
+                                      {/* Top Row: Outcome badge, Date, and Match type */}
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          <span
+                                            style={{
+                                              padding: '2px 7px',
+                                              borderRadius: '4px',
+                                              fontSize: '11px',
+                                              fontWeight: '700',
+                                              background: m.isVittoria ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                              color: m.isVittoria ? '#16a34a' : '#dc2626',
+                                              border: `1px solid ${m.isVittoria ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                                              flexShrink: 0,
+                                            }}
+                                          >
+                                            {m.isVittoria ? 'VINTA' : 'PERSA'}
+                                          </span>
+
+                                          {m.fase && (
+                                            <span className="badge badge-neutral" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
+                                              {m.fase}
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                                          {m.data}
+                                        </span>
+                                      </div>
+
+                                      {/* Middle Row: Opponent Name & Event Details */}
+                                      <div style={{ marginBottom: '8px' }}>
+                                        <div
+                                          style={{
+                                            fontWeight: '700',
+                                            fontSize: '13.5px',
+                                            color: 'var(--text-dark)',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                          }}
+                                        >
+                                          {onSelectAthlete ? (
+                                            <button
+                                              type="button"
+                                              className="atleta-opponent-link"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                onSelectAthlete(m.avversario, m.avversario);
+                                              }}
+                                              title={`Apri profilo di ${m.avversario}`}
+                                            >
+                                              <span className="atleta-opponent-text">vs {m.avversario}</span>
+                                              <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
+                                            </button>
+                                          ) : (
+                                            <span title={`Avversario: ${m.avversario}`}>vs {m.avversario}</span>
+                                          )}
+
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setH2hOpponent({ id: m.avversarioId, name: m.avversario });
+                                            }}
+                                            title={`Visualizza Testa a Testa contro ${m.avversario}`}
+                                            style={{
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '3px',
+                                              padding: '1px 6px',
+                                              borderRadius: '4px',
+                                              fontSize: '10px',
+                                              fontWeight: 700,
+                                              background: 'rgba(59, 130, 246, 0.1)',
+                                              color: 'var(--color-primary-600, #2563eb)',
+                                              border: '1px solid rgba(59, 130, 246, 0.25)',
+                                              cursor: 'pointer',
+                                              flexShrink: 0,
+                                            }}
+                                          >
+                                            <i className="bi bi-arrow-left-right" style={{ fontSize: '9px' }}></i>
+                                            H2H
+                                          </button>
+                                        </div>
+
+                                        <MarqueeText
+                                          className="match-event-title-scroll"
+                                          style={{
+                                            fontSize: '11px',
+                                            color: 'var(--text-muted)',
+                                            marginTop: '3px',
+                                          }}
+                                          title={`${m.titolo}${m.sottotitolo ? ` • ${m.sottotitolo}` : ''}`}
+                                        >
+                                          <i className={`bi ${m.tipo === 'torneo' ? 'bi-award' : 'bi-trophy'} me-1`}></i>
+                                          {m.titolo}
+                                          {m.sottotitolo && ` • ${m.sottotitolo}`}
+                                        </MarqueeText>
+                                      </div>
+
+                                      {/* Bottom Row: Set Details and Prominent Numeric Score */}
+                                      <div
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'space-between',
+                                          paddingTop: '8px',
+                                          borderTop: '1px solid var(--border-light, #f1f5f9)',
+                                          gap: '8px',
+                                          marginTop: 'auto',
+                                        }}
+                                      >
+                                        {/* Left: Set partials as clean text without pill frames */}
+                                        <div style={{ minWidth: 0, flex: 1 }}>
+                                          {m.sets && m.sets.length > 0 ? (
+                                            <span
+                                              style={{
+                                                fontSize: '11px',
+                                                color: 'var(--text-muted)',
+                                                fontVariantNumeric: 'tabular-nums',
+                                                letterSpacing: '0.02em',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap',
+                                                display: 'block',
+                                              }}
+                                              title={m.sets.join(', ')}
+                                            >
+                                              {m.sets.join(', ')}
+                                            </span>
+                                          ) : m.fase ? (
+                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                              Fase: <strong style={{ color: 'var(--text-main)' }}>{m.fase}</strong>
+                                            </span>
+                                          ) : (
+                                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                                              {m.tipo === 'campionato' ? 'Incontro Campionato' : 'Gara Ufficiale'}
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {/* Right: The big numeric outcome */}
+                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexShrink: 0 }}>
+                                          {m.risultatoSet ? (
+                                            <div
+                                              style={{
+                                                fontSize: '16px',
+                                                fontWeight: '800',
+                                                color: m.isVittoria ? '#16a34a' : '#dc2626',
+                                                fontVariantNumeric: 'tabular-nums',
+                                              }}
+                                            >
+                                              {m.risultatoSet}
+                                            </div>
+                                          ) : m.punti !== undefined ? (
+                                            <div
+                                              style={{
+                                                fontSize: '13.5px',
+                                                fontWeight: '800',
+                                                color: m.punti > 0 ? '#16a34a' : m.punti < 0 ? '#dc2626' : 'var(--text-muted)',
+                                                fontVariantNumeric: 'tabular-nums',
+                                              }}
+                                            >
+                                              {m.punti > 0 ? `+${m.punti}` : m.punti} pt
+                                            </div>
+                                          ) : (
+                                            <div
+                                              style={{
+                                                fontSize: '14px',
+                                                fontWeight: '800',
+                                                color: m.isVittoria ? '#16a34a' : '#dc2626',
+                                                fontVariantNumeric: 'tabular-nums',
+                                              }}
+                                            >
+                                              {m.isVittoria ? 'V' : 'P'}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px',
+                                    maxHeight: '340px',
+                                    overflowY: 'auto',
+                                    paddingRight: '4px',
+                                    scrollbarWidth: 'thin',
+                                  }}
+                                >
+                                  {matchesToDisplay.map((m, idx) => (
+                                    <div
+                                      key={m.id || idx}
+                                      className="atleta-match-list-item"
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '9px 12px',
+                                        gap: '10px',
+                                        flexWrap: 'wrap',
+                                        transition: 'all 0.15s ease',
+                                      }}
+                                    >
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 180px' }}>
+                                        <span
+                                          style={{
+                                            padding: '2px 7px',
+                                            borderRadius: '4px',
+                                            fontSize: '11px',
+                                            fontWeight: '700',
+                                            background: m.isVittoria ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                                            color: m.isVittoria ? '#16a34a' : '#dc2626',
+                                            border: `1px solid ${m.isVittoria ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                                            flexShrink: 0,
+                                          }}
+                                        >
+                                          {m.isVittoria ? 'VINTA' : 'PERSA'}
+                                        </span>
+
+                                        {m.giornata !== undefined && (
+                                          <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
+                                            G{m.giornata}
+                                          </span>
+                                        )}
+
+                                        {m.fase && (
+                                          <span className="badge badge-neutral" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
+                                            {m.fase}
+                                          </span>
+                                        )}
+
+                                        <div style={{ minWidth: 0 }}>
+                                          <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            {onSelectAthlete ? (
+                                              <button
+                                                type="button"
+                                                className="atleta-opponent-link"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  onSelectAthlete(m.avversario, m.avversario);
+                                                }}
+                                                title={`Apri profilo di ${m.avversario}`}
+                                              >
+                                                <span className="atleta-opponent-text">vs {m.avversario}</span>
+                                                <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
+                                              </button>
+                                            ) : (
+                                              <span>vs {m.avversario}</span>
+                                            )}
+
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setH2hOpponent({ id: m.avversarioId, name: m.avversario });
+                                              }}
+                                              title={`Visualizza Testa a Testa contro ${m.avversario}`}
+                                              style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '3px',
+                                                padding: '1px 5px',
+                                                borderRadius: '4px',
+                                                fontSize: '9.5px',
+                                                fontWeight: 700,
+                                                background: 'rgba(59, 130, 246, 0.1)',
+                                                color: 'var(--color-primary-600, #2563eb)',
+                                                border: '1px solid rgba(59, 130, 246, 0.25)',
+                                                cursor: 'pointer',
+                                                flexShrink: 0,
+                                              }}
+                                            >
+                                              <i className="bi bi-arrow-left-right" style={{ fontSize: '8.5px' }}></i>
+                                              H2H
+                                            </button>
+                                          </div>
+                                          <div
+                                            className="match-event-title-scroll"
+                                            style={{ maxWidth: '260px', fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}
+                                            title={`${m.titolo}${m.sottotitolo ? ` • ${m.sottotitolo}` : ''}`}
+                                          >
+                                            <i className={`bi ${m.tipo === 'torneo' ? 'bi-award' : 'bi-trophy'} me-1`}></i>
+                                            {m.titolo}
+                                            {m.sottotitolo && ` • ${m.sottotitolo}`}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {m.sets && m.sets.length > 0 && (
+                                          <span
+                                            style={{
+                                              fontSize: '11px',
+                                              color: 'var(--text-muted)',
+                                              fontVariantNumeric: 'tabular-nums',
+                                              letterSpacing: '0.02em',
+                                            }}
+                                            title={m.sets.join(', ')}
+                                          >
+                                            {m.sets.join(', ')}
+                                          </span>
+                                        )}
+
+                                        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                                          {m.data}
+                                        </span>
+
+                                        {/* Numeric Result */}
+                                        <div style={{ minWidth: '40px', textAlign: 'right' }}>
+                                          {m.risultatoSet ? (
+                                            <span style={{ fontSize: '14px', fontWeight: '800', color: m.isVittoria ? '#16a34a' : '#dc2626' }}>
+                                              {m.risultatoSet}
+                                            </span>
+                                          ) : m.punti !== undefined ? (
+                                            <span style={{ fontSize: '12.5px', fontWeight: '800', color: m.punti > 0 ? '#16a34a' : m.punti < 0 ? '#dc2626' : 'var(--text-muted)' }}>
+                                              {m.punti > 0 ? `+${m.punti}` : m.punti} pt
+                                            </span>
+                                          ) : (
+                                            <span style={{ fontSize: '13px', fontWeight: '800', color: m.isVittoria ? '#16a34a' : '#dc2626' }}>
+                                              {m.isVittoria ? 'V' : 'P'}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {/* Subtle note about federale ranking data format */}
+                              {activeTabResolved === 'ranking' && (
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                  <i className="bi bi-info-circle text-primary" style={{ flexShrink: 0 }}></i>
+                                  <span>
+                                    <strong>Dato Federale Ranking:</strong> La FITeT nei tabulati graduatoria registra l'esito (Vittoria/Sconfitta) e i punti; i set numerici sono registrati nei referti ufficiali di gara.
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Historical Analytics (Sub-Tabs: Grafico vs Tabella) */}
+                  <div style={{ marginTop: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--color-primary-600)', letterSpacing: '0.04em' }}>
+                        <i className="bi bi-graph-up-arrow me-1 text-primary"></i>
+                        Andamento Ranking Ufficiale
+                      </div>
+                      {atleta.storicoClassifica.length > 0 && (
+                        <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
                           <button
                             type="button"
-                            onClick={() => setMatchTab('girone')}
+                            onClick={() => setAnalyticsTab('chart')}
                             style={{
-                              padding: '4px 10px',
+                              padding: '3px 10px',
                               fontSize: '11px',
                               fontWeight: 600,
                               border: 'none',
-                              borderRadius: '6px',
-                              background: activeTabResolved === 'girone' ? 'var(--color-primary-600)' : 'transparent',
-                              color: activeTabResolved === 'girone' ? '#ffffff' : 'var(--text-muted)',
+                              borderRadius: '4px',
+                              background: analyticsTab === 'chart' ? 'var(--color-primary-600)' : 'transparent',
+                              color: analyticsTab === 'chart' ? '#ffffff' : 'var(--text-muted)',
                               cursor: 'pointer',
                               transition: 'all 0.15s ease',
                             }}
                           >
-                            Girone Corrente {campionatoPartite && campionatoPartite.length > 0 ? `(${campionatoPartite.length})` : ''}
+                            <i className="bi bi-graph-up me-1"></i>Grafico
                           </button>
                           <button
                             type="button"
-                            onClick={() => setMatchTab('ranking')}
+                            onClick={() => setAnalyticsTab('table')}
                             style={{
-                              padding: '4px 10px',
+                              padding: '3px 10px',
                               fontSize: '11px',
                               fontWeight: 600,
                               border: 'none',
-                              borderRadius: '6px',
-                              background: activeTabResolved === 'ranking' ? 'var(--color-primary-600)' : 'transparent',
-                              color: activeTabResolved === 'ranking' ? '#ffffff' : 'var(--text-muted)',
+                              borderRadius: '4px',
+                              background: analyticsTab === 'table' ? 'var(--color-primary-600)' : 'transparent',
+                              color: analyticsTab === 'table' ? '#ffffff' : 'var(--text-muted)',
                               cursor: 'pointer',
                               transition: 'all 0.15s ease',
                             }}
                           >
-                            Tutte le Partite FITeT {totalRankingMatches > 0 ? `(${totalRankingMatches})` : ''}
+                            <i className="bi bi-table me-1"></i>Tabella ({atleta.storicoClassifica.length})
                           </button>
                         </div>
                       )}
                     </div>
 
-                    {/* Breakdown Pill for Ranking Points if viewing ranking matches */}
-                    {activeTabResolved === 'ranking' && atleta.partiteRanking?.dettaglioPunti && (
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '12px',
-                          flexWrap: 'wrap',
-                          padding: '7px 12px',
-                          borderRadius: '8px',
-                          background: 'var(--bg-th)',
-                          border: '1px solid var(--border-color)',
-                          fontSize: '11.5px',
-                          color: 'var(--text-muted)',
-                          marginBottom: '10px',
-                        }}
-                      >
-                        <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
-                          <i className="bi bi-pie-chart-fill me-1 text-primary"></i>
-                          Punti Ranking:
-                        </span>
-                        {atleta.partiteRanking.dettaglioPunti.puntiIniziali !== undefined && (
-                          <span>Iniziali: <strong style={{ color: 'var(--text-dark)' }}>{atleta.partiteRanking.dettaglioPunti.puntiIniziali}</strong></span>
-                        )}
-                        {atleta.partiteRanking.dettaglioPunti.campionato !== undefined && (
-                          <span>Campionato: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.campionato}</strong></span>
-                        )}
-                        {atleta.partiteRanking.dettaglioPunti.tornei !== undefined && (
-                          <span>Tornei: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.tornei}</strong></span>
-                        )}
-                        {atleta.partiteRanking.dettaglioPunti.vittorieTornei !== undefined && (
-                          <span>Vittorie Tornei: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.vittorieTornei}</strong></span>
-                        )}
-                        {atleta.partiteRanking.dettaglioPunti.finali !== undefined && (
-                          <span>Totale: <strong style={{ color: 'var(--color-primary-600)' }}>{atleta.partiteRanking.dettaglioPunti.finali} pt</strong></span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Ranking Sub-Filter Buttons (Tutti / Campionato / Tornei) */}
-                    {activeTabResolved === 'ranking' && totalRankingCampionato > 0 && totalRankingTornei > 0 && (
-                      <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-                        <button
-                          type="button"
-                          onClick={() => setRankingFilter('tutti')}
-                          style={{
-                            padding: '3px 10px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            borderRadius: '999px',
-                            border: '1px solid var(--border-color)',
-                            background: rankingFilter === 'tutti' ? 'var(--color-primary-600)' : 'var(--bg-th)',
-                            color: rankingFilter === 'tutti' ? '#ffffff' : 'var(--text-muted)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Tutti ({totalRankingMatches})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setRankingFilter('campionato')}
-                          style={{
-                            padding: '3px 10px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            borderRadius: '999px',
-                            border: '1px solid var(--border-color)',
-                            background: rankingFilter === 'campionato' ? 'var(--color-primary-600)' : 'var(--bg-th)',
-                            color: rankingFilter === 'campionato' ? '#ffffff' : 'var(--text-muted)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Campionato ({totalRankingCampionato})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setRankingFilter('tornei')}
-                          style={{
-                            padding: '3px 10px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            borderRadius: '999px',
-                            border: '1px solid var(--border-color)',
-                            background: rankingFilter === 'tornei' ? 'var(--color-primary-600)' : 'var(--bg-th)',
-                            color: rankingFilter === 'tornei' ? '#ffffff' : 'var(--text-muted)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Tornei ({totalRankingTornei})
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Active Tab View 1: Girone Corrente Header/Notice */}
-                    {activeTabResolved === 'girone' && (
-                      <>
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontSize: '11.5px',
-                            color: 'var(--text-muted)',
-                            marginBottom: '10px',
-                            lineHeight: '1.35',
-                          }}
-                        >
-                          <i className="bi bi-info-circle text-primary" style={{ fontSize: '12px', flexShrink: 0 }}></i>
-                          <span>
-                            Le partite disputate nel campionato in corso potrebbero non essere ancora convalidate nei punti ranking ufficiali.
-                          </span>
-                        </div>
-
-                        {loadingPartite && (
-                          <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)', fontSize: '12px' }}>
-                            <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                            Caricamento partite del girone...
-                          </div>
-                        )}
-
-                        {!loadingPartite && (!campionatoPartite || campionatoPartite.length === 0) && (
-                          <div style={{ padding: '14px', textAlign: 'center', background: 'var(--bg-th)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '12.5px' }}>
-                            <i className="bi bi-shield-slash me-1"></i>
-                            Nessuna partita disputata registrata in questo girone per questo atleta.
-                            {totalRankingMatches > 0 && (
-                              <div style={{ marginTop: '8px' }}>
-                                <button
-                                  type="button"
-                                  className="btn-action"
-                                  onClick={() => setMatchTab('ranking')}
-                                  style={{ padding: '4px 12px', fontSize: '11.5px', borderRadius: '6px' }}
-                                >
-                                  Visualizza tutti gli incontri ufficiali FITeT ({totalRankingMatches})
-                                </button>
+                    {analyticsTab === 'chart' ? (
+                      <RatingChart data={atleta.storicoClassifica} athleteName={atleta.anagrafica.nome} hideTitle={true} />
+                    ) : (
+                      atleta.storicoClassifica.length > 0 && (
+                        <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px', scrollbarWidth: 'thin' }}>
+                          <div className="modal-ranking-grid">
+                            <div className="grid-header-row">
+                              <div className="grid-th text-center">Data Rilevazione</div>
+                              <div className="grid-th text-center">Categoria</div>
+                              <div className="grid-th text-center">Punti Classifica</div>
+                              <div className="grid-th text-center">Posizione</div>
+                            </div>
+                            {[...atleta.storicoClassifica].reverse().map((s, idx) => (
+                              <div key={idx} className="grid-data-row">
+                                <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.data}</div>
+                                <div className="grid-cell text-center">
+                                  <span className="badge badge-neutral">{s.categoria ? `${s.categoria}ª` : '-'}</span>
+                                </div>
+                                <div className="grid-cell text-center" style={{ fontWeight: '700', color: 'var(--color-primary-600)' }}>{s.punti} pt</div>
+                                <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.posizione ? `#${s.posizione.toLocaleString('it-IT')}` : '-'}</div>
                               </div>
-                            )}
+                            ))}
                           </div>
-                        )}
-                      </>
-                    )}
-
-                    {/* Active Tab View 2: Official FITeT Ranking Matches empty state */}
-                    {activeTabResolved === 'ranking' && unifiedRankingMatches.length === 0 && (
-                      <div style={{ padding: '16px', textAlign: 'center', background: 'var(--bg-th)', borderRadius: '8px', color: 'var(--text-muted)', fontSize: '12.5px' }}>
-                        <i className="bi bi-clock-history me-1"></i>
-                        Incontri al momento non disponibili
-                      </div>
-                    )}
-
-                    {/* Render matches slider / list whenever there are matches in the active tab */}
-                    {(() => {
-                      interface MatchCardItem {
-                        id: string;
-                        tipo: 'girone' | 'campionato' | 'torneo';
-                        data: string;
-                        titolo: string;
-                        sottotitolo?: string;
-                        avversario: string;
-                        avversarioId?: string;
-                        giornata?: number;
-                        fase?: string;
-                        isVittoria: boolean;
-                        risultatoSet?: string;
-                        sets?: string[];
-                        punti?: number;
-                        rawRisultato?: string;
-                      }
-
-                      let matchesToDisplay: MatchCardItem[] = [];
-
-                      if (activeTabResolved === 'girone' && campionatoPartite && campionatoPartite.length > 0) {
-                        matchesToDisplay = campionatoPartite.map((m, idx) => ({
-                          id: `girone-${idx}`,
-                          tipo: 'girone',
-                          data: `G${m.giornata}`,
-                          titolo: campionatoNome || 'Campionato Girone',
-                          sottotitolo: squadraCampionato || undefined,
-                          avversario: m.avversario,
-                          giornata: m.giornata,
-                          isVittoria: m.isVittoria,
-                          risultatoSet: m.risultatoSet,
-                          sets: m.sets,
-                        }));
-                      } else if (activeTabResolved === 'ranking' && unifiedRankingMatches.length > 0) {
-                        matchesToDisplay = unifiedRankingMatches.map((m, idx) => {
-                          const matchingGirone = campionatoPartite?.find(
-                            (gp) => gp.avversario.toUpperCase().trim() === m.avversario.toUpperCase().trim()
-                          );
-
-                          return {
-                            id: `ranking-${idx}`,
-                            tipo: m.tipo,
-                            data: m.data,
-                            titolo: m.titolo,
-                            sottotitolo: m.sottotitolo,
-                            avversario: m.avversario,
-                            avversarioId: m.avversarioId,
-                            fase: m.fase,
-                            isVittoria: m.isVittoria,
-                            risultatoSet: m.risultatoSet || matchingGirone?.risultatoSet,
-                            sets: matchingGirone?.sets,
-                            punti: m.punti,
-                            rawRisultato: m.risultato,
-                          };
-                        });
-                      }
-
-                      if (matchesToDisplay.length === 0) return null;
-
-                      return (
-                        <div style={{ marginTop: '8px' }}>
-                          {/* Slider Navigation Bar */}
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              marginBottom: '8px',
-                              flexWrap: 'wrap',
-                              gap: '8px',
-                            }}
-                          >
-                            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
-                                {matchesToDisplay.length} {matchesToDisplay.length === 1 ? 'partita' : 'partite'}
-                              </span>
-                            </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              {/* Toggle Slider vs Elenco */}
-                              <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => setViewMode('slider')}
-                                  title="Vista Slider"
-                                  style={{
-                                    padding: '2px 8px',
-                                    fontSize: '11px',
-                                    fontWeight: 600,
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    background: viewMode === 'slider' ? 'var(--color-primary-600)' : 'transparent',
-                                    color: viewMode === 'slider' ? '#ffffff' : 'var(--text-muted)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.15s ease',
-                                  }}
-                                >
-                                  <i className="bi bi-collection-play me-1"></i>Slider
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setViewMode('list')}
-                                  title="Vista Elenco"
-                                  style={{
-                                    padding: '2px 8px',
-                                    fontSize: '11px',
-                                    fontWeight: 600,
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    background: viewMode === 'list' ? 'var(--color-primary-600)' : 'transparent',
-                                    color: viewMode === 'list' ? '#ffffff' : 'var(--text-muted)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.15s ease',
-                                  }}
-                                >
-                                  <i className="bi bi-list-ul me-1"></i>Elenco
-                                </button>
-                              </div>
-
-                              {/* Navigation Arrows for Slider */}
-                              {viewMode === 'slider' && matchesToDisplay.length > 1 && (
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => scrollSlider('prev')}
-                                    disabled={!canScrollLeft}
-                                    title="Partita precedente"
-                                    style={{
-                                      width: '28px',
-                                      height: '28px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      borderRadius: '6px',
-                                      border: '1px solid var(--border-color)',
-                                      background: 'var(--bg-card, #ffffff)',
-                                      color: canScrollLeft ? 'var(--text-dark)' : 'var(--text-muted)',
-                                      cursor: canScrollLeft ? 'pointer' : 'default',
-                                      opacity: canScrollLeft ? 1 : 0.35,
-                                      transition: 'all 0.15s ease',
-                                    }}
-                                  >
-                                    <i className="bi bi-chevron-left" style={{ fontSize: '12px' }}></i>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => scrollSlider('next')}
-                                    disabled={!canScrollRight}
-                                    title="Partita successiva"
-                                    style={{
-                                      width: '28px',
-                                      height: '28px',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      borderRadius: '6px',
-                                      border: '1px solid var(--border-color)',
-                                      background: 'var(--bg-card, #ffffff)',
-                                      color: canScrollRight ? 'var(--text-dark)' : 'var(--text-muted)',
-                                      cursor: canScrollRight ? 'pointer' : 'default',
-                                      opacity: canScrollRight ? 1 : 0.35,
-                                      transition: 'all 0.15s ease',
-                                    }}
-                                  >
-                                    <i className="bi bi-chevron-right" style={{ fontSize: '12px' }}></i>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Match Cards Display: Slider track or List */}
-                          {viewMode === 'slider' ? (
-                            <div
-                              ref={sliderRef}
-                              onScroll={handleSliderScroll}
-                              style={{
-                                display: 'flex',
-                                gap: '10px',
-                                overflowX: 'auto',
-                                scrollSnapType: 'x mandatory',
-                                paddingBottom: '6px',
-                                scrollbarWidth: 'thin',
-                                WebkitOverflowScrolling: 'touch',
-                              }}
-                            >
-                              {matchesToDisplay.map((m, idx) => (
-                                <div
-                                  key={m.id || idx}
-                                  className="atleta-match-card"
-                                  style={{
-                                    flex: '0 0 min(280px, 82%)',
-                                    scrollSnapAlign: 'start',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    justifyContent: 'space-between',
-                                    padding: '11px 13px',
-                                    minHeight: '130px',
-                                    boxSizing: 'border-box',
-                                  }}
-                                >
-                                  {/* Top Row: Outcome badge, Date, and Match type */}
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      <span
-                                        style={{
-                                          padding: '2px 7px',
-                                          borderRadius: '4px',
-                                          fontSize: '11px',
-                                          fontWeight: '700',
-                                          background: m.isVittoria ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                          color: m.isVittoria ? '#16a34a' : '#dc2626',
-                                          border: `1px solid ${m.isVittoria ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                                          flexShrink: 0,
-                                        }}
-                                      >
-                                        {m.isVittoria ? 'VINTA' : 'PERSA'}
-                                      </span>
-
-                                      {m.fase && (
-                                        <span className="badge badge-neutral" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
-                                          {m.fase}
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-                                      {m.data}
-                                    </span>
-                                  </div>
-
-                                  {/* Middle Row: Opponent Name & Event Details */}
-                                    <div style={{ marginBottom: '8px' }}>
-                                    <div
-                                      style={{
-                                        fontWeight: '700',
-                                        fontSize: '13.5px',
-                                        color: 'var(--text-dark)',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                      }}
-                                    >
-                                      {onSelectAthlete ? (
-                                        <button
-                                          type="button"
-                                          className="atleta-opponent-link"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            onSelectAthlete(m.avversario, m.avversario);
-                                          }}
-                                          title={`Apri profilo di ${m.avversario}`}
-                                        >
-                                          <span className="atleta-opponent-text">vs {m.avversario}</span>
-                                          <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
-                                        </button>
-                                      ) : (
-                                        <span title={`Avversario: ${m.avversario}`}>vs {m.avversario}</span>
-                                      )}
-
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setH2hOpponent({ id: m.avversarioId, name: m.avversario });
-                                        }}
-                                        title={`Visualizza Testa a Testa contro ${m.avversario}`}
-                                        style={{
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          gap: '3px',
-                                          padding: '1px 6px',
-                                          borderRadius: '4px',
-                                          fontSize: '10px',
-                                          fontWeight: 700,
-                                          background: 'rgba(59, 130, 246, 0.1)',
-                                          color: 'var(--color-primary-600, #2563eb)',
-                                          border: '1px solid rgba(59, 130, 246, 0.25)',
-                                          cursor: 'pointer',
-                                          flexShrink: 0,
-                                        }}
-                                      >
-                                        <i className="bi bi-arrow-left-right" style={{ fontSize: '9px' }}></i>
-                                        H2H
-                                      </button>
-                                    </div>
-
-                                    <MarqueeText
-                                      className="match-event-title-scroll"
-                                      style={{
-                                        fontSize: '11px',
-                                        color: 'var(--text-muted)',
-                                        marginTop: '3px',
-                                      }}
-                                      title={`${m.titolo}${m.sottotitolo ? ` • ${m.sottotitolo}` : ''}`}
-                                    >
-                                      <i className={`bi ${m.tipo === 'torneo' ? 'bi-award' : 'bi-trophy'} me-1`}></i>
-                                      {m.titolo}
-                                      {m.sottotitolo && ` • ${m.sottotitolo}`}
-                                    </MarqueeText>
-                                  </div>
-
-                                  {/* Bottom Row: Set Details and Prominent Numeric Score */}
-                                  <div
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'space-between',
-                                      paddingTop: '8px',
-                                      borderTop: '1px solid var(--border-light, #f1f5f9)',
-                                      gap: '8px',
-                                      marginTop: 'auto',
-                                    }}
-                                  >
-                                    {/* Left: Set partials as clean text without pill frames */}
-                                    <div style={{ minWidth: 0, flex: 1 }}>
-                                      {m.sets && m.sets.length > 0 ? (
-                                        <span
-                                          style={{
-                                            fontSize: '11px',
-                                            color: 'var(--text-muted)',
-                                            fontVariantNumeric: 'tabular-nums',
-                                            letterSpacing: '0.02em',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            whiteSpace: 'nowrap',
-                                            display: 'block',
-                                          }}
-                                          title={m.sets.join(', ')}
-                                        >
-                                          {m.sets.join(', ')}
-                                        </span>
-                                      ) : m.fase ? (
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                          Fase: <strong style={{ color: 'var(--text-main)' }}>{m.fase}</strong>
-                                        </span>
-                                      ) : (
-                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                                          {m.tipo === 'campionato' ? 'Incontro Campionato' : 'Gara Ufficiale'}
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    {/* Right: The big numeric outcome */}
-                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexShrink: 0 }}>
-                                      {m.risultatoSet ? (
-                                        <div
-                                          style={{
-                                            fontSize: '16px',
-                                            fontWeight: '800',
-                                            color: m.isVittoria ? '#16a34a' : '#dc2626',
-                                            fontVariantNumeric: 'tabular-nums',
-                                          }}
-                                        >
-                                          {m.risultatoSet}
-                                        </div>
-                                      ) : m.punti !== undefined ? (
-                                        <div
-                                          style={{
-                                            fontSize: '13.5px',
-                                            fontWeight: '800',
-                                            color: m.punti > 0 ? '#16a34a' : m.punti < 0 ? '#dc2626' : 'var(--text-muted)',
-                                            fontVariantNumeric: 'tabular-nums',
-                                          }}
-                                        >
-                                          {m.punti > 0 ? `+${m.punti}` : m.punti} pt
-                                        </div>
-                                      ) : (
-                                        <div
-                                          style={{
-                                            fontSize: '14px',
-                                            fontWeight: '800',
-                                            color: m.isVittoria ? '#16a34a' : '#dc2626',
-                                            fontVariantNumeric: 'tabular-nums',
-                                          }}
-                                        >
-                                          {m.isVittoria ? 'V' : 'P'}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div
-                              style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '8px',
-                                maxHeight: '340px',
-                                overflowY: 'auto',
-                                paddingRight: '4px',
-                                scrollbarWidth: 'thin',
-                              }}
-                            >
-                              {matchesToDisplay.map((m, idx) => (
-                                <div
-                                  key={m.id || idx}
-                                  className="atleta-match-list-item"
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    padding: '9px 12px',
-                                    gap: '10px',
-                                    flexWrap: 'wrap',
-                                    transition: 'all 0.15s ease',
-                                  }}
-                                >
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: '1 1 180px' }}>
-                                    <span
-                                      style={{
-                                        padding: '2px 7px',
-                                        borderRadius: '4px',
-                                        fontSize: '11px',
-                                        fontWeight: '700',
-                                        background: m.isVittoria ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                                        color: m.isVittoria ? '#16a34a' : '#dc2626',
-                                        border: `1px solid ${m.isVittoria ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                                        flexShrink: 0,
-                                      }}
-                                    >
-                                      {m.isVittoria ? 'VINTA' : 'PERSA'}
-                                    </span>
-
-                                    {m.giornata !== undefined && (
-                                      <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
-                                        G{m.giornata}
-                                      </span>
-                                    )}
-
-                                    {m.fase && (
-                                      <span className="badge badge-neutral" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
-                                        {m.fase}
-                                      </span>
-                                    )}
-
-                                    <div style={{ minWidth: 0 }}>
-                                      <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        {onSelectAthlete ? (
-                                          <button
-                                            type="button"
-                                            className="atleta-opponent-link"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              onSelectAthlete(m.avversario, m.avversario);
-                                            }}
-                                            title={`Apri profilo di ${m.avversario}`}
-                                          >
-                                            <span className="atleta-opponent-text">vs {m.avversario}</span>
-                                            <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
-                                          </button>
-                                        ) : (
-                                          <span>vs {m.avversario}</span>
-                                        )}
-
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setH2hOpponent({ id: m.avversarioId, name: m.avversario });
-                                          }}
-                                          title={`Visualizza Testa a Testa contro ${m.avversario}`}
-                                          style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            gap: '3px',
-                                            padding: '1px 5px',
-                                            borderRadius: '4px',
-                                            fontSize: '9.5px',
-                                            fontWeight: 700,
-                                            background: 'rgba(59, 130, 246, 0.1)',
-                                            color: 'var(--color-primary-600, #2563eb)',
-                                            border: '1px solid rgba(59, 130, 246, 0.25)',
-                                            cursor: 'pointer',
-                                            flexShrink: 0,
-                                          }}
-                                        >
-                                          <i className="bi bi-arrow-left-right" style={{ fontSize: '8.5px' }}></i>
-                                          H2H
-                                        </button>
-                                      </div>
-                                      <div
-                                        className="match-event-title-scroll"
-                                        style={{ maxWidth: '260px', fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}
-                                        title={`${m.titolo}${m.sottotitolo ? ` • ${m.sottotitolo}` : ''}`}
-                                      >
-                                        <i className={`bi ${m.tipo === 'torneo' ? 'bi-award' : 'bi-trophy'} me-1`}></i>
-                                        {m.titolo}
-                                        {m.sottotitolo && ` • ${m.sottotitolo}`}
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {m.sets && m.sets.length > 0 && (
-                                      <span
-                                        style={{
-                                          fontSize: '11px',
-                                          color: 'var(--text-muted)',
-                                          fontVariantNumeric: 'tabular-nums',
-                                          letterSpacing: '0.02em',
-                                        }}
-                                        title={m.sets.join(', ')}
-                                      >
-                                        {m.sets.join(', ')}
-                                      </span>
-                                    )}
-
-                                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                                      {m.data}
-                                    </span>
-
-                                    {/* Numeric Result */}
-                                    <div style={{ minWidth: '40px', textAlign: 'right' }}>
-                                      {m.risultatoSet ? (
-                                        <span style={{ fontSize: '14px', fontWeight: '800', color: m.isVittoria ? '#16a34a' : '#dc2626' }}>
-                                          {m.risultatoSet}
-                                        </span>
-                                      ) : m.punti !== undefined ? (
-                                        <span style={{ fontSize: '12.5px', fontWeight: '800', color: m.punti > 0 ? '#16a34a' : m.punti < 0 ? '#dc2626' : 'var(--text-muted)' }}>
-                                          {m.punti > 0 ? `+${m.punti}` : m.punti} pt
-                                        </span>
-                                      ) : (
-                                        <span style={{ fontSize: '13px', fontWeight: '800', color: m.isVittoria ? '#16a34a' : '#dc2626' }}>
-                                          {m.isVittoria ? 'V' : 'P'}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Subtle note about federale ranking data format */}
-                          {activeTabResolved === 'ranking' && (
-                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                              <i className="bi bi-info-circle text-primary" style={{ flexShrink: 0 }}></i>
-                              <span>
-                                <strong>Dato Federale Ranking:</strong> La FITeT nei tabulati graduatoria registra l'esito (Vittoria/Sconfitta) e i punti; i set numerici sono registrati nei referti ufficiali di gara.
-                              </span>
-                            </div>
-                          )}
                         </div>
-                      );
-                    })()}
+                      )
+                    )}
                   </div>
-                );
-              })()}
 
-              {/* Historical Analytics (Sub-Tabs: Grafico vs Tabella) */}
-              <div style={{ marginTop: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                  <div style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--color-primary-600)', letterSpacing: '0.04em' }}>
-                    <i className="bi bi-graph-up-arrow me-1 text-primary"></i>
-                    Andamento Ranking Ufficiale
+                  {/* Bottom close button to quickly collapse back */}
+                  <div style={{ textAlign: 'center', marginTop: '18px', paddingBottom: '4px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowPartiteDettagli(false)}
+                      style={{
+                        background: 'none',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '20px',
+                        padding: '6px 16px',
+                        fontSize: '11.5px',
+                        fontWeight: 600,
+                        color: 'var(--text-muted)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <i className="bi bi-chevron-up"></i>
+                      Nascondi partite e dettagli
+                    </button>
                   </div>
-                  {atleta.storicoClassifica.length > 0 && (
-                    <div style={{ display: 'inline-flex', background: 'var(--bg-th)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                      <button
-                        type="button"
-                        onClick={() => setAnalyticsTab('chart')}
-                        style={{
-                          padding: '3px 10px',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          border: 'none',
-                          borderRadius: '4px',
-                          background: analyticsTab === 'chart' ? 'var(--color-primary-600)' : 'transparent',
-                          color: analyticsTab === 'chart' ? '#ffffff' : 'var(--text-muted)',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        <i className="bi bi-graph-up me-1"></i>Grafico
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAnalyticsTab('table')}
-                        style={{
-                          padding: '3px 10px',
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          border: 'none',
-                          borderRadius: '4px',
-                          background: analyticsTab === 'table' ? 'var(--color-primary-600)' : 'transparent',
-                          color: analyticsTab === 'table' ? '#ffffff' : 'var(--text-muted)',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        <i className="bi bi-table me-1"></i>Tabella ({atleta.storicoClassifica.length})
-                      </button>
-                    </div>
-                  )}
                 </div>
-
-                {analyticsTab === 'chart' ? (
-                  <RatingChart data={atleta.storicoClassifica} athleteName={atleta.anagrafica.nome} hideTitle={true} />
-                ) : (
-                  atleta.storicoClassifica.length > 0 && (
-                    <div style={{ maxHeight: '240px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px', scrollbarWidth: 'thin' }}>
-                      <div className="modal-ranking-grid">
-                        <div className="grid-header-row">
-                          <div className="grid-th text-center">Data Rilevazione</div>
-                          <div className="grid-th text-center">Categoria</div>
-                          <div className="grid-th text-center">Punti Classifica</div>
-                          <div className="grid-th text-center">Posizione</div>
-                        </div>
-                        {[...atleta.storicoClassifica].reverse().map((s, idx) => (
-                          <div key={idx} className="grid-data-row">
-                            <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.data}</div>
-                            <div className="grid-cell text-center">
-                              <span className="badge badge-neutral">{s.categoria ? `${s.categoria}ª` : '-'}</span>
-                            </div>
-                            <div className="grid-cell text-center" style={{ fontWeight: '700', color: 'var(--color-primary-600)' }}>{s.punti} pt</div>
-                            <div className="grid-cell text-center" style={{ color: 'var(--text-muted)' }}>{s.posizione ? `#${s.posizione.toLocaleString('it-IT')}` : '-'}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                )}
-              </div>
+              )}
 
             </div>
           )}
