@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { RefertoIncontro, DettaglioPartitaIndividuale, PartitaRefertoIndividuale } from '../types/fitet';
 import { fetchReferto, fetchDettaglioPartita } from '../services/api';
@@ -143,9 +143,6 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Referto Ufficiale di Gara</h3>
-              <span className="modal-badge-pill">
-                FITeT
-              </span>
             </div>
             <div style={{ fontSize: '11.5px', color: '#bfdbfe', marginTop: '3px' }}>
               {referto?.giornata || 'Incontro Campionato'} • ID Incontro: {incontroId}
@@ -288,32 +285,6 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                   </div>
                 </div>
               </div>
-
-              {/* Meta bar: Arbitro, Campo Gara */}
-              {(referto.arbitro || referto.campoGara) && (
-                <div className="referto-meta-bar">
-                  {referto.arbitro && (
-                    <div className="referto-meta-item">
-                      <span className="meta-icon">
-                        <i className="bi bi-person-badge"></i>
-                      </span>
-                      <span className="meta-text">
-                        <strong>Arbitro:</strong> {referto.arbitro}
-                      </span>
-                    </div>
-                  )}
-                  {referto.campoGara && (
-                    <div className="referto-meta-item">
-                      <span className="meta-icon">
-                        <i className="bi bi-geo-alt-fill"></i>
-                      </span>
-                      <span className="meta-text">
-                        <strong>Campo Gara:</strong> {referto.campoGara}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Section Header: Incontri Individuali */}
               <div className="referto-section-header">
@@ -673,6 +644,32 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                   })}
                 </div>
               </div>
+
+              {/* Meta bar: Arbitro, Campo Gara */}
+              {(referto.arbitro || referto.campoGara) && (
+                <div className="referto-meta-bar mt-3">
+                  {referto.arbitro && (
+                    <div className="referto-meta-item">
+                      <span className="meta-icon">
+                        <i className="bi bi-person-badge"></i>
+                      </span>
+                      <span className="meta-text">
+                        <strong>Arbitro:</strong> {referto.arbitro}
+                      </span>
+                    </div>
+                  )}
+                  {referto.campoGara && (
+                    <div className="referto-meta-item">
+                      <span className="meta-icon">
+                        <i className="bi bi-geo-alt-fill"></i>
+                      </span>
+                      <span className="meta-text">
+                        <strong>Campo Gara:</strong> {referto.campoGara}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>

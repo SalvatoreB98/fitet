@@ -1,4 +1,4 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    FITeT Serie D/1 Girone Nord - Modern Federal Sports Portal
    Mathematical CSS Grid Architecture (Zero Legacy HTML Table/TR/TD)
    100% Responsive • Uniform 40px Row Heights • Symmetrical Grid Systems
@@ -3179,9 +3179,6 @@ body.modal-open {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 20px;
-  background: #f8fafc;
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: 10px;
   margin-bottom: 16px;
 }
 
@@ -3868,12 +3865,6 @@ body.modal-open {
   color: var(--text-muted);
 }
 
-/* Dark Mode Overrides for Referto */
-[data-theme="dark"] .referto-hero-card {
-  background: #0f1a2e;
-  border-color: #1e2f50;
-}
-
 [data-theme="dark"] .referto-logo-wrapper {
   background: #111f3d;
   border-color: #1a2d52;
@@ -4123,10 +4114,15 @@ body.modal-open {
   }
 
   .referto-hero-card {
-    flex-direction: column;
     text-align: center;
     gap: 12px;
     padding: 14px;
+  }
+
+  .referto-substats-group,
+  .referto-winner-badge,
+  .team-role-tag {
+    display: none;
   }
 
   .referto-team-box {
@@ -6795,4 +6791,37 @@ body.modal-open {
 .halfatleta-btn-full:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
+}
+
+/* --- Part 2: Referto Team Names Row --- */
+.part-2 {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 20px 14px 20px;
+  margin-bottom: 16px;
+}
+
+.part-2-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.part-2-spacer {
+  flex-shrink: 0;
+  width: 120px;
+}
+
+.part-2 .referto-team-name {
+  font-size: 14px;
+  text-align: center;
+  margin: 0;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--text-dark);
+  line-height: 1.3;
+  word-break: break-word;
+}
