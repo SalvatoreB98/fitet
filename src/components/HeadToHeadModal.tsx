@@ -165,7 +165,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                     <div className="h2h-player-name-text" title={player1.nome}>
                       {player1.nome}
                     </div>
-                    <div style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600, marginTop: '2px' }}>
+                    <div className='subtitle'>
                       {player1.vittorie} {player1.vittorie === 1 ? 'vittoria' : 'vittorie'}
                     </div>
                   </div>
@@ -173,7 +173,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                   {/* Central Score */}
                   <div style={{ flexShrink: 0, textAlign: 'center', padding: '0 8px' }}>
                     <div className="h2h-central-score">
-                      <span style={{ color: player1.vittorie >= player2.vittorie ? '#ffffffff' : 'var(--text-dark)' }}>
+                      <span>
                         {player1.vittorie}
                       </span>
                       <span style={{ color: 'var(--text-muted)', margin: '0 6px', fontSize: '20px' }}>-</span>
@@ -214,7 +214,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                         player2.nome
                       )}
                     </div>
-                    <div style={{ fontSize: '11px', color: '#dc2626', fontWeight: 600, marginTop: '2px' }}>
+                    <div className='subtitle'>
                       {player2.vittorie} {player2.vittorie === 1 ? 'vittoria' : 'vittorie'}
                     </div>
                   </div>

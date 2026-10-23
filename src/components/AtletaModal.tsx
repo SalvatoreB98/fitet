@@ -4,6 +4,7 @@ import { DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
 import { fetchAtleta, fetchAtletaCampionatoPartite, fetchHeadToHead } from '../services/api';
 import { RatingChart } from './RatingChart';
 import { HeadToHeadModal } from './HeadToHeadModal';
+import { HalfAtletaModal } from './HalfAtletaModal';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { MarqueeText } from './MarqueeText';
 import { recordAndGetAthleteViews } from '../utils/athleteViews';
@@ -51,6 +52,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [imgError, setImgError] = useState<boolean>(false);
   const [viewsCount, setViewsCount] = useState<number>(0);
+  const [halfAtletaTarget, setHalfAtletaTarget] = useState<{ id?: string; name: string } | null>(null);
   const lastTrackedKeyRef = useRef<string | null>(null);
 
   const currentAtletaId = atleta?.id || atletaId;
@@ -280,14 +282,14 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   useEffect(() => {
     if (!isTopModal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !h2hOpponent && !halfAtletaTarget) {
         e.stopPropagation();
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [onClose, isTopModal]);
+  }, [onClose, isTopModal, h2hOpponent, halfAtletaTarget]);
 
   if (typeof document === 'undefined') return null;
 
@@ -908,23 +910,18 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                       {/* Middle Row: Opponent Name & Event Details */}
                                       <div style={{ marginBottom: '8px' }}>
                                         <div className="atleta-opponent-wrap">
-                                          {onSelectAthlete ? (
-                                            <button
-                                              type="button"
-                                              className="atleta-opponent-link"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                const oppId = m.avversarioId || m.avversario;
-                                                onSelectAthlete(oppId, m.avversario);
-                                              }}
-                                              title={`Apri profilo di ${m.avversario}`}
-                                            >
-                                              <span className="atleta-opponent-text">vs {m.avversario}</span>
-                                              <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
-                                            </button>
-                                          ) : (
-                                            <span title={`Avversario: ${m.avversario}`}>vs {m.avversario}</span>
-                                          )}
+                                          <button
+                                            type="button"
+                                            className="atleta-opponent-link"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setHalfAtletaTarget({ id: m.avversarioId, name: m.avversario });
+                                            }}
+                                            title={`Visualizza scheda rapida di ${m.avversario}`}
+                                          >
+                                            <span className="atleta-opponent-text">vs {m.avversario}</span>
+                                            <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
+                                          </button>
 
                                           <button
                                             type="button"
@@ -1064,23 +1061,18 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                                         <div style={{ minWidth: 0 }}>
                                           <div className="atleta-list-opponent-wrap">
-                                            {onSelectAthlete ? (
-                                              <button
-                                                type="button"
-                                                className="atleta-opponent-link"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  const oppId = m.avversarioId || m.avversario;
-                                                  onSelectAthlete(oppId, m.avversario);
-                                                }}
-                                                title={`Apri profilo di ${m.avversario}`}
-                                              >
-                                                <span className="atleta-opponent-text">vs {m.avversario}</span>
-                                                <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
-                                              </button>
-                                            ) : (
-                                              <span>vs {m.avversario}</span>
-                                            )}
+                                            <button
+                                              type="button"
+                                              className="atleta-opponent-link"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setHalfAtletaTarget({ id: m.avversarioId, name: m.avversario });
+                                              }}
+                                              title={`Visualizza scheda rapida di ${m.avversario}`}
+                                            >
+                                              <span className="atleta-opponent-text">vs {m.avversario}</span>
+                                              <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
+                                            </button>
 
                                             <button
                                               type="button"
@@ -1240,6 +1232,21 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           atleta2Nome={h2hOpponent.name}
           onClose={() => setH2hOpponent(null)}
           onSelectAthlete={onSelectAthlete}
+        />
+      )}
+
+      {/* Modal HalfAtleta (Riepilogo Rapido Avversario) */}
+      {halfAtletaTarget && (
+        <HalfAtletaModal
+          atletaKey={halfAtletaTarget.id || halfAtletaTarget.name}
+          athleteName={halfAtletaTarget.name}
+          onClose={() => setHalfAtletaTarget(null)}
+          onOpenFullModal={(resolvedId, name) => {
+            setHalfAtletaTarget(null);
+            if (onSelectAthlete) {
+              onSelectAthlete(resolvedId, name);
+            }
+          }}
         />
       )}
     </div>,
