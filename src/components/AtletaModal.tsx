@@ -933,7 +933,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                             className="btn-h2h-inline"
                                           >
                                             <i className="bi bi-arrow-left-right" style={{ fontSize: '9px' }}></i>
-                                            Storico (testa a testa)
+                                            Visualizza storico (testa a testa)
                                           </button>
                                         </div>
 
@@ -1153,7 +1153,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               <div className="ranking-federale-note">
                                 <i className="bi bi-info-circle text-primary" style={{ flexShrink: 0 }}></i>
                                 <span>
-                                  <strong>Dato Federale Ranking:</strong> La FITeT nei tabulati graduatoria registra l'esito (Vittoria/Sconfitta) e i punti; i set numerici sono registrati nei referti ufficiali di gara.
+                                  <strong>Nota:</strong> Alcuni match potrebbero non essere stati conteggiati ai fini del ranking.
                                 </span>
                               </div>
                             )}

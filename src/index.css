@@ -6180,7 +6180,7 @@ body.modal-open {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 1px 6px;
+  padding: 6px 6px;
   border-radius: 4px;
   font-size: 10px;
   font-weight: 700;
@@ -6554,6 +6554,13 @@ body.modal-open {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+@media screen and (max-width: 768px) {
+  .atleta-opponent-wrap {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .atleta-list-opponent-wrap {
