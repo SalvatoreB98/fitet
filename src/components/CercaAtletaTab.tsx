@@ -3,6 +3,7 @@ import { AthleteSearchResult } from '../types/fitet';
 import { searchAtleti } from '../services/api';
 import { useFavoriteAthletes } from '../utils/favorites';
 import './CercaAtletaTab.css';
+import { getRecentAthletes } from '../utils/history';
 
 interface CercaAtletaTabProps {
   onOpenAtletaModal: (id: string, name: string) => void;
@@ -27,7 +28,7 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
   const [failedImgs, setFailedImgs] = useState<Record<string, boolean>>({});
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [suggerimenti, setSuggerimenti] = useState([...favorites.map((fav) => fav.name), 'STOYANOV', 'OYEBODE', 'SZOCS', 'PICCOLIN', 'MONFARDINI']);
+  const [suggerimenti, setSuggerimenti] = useState(getRecentAthletes().map((rec) => rec.name).concat(...favorites.map((fav) => fav.name), 'STOYANOV', 'OYEBODE', 'SZOCS', 'PICCOLIN', 'MONFARDINI'));
   const performSearch = useCallback(async (searchTerm: string) => {
     const trimmed = searchTerm.trim();
     if (!trimmed || trimmed.length < 2) {
