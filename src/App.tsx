@@ -11,6 +11,7 @@ import { ChampionshipModal } from './components/ChampionshipModal';
 import { SquadraModal } from './components/SquadraModal';
 import { IntroMotionGraphic } from './components/IntroMotionGraphic';
 import { CercaAtletaTab } from './components/CercaAtletaTab';
+import { HomeTab } from './components/HomeTab';
 import { FavoritesModal } from './components/FavoritesModal';
 import { registerTeamLogos } from './utils/teamLogos';
 
@@ -64,7 +65,16 @@ export const App: React.FC = () => {
     }
   };
 
-  const [activeTab, setActiveTab] = useState<'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta'>('classifica');
+  const [activeTab, setActiveTab] = useState<'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta'>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam && ['home', 'classifica', 'calendario', 'statistiche', 'cercaAtleta'].includes(tabParam)) {
+        return tabParam as any;
+      }
+    }
+    return 'home';
+  });
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
   // Stack di modali atleta: ogni apertura crea una nuova istanza senza chiudere le precedenti
   const [athleteStack, setAthleteStack] = useState<Array<{ key: string; id: string; name: string; fromReferto?: boolean }>>([]);
@@ -233,8 +243,17 @@ export const App: React.FC = () => {
     setAnnoId(newAnno);
   };
 
-  const handleTabChange = (tab: 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => {
+  const handleTabChange = (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => {
     setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (tab !== 'home') {
+        url.searchParams.set('tab', tab);
+      } else {
+        url.searchParams.delete('tab');
+      }
+      window.history.replaceState({}, '', url.toString());
+    }
     // Smoothly scroll to the portal navigation / top of content if user was scrolled down
     const nav = document.querySelector('.portal-nav');
     if (nav) {
@@ -290,50 +309,8 @@ export const App: React.FC = () => {
         onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
       />
 
-      {/* Clean scenario when no championship is selected yet */}
-      {!camId && !data && !loading && (
-        <>
-          {activeTab === 'cercaAtleta' ? (
-            <main className="portal-main">
-              <CercaAtletaTab
-                onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-                autoFocus
-              />
-            </main>
-          ) : (
-            <div className="no-championship-screen">
-              <div className="no-championship-icon-badge">
-                <i className="bi bi-trophy-fill"></i>
-              </div>
-              <h2 className="no-championship-title">
-                Nessun Campionato Selezionato
-              </h2>
-              <p className="no-championship-desc">
-                Scegli il campionato FITeT da consultare tra tutti i campionati nazionali o della tua regione, oppure cerca direttamente un atleta qui sotto.
-              </p>
-              <button
-                type="button"
-                className="btn-action no-championship-btn"
-                onClick={() => setIsChampionshipModalOpen(true)}
-              >
-                <i className="bi bi-trophy me-2"></i>
-                Scegli Campionato
-              </button>
-
-              {/* Quick Athlete Search on Initial Screen */}
-              <div className="no-championship-search-section">
-                <CercaAtletaTab
-                  onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-                  compactMode={true}
-                />
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Loading Indicator */}
-      {loading && !data && (
+      {/* Loading Indicator for non-home screens */}
+      {loading && !data && activeTab !== 'home' && (
         <div className="portal-loading-state">
           <div className="spinner-border text-primary mb-3" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
             <span className="visually-hidden">Caricamento...</span>
@@ -360,72 +337,191 @@ export const App: React.FC = () => {
       )}
 
       {/* Main Content Area: Retains mounted tab panels to eliminate CLS */}
-      {data && (
-        <>
-          <main className="portal-main">
-            <div
-              className={`tab-pane ${activeTab === 'classifica' ? 'active' : ''}`}
-              role="tabpanel"
-              id="tabpanel-classifica"
-            >
-              <ClassificaTab
-                classifica={data.classifica}
-                onSelectTeam={handleOpenSquadra}
-              />
-            </div>
+      <main className="portal-main">
+        {/* Tab Panel: Home */}
+        <div
+          className={`tab-pane ${activeTab === 'home' ? 'active' : ''}`}
+          role="tabpanel"
+          id="tabpanel-home"
+        >
+          <HomeTab
+            currentCamId={camId}
+            annoId={annoId}
+            currentChampionship={data?.championship}
+            campionati={campionati}
+            isLoadingCampionati={loadingCampionati}
+            onSelectChampionship={handleSelectChampionship}
+            onNavigateTab={handleTabChange}
+            onOpenChampionshipModal={() => setIsChampionshipModalOpen(true)}
+            onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+            dashboardData={data}
+          />
+        </div>
 
-            <div
-              className={`tab-pane ${activeTab === 'calendario' ? 'active' : ''}`}
-              role="tabpanel"
-              id="tabpanel-calendario"
-            >
-              <CalendarioTab
-                calendario={data.calendario}
-                selectedTeamFilter={selectedTeamFilter}
-                statisticheAtleti={data.statisticheAtleti}
-                isSubmodalOpen={Boolean(selectedAthlete) || Boolean(selectedSquadra)}
-                currentCamId={camId ?? undefined}
-                onClearTeamFilter={() => setSelectedTeamFilter(null)}
-                onSelectTeamFilter={(team) => setSelectedTeamFilter(team)}
-                onOpenSquadraModal={handleOpenSquadra}
-                onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: true })}
-              />
+        {/* Tab Panel: Classifica */}
+        <div
+          className={`tab-pane ${activeTab === 'classifica' ? 'active' : ''}`}
+          role="tabpanel"
+          id="tabpanel-classifica"
+        >
+          {data ? (
+            <ClassificaTab
+              classifica={data.classifica}
+              onSelectTeam={handleOpenSquadra}
+            />
+          ) : !loading ? (
+            <div className="no-championship-screen">
+              <div className="no-championship-icon-badge">
+                <i className="bi bi-trophy-fill"></i>
+              </div>
+              <h2 className="no-championship-title">
+                Nessun Campionato Selezionato
+              </h2>
+              <p className="no-championship-desc">
+                Scegli il campionato FITeT da consultare per visualizzare la classifica squadre, oppure selezionalo dai preferiti in Home.
+              </p>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-action no-championship-btn"
+                  onClick={() => setIsChampionshipModalOpen(true)}
+                >
+                  <i className="bi bi-trophy me-2"></i>
+                  Scegli Campionato
+                </button>
+                <button
+                  type="button"
+                  className="btn-action"
+                  style={{ background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
+                  onClick={() => handleTabChange('home')}
+                >
+                  <i className="bi bi-house-door me-2"></i>
+                  Torna alla Home
+                </button>
+              </div>
             </div>
+          ) : null}
+        </div>
 
-            <div
-              className={`tab-pane ${activeTab === 'statistiche' ? 'active' : ''}`}
-              role="tabpanel"
-              id="tabpanel-statistiche"
-            >
-              <StatisticheTab
-                statistiche={data.statisticheAtleti}
-                onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-              />
+        {/* Tab Panel: Calendario */}
+        <div
+          className={`tab-pane ${activeTab === 'calendario' ? 'active' : ''}`}
+          role="tabpanel"
+          id="tabpanel-calendario"
+        >
+          {data ? (
+            <CalendarioTab
+              calendario={data.calendario}
+              selectedTeamFilter={selectedTeamFilter}
+              statisticheAtleti={data.statisticheAtleti}
+              isSubmodalOpen={Boolean(selectedAthlete) || Boolean(selectedSquadra)}
+              currentCamId={camId ?? undefined}
+              onClearTeamFilter={() => setSelectedTeamFilter(null)}
+              onSelectTeamFilter={(team) => setSelectedTeamFilter(team)}
+              onOpenSquadraModal={handleOpenSquadra}
+              onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: true })}
+            />
+          ) : !loading ? (
+            <div className="no-championship-screen">
+              <div className="no-championship-icon-badge">
+                <i className="bi bi-calendar3"></i>
+              </div>
+              <h2 className="no-championship-title">
+                Nessun Campionato Selezionato
+              </h2>
+              <p className="no-championship-desc">
+                Scegli il campionato FITeT da consultare per visualizzare il calendario completo e i risultati.
+              </p>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-action no-championship-btn"
+                  onClick={() => setIsChampionshipModalOpen(true)}
+                >
+                  <i className="bi bi-trophy me-2"></i>
+                  Scegli Campionato
+                </button>
+                <button
+                  type="button"
+                  className="btn-action"
+                  style={{ background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
+                  onClick={() => handleTabChange('home')}
+                >
+                  <i className="bi bi-house-door me-2"></i>
+                  Torna alla Home
+                </button>
+              </div>
             </div>
+          ) : null}
+        </div>
 
-            <div
-              className={`tab-pane ${activeTab === 'cercaAtleta' ? 'active' : ''}`}
-              role="tabpanel"
-              id="tabpanel-cerca-atleta"
-            >
-              <CercaAtletaTab
-                onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-                autoFocus={activeTab === 'cercaAtleta'}
-              />
+        {/* Tab Panel: Statistiche */}
+        <div
+          className={`tab-pane ${activeTab === 'statistiche' ? 'active' : ''}`}
+          role="tabpanel"
+          id="tabpanel-statistiche"
+        >
+          {data ? (
+            <StatisticheTab
+              statistiche={data.statisticheAtleti}
+              onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+            />
+          ) : !loading ? (
+            <div className="no-championship-screen">
+              <div className="no-championship-icon-badge">
+                <i className="bi bi-person-lines-fill"></i>
+              </div>
+              <h2 className="no-championship-title">
+                Nessun Campionato Selezionato
+              </h2>
+              <p className="no-championship-desc">
+                Scegli il campionato FITeT da consultare per visualizzare le statistiche degli atleti del girone.
+              </p>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn-action no-championship-btn"
+                  onClick={() => setIsChampionshipModalOpen(true)}
+                >
+                  <i className="bi bi-trophy me-2"></i>
+                  Scegli Campionato
+                </button>
+                <button
+                  type="button"
+                  className="btn-action"
+                  style={{ background: 'var(--bg-card)', color: 'var(--text-main)', border: '1px solid var(--border-color)' }}
+                  onClick={() => handleTabChange('home')}
+                >
+                  <i className="bi bi-house-door me-2"></i>
+                  Torna alla Home
+                </button>
+              </div>
             </div>
-          </main>
+          ) : null}
+        </div>
 
-          {/* Footer */}
-          <footer className="portal-footer mt-5 text-center">
-            <div>
-              <strong>Federazione Italiana Tennistavolo (FITeT)</strong>
-              {data?.championship?.nome && ` • ${data.championship.nome}`}
-              {data?.championship?.regione && ` (${data.championship.regione})`}
-              <div>Progetto autonomo della community, dati sincronizzati da portale.fitet.org</div>
-            </div>
-          </footer>
-        </>
-      )}
+        {/* Tab Panel: Cerca Atleta */}
+        <div
+          className={`tab-pane ${activeTab === 'cercaAtleta' ? 'active' : ''}`}
+          role="tabpanel"
+          id="tabpanel-cerca-atleta"
+        >
+          <CercaAtletaTab
+            onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+            autoFocus={activeTab === 'cercaAtleta'}
+          />
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="portal-footer mt-5 text-center">
+        <div>
+          <strong>Federazione Italiana Tennistavolo (FITeT)</strong>
+          {data?.championship?.nome && ` • ${data.championship.nome}`}
+          {data?.championship?.regione && ` (${data.championship.regione})`}
+          <div>Progetto autonomo della community, dati sincronizzati da portale.fitet.org</div>
+        </div>
+      </footer>
 
       {/* Championship Picker Modal */}
       <ChampionshipModal

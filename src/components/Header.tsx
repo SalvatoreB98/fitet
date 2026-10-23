@@ -8,8 +8,8 @@ interface HeaderProps {
   onRefresh: () => void;
   theme?: 'light' | 'dark';
   onToggleTheme?: (event?: React.MouseEvent) => void;
-  activeTab: 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta';
-  onChangeTab: (tab: 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => void;
+  activeTab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta';
+  onChangeTab: (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => void;
   counts: {
     classifica: number;
     calendario: number;
@@ -69,7 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
     };
   }, [isMenuOpen]);
 
-  const centerTab = (tab: 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta', targetBtn?: HTMLElement | null) => {
+  const centerTab = (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta', targetBtn?: HTMLElement | null) => {
     const nav = navRef.current;
     if (!nav) return;
 
@@ -84,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
     });
   };
 
-  const handleTabClick = (tab: 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta', e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleTabClick = (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta', e: React.MouseEvent<HTMLButtonElement>) => {
     centerTab(tab, e.currentTarget);
     onChangeTab(tab);
   };
@@ -177,6 +177,30 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
 
                 <div className="burger-menu-items">
+                  {/* 0. Home Dashboard */}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={`burger-menu-item ${activeTab === 'home' ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onChangeTab('home');
+                    }}
+                  >
+                    <div className="burger-item-icon-box icon-home">
+                      <i className="bi bi-house-door-fill"></i>
+                    </div>
+                    <div className="burger-item-content">
+                      <span className="burger-item-title">Home Dashboard</span>
+                      <span className="burger-item-desc">Campionati e giocatori preferiti</span>
+                    </div>
+                    {activeTab === 'home' ? (
+                      <span className="burger-item-badge-active">Attivo</span>
+                    ) : (
+                      <i className="bi bi-chevron-right burger-item-arrow"></i>
+                    )}
+                  </button>
+
                   {/* 1. Atleti Preferiti */}
                   {onOpenFavoritesModal && (
                     <button
@@ -310,6 +334,16 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Sub-Navigation Tabs */}
       <div className="portal-nav" ref={navRef}>
+        <button
+          type="button"
+          data-tab="home"
+          className={`portal-nav-tab ${activeTab === 'home' ? 'active' : ''}`}
+          onClick={(e) => handleTabClick('home', e)}
+        >
+          <i className="bi bi-house-door-fill"></i>
+          <span>Home</span>
+        </button>
+
         <button
           type="button"
           data-tab="classifica"

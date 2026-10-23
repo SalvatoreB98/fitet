@@ -201,3 +201,130 @@ export function useFavoriteAthletes() {
     clearAllFavorites: clearAllFavoriteAthletes,
   };
 }
+
+/* ==========================================================================
+   Championship Favorites Management
+   ========================================================================== */
+
+import { ChampionshipItem } from '../types/fitet';
+
+const CHAMPIONSHIPS_STORAGE_KEY = 'fitet_favorite_championships';
+const CHAMPIONSHIPS_META_KEY = 'fitet_favorite_championships_meta';
+const CHAMPIONSHIPS_EVENT_NAME = 'fitet_favorite_championships_updated';
+
+export function getFavoriteChampionshipIds(): number[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(CHAMPIONSHIPS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveFavoriteChampionshipIds(favs: number[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(CHAMPIONSHIPS_STORAGE_KEY, JSON.stringify(favs));
+    window.dispatchEvent(new CustomEvent(CHAMPIONSHIPS_EVENT_NAME, { detail: favs }));
+  } catch (e) {
+    console.error('Failed to save championship favorites to localStorage:', e);
+  }
+}
+
+export function isFavoriteChampionship(id: number): boolean {
+  if (!id) return false;
+  const list = getFavoriteChampionshipIds();
+  return list.includes(id);
+}
+
+export function getCachedChampionshipMeta(): Record<number, Partial<ChampionshipItem>> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(CHAMPIONSHIPS_META_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function cacheChampionshipMeta(item: Partial<ChampionshipItem> & { id: number }): void {
+  if (typeof window === 'undefined' || !item.id) return;
+  try {
+    const cached = getCachedChampionshipMeta();
+    cached[item.id] = { ...cached[item.id], ...item };
+    localStorage.setItem(CHAMPIONSHIPS_META_KEY, JSON.stringify(cached));
+  } catch (e) {
+    console.error('Failed to cache championship metadata:', e);
+  }
+}
+
+export function toggleFavoriteChampionship(
+  id: number,
+  meta?: Partial<ChampionshipItem>
+): boolean {
+  if (!id) return false;
+  const current = getFavoriteChampionshipIds();
+  const exists = current.includes(id);
+  const next = exists ? current.filter((favId) => favId !== id) : [...current, id];
+  saveFavoriteChampionshipIds(next);
+
+  if (!exists && meta) {
+    cacheChampionshipMeta({ ...meta, id });
+  }
+
+  return !exists;
+}
+
+export function useFavoriteChampionships() {
+  const [favoriteIds, setFavoriteIds] = useState<number[]>(() =>
+    getFavoriteChampionshipIds()
+  );
+  const [cachedMeta, setCachedMeta] = useState<Record<number, Partial<ChampionshipItem>>>(() =>
+    getCachedChampionshipMeta()
+  );
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      setFavoriteIds(getFavoriteChampionshipIds());
+      setCachedMeta(getCachedChampionshipMeta());
+    };
+
+    window.addEventListener(CHAMPIONSHIPS_EVENT_NAME, handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener(CHAMPIONSHIPS_EVENT_NAME, handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
+
+  const checkIsFavorite = useCallback(
+    (id: number) => {
+      return favoriteIds.includes(id);
+    },
+    [favoriteIds]
+  );
+
+  const toggle = useCallback(
+    (id: number, meta?: Partial<ChampionshipItem>) => {
+      return toggleFavoriteChampionship(id, meta);
+    },
+    []
+  );
+
+  const remove = useCallback((id: number) => {
+    const current = getFavoriteChampionshipIds();
+    const next = current.filter((favId) => favId !== id);
+    saveFavoriteChampionshipIds(next);
+  }, []);
+
+  return {
+    favoriteIds,
+    favoritesCount: favoriteIds.length,
+    cachedMeta,
+    isFavorite: checkIsFavorite,
+    toggleFavorite: toggle,
+    removeFavorite: remove,
+  };
+}

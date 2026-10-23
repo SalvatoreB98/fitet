@@ -1,0 +1,762 @@
+/* ==========================================================================
+   Home Tab Styles - Modern Sports Portal Dashboard
+   ========================================================================== */
+
+.home-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+  animation: fadeInHome 0.25s ease-out;
+}
+
+@keyframes fadeInHome {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================================================
+   Hero Section
+   ========================================================================== */
+.home-hero {
+  position: relative;
+  border-radius: 18px;
+  padding: 24px 28px;
+  margin-bottom: 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+}
+
+.home-hero::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 180px;
+  height: 180px;
+  pointer-events: none;
+}
+
+.home-hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+}
+
+.home-hero-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.home-hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-primary-600, #1d538e);
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.home-hero-pill-date {
+  color: var(--text-muted, #64748b);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.home-hero-title {
+  font-family: var(--font-serif, serif);
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--text-dark, #0f172a);
+  margin: 0 0 8px 0;
+  line-height: 1.25;
+}
+
+.home-hero-subtitle {
+  color: var(--text-muted, #64748b);
+  font-size: 14.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.home-hero-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.home-hero-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.home-hero-btn-primary {
+  background: linear-gradient(135deg, #1d538e 0%, #2563eb 100%);
+  color: #ffffff;
+}
+
+.home-hero-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.38);
+  color: #ffffff;
+}
+
+.home-hero-btn-secondary {
+  background: var(--bg-card, #ffffff);
+  color: var(--text-main, #1e293b);
+  border: 1px solid var(--border-color, #cbd5e1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.home-hero-btn-secondary:hover {
+  background: var(--bg-hover, #f8fafc);
+  border-color: #94a3b8;
+  transform: translateY(-2px);
+}
+
+/* ==========================================================================
+   Active Championship Card Banner
+   ========================================================================== */
+
+
+
+.home-active-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  flex: 1;
+}
+
+.home-active-icon-box {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.home-active-meta {
+  min-width: 0;
+}
+
+.home-active-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.home-pulse-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #047857;
+  background: #ecfdf5;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.home-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+@keyframes pulseEmerald {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 7px rgba(16, 185, 129, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.home-active-region {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.home-active-title {
+  font-family: var(--font-serif, serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-active-shortcuts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.home-shortcut-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-main, #1e293b);
+  transition: all 0.18s ease;
+}
+
+.home-shortcut-btn:hover {
+  background: var(--color-primary-light, #eff6ff);
+  color: var(--color-primary-600, #1d538e);
+  border-color: rgba(37, 99, 235, 0.4);
+  transform: translateY(-1px);
+}
+
+.home-shortcut-btn-primary {
+  background: #1d538e;
+  color: #ffffff;
+  border-color: #1d538e;
+}
+
+.home-shortcut-btn-primary:hover {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+/* ==========================================================================
+   Home Section (Campionati & Giocatori)
+   ========================================================================== */
+.home-section {
+  margin-bottom: 40px;
+}
+
+.home-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.home-section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.home-section-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.home-section-icon.trophy {
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.home-section-icon.heart {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+}
+
+.home-section-title {
+  font-family: var(--font-serif, serif);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.home-section-count {
+  font-family: var(--font-sans, sans-serif);
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--bg-th, #f1f5f9);
+  color: var(--text-muted, #64748b);
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.home-section-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary-600, #2563eb);
+  background: transparent;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  border-radius: 10px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.home-section-btn:hover {
+  background: var(--color-primary-light, #eff6ff);
+  border-color: var(--color-primary-500, #2563eb);
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   Grids
+   ========================================================================== */
+.home-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+@media screen and (max-width: 640px) {
+  .home-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+/* ==========================================================================
+   Championship Card
+   ========================================================================== */
+.home-champ-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  position: relative;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.home-champ-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
+.home-champ-card.is-active-champ {
+  border-color: #10b981;
+  background: linear-gradient(180deg, var(--bg-card, #ffffff) 0%, rgba(16, 185, 129, 0.03) 100%);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.09);
+}
+
+.home-champ-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.home-champ-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.home-serie-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.home-region-pill {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  background: var(--bg-th, #f1f5f9);
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.home-card-fav-btn {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  color: #f59e0b;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: transform 0.18s ease, color 0.18s ease;
+}
+
+.home-card-fav-btn:hover {
+  transform: scale(1.18);
+  color: #d97706;
+}
+
+.home-champ-main {
+  cursor: pointer;
+}
+
+.home-champ-title {
+  font-family: var(--font-serif, serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+  margin: 0 0 4px 0;
+  line-height: 1.3;
+}
+
+.home-champ-sub {
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  margin: 0;
+}
+
+.home-champ-active-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 2px 7px;
+  border-radius: 6px;
+  margin-top: 6px;
+}
+
+.home-champ-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light, #f1f5f9);
+}
+
+.home-champ-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-hover, #f8fafc);
+  color: var(--text-main, #1e293b);
+  transition: all 0.15s ease;
+}
+
+.home-champ-btn:hover {
+  background: var(--color-primary-light, #eff6ff);
+  color: var(--color-primary-600, #1d538e);
+  border-color: rgba(37, 99, 235, 0.4);
+}
+
+.home-champ-btn.btn-main {
+  background: #1d538e;
+  color: #ffffff;
+  border-color: #1d538e;
+}
+
+.home-champ-btn.btn-main:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   Athlete Card
+   ========================================================================== */
+.home-athlete-card {
+  max-width: 100%;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 16px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+}
+
+.home-athlete-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.home-athlete-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-athlete-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.home-athlete-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.home-athlete-info {
+  min-width: 0;
+}
+
+.home-athlete-name {
+  font-family: var(--font-serif, serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+  margin: 0 0 2px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-athlete-team {
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.home-athlete-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  background: var(--bg-hover, #f8fafc);
+  border: 1px solid var(--border-light, #f1f5f9);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+
+.home-athlete-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.home-athlete-stat-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted, #64748b);
+  margin-bottom: 2px;
+}
+
+.home-athlete-stat-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+}
+
+.home-athlete-stat-val.rank {
+  color: #2563eb;
+}
+
+.home-athlete-stat-val.points {
+  color: #b45309;
+}
+
+.home-athlete-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light, #f1f5f9);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary-600, #2563eb);
+}
+
+.home-athlete-card:hover .home-athlete-footer {
+  color: #1d538e;
+}
+
+/* ==========================================================================
+   Empty State
+   ========================================================================== */
+.home-empty-card {
+  background: var(--bg-card, #ffffff);
+  border: 1.5px dashed var(--border-color, #cbd5e1);
+  border-radius: 18px;
+  padding: 38px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background: var(--bg-th, #f1f5f9);
+  color: var(--text-muted, #64748b);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.home-empty-title {
+  font-family: var(--font-serif, serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+  margin: 0 0 6px 0;
+}
+
+.home-empty-desc {
+  color: var(--text-muted, #64748b);
+  font-size: 13.5px;
+  max-width: 440px;
+  margin: 0 0 18px 0;
+  line-height: 1.5;
+}
+
+.home-empty-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #ffffff;
+  border: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.home-empty-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   Dark Theme Support
+   ========================================================================== */
+
+
+@media screen and (max-width: 768px) {
+  .home-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 20px;
+  }
+
+  .home-hero-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .home-hero-btn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .home-active-shortcuts {
+    width: 100%;
+  }
+
+  .home-shortcut-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
