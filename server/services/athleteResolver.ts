@@ -5,20 +5,26 @@ import { FitetClient } from './fitetClient';
 import defaultMapping from '../data/athlete_mapping.json';
 
 export class AthleteResolver {
-  private mappingFile: string;
+  private staticMappingFile: string;
+  private runtimeMappingFile: string;
   private mapping: Record<string, string>;
 
   constructor() {
     this.mapping = { ...defaultMapping };
-    this.mappingFile = path.resolve(process.cwd(), 'server', 'data', 'athlete_mapping.json');
+    this.staticMappingFile = path.resolve(process.cwd(), 'server', 'data', 'athlete_mapping.json');
+    this.runtimeMappingFile = path.resolve(process.cwd(), 'node_modules', '.cache', 'fitet_cache', 'athlete_mapping.json');
     this.loadMapping();
   }
 
   private loadMapping() {
     try {
-      if (fs.existsSync(this.mappingFile)) {
-        const content = fs.readFileSync(this.mappingFile, 'utf8');
-        this.mapping = { ...defaultMapping, ...JSON.parse(content) };
+      if (fs.existsSync(this.staticMappingFile)) {
+        const content = fs.readFileSync(this.staticMappingFile, 'utf8');
+        this.mapping = { ...this.mapping, ...JSON.parse(content) };
+      }
+      if (fs.existsSync(this.runtimeMappingFile)) {
+        const content = fs.readFileSync(this.runtimeMappingFile, 'utf8');
+        this.mapping = { ...this.mapping, ...JSON.parse(content) };
       }
     } catch {
       this.mapping = { ...defaultMapping };
@@ -27,7 +33,9 @@ export class AthleteResolver {
 
   private saveMapping() {
     try {
-      fs.writeFileSync(this.mappingFile, JSON.stringify(this.mapping, null, 2), 'utf8');
+      const dir = path.dirname(this.runtimeMappingFile);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(this.runtimeMappingFile, JSON.stringify(this.mapping, null, 2), 'utf8');
     } catch {
       // Ignored in read-only serverless environment
     }

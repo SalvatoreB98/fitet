@@ -45,7 +45,8 @@ const NAZIONALI = [
 ];
 
 class ChampionshipCatalog {
-  private cacheFilePath = path.resolve(process.cwd(), 'server', 'data', 'campionati.json');
+  private staticCacheFilePath = path.resolve(process.cwd(), 'server', 'data', 'campionati.json');
+  private runtimeCacheFilePath = path.resolve(process.cwd(), 'node_modules', '.cache', 'fitet_cache', 'campionati.json');
   private memoryCache: ChampionshipItem[] | null = null;
   private lastFetched = 0;
   private readonly TTL = 24 * 60 * 60 * 1000; // 24 hours
@@ -56,12 +57,16 @@ class ChampionshipCatalog {
 
   private loadFromDisk(): void {
     try {
-      if (fs.existsSync(this.cacheFilePath)) {
-        const raw = fs.readFileSync(this.cacheFilePath, 'utf-8');
+      const targetPath = fs.existsSync(this.runtimeCacheFilePath)
+        ? this.runtimeCacheFilePath
+        : this.staticCacheFilePath;
+
+      if (fs.existsSync(targetPath)) {
+        const raw = fs.readFileSync(targetPath, 'utf-8');
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           this.memoryCache = parsed;
-          const stat = fs.statSync(this.cacheFilePath);
+          const stat = fs.statSync(targetPath);
           this.lastFetched = stat.mtimeMs;
         }
       }
@@ -72,9 +77,9 @@ class ChampionshipCatalog {
 
   private saveToDisk(data: ChampionshipItem[]): void {
     try {
-      const dir = path.dirname(this.cacheFilePath);
+      const dir = path.dirname(this.runtimeCacheFilePath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(this.cacheFilePath, JSON.stringify(data, null, 2), 'utf-8');
+      fs.writeFileSync(this.runtimeCacheFilePath, JSON.stringify(data, null, 2), 'utf-8');
     } catch (e) {
       console.error('Error saving campionati.json to disk:', e);
     }

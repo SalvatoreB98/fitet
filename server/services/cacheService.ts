@@ -9,13 +9,15 @@ interface CacheEntry<T> {
 
 export class CacheService {
   private cacheDir: string;
+  private legacyCacheDir: string;
   private memoryCache: Map<string, CacheEntry<unknown>> = new Map();
 
   constructor() {
     const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
     this.cacheDir = isServerless
       ? path.join('/tmp', 'fitet_cache')
-      : path.resolve(process.cwd(), 'server', 'cache');
+      : path.resolve(process.cwd(), 'node_modules', '.cache', 'fitet_cache');
+    this.legacyCacheDir = path.resolve(process.cwd(), 'server', 'cache');
 
     try {
       if (!fs.existsSync(this.cacheDir)) {
@@ -41,8 +43,16 @@ export class CacheService {
       this.memoryCache.delete(key);
     }
 
-    // Check disk cache
-    const filePath = path.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
+    // Check primary disk cache (node_modules/.cache/fitet_cache)
+    let filePath = path.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
+    if (!fs.existsSync(filePath)) {
+      // Fallback check to legacy directory (server/cache)
+      const legacyPath = path.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
+      if (fs.existsSync(legacyPath)) {
+        filePath = legacyPath;
+      }
+    }
+
     if (fs.existsSync(filePath)) {
       try {
         const fileContent = fs.readFileSync(filePath, 'utf8');
@@ -89,6 +99,12 @@ export class CacheService {
     if (fs.existsSync(filePath)) {
       try {
         fs.unlinkSync(filePath);
+      } catch {}
+    }
+    const legacyPath = path.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
+    if (fs.existsSync(legacyPath)) {
+      try {
+        fs.unlinkSync(legacyPath);
       } catch {}
     }
   }

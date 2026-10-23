@@ -22,6 +22,7 @@ import {
     StatisticaAtleta,
     PartitaCampionatoAtleta,
     AtletaCampionatoPartiteResponse,
+    PartiteRankingAtleta,
 } from '../src/types/fitet';
 
 export const app = express();
@@ -297,7 +298,7 @@ app.get('/api/atleta/:id', async (req, res) => {
         const html = await FitetClient.fetchSchedaAtleta(id);
 
         // Extract & parse official ranking matches from #fragment-3 iframe
-        let partiteRanking = undefined;
+        let partiteRanking: PartiteRankingAtleta | undefined = undefined;
         const iframeUrl = extractRankingIframeUrl(html);
         if (iframeUrl) {
             try {
@@ -308,9 +309,13 @@ app.get('/api/atleta/:id', async (req, res) => {
                 const idClassMatch = iframeUrl.match(/\/html\/(\d+)\//i);
                 const currentIdClass = idClassMatch ? parseInt(idClassMatch[1], 10) : 247;
 
-                // Arricchimento dei punteggi set dai testa a testa
+                // Arricchimento dei punteggi set dai testa a testa (con timeout protettivo per non bloccare la risposta HTTP)
                 try {
-                    partiteRanking = await headToHeadService.enrichRankingMatches(id, partiteRanking, currentIdClass);
+                    const enrichPromise = headToHeadService.enrichRankingMatches(id, partiteRanking, currentIdClass);
+                    const timeoutPromise = new Promise<PartiteRankingAtleta | undefined>((resolve) => 
+                        setTimeout(() => resolve(partiteRanking), 3500)
+                    );
+                    partiteRanking = await Promise.race([enrichPromise, timeoutPromise]);
                 } catch (enrichErr) {
                     console.warn(`[HeadToHead] Background enrichment warning for athlete ${id}:`, enrichErr);
                 }

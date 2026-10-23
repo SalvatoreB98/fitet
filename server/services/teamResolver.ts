@@ -3,7 +3,8 @@ import path from 'path';
 import * as cheerio from 'cheerio';
 
 export class TeamResolver {
-  private cacheFilePath = path.resolve(process.cwd(), 'server', 'data', 'team_logos.json');
+  private staticFilePath = path.resolve(process.cwd(), 'server', 'data', 'team_logos.json');
+  private runtimeFilePath = path.resolve(process.cwd(), 'node_modules', '.cache', 'fitet_cache', 'team_logos.json');
   private logos: Record<string, string> = {
     'ASD TENNISTAVOLO NUOVA LUZZI': 'https://portale.fitet.org/images/societa/3260.jpg',
     'TENNISTAVOLO CASTROVILLARI': 'https://portale.fitet.org/images/societa/3164.jpg',
@@ -17,8 +18,15 @@ export class TeamResolver {
 
   private loadFromDisk() {
     try {
-      if (fs.existsSync(this.cacheFilePath)) {
-        const raw = fs.readFileSync(this.cacheFilePath, 'utf-8');
+      if (fs.existsSync(this.staticFilePath)) {
+        const raw = fs.readFileSync(this.staticFilePath, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === 'object') {
+          this.logos = { ...this.logos, ...parsed };
+        }
+      }
+      if (fs.existsSync(this.runtimeFilePath)) {
+        const raw = fs.readFileSync(this.runtimeFilePath, 'utf-8');
         const parsed = JSON.parse(raw);
         if (typeof parsed === 'object') {
           this.logos = { ...this.logos, ...parsed };
@@ -31,9 +39,9 @@ export class TeamResolver {
 
   private saveToDisk() {
     try {
-      const dir = path.dirname(this.cacheFilePath);
+      const dir = path.dirname(this.runtimeFilePath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(this.cacheFilePath, JSON.stringify(this.logos, null, 2), 'utf-8');
+      fs.writeFileSync(this.runtimeFilePath, JSON.stringify(this.logos, null, 2), 'utf-8');
     } catch (e) {
       console.error('Error saving team_logos.json:', e);
     }
