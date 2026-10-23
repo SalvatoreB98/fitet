@@ -286,23 +286,8 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                 </div>
               </div>
 
-              {/* Section Header: Incontri Individuali */}
-              <div className="referto-section-header">
-                <div>
-                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-dark)' }}>
-                    Incontri Individuali ({referto.partite.length})
-                  </h4>
-                  <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Clicca su una riga per aprire i dettagli dei parziali e le schede degli atleti
-                  </div>
-                </div>
-                <div className="referto-legend">
-                  <span className="legend-item"><span className="legend-dot winner-dot"></span>Vincitore</span>
-                </div>
-              </div>
-
               {/* Grid Table Container */}
-              <div className="referto-grid-table">
+              <div className="referto-grid-table mt-3">
                 {/* Grid Header Row with Society Logos & Team Names */}
                 <div className="referto-grid-header">
                   <div className="r-th r-th-num">#</div>
@@ -516,7 +501,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                             }
                                             title="Visualizza scheda atleta e storico punti"
                                           >
-                                            Scheda ranking <i className="bi bi-box-arrow-up-right ms-1"></i>
+                                            Visualizza Scheda atleta <i className="bi bi-box-arrow-up-right ms-1"></i>
                                           </button>
                                         ))}
                                     </div>
@@ -629,7 +614,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                             }
                                             title="Visualizza scheda atleta e storico punti"
                                           >
-                                            Scheda ranking <i className="bi bi-box-arrow-up-right ms-1"></i>
+                                            Visualizza scheda atleta <i className="bi bi-box-arrow-up-right ms-1"></i>
                                           </button>
                                         ))}
                                     </div>

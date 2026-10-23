@@ -1621,7 +1621,8 @@ body {
 
 .team-name-text.name-neutral,
 .team-name-text.name-neutral .marquee-text-content {
-  font-weight: 500;
+  font-weight: 100;
+  opacity: 0.7;
   color: var(--text-dark, #0f172a);
 }
 
