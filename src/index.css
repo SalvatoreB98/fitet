@@ -3178,8 +3178,7 @@ body.modal-open {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 20px;
-  margin-bottom: 16px;
+  padding: 16px 20px 6px 20px;
 }
 
 .referto-team-box {
@@ -3188,7 +3187,9 @@ body.modal-open {
   align-items: center;
   gap: 14px;
   min-width: 0;
+  justify-content: center;
 }
+
 
 .referto-logo-wrapper {
   width: 58px;
@@ -3298,6 +3299,7 @@ body.modal-open {
   font-weight: 600;
 }
 
+
 .substat-label {
   color: var(--text-muted);
   font-size: 10px;
@@ -3322,13 +3324,14 @@ body.modal-open {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  background: var(--bg-hover);
-  border: 1px solid var(--border-color);
   padding: 9px 14px;
   border-radius: 6px;
   margin-bottom: 18px;
   font-size: 12px;
   color: var(--text-main);
+  opacity: 0.5;
+  font-size: 10px;
+  font-style: italic;
 }
 
 .referto-meta-item {
@@ -3881,10 +3884,6 @@ body.modal-open {
   border-color: rgba(74, 222, 128, 0.35);
 }
 
-[data-theme="dark"] .referto-meta-bar {
-  background: #091224;
-  border-color: #1a2d52;
-}
 
 [data-theme="dark"] .referto-grid-table {
   background: #091224;
@@ -6798,8 +6797,6 @@ body.modal-open {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
-  padding: 0 20px 14px 20px;
   margin-bottom: 16px;
 }
 
