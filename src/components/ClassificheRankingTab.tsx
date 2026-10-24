@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { RankingAthleteItem, RankingPageResult } from '../types/fitet';
 import { fetchRanking } from '../services/api';
+import { AthleteAvatar } from './AthleteAvatar';
 import { MarqueeText } from './MarqueeText';
 import './ClassificheRankingTab.css';
 
@@ -265,22 +266,30 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
 
                       {/* Athlete Name */}
                       <td className="td-athlete">
-                        <div className="athlete-name-cell">
-                          <button
-                            type="button"
-                            className="athlete-link-btn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onOpenAtletaModal(ath.atletaId, ath.nome);
-                            }}
-                          >
-                            <MarqueeText text={ath.nome} className="athlete-link-text" />
-                            <i className="bi bi-arrow-up-right athlete-link-arrow"></i>
-                          </button>
-                          {/* Mobile submeta */}
-                          <div className="athlete-mobile-meta show-xs">
-                            {ath.provinciaOrRegione && <span>{ath.provinciaOrRegione}</span>}
-                            {ath.settore && <span> • Settore {ath.settore}</span>}
+                        <div className="athlete-row-cell">
+                          <AthleteAvatar
+                            atletaId={ath.atletaId}
+                            nome={ath.nome}
+                            size={28}
+                            className="ranking-athlete-avatar"
+                          />
+                          <div className="athlete-name-cell">
+                            <button
+                              type="button"
+                              className="athlete-link-btn"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenAtletaModal(ath.atletaId, ath.nome);
+                              }}
+                            >
+                              <MarqueeText text={ath.nome} className="athlete-link-text" />
+                              <i className="bi bi-arrow-up-right athlete-link-arrow"></i>
+                            </button>
+                            {/* Mobile submeta */}
+                            <div className="athlete-mobile-meta show-xs">
+                              {ath.provinciaOrRegione && <span>{ath.provinciaOrRegione}</span>}
+                              {ath.settore && <span> • Settore {ath.settore}</span>}
+                            </div>
                           </div>
                         </div>
                       </td>
