@@ -133,8 +133,49 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       .filter((c): c is ChampionshipItem => c !== null);
   }, [favoriteChampIds, campionati, cachedMeta]);
 
+  // Campionato attualmente attivo (selezionato)
+  const activeChampionship = useMemo(() => {
+    if (currentChampionship && currentCamId) {
+      return {
+        id: currentCamId,
+        nome: currentChampionship.nome,
+        regione: currentChampionship.regione,
+        categoria: currentChampionship.categoria,
+        anno: annoId,
+      } as ChampionshipItem;
+    }
+    if (currentCamId) {
+      const found = campionati.find((c) => c.id === currentCamId);
+      if (found) return found;
+    }
+    return null;
+  }, [currentChampionship, currentCamId, campionati, annoId]);
 
+  const activeSerieConfig = useMemo(() => {
+    if (!activeChampionship) return null;
+    const key = getChampionshipSerieKey(activeChampionship);
+    return SERIE_CONFIGS[key];
+  }, [activeChampionship]);
 
+  const activeCleanTitle = useMemo(() => {
+    if (!activeChampionship) return '';
+    return cleanChampionshipCardName(activeChampionship.nome, activeChampionship.categoria);
+  }, [activeChampionship]);
+
+  // Evita ripetizioni tra preferiti e cronologia:
+  // Mostra nella cronologia solo gli atleti che NON sono già nei preferiti
+  const filteredRecentAthletes = useMemo(() => {
+    const favIds = new Set(favoriteAthletes.map((a) => a.id));
+    return recentAthletes.filter((a) => !favIds.has(a.id));
+  }, [recentAthletes, favoriteAthletes]);
+
+  // Mostra nella cronologia solo i campionati che NON sono già nei preferiti e NON sono il campionato attivo in hero
+  const filteredRecentChampionships = useMemo(() => {
+    const favIds = new Set(favoriteChampIds);
+    return recentChampionships.filter(
+      (c) => !favIds.has(c.id) && (!activeChampionship || c.id !== activeChampionship.id)
+    );
+  }, [recentChampionships, favoriteChampIds, activeChampionship]);
   const formatCategoria = (cat?: string): string | null => {
     if (!cat) return null;
     const trimmed = cat.trim();
@@ -168,6 +209,131 @@ export const HomeTab: React.FC<HomeTabProps> = ({
 
   return (
     <div className="home-container">
+      {/* ───────────────────────────────────────────────────────────
+          HERO MINIMAL SENZA BORDI (Campionato Corrente o Navigazione Rapida)
+         ─────────────────────────────────────────────────────────── */}
+      <section className="home-hero" aria-label="Panoramica Campionato">
+        {activeChampionship ? (
+          <>
+            <div className="home-hero-content">
+              <div className="home-hero-badge-row">
+                <span className="home-hero-pill" style={{ color: '#047857', backgroundColor: '#ecfdf5' }}>
+                  <span className="home-hero-pulse-dot"></span>
+                  <span>In corso</span>
+                </span>
+                {activeSerieConfig && (
+                  <span
+                    className="home-hero-pill"
+                    style={{
+                      color: activeSerieConfig.accent,
+                      backgroundColor: `${activeSerieConfig.accent}14`,
+                    }}
+                  >
+                    <i className={`bi ${activeSerieConfig.icon}`}></i>
+                    {activeChampionship.categoria || activeSerieConfig.title}
+                  </span>
+                )}
+                <span className="home-hero-region">
+                  <i className="bi bi-geo-alt"></i>
+                  {activeChampionship.regione || 'Nazionale'}
+                </span>
+              </div>
+
+              <h2 className="home-hero-title" title={activeChampionship.nome}>
+                {activeCleanTitle}
+              </h2>
+              {activeCleanTitle !== activeChampionship.nome && (
+                <p className="home-hero-subtitle">{activeChampionship.nome}</p>
+              )}
+            </div>
+
+            <div className="home-hero-actions">
+              <button
+                type="button"
+                className="home-hero-btn home-hero-btn-primary"
+                onClick={() =>
+                  handleOpenChampionship(
+                    activeChampionship.id,
+                    activeChampionship.anno || annoId,
+                    'classifica'
+                  )
+                }
+                title="Visualizza Classifica"
+              >
+                <i className="bi bi-trophy"></i>
+                <span>Classifica</span>
+              </button>
+              <button
+                type="button"
+                className="home-hero-btn home-hero-btn-secondary"
+                onClick={() =>
+                  handleOpenChampionship(
+                    activeChampionship.id,
+                    activeChampionship.anno || annoId,
+                    'calendario'
+                  )
+                }
+                title="Visualizza Calendario"
+              >
+                <i className="bi bi-calendar3"></i>
+                <span>Calendario</span>
+              </button>
+              <button
+                type="button"
+                className="home-hero-btn home-hero-btn-minimal"
+                onClick={onOpenChampionshipModal}
+                title="Sfoglia altri campionati"
+              >
+                <i className="bi bi-grid-fill"></i>
+                <span>Campionati</span>
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="home-hero-content">
+              <div className="home-hero-badge-row">
+                <span
+                  className="home-hero-pill"
+                  style={{
+                    color: 'var(--color-primary-600, #2563eb)',
+                    backgroundColor: 'var(--color-primary-light, #eff6ff)',
+                  }}
+                >
+                  <i className="bi bi-trophy"></i>
+                  <span>FITeT Campionati</span>
+                </span>
+              </div>
+              <h2 className="home-hero-title">Esplora i Campionati</h2>
+              <p className="home-hero-subtitle">
+                Scegli un campionato per consultare classifiche, calendari, referti e statistiche.
+              </p>
+            </div>
+
+            <div className="home-hero-actions">
+              <button
+                type="button"
+                className="home-hero-btn home-hero-btn-primary"
+                onClick={onOpenChampionshipModal}
+                title="Sfoglia campionati"
+              >
+                <i className="bi bi-grid-fill"></i>
+                <span>Campionati</span>
+              </button>
+              <button
+                type="button"
+                className="home-hero-btn home-hero-btn-secondary"
+                onClick={() => setIsSearchAtletaModalOpen(true)}
+                title="Cerca atleti e giocatori"
+              >
+                <i className="bi bi-search"></i>
+                <span>Cerca Giocatori</span>
+              </button>
+            </div>
+          </>
+        )}
+      </section>
+
       {/* ───────────────────────────────────────────────────────────
           SEZIONE 1: CAMPIONATI PREFERITI (mostrata solo se presenti)
          ─────────────────────────────────────────────────────────── */}
@@ -276,31 +442,33 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       )}
 
       {/* ───────────────────────────────────────────────────────────
-          SEZIONE 1: ATLETI PREFERITI (mostrata solo se presenti)
+          SEZIONE 2: ATLETI PREFERITI
          ─────────────────────────────────────────────────────────── */}
-      {favoriteAthletes.length > 0 && (
-        <section className="home-section" aria-labelledby="heading-fav-athletes">
-          <div className="home-section-header">
-            <div className="home-section-title-wrap">
-              <h3 id="heading-fav-athletes" className="home-section-title">
-                Atleti Preferiti
+      <section className="home-section" aria-labelledby="heading-fav-athletes">
+        <div className="home-section-header">
+          <div className="home-section-title-wrap">
+            <h3 id="heading-fav-athletes" className="home-section-title">
+              Atleti Preferiti
+              {athletesCount > 0 && (
                 <span className="home-section-count">
                   {athletesCount} {athletesCount === 1 ? 'salvato' : 'salvati'}
                 </span>
-              </h3>
-            </div>
-
-            <button
-              type="button"
-              className="home-section-btn home-section-btn--icon"
-              onClick={() => setIsSearchAtletaModalOpen(true)}
-              title="Cerca giocatori"
-              aria-label="Cerca giocatori"
-            >
-              <i className="bi bi-search"></i>
-            </button>
+              )}
+            </h3>
           </div>
 
+          <button
+            type="button"
+            className="home-section-btn home-section-btn--icon"
+            onClick={() => setIsSearchAtletaModalOpen(true)}
+            title="Cerca giocatori"
+            aria-label="Cerca giocatori"
+          >
+            <i className="bi bi-search"></i>
+          </button>
+        </div>
+
+        {favoriteAthletes.length > 0 ? (
           <div className="home-cards-grid home-cards-grid--compact home-cards-grid--athletes">
             {favoriteAthletes.map((athlete: FavoriteAthlete) => (
               <div
@@ -381,37 +549,40 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               </div>
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <p className="home-empty-simple">Nessun atleta preferito</p>
+        )}
+      </section>
 
       {/* ───────────────────────────────────────────────────────────
           SEZIONE 3: CRONOLOGIA ATLETI VISITATI (mostrata solo se presenti)
          ─────────────────────────────────────────────────────────── */}
-      {recentAthletes.length > 0 && (
+      {filteredRecentAthletes.length > 0 && (
         <section className="home-section" aria-labelledby="heading-recent-athletes">
           <div className="home-section-header">
             <div className="home-section-title-wrap">
               <h3 id="heading-recent-athletes" className="home-section-title">
                 Cronologia Atleti Visitati
                 <span className="home-section-count">
-                  {recentAthletes.length} {recentAthletes.length === 1 ? 'atleta' : 'atleti'}
+                  {filteredRecentAthletes.length} {filteredRecentAthletes.length === 1 ? 'atleta' : 'atleti'}
                 </span>
+                <button
+                  type="button"
+                  className="home-section-btn text-muted"
+                  onClick={clearAthletes}
+                  title="Svuota cronologia atleti"
+                >
+                  <i className="bi bi-trash3"></i>
+                  <span>Svuota</span>
+                </button>
               </h3>
             </div>
 
-            <button
-              type="button"
-              className="home-section-btn text-muted"
-              onClick={clearAthletes}
-              title="Svuota cronologia atleti"
-            >
-              <i className="bi bi-trash3"></i>
-              <span>Svuota</span>
-            </button>
+
           </div>
 
           <div className="home-cards-grid home-cards-grid--compact home-cards-grid--athletes">
-            {recentAthletes.map((item) => {
+            {filteredRecentAthletes.map((item) => {
               const isFav = isFavoriteAthlete(item.id);
 
               return (
@@ -496,14 +667,14 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       {/* ───────────────────────────────────────────────────────────
           SEZIONE 4: CRONOLOGIA CAMPIONATI VISITATI (mostrata solo se presenti)
          ─────────────────────────────────────────────────────────── */}
-      {recentChampionships.length > 0 && (
+      {filteredRecentChampionships.length > 0 && (
         <section className="home-section" aria-labelledby="heading-recent-championships">
           <div className="home-section-header">
             <div className="home-section-title-wrap">
               <h3 id="heading-recent-championships" className="home-section-title">
                 Cronologia Campionati Visitati
                 <span className="home-section-count">
-                  {recentChampionships.length} {recentChampionships.length === 1 ? 'campionato' : 'campionati'}
+                  {filteredRecentChampionships.length} {filteredRecentChampionships.length === 1 ? 'campionato' : 'campionati'}
                 </span>
               </h3>
             </div>
@@ -520,7 +691,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           </div>
 
           <div className="home-cards-grid home-cards-grid--compact">
-            {recentChampionships.map((item) => {
+            {filteredRecentChampionships.map((item) => {
               const isFav = isFavoriteChamp(item.id);
               const serieKey = getChampionshipSerieKey(item);
               const serieConfig = SERIE_CONFIGS[serieKey];

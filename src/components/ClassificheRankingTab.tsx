@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { RankingAthleteItem, RankingPageResult } from '../types/fitet';
 import { fetchRanking } from '../services/api';
+import { MarqueeText } from './MarqueeText';
 import './ClassificheRankingTab.css';
 
 export interface ClassificheRankingTabProps {
@@ -273,7 +274,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                               onOpenAtletaModal(ath.atletaId, ath.nome);
                             }}
                           >
-                            <span className="athlete-link-text">{ath.nome}</span>
+                            <MarqueeText text={ath.nome} className="athlete-link-text" />
                             <i className="bi bi-arrow-up-right athlete-link-arrow"></i>
                           </button>
                           {/* Mobile submeta */}

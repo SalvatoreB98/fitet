@@ -399,11 +399,34 @@
   font-size: 12px;
   padding-top: 5px;
   cursor: pointer;
+  max-width: 100%;
 }
 
-.athlete-link-btn:hover .athlete-link-text {
+.athlete-link-text {
+  max-width: 200px;
+  overflow: hidden;
+}
+
+.athlete-link-text.marquee-text-wrapper {
+  max-width: 200px;
+  width: auto;
+  min-width: 0;
+  overflow: hidden !important;
+  text-overflow: clip !important;
+}
+
+.athlete-link-text .marquee-text-content {
+  text-overflow: clip !important;
+}
+
+.athlete-link-btn:hover .athlete-link-text,
+.athlete-link-btn:hover .athlete-link-text .marquee-text-content {
   color: var(--primary, #0284c7);
   text-decoration: underline;
+}
+
+.athlete-link-btn:hover .marquee-text-content.is-scrolling {
+  animation-play-state: paused;
 }
 
 .athlete-link-arrow {
@@ -708,7 +731,8 @@
   color: #f8fafc;
 }
 
-[data-theme="dark"] .athlete-link-btn:hover .athlete-link-text {
+[data-theme="dark"] .athlete-link-btn:hover .athlete-link-text,
+[data-theme="dark"] .athlete-link-btn:hover .athlete-link-text .marquee-text-content {
   color: #38bdf8;
 }
 
