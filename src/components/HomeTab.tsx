@@ -250,7 +250,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             <div className="home-hero-actions">
               <button
                 type="button"
-                className="home-hero-btn home-hero-btn-primary"
+                className="home-hero-btn home-hero-btn-secondary"
                 onClick={() =>
                   handleOpenChampionship(
                     activeChampionship.id,
@@ -280,7 +280,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               </button>
               <button
                 type="button"
-                className="home-hero-btn home-hero-btn-minimal"
+                className="home-hero-btn home-hero-btn-secondary"
                 onClick={onOpenChampionshipModal}
                 title="Sfoglia altri campionati"
               >
