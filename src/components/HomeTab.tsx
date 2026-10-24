@@ -583,9 +583,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       <section className="home-section" aria-labelledby="heading-recent-athletes">
         <div className="home-section-header">
           <div className="home-section-title-wrap">
-            <div className="home-section-icon history">
-              <i className="bi bi-clock-history"></i>
-            </div>
             <h3 id="heading-recent-athletes" className="home-section-title">
               Cronologia Atleti Visitati
               {recentAthletes.length > 0 && (
@@ -704,9 +701,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       <section className="home-section" aria-labelledby="heading-recent-championships">
         <div className="home-section-header">
           <div className="home-section-title-wrap">
-            <div className="home-section-icon history">
-              <i className="bi bi-clock-history"></i>
-            </div>
             <h3 id="heading-recent-championships" className="home-section-title">
               Cronologia Campionati Visitati
               {recentChampionships.length > 0 && (
