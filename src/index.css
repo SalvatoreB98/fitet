@@ -1067,6 +1067,10 @@ nav {
   .portal-main.without-portal-nav {
     margin-top: 70px;
   }
+
+  .portal-main {
+    margin-top: 70px;
+  }
 }
 
 .portal-title-static {
