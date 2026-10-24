@@ -566,19 +566,18 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 <span className="home-section-count">
                   {filteredRecentAthletes.length} {filteredRecentAthletes.length === 1 ? 'atleta' : 'atleti'}
                 </span>
-                <button
-                  type="button"
-                  className="home-section-btn text-muted"
-                  onClick={clearAthletes}
-                  title="Svuota cronologia atleti"
-                >
-                  <i className="bi bi-trash3"></i>
-                  <span>Svuota</span>
-                </button>
               </h3>
             </div>
 
+            <button
+              type="button"
+              className="home-section-btn text-muted"
+              onClick={clearAthletes}
+              title="Svuota cronologia atleti"
+            >
+              <i className="bi bi-trash3"></i>
 
+            </button>
           </div>
 
           <div className="home-cards-grid home-cards-grid--compact home-cards-grid--athletes">
