@@ -222,13 +222,6 @@ export const App: React.FC = () => {
 
       if (result.championship) {
         document.title = `FITeT ${result.championship.nome} - ${result.championship.regione} | Risultati & Classifica`;
-        addRecentChampionship({
-          id: result.championship.id,
-          nome: result.championship.nome,
-          regione: result.championship.regione,
-          categoria: result.championship.categoria,
-          anno: result.championship.anno,
-        });
       }
     } catch (err: any) {
       setError(err.message || 'Errore nel caricamento dei dati FITeT');

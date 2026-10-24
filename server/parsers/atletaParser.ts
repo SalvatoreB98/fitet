@@ -259,23 +259,40 @@ export function parseDettaglioAtleta(
   if ($riepilogoTable.length > 0) {
     const rows = $riepilogoTable.find('tr');
     if (rows.length >= 2) {
-      const dataRow = $(rows[1]);
-      const dataCells = dataRow.find('td');
+      const headerCells = $(rows[0]).find('td, th');
+      const dataCells = $(rows[1]).find('td');
+
+      // FITeT inserted a "PROTEZIONE CLASSIFICA" column (between TOTALI and FINALE),
+      // so map columns by header text instead of fixed positions.
+      const headers = headerCells.map((_, c) => $(c).text().replace(/\s+/g, ' ').trim().toUpperCase()).get();
+      const findCol = (re: RegExp, fallback: number) => {
+        const i = headers.findIndex((h) => re.test(h));
+        return i >= 0 ? i : fallback;
+      };
+      const hasProtezione = headers.some((h) => /PROTEZIONE/.test(h));
+      const offset = hasProtezione ? 1 : 0;
+      const colIniziali = findCol(/INIZIALI/, 0);
+      const colTotali = findCol(/PUNTI TOTALI/, 1);
+      const colFinale = findCol(/PUNTEGGIO FINALE/, 2 + offset);
+      const colGiocate = findCol(/GIOCATE/, 3 + offset);
+      const colVinte = findCol(/VINTE/, 4 + offset);
+      const colPerse = findCol(/PERSE/, 5 + offset);
+      const colPerc = findCol(/%/, 6 + offset);
 
       if (dataCells.length >= 7) {
-        const initText = $(dataCells[0]).text().trim();
+        const initText = $(dataCells[colIniziali]).text().trim();
         const initMatch = initText.match(/([\d\.,]+)\s*\[?\s*(\d{2}\/\d{2}\/\d{4})?/);
         if (initMatch) {
           puntiIniziali = parseItalianNumber(initMatch[1]);
           puntiInizialiData = initMatch[2] || '';
         }
 
-        puntiTotali = parseItalianNumber($(dataCells[1]).text().trim());
-        punteggioFinale = parseItalianNumber($(dataCells[2]).text().trim()) || punti;
-        partiteGiocate = parseInt($(dataCells[3]).text().trim(), 10) || 0;
-        partiteVinte = parseInt($(dataCells[4]).text().trim(), 10) || 0;
-        partitePerse = parseInt($(dataCells[5]).text().trim(), 10) || 0;
-        percentualePositiva = parseItalianNumber($(dataCells[6]).text().trim().replace('%', ''));
+        puntiTotali = parseItalianNumber($(dataCells[colTotali]).text().trim());
+        punteggioFinale = parseItalianNumber($(dataCells[colFinale]).text().trim()) || punti;
+        partiteGiocate = parseInt($(dataCells[colGiocate]).text().trim(), 10) || 0;
+        partiteVinte = parseInt($(dataCells[colVinte]).text().trim(), 10) || 0;
+        partitePerse = parseInt($(dataCells[colPerse]).text().trim(), 10) || 0;
+        percentualePositiva = parseItalianNumber($(dataCells[colPerc]).text().trim().replace('%', ''));
       }
     }
   }

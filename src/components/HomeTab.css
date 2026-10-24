@@ -1180,3 +1180,20 @@
 .home-cards-grid--compact .home-card-footer-link {
   display: none;
 }
+/* Minimal icon-only action (primary tier: icon; secondary tier: text buttons) */
+.home-section-btn--icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  font-size: 15px;
+  background: var(--bg-th, #f1f5f9);
+  color: var(--color-primary-600, #2563eb);
+}
+
+.home-section-btn--icon:hover {
+  background: var(--color-primary-light, #eff6ff);
+  transform: none;
+}

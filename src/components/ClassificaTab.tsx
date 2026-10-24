@@ -290,7 +290,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
 
       {viewMode === 'responsive' ? (
         /* ==================== VISTE SEPARATE (ZERO SCROLL) ==================== */
-        <div style={{ padding: '6px 0 16px 0' }}>
+        <div style={{ padding: '0 0 4px 0' }}>
           {/* 1. CLASSIFICA UFFICIALE (GERARCHICAMENTE PRINCIPALE / VALORE FEDERALE) */}
           <div className="ranking-card-block primary-official">
             <div className="ranking-section-header official-header">

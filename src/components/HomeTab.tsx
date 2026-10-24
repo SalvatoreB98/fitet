@@ -132,53 +132,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       .filter((c): c is ChampionshipItem => c !== null);
   }, [favoriteChampIds, campionati, cachedMeta]);
 
-  // Campionato attivo attuale o salvato in localStorage
-  const currentOrLastCamId = useMemo(() => {
-    if (currentCamId) return currentCamId;
-    try {
-      const stored = localStorage.getItem('fitet_selected_cam');
-      if (stored) {
-        const num = parseInt(stored, 10);
-        if (!isNaN(num) && num > 0) return num;
-      }
-    } catch { }
-    return null;
-  }, [currentCamId]);
 
-  const currentChampionshipResolved = useMemo((): ChampionshipItem | null => {
-    if (!currentOrLastCamId) return null;
-    const found = campionati.find((c) => c.id === currentOrLastCamId);
-    if (found) return found;
-
-    if (currentChampionship && currentChampionship.nome) {
-      return {
-        id: currentOrLastCamId,
-        nome: currentChampionship.nome,
-        regione: currentChampionship.regione || '',
-        categoria: currentChampionship.categoria || '',
-        anno: annoId,
-      } as ChampionshipItem;
-    }
-
-    const cached = cachedMeta[currentOrLastCamId];
-    if (cached) {
-      return {
-        id: currentOrLastCamId,
-        nome: cached.nome,
-        regione: cached.regione,
-        categoria: cached.categoria,
-        anno: cached.anno || annoId,
-      } as ChampionshipItem;
-    }
-
-    return {
-      id: currentOrLastCamId,
-      nome: `Campionato #${currentOrLastCamId}`,
-      regione: '',
-      categoria: '',
-      anno: annoId,
-    } as ChampionshipItem;
-  }, [currentOrLastCamId, campionati, currentChampionship, cachedMeta, annoId]);
 
   const formatCategoria = (cat?: string): string | null => {
     if (!cat) return null;
@@ -213,35 +167,32 @@ export const HomeTab: React.FC<HomeTabProps> = ({
 
   return (
     <div className="home-container">
-
       {/* ───────────────────────────────────────────────────────────
-          SEZIONE 2: CAMPIONATI PREFERITI
+          SEZIONE 1: CAMPIONATI PREFERITI (mostrata solo se presenti)
          ─────────────────────────────────────────────────────────── */}
-      <section className="home-section" aria-labelledby="heading-fav-championships">
-        <div className="home-section-header">
-          <div className="home-section-title-wrap">
-            <h3 id="heading-fav-championships" className="home-section-title">
-              {resolvedFavoriteChampionships.length > 0 ? 'Campionati Preferiti' : 'Campionato Attuale'}
-              {resolvedFavoriteChampionships.length > 0 && (
+      {resolvedFavoriteChampionships.length > 0 && (
+        <section className="home-section" aria-labelledby="heading-fav-championships">
+          <div className="home-section-header">
+            <div className="home-section-title-wrap">
+              <h3 id="heading-fav-championships" className="home-section-title">
+                Campionati Preferiti
                 <span className="home-section-count">
                   {champCount} {champCount === 1 ? 'salvato' : 'salvati'}
                 </span>
-              )}
-            </h3>
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              className="home-section-btn"
+              onClick={onOpenChampionshipModal}
+              title="Aggiungi altri campionati"
+            >
+              <i className="bi bi-plus-lg"></i>
+              <span>Sfoglia Campionati</span>
+            </button>
           </div>
 
-          <button
-            type="button"
-            className="home-section-btn"
-            onClick={onOpenChampionshipModal}
-            title="Aggiungi altri campionati"
-          >
-            <i className="bi bi-plus-lg"></i>
-            <span>Sfoglia Campionati</span>
-          </button>
-        </div>
-
-        {resolvedFavoriteChampionships.length > 0 ? (
           <div className="home-cards-grid home-cards-grid--compact">
             {resolvedFavoriteChampionships.map((champ) => {
               const serieKey = getChampionshipSerieKey(champ);
@@ -320,162 +271,35 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               );
             })}
           </div>
-        ) : currentChampionshipResolved ? (
-          <div className="home-cards-grid home-cards-grid--compact">
-            {(() => {
-              const serieKey = getChampionshipSerieKey(currentChampionshipResolved);
-              const serieConfig = SERIE_CONFIGS[serieKey];
-              const cleanTitle = cleanChampionshipCardName(
-                currentChampionshipResolved.nome,
-                currentChampionshipResolved.categoria
-              );
-              const isFav = isFavoriteChamp(currentChampionshipResolved.id);
-
-              return (
-                <div
-                  key={`curr-champ-${currentChampionshipResolved.id}`}
-                  className="home-borderless-card is-active-champ"
-                >
-                  <div className="home-card-top">
-                    <div className="home-card-badges">
-                      <span
-                        className="home-soft-pill"
-                        style={{
-                          backgroundColor: `${serieConfig.accent}16`,
-                          color: serieConfig.accent,
-                        }}
-                      >
-                        <i className={`bi ${serieConfig.icon}`}></i>
-                        {currentChampionshipResolved.categoria || serieConfig.title}
-                      </span>
-                      <span className="home-soft-region">
-                        <i className="bi bi-geo-alt"></i>
-                        {currentChampionshipResolved.regione || 'Nazionale'}
-                      </span>
-                      <span className="home-current-badge">
-                        <i className="bi bi-check-circle-fill"></i> Attivo
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="home-card-fav-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleChampFavorite(
-                          currentChampionshipResolved.id,
-                          currentChampionshipResolved
-                        );
-                      }}
-                      title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-                      aria-label="Aggiungi o rimuovi dai preferiti"
-                    >
-                      <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
-                    </button>
-                  </div>
-
-                  <div
-                    className="home-card-main"
-                    onClick={() =>
-                      handleOpenChampionship(
-                        currentChampionshipResolved.id,
-                        currentChampionshipResolved.anno || 41,
-                        'classifica'
-                      )
-                    }
-                  >
-                    <h4 className="home-card-title" title={currentChampionshipResolved.nome}>
-                      {cleanTitle}
-                    </h4>
-                    {cleanTitle !== currentChampionshipResolved.nome && (
-                      <p className="home-card-sub">{currentChampionshipResolved.nome}</p>
-                    )}
-                  </div>
-
-                  <div className="home-card-actions">
-                    <button
-                      type="button"
-                      className="home-action-btn btn-main"
-                      onClick={() =>
-                        handleOpenChampionship(
-                          currentChampionshipResolved.id,
-                          currentChampionshipResolved.anno || 41,
-                          'classifica'
-                        )
-                      }
-                    >
-                      <i className="bi bi-trophy"></i>
-                      <span>Classifica</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="home-action-btn"
-                      onClick={() =>
-                        handleOpenChampionship(
-                          currentChampionshipResolved.id,
-                          currentChampionshipResolved.anno || 41,
-                          'calendario'
-                        )
-                      }
-                    >
-                      <i className="bi bi-calendar3"></i>
-                      <span>Calendario</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        ) : (
-          <div className="home-empty-card">
-            <div className="home-empty-icon icon-trophy">
-              <i className="bi bi-trophy"></i>
-            </div>
-            <h4 className="home-empty-title">Nessun Campionato Selezionato</h4>
-            <p className="home-empty-desc">
-              Scegli il campionato FITeT da consultare dal catalogo, per accedere all'istante ogni volta che apri l'app.
-            </p>
-            <button
-              type="button"
-              className="home-empty-btn"
-              onClick={onOpenChampionshipModal}
-            >
-              <i className="bi bi-plus-lg"></i>
-              <span>Esplora Campionati</span>
-            </button>
-          </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* ───────────────────────────────────────────────────────────
-          SEZIONE 1: ATLETI PREFERITI
+          SEZIONE 1: ATLETI PREFERITI (mostrata solo se presenti)
          ─────────────────────────────────────────────────────────── */}
-      <section className="home-section" aria-labelledby="heading-fav-athletes">
-        <div className="home-section-header">
-          <div className="home-section-title-wrap">
-
-            <h3 id="heading-fav-athletes" className="home-section-title">
-              Atleti Preferiti
-              {athletesCount > 0 && (
+      {favoriteAthletes.length > 0 && (
+        <section className="home-section" aria-labelledby="heading-fav-athletes">
+          <div className="home-section-header">
+            <div className="home-section-title-wrap">
+              <h3 id="heading-fav-athletes" className="home-section-title">
+                Atleti Preferiti
                 <span className="home-section-count">
                   {athletesCount} {athletesCount === 1 ? 'salvato' : 'salvati'}
                 </span>
-              )}
-            </h3>
+              </h3>
+            </div>
+
+            <button
+              type="button"
+              className="home-section-btn home-section-btn--icon"
+              onClick={() => setIsSearchAtletaModalOpen(true)}
+              title="Cerca giocatori"
+              aria-label="Cerca giocatori"
+            >
+              <i className="bi bi-search"></i>
+            </button>
           </div>
 
-          <button
-            type="button"
-            className="home-section-btn"
-            onClick={() => setIsSearchAtletaModalOpen(true)}
-            title="Cerca un atleta da salvare"
-          >
-            <i className="bi bi-search"></i>
-            <span>Cerca Giocatori</span>
-          </button>
-        </div>
-
-        {favoriteAthletes.length > 0 ? (
           <div className="home-cards-grid home-cards-grid--compact home-cards-grid--athletes">
             {favoriteAthletes.map((athlete: FavoriteAthlete) => (
               <div
@@ -555,45 +379,24 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               </div>
             ))}
           </div>
-        ) : (
-          <div className="home-empty-card">
-            <div className="home-empty-icon icon-heart">
-              <i className="bi bi-star"></i>
-            </div>
-            <h4 className="home-empty-title">Nessun Giocatore tra i Preferiti</h4>
-            <p className="home-empty-desc">
-              Cerca i tuoi compagni di squadra, avversari o atleti di riferimento e tocca la stella per salvarli
-              qui e consultarli in qualsiasi momento.
-            </p>
-            <button
-              type="button"
-              className="home-empty-btn"
-              onClick={() => setIsSearchAtletaModalOpen(true)}
-            >
-              <i className="bi bi-search"></i>
-              <span>Cerca e Aggiungi Atleta</span>
-            </button>
-          </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* ───────────────────────────────────────────────────────────
-          SEZIONE 3: CRONOLOGIA ATLETI VISITATI
+          SEZIONE 3: CRONOLOGIA ATLETI VISITATI (mostrata solo se presenti)
          ─────────────────────────────────────────────────────────── */}
-      <section className="home-section" aria-labelledby="heading-recent-athletes">
-        <div className="home-section-header">
-          <div className="home-section-title-wrap">
-            <h3 id="heading-recent-athletes" className="home-section-title">
-              Cronologia Atleti Visitati
-              {recentAthletes.length > 0 && (
+      {recentAthletes.length > 0 && (
+        <section className="home-section" aria-labelledby="heading-recent-athletes">
+          <div className="home-section-header">
+            <div className="home-section-title-wrap">
+              <h3 id="heading-recent-athletes" className="home-section-title">
+                Cronologia Atleti Visitati
                 <span className="home-section-count">
                   {recentAthletes.length} {recentAthletes.length === 1 ? 'atleta' : 'atleti'}
                 </span>
-              )}
-            </h3>
-          </div>
+              </h3>
+            </div>
 
-          {recentAthletes.length > 0 && (
             <button
               type="button"
               className="home-section-btn text-muted"
@@ -603,10 +406,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               <i className="bi bi-trash3"></i>
               <span>Svuota</span>
             </button>
-          )}
-        </div>
+          </div>
 
-        {recentAthletes.length > 0 ? (
           <div className="home-cards-grid home-cards-grid--compact home-cards-grid--athletes">
             {recentAthletes.map((item) => {
               const isFav = isFavoriteAthlete(item.id);
@@ -686,32 +487,24 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               );
             })}
           </div>
-        ) : (
-          <div className="home-empty-card" style={{ padding: '24px 16px' }}>
-            <p className="text-muted mb-0" style={{ fontSize: '13px' }}>
-              Nessun atleta visitato di recente. Quando aprirai la scheda di un atleta, apparirà qui per un rapido accesso.
-            </p>
-          </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* ───────────────────────────────────────────────────────────
-          SEZIONE 4: CRONOLOGIA CAMPIONATI VISITATI
+          SEZIONE 4: CRONOLOGIA CAMPIONATI VISITATI (mostrata solo se presenti)
          ─────────────────────────────────────────────────────────── */}
-      <section className="home-section" aria-labelledby="heading-recent-championships">
-        <div className="home-section-header">
-          <div className="home-section-title-wrap">
-            <h3 id="heading-recent-championships" className="home-section-title">
-              Cronologia Campionati Visitati
-              {recentChampionships.length > 0 && (
+      {recentChampionships.length > 0 && (
+        <section className="home-section" aria-labelledby="heading-recent-championships">
+          <div className="home-section-header">
+            <div className="home-section-title-wrap">
+              <h3 id="heading-recent-championships" className="home-section-title">
+                Cronologia Campionati Visitati
                 <span className="home-section-count">
                   {recentChampionships.length} {recentChampionships.length === 1 ? 'campionato' : 'campionati'}
                 </span>
-              )}
-            </h3>
-          </div>
+              </h3>
+            </div>
 
-          {recentChampionships.length > 0 && (
             <button
               type="button"
               className="home-section-btn text-muted"
@@ -721,10 +514,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               <i className="bi bi-trash3"></i>
               <span>Svuota</span>
             </button>
-          )}
-        </div>
+          </div>
 
-        {recentChampionships.length > 0 ? (
           <div className="home-cards-grid home-cards-grid--compact">
             {recentChampionships.map((item) => {
               const isFav = isFavoriteChamp(item.id);
@@ -822,14 +613,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               );
             })}
           </div>
-        ) : (
-          <div className="home-empty-card" style={{ padding: '24px 16px' }}>
-            <p className="text-muted mb-0" style={{ fontSize: '13px' }}>
-              Nessun campionato visitato di recente. Quando aprirai un campionato dal catalogo, verrà memorizzato qui.
-            </p>
-          </div>
-        )}
-      </section>
+        </section>
+      )}
 
       {/* Modale Ricerca Atleta */}
       <SearchAtletaModal

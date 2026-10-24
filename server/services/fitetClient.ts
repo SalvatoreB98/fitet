@@ -83,13 +83,98 @@ export class FitetClient {
    * Autocomplete search for athletes
    */
   static async searchAtleta(query: string): Promise<Array<{ id: string; value: string; label: string }>> {
-    const url = `${BASE_URL}/risultati/new_rank/ajax.php?term=${encodeURIComponent(query)}`;
-    const text = await this.fetchHtml(url, true);
-    try {
-      return JSON.parse(text);
-    } catch {
-      return [];
+    const rawClean = query.trim();
+    if (!rawClean || rawClean.length < 2) return [];
+
+    const hasApostrophe = /['\u2018\u2019\u02BC`\u00B4]/.test(rawClean);
+    const variants = new Set<string>();
+
+    if (hasApostrophe) {
+      // 1. Spaced version (e.g. "D AMICO") -> matches athletes stored with apostrophe "D'AMICO" in FITeT
+      const spaced = rawClean.replace(/['\u2018\u2019\u02BC`\u00B4]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (spaced.length >= 2) variants.add(spaced);
+
+      // 2. Attached version (e.g. "DAMICO" / "DANDREA") -> matches athletes stored without apostrophe in FITeT
+      const attached = rawClean.replace(/['\u2018\u2019\u02BC`\u00B4\s]/g, '').trim();
+      if (attached.length >= 2) variants.add(attached);
+    } else {
+      variants.add(rawClean);
+
+      // If user typed e.g. "damico" without apostrophe, also try searching "d amico"
+      if (/^d[aeiou]/i.test(rawClean) && rawClean.length >= 4) {
+        variants.add(rawClean.replace(/^d([aeiou])/i, 'd $1'));
+      } else if (/^dell[aeiou]/i.test(rawClean) && rawClean.length >= 6) {
+        variants.add(rawClean.replace(/^dell([aeiou])/i, 'dell $1'));
+      }
     }
+
+    const fetchVariant = async (term: string) => {
+      const url = `${BASE_URL}/risultati/new_rank/ajax.php?term=${encodeURIComponent(term)}`;
+      try {
+        const text = await this.fetchHtml(url, true);
+        const parsed = JSON.parse(text);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    };
+
+    const resultsLists = await Promise.all(Array.from(variants).map((v) => fetchVariant(v)));
+
+    // Deduplicate by athlete ID and filter out error entries
+    const map = new Map<string, { id: string; value: string; label: string }>();
+    for (const list of resultsLists) {
+      for (const item of list) {
+        if (item && item.id && item.id !== '#' && !map.has(item.id)) {
+          map.set(item.id, item);
+        }
+      }
+    }
+
+    const allResults = Array.from(map.values());
+    if (allResults.length === 0) return [];
+
+    // Relevance scoring
+    const normalizedUser = rawClean.toUpperCase().replace(/['\u2018\u2019\u02BC`\u00B4\s]/g, '');
+    const userWords = rawClean.toUpperCase().replace(/['\u2018\u2019\u02BC`\u00B4]/g, ' ').split(/\s+/).filter(Boolean);
+
+    const scored = allResults.map((item) => {
+      const valUpper = (item.value || '').toUpperCase();
+      const valClean = valUpper.replace(/['\u2018\u2019\u02BC`\u00B4\s]/g, '');
+      let score = 0;
+
+      // 1. Exact start match (highest priority)
+      if (valClean.startsWith(normalizedUser)) {
+        score += 1000;
+      } else if (valUpper.startsWith(rawClean.toUpperCase())) {
+        score += 800;
+      } else if (valClean.includes(normalizedUser)) {
+        score += 500;
+      }
+
+      // 2. All user words present in value
+      const allWordsPresent = userWords.every((w) => valUpper.includes(w) || valClean.includes(w));
+      if (allWordsPresent) {
+        score += 200;
+      }
+
+      // 3. Penalize single-letter false positives when searching an apostrophe surname
+      if (hasApostrophe && !valClean.includes(normalizedUser)) {
+        score -= 300;
+      }
+
+      return { item, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+
+    // If query had an apostrophe, filter out false positives
+    if (hasApostrophe) {
+      const positive = scored.filter((s) => s.score > 0);
+      return positive.length > 0 ? positive.map((s) => s.item) : scored.map((s) => s.item);
+    }
+
+    return scored.map((s) => s.item);
   }
 
   /**

@@ -71,13 +71,72 @@ var FitetClient = class {
    * Autocomplete search for athletes
    */
   static async searchAtleta(query) {
-    const url = `${BASE_URL}/risultati/new_rank/ajax.php?term=${encodeURIComponent(query)}`;
-    const text = await this.fetchHtml(url, true);
-    try {
-      return JSON.parse(text);
-    } catch {
-      return [];
+    const rawClean = query.trim();
+    if (!rawClean || rawClean.length < 2) return [];
+    const hasApostrophe = /['\u2018\u2019\u02BC`\u00B4]/.test(rawClean);
+    const variants = /* @__PURE__ */ new Set();
+    if (hasApostrophe) {
+      const spaced = rawClean.replace(/['\u2018\u2019\u02BC`\u00B4]/g, " ").replace(/\s+/g, " ").trim();
+      if (spaced.length >= 2) variants.add(spaced);
+      const attached = rawClean.replace(/['\u2018\u2019\u02BC`\u00B4\s]/g, "").trim();
+      if (attached.length >= 2) variants.add(attached);
+    } else {
+      variants.add(rawClean);
+      if (/^d[aeiou]/i.test(rawClean) && rawClean.length >= 4) {
+        variants.add(rawClean.replace(/^d([aeiou])/i, "d $1"));
+      } else if (/^dell[aeiou]/i.test(rawClean) && rawClean.length >= 6) {
+        variants.add(rawClean.replace(/^dell([aeiou])/i, "dell $1"));
+      }
     }
+    const fetchVariant = async (term) => {
+      const url = `${BASE_URL}/risultati/new_rank/ajax.php?term=${encodeURIComponent(term)}`;
+      try {
+        const text = await this.fetchHtml(url, true);
+        const parsed = JSON.parse(text);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    };
+    const resultsLists = await Promise.all(Array.from(variants).map((v) => fetchVariant(v)));
+    const map = /* @__PURE__ */ new Map();
+    for (const list of resultsLists) {
+      for (const item of list) {
+        if (item && item.id && item.id !== "#" && !map.has(item.id)) {
+          map.set(item.id, item);
+        }
+      }
+    }
+    const allResults = Array.from(map.values());
+    if (allResults.length === 0) return [];
+    const normalizedUser = rawClean.toUpperCase().replace(/['\u2018\u2019\u02BC`\u00B4\s]/g, "");
+    const userWords = rawClean.toUpperCase().replace(/['\u2018\u2019\u02BC`\u00B4]/g, " ").split(/\s+/).filter(Boolean);
+    const scored = allResults.map((item) => {
+      const valUpper = (item.value || "").toUpperCase();
+      const valClean = valUpper.replace(/['\u2018\u2019\u02BC`\u00B4\s]/g, "");
+      let score = 0;
+      if (valClean.startsWith(normalizedUser)) {
+        score += 1e3;
+      } else if (valUpper.startsWith(rawClean.toUpperCase())) {
+        score += 800;
+      } else if (valClean.includes(normalizedUser)) {
+        score += 500;
+      }
+      const allWordsPresent = userWords.every((w) => valUpper.includes(w) || valClean.includes(w));
+      if (allWordsPresent) {
+        score += 200;
+      }
+      if (hasApostrophe && !valClean.includes(normalizedUser)) {
+        score -= 300;
+      }
+      return { item, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    if (hasApostrophe) {
+      const positive = scored.filter((s) => s.score > 0);
+      return positive.length > 0 ? positive.map((s) => s.item) : scored.map((s) => s.item);
+    }
+    return scored.map((s) => s.item);
   }
   /**
    * Endpoint 5: Referto Incontro Gara
@@ -100,10 +159,12 @@ import fs from "fs";
 import path from "path";
 var CacheService = class {
   cacheDir;
+  legacyCacheDir;
   memoryCache = /* @__PURE__ */ new Map();
   constructor() {
     const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
-    this.cacheDir = isServerless ? path.join("/tmp", "fitet_cache") : path.resolve(process.cwd(), "server", "cache");
+    this.cacheDir = isServerless ? path.join("/tmp", "fitet_cache") : path.resolve(process.cwd(), "node_modules", ".cache", "fitet_cache");
+    this.legacyCacheDir = path.resolve(process.cwd(), "server", "cache");
     try {
       if (!fs.existsSync(this.cacheDir)) {
         fs.mkdirSync(this.cacheDir, { recursive: true });
@@ -124,7 +185,13 @@ var CacheService = class {
       }
       this.memoryCache.delete(key);
     }
-    const filePath = path.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
+    let filePath = path.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
+    if (!fs.existsSync(filePath)) {
+      const legacyPath = path.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
+      if (fs.existsSync(legacyPath)) {
+        filePath = legacyPath;
+      }
+    }
     if (fs.existsSync(filePath)) {
       try {
         const fileContent = fs.readFileSync(filePath, "utf8");
@@ -165,6 +232,13 @@ var CacheService = class {
     if (fs.existsSync(filePath)) {
       try {
         fs.unlinkSync(filePath);
+      } catch {
+      }
+    }
+    const legacyPath = path.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
+    if (fs.existsSync(legacyPath)) {
+      try {
+        fs.unlinkSync(legacyPath);
       } catch {
       }
     }
@@ -1092,23 +1166,51 @@ var athlete_mapping_default = {
   "LATERZA PASQUALE": "825374",
   "SALLUSTIO DANIELE": "811503",
   "ZUCARO MARIO": "714084",
-  "CORVELLI ANGELO": "750110"
+  "CORVELLI ANGELO": "750110",
+  "ROSSI DANIELE": "838404",
+  "BARANI ARIANNA": "711597",
+  "ENCEA MIHAELA-SUZANA": "727102",
+  "SAIU FRANCESCA": "588400",
+  "CHUNG RHEANN JACINTA": "846391",
+  "FRISONE STELLA": "719621",
+  "SERENO REGIS EMMA": "729517",
+  "DANIELE MANUELA": "610610",
+  "HAN VUKELJA XUE": "822286",
+  "JAR ISABELLA MARIA": "762651",
+  "DONETTI GINEVRA": "769688",
+  "CAVALLI GIULIA": "599043",
+  "COATES ANNA": "703736",
+  "ALESSANDRINI ANGELA": "596861",
+  "BECCARIA VALERIA": "591684",
+  "RICUPITO ANDREA GIULIA": "714725",
+  "ORLANDO VALENTINA": "595203",
+  "XU YI YAN": "600037",
+  "ZAMPONI FABIO": "816796",
+  "MAZZUCCO GIORGIO": "769026",
+  "LENZONI ANDREA": "767503",
+  "PATERNOSTRO MATILDE": "794013"
 };
 
 // server/services/athleteResolver.ts
 var AthleteResolver = class {
-  mappingFile;
+  staticMappingFile;
+  runtimeMappingFile;
   mapping;
   constructor() {
     this.mapping = { ...athlete_mapping_default };
-    this.mappingFile = path2.resolve(process.cwd(), "server", "data", "athlete_mapping.json");
+    this.staticMappingFile = path2.resolve(process.cwd(), "server", "data", "athlete_mapping.json");
+    this.runtimeMappingFile = path2.resolve(process.cwd(), "node_modules", ".cache", "fitet_cache", "athlete_mapping.json");
     this.loadMapping();
   }
   loadMapping() {
     try {
-      if (fs2.existsSync(this.mappingFile)) {
-        const content = fs2.readFileSync(this.mappingFile, "utf8");
-        this.mapping = { ...athlete_mapping_default, ...JSON.parse(content) };
+      if (fs2.existsSync(this.staticMappingFile)) {
+        const content = fs2.readFileSync(this.staticMappingFile, "utf8");
+        this.mapping = { ...this.mapping, ...JSON.parse(content) };
+      }
+      if (fs2.existsSync(this.runtimeMappingFile)) {
+        const content = fs2.readFileSync(this.runtimeMappingFile, "utf8");
+        this.mapping = { ...this.mapping, ...JSON.parse(content) };
       }
     } catch {
       this.mapping = { ...athlete_mapping_default };
@@ -1116,7 +1218,9 @@ var AthleteResolver = class {
   }
   saveMapping() {
     try {
-      fs2.writeFileSync(this.mappingFile, JSON.stringify(this.mapping, null, 2), "utf8");
+      const dir = path2.dirname(this.runtimeMappingFile);
+      if (!fs2.existsSync(dir)) fs2.mkdirSync(dir, { recursive: true });
+      fs2.writeFileSync(this.runtimeMappingFile, JSON.stringify(this.mapping, null, 2), "utf8");
     } catch {
     }
   }
@@ -1203,7 +1307,8 @@ import fs3 from "fs";
 import path3 from "path";
 import * as cheerio2 from "cheerio";
 var TeamResolver = class {
-  cacheFilePath = path3.resolve(process.cwd(), "server", "data", "team_logos.json");
+  staticFilePath = path3.resolve(process.cwd(), "server", "data", "team_logos.json");
+  runtimeFilePath = path3.resolve(process.cwd(), "node_modules", ".cache", "fitet_cache", "team_logos.json");
   logos = {
     "ASD TENNISTAVOLO NUOVA LUZZI": "https://portale.fitet.org/images/societa/3260.jpg",
     "TENNISTAVOLO CASTROVILLARI": "https://portale.fitet.org/images/societa/3164.jpg",
@@ -1215,8 +1320,15 @@ var TeamResolver = class {
   }
   loadFromDisk() {
     try {
-      if (fs3.existsSync(this.cacheFilePath)) {
-        const raw = fs3.readFileSync(this.cacheFilePath, "utf-8");
+      if (fs3.existsSync(this.staticFilePath)) {
+        const raw = fs3.readFileSync(this.staticFilePath, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === "object") {
+          this.logos = { ...this.logos, ...parsed };
+        }
+      }
+      if (fs3.existsSync(this.runtimeFilePath)) {
+        const raw = fs3.readFileSync(this.runtimeFilePath, "utf-8");
         const parsed = JSON.parse(raw);
         if (typeof parsed === "object") {
           this.logos = { ...this.logos, ...parsed };
@@ -1228,9 +1340,9 @@ var TeamResolver = class {
   }
   saveToDisk() {
     try {
-      const dir = path3.dirname(this.cacheFilePath);
+      const dir = path3.dirname(this.runtimeFilePath);
       if (!fs3.existsSync(dir)) fs3.mkdirSync(dir, { recursive: true });
-      fs3.writeFileSync(this.cacheFilePath, JSON.stringify(this.logos, null, 2), "utf-8");
+      fs3.writeFileSync(this.runtimeFilePath, JSON.stringify(this.logos, null, 2), "utf-8");
     } catch (e) {
       console.error("Error saving team_logos.json:", e);
     }
@@ -1315,7 +1427,8 @@ var NAZIONALI = [
   { cid: 7, nome: "Paralimpici Naz." }
 ];
 var ChampionshipCatalog = class {
-  cacheFilePath = path4.resolve(process.cwd(), "server", "data", "campionati.json");
+  staticCacheFilePath = path4.resolve(process.cwd(), "server", "data", "campionati.json");
+  runtimeCacheFilePath = path4.resolve(process.cwd(), "node_modules", ".cache", "fitet_cache", "campionati.json");
   memoryCache = null;
   lastFetched = 0;
   TTL = 24 * 60 * 60 * 1e3;
@@ -1325,12 +1438,13 @@ var ChampionshipCatalog = class {
   }
   loadFromDisk() {
     try {
-      if (fs4.existsSync(this.cacheFilePath)) {
-        const raw = fs4.readFileSync(this.cacheFilePath, "utf-8");
+      const targetPath = fs4.existsSync(this.runtimeCacheFilePath) ? this.runtimeCacheFilePath : this.staticCacheFilePath;
+      if (fs4.existsSync(targetPath)) {
+        const raw = fs4.readFileSync(targetPath, "utf-8");
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           this.memoryCache = parsed;
-          const stat = fs4.statSync(this.cacheFilePath);
+          const stat = fs4.statSync(targetPath);
           this.lastFetched = stat.mtimeMs;
         }
       }
@@ -1340,9 +1454,9 @@ var ChampionshipCatalog = class {
   }
   saveToDisk(data) {
     try {
-      const dir = path4.dirname(this.cacheFilePath);
+      const dir = path4.dirname(this.runtimeCacheFilePath);
       if (!fs4.existsSync(dir)) fs4.mkdirSync(dir, { recursive: true });
-      fs4.writeFileSync(this.cacheFilePath, JSON.stringify(data, null, 2), "utf-8");
+      fs4.writeFileSync(this.runtimeCacheFilePath, JSON.stringify(data, null, 2), "utf-8");
     } catch (e) {
       console.error("Error saving campionati.json to disk:", e);
     }
@@ -1841,21 +1955,35 @@ function parseDettaglioAtleta(html, atletaId, partiteRanking) {
   if ($riepilogoTable.length > 0) {
     const rows = $riepilogoTable.find("tr");
     if (rows.length >= 2) {
-      const dataRow = $(rows[1]);
-      const dataCells = dataRow.find("td");
+      const headerCells = $(rows[0]).find("td, th");
+      const dataCells = $(rows[1]).find("td");
+      const headers = headerCells.map((_, c) => $(c).text().replace(/\s+/g, " ").trim().toUpperCase()).get();
+      const findCol = (re, fallback) => {
+        const i = headers.findIndex((h) => re.test(h));
+        return i >= 0 ? i : fallback;
+      };
+      const hasProtezione = headers.some((h) => /PROTEZIONE/.test(h));
+      const offset = hasProtezione ? 1 : 0;
+      const colIniziali = findCol(/INIZIALI/, 0);
+      const colTotali = findCol(/PUNTI TOTALI/, 1);
+      const colFinale = findCol(/PUNTEGGIO FINALE/, 2 + offset);
+      const colGiocate = findCol(/GIOCATE/, 3 + offset);
+      const colVinte = findCol(/VINTE/, 4 + offset);
+      const colPerse = findCol(/PERSE/, 5 + offset);
+      const colPerc = findCol(/%/, 6 + offset);
       if (dataCells.length >= 7) {
-        const initText = $(dataCells[0]).text().trim();
+        const initText = $(dataCells[colIniziali]).text().trim();
         const initMatch = initText.match(/([\d\.,]+)\s*\[?\s*(\d{2}\/\d{2}\/\d{4})?/);
         if (initMatch) {
           puntiIniziali = parseItalianNumber(initMatch[1]);
           puntiInizialiData = initMatch[2] || "";
         }
-        puntiTotali = parseItalianNumber($(dataCells[1]).text().trim());
-        punteggioFinale = parseItalianNumber($(dataCells[2]).text().trim()) || punti;
-        partiteGiocate = parseInt($(dataCells[3]).text().trim(), 10) || 0;
-        partiteVinte = parseInt($(dataCells[4]).text().trim(), 10) || 0;
-        partitePerse = parseInt($(dataCells[5]).text().trim(), 10) || 0;
-        percentualePositiva = parseItalianNumber($(dataCells[6]).text().trim().replace("%", ""));
+        puntiTotali = parseItalianNumber($(dataCells[colTotali]).text().trim());
+        punteggioFinale = parseItalianNumber($(dataCells[colFinale]).text().trim()) || punti;
+        partiteGiocate = parseInt($(dataCells[colGiocate]).text().trim(), 10) || 0;
+        partiteVinte = parseInt($(dataCells[colVinte]).text().trim(), 10) || 0;
+        partitePerse = parseInt($(dataCells[colPerse]).text().trim(), 10) || 0;
+        percentualePositiva = parseItalianNumber($(dataCells[colPerc]).text().trim().replace("%", ""));
       }
     }
   }
@@ -2459,8 +2587,78 @@ function parseDettaglioPartita(html, partitaId) {
   };
 }
 
-// server/app.ts
+// server/parsers/rankingParser.ts
 import * as cheerio11 from "cheerio";
+function parseRankingHtml(html, sesso = "M", currentPage = 1, comitId) {
+  const $ = cheerio11.load(html);
+  const titleText = $("td.style2 p.titoli, p.titoli").first().text().replace(/\s+/g, " ").trim();
+  const titleClean = titleText.replace(/\(Atleti:.*?\)/i, "").trim();
+  let totalAthletes = 0;
+  const atletiMatch = titleText.match(/Atleti:\s*(\d+)/i);
+  if (atletiMatch) {
+    totalAthletes = parseInt(atletiMatch[1], 10);
+  }
+  let totalPages = 1;
+  const scriptContent = $("script").text();
+  const pagesMatch = scriptContent.match(/totalPages:\s*(\d+)/);
+  if (pagesMatch) {
+    totalPages = parseInt(pagesMatch[1], 10);
+  } else if (totalAthletes > 0) {
+    totalPages = Math.ceil(totalAthletes / 100);
+  }
+  const isRegionale = !!comitId && comitId > 0;
+  const athletes = [];
+  $("table tr").each((_, tr) => {
+    const $tr = $(tr);
+    if ($tr.find("td.style2, td.style1, th").length > 0) return;
+    const athleteLink = $tr.find('a[onclick*="getScheda"]');
+    if (athleteLink.length === 0) return;
+    const athleteName = athleteLink.text().replace(/\s+/g, " ").trim();
+    const onclickAttr = athleteLink.attr("onclick") || "";
+    const idMatch = onclickAttr.match(/getScheda\s*\(\s*(\d+)/);
+    const atletaId = idMatch ? idMatch[1] : "";
+    const cells = [];
+    $tr.find("td").each((_2, td) => {
+      cells.push($(td).text().replace(/\s+/g, " ").trim());
+    });
+    if (cells.length >= 7) {
+      const rankNum = parseInt(cells[0].replace(/\D/g, ""), 10) || athletes.length + 1;
+      const dataNascita = cells[2] || "";
+      const settore = cells[3] || "";
+      const punti = parseFloat(cells[4].replace(",", ".")) || 0;
+      const posNazOrVariazione = cells[5] || "";
+      const provinciaOrRegione = cells[6] || "";
+      const categoria = cells[7] || "";
+      athletes.push({
+        rank: rankNum,
+        atletaId,
+        nome: athleteName,
+        dataNascita,
+        settore,
+        punti,
+        posNazOrVariazione,
+        provinciaOrRegione,
+        categoria
+      });
+    }
+  });
+  if (totalAthletes === 0) {
+    totalAthletes = athletes.length;
+  }
+  return {
+    title: titleClean || "Classifica Ufficiale FITeT",
+    sesso,
+    isRegionale,
+    comitId,
+    totalAthletes,
+    totalPages: Math.max(totalPages, 1),
+    currentPage,
+    athletes
+  };
+}
+
+// server/app.ts
+import * as cheerio12 from "cheerio";
 var app = express();
 app.use(cors());
 app.use(express.json());
@@ -2637,6 +2835,34 @@ app.get("/api/statistiche", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+app.get("/api/ranking", async (req, res) => {
+  const sesso = req.query.sesso === "F" ? "F" : "M";
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const comit = req.query.comit ? String(req.query.comit).trim() : "";
+  const forceRefresh = req.query.refresh === "true";
+  const isRegionale = !!comit && comit !== "0" && comit !== "all";
+  const comitId = isRegionale ? parseInt(comit, 10) : void 0;
+  const cacheKey = `ranking_${sesso}_${isRegionale ? `comit_${comitId}` : "naz"}_p${page}`;
+  try {
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      if (cached) return res.json(cached);
+    }
+    let url = "";
+    if (isRegionale) {
+      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=247&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
+    } else {
+      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=247&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
+    }
+    const html = await FitetClient.fetchHtml(url, true);
+    const result = parseRankingHtml(html, sesso, page, comitId);
+    cacheService.set(cacheKey, result, 60 * 60 * 1e3);
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching ranking:", error);
+    res.status(500).json({ error: "Errore nel recupero della classifica", details: error.message });
+  }
+});
 app.get("/api/atleta/:id", async (req, res) => {
   let { id } = req.params;
   const forceRefresh = req.query.refresh === "true";
@@ -2673,7 +2899,11 @@ app.get("/api/atleta/:id", async (req, res) => {
         const idClassMatch = iframeUrl.match(/\/html\/(\d+)\//i);
         const currentIdClass = idClassMatch ? parseInt(idClassMatch[1], 10) : 247;
         try {
-          partiteRanking = await headToHeadService.enrichRankingMatches(id, partiteRanking, currentIdClass);
+          const enrichPromise = headToHeadService.enrichRankingMatches(id, partiteRanking, currentIdClass);
+          const timeoutPromise = new Promise(
+            (resolve) => setTimeout(() => resolve(partiteRanking), 3500)
+          );
+          partiteRanking = await Promise.race([enrichPromise, timeoutPromise]);
         } catch (enrichErr) {
           console.warn(`[HeadToHead] Background enrichment warning for athlete ${id}:`, enrichErr);
         }
@@ -2868,7 +3098,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
         if (found) {
           squadraNome = found.squadra;
           const classHtml = await FitetClient.fetchClassifica(cam);
-          const $c = cheerio11.load(classHtml);
+          const $c = cheerio12.load(classHtml);
           $c('a[href*="SQUADRA="]').each((_, el) => {
             const text = $c(el).text().trim();
             if (text.toUpperCase() === found.squadra.toUpperCase()) {
@@ -2883,7 +3113,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
       if (!squadraId) {
         try {
           const classHtml = await FitetClient.fetchClassifica(cam);
-          const $c = cheerio11.load(classHtml);
+          const $c = cheerio12.load(classHtml);
           const candidateTeams = [];
           $c('a[href*="SQUADRA="]').each((_, el) => {
             const href = $c(el).attr("href") || "";
@@ -2918,7 +3148,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
     }
     const url = `https://portale.fitet.org/risultati/campionati/dettaglio_percentuali.php?IDA=${atletaId}&CAM=${cam}&SQUADRA=${squadraId}`;
     const html = await FitetClient.fetchHtml(url);
-    const $p = cheerio11.load(html);
+    const $p = cheerio12.load(html);
     const matches = [];
     const headerText = $p("table tr").first().text();
     if (!squadraNome) {
