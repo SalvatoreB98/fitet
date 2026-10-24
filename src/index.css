@@ -19,8 +19,8 @@ html {
 }
 
 :root {
-  --font-serif: 'Lora', 'Roboto', 'Inter', sans-serif;
-  --font-sans: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: 'Poppins', sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   /* Modern Federal Navy Palette */
   --color-primary-900: #0a192f;
