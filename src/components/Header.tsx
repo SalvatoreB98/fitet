@@ -26,6 +26,7 @@ interface HeaderProps {
   onOpenChampionshipModal?: () => void;
   onOpenFavoritesModal?: () => void;
   onOpenSearchModal?: () => void;
+  onOpenInstallAppModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -45,6 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenChampionshipModal,
   onOpenFavoritesModal,
   onOpenSearchModal,
+  onOpenInstallAppModal,
 }) => {
   const { favoritesCount } = useFavoriteAthletes();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -325,7 +327,29 @@ export const Header: React.FC<HeaderProps> = ({
                       <i className="bi bi-chevron-right burger-item-arrow"></i>
                     </button>
 
-                    {/* 7. Toggle Dark / Light Mode */}
+                    {/* 7. Scarica App */}
+                    {onOpenInstallAppModal && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="burger-menu-item"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onOpenInstallAppModal();
+                        }}
+                      >
+                        <div className="burger-item-icon-box icon-download">
+                          <i className="bi bi-download"></i>
+                        </div>
+                        <div className="burger-item-content">
+                          <span className="burger-item-title">Scarica App</span>
+                          <span className="burger-item-desc">Installa per uso a schermo intero (PWA)</span>
+                        </div>
+                        <i className="bi bi-chevron-right burger-item-arrow"></i>
+                      </button>
+                    )}
+
+                    {/* 8. Toggle Dark / Light Mode */}
                     {onToggleTheme && (
                       <div
                         role="menuitem"

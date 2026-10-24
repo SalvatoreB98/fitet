@@ -653,6 +653,16 @@ nav {
   color: #fbbf24;
 }
 
+.burger-item-icon-box.icon-download {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+[data-theme="dark"] .burger-item-icon-box.icon-download {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
 .burger-item-badge-count {
   font-size: 0.72rem;
   font-weight: 700;

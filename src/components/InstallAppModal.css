@@ -1,0 +1,262 @@
+/* ==========================================================================
+   Install App Modal Styles (Minimal PWA Guide, No Cards, No Gradients)
+   ========================================================================== */
+
+.install-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 25, 47, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: installFadeIn 0.2s ease-out;
+}
+
+@keyframes installFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.install-modal-box {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 16px;
+  max-width: 460px;
+  width: 100%;
+  padding: 24px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: installSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes installSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.install-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.install-modal-title {
+  font-family: var(--font-serif, serif);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+  margin: 0 0 4px 0;
+  line-height: 1.25;
+}
+
+.install-modal-subtitle {
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.install-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-hover, #f8fafc);
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.install-modal-close:hover {
+  background: var(--bg-th, #f1f5f9);
+  color: var(--text-dark, #0f172a);
+}
+
+/* Minimal OS Toggle (Pills) */
+.install-os-toggle {
+  display: flex;
+  background: var(--bg-th, #f1f5f9);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 4px;
+}
+
+.install-os-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.install-os-btn.is-active {
+  background: var(--bg-card, #ffffff);
+  color: var(--color-primary-600, #1d538e);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Steps List - Flat Minimal (No Cards) */
+.install-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 4px 0;
+}
+
+.install-step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.install-step-num {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bg-th, #f1f5f9);
+  color: var(--color-primary-600, #1d538e);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.install-step-text {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-main, #1e293b);
+}
+
+.install-step-text strong {
+  color: var(--text-dark, #0f172a);
+  font-weight: 600;
+}
+
+.install-step-text .install-inline-icon {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 2px;
+  font-size: 14px;
+  color: var(--color-primary-600, #1d538e);
+}
+
+/* Direct 1-tap install button (when available) */
+.install-direct-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  background: var(--color-primary-600, #1d538e);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.install-direct-btn:hover {
+  background: var(--color-primary-500, #2563eb);
+}
+
+/* Footer note */
+.install-footer-note {
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-light, #f1f5f9);
+}
+
+/* Dark theme overrides */
+[data-theme="dark"] .install-modal-box {
+  background: var(--bg-card, #0f1e36);
+  border-color: var(--border-color, #1e3a5f);
+}
+
+[data-theme="dark"] .install-modal-close {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .install-modal-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .install-os-toggle {
+  background: #152649;
+}
+
+[data-theme="dark"] .install-os-btn {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .install-os-btn.is-active {
+  background: #1e3a5f;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .install-step-num {
+  background: #152649;
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .install-step-text {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .install-step-text strong {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .install-step-text .install-inline-icon {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .install-footer-note {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+}

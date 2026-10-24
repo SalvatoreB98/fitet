@@ -1,0 +1,22 @@
+{
+  "name": "FITeT Campionati",
+  "short_name": "FITeT",
+  "description": "Risultati, Classifiche e Statistiche Tennistavolo FITeT",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1d538e",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/fitet-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

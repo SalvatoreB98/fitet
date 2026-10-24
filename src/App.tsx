@@ -15,6 +15,7 @@ import { ClassificheRankingTab } from './components/ClassificheRankingTab';
 import { BottomBar } from './components/BottomBar';
 import { SearchAtletaModal } from './components/SearchAtletaModal';
 import { FavoritesModal } from './components/FavoritesModal';
+import { InstallAppModal } from './components/InstallAppModal';
 import { registerTeamLogos } from './utils/teamLogos';
 import { addRecentAthlete, addRecentChampionship } from './utils/history';
 
@@ -50,6 +51,7 @@ export const App: React.FC = () => {
   const [isChampionshipModalOpen, setIsChampionshipModalOpen] = useState<boolean>(false);
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState<boolean>(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
 
   // Motion Graphic Intro on first access only
   const [showIntro, setShowIntro] = useState<boolean>(() => {
@@ -412,6 +414,7 @@ export const App: React.FC = () => {
         onOpenChampionshipModal={() => setIsChampionshipModalOpen(true)}
         onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
         onOpenSearchModal={() => setIsSearchModalOpen(true)}
+        onOpenInstallAppModal={() => setIsInstallModalOpen(true)}
       />
 
       {/* Loading Indicator for Championship screen */}
@@ -651,6 +654,12 @@ export const App: React.FC = () => {
         onClose={() => setIsFavoritesModalOpen(false)}
         onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
         onGoToSearch={() => setIsSearchModalOpen(true)}
+      />
+
+      {/* Install PWA Modal */}
+      <InstallAppModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
       />
 
       {/* Athlete Detail Profile Modal Stack */}
