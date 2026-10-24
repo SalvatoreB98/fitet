@@ -100,17 +100,6 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
       {/* Top Filter Bar */}
       <div className="ranking-filter-card">
         <div className="ranking-filter-header">
-          <div className="ranking-filter-title-group">
-            <div className="ranking-icon-badge">
-              <i className="bi bi-bar-chart-line-fill"></i>
-            </div>
-            <div>
-              <h2 className="ranking-title">Classifiche FITeT</h2>
-              <p className="ranking-subtitle">
-                Ranking ufficiale federale • {selectedRegionName} • {sesso === 'M' ? 'Maschile' : 'Femminile'}
-              </p>
-            </div>
-          </div>
 
           <div className="ranking-header-actions">
 
@@ -224,7 +213,21 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
           </button>
         </div>
       ) : data && data.athletes.length > 0 ? (
-        <div className="ranking-table-card">
+        <div className="ranking-card-block primary-official ranking-table-card">
+          <div className="ranking-section-header official-header">
+            <div className="official-title-group">
+              <span className="official-crown">
+                <i className="bi bi-trophy-fill text-warning"></i>
+              </span>
+              <div>
+                <div className="official-main-title">Classifica Ufficiale</div>
+              </div>
+            </div>
+            <div className="official-badge-group">
+              <span className="section-badge">{selectedRegionName} • {sesso === 'M' ? 'Maschile' : 'Femminile'}</span>
+            </div>
+          </div>
+
           <div className="table-responsive">
             <table className="ranking-table">
               <thead>
@@ -293,7 +296,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
 
                       {/* Punti */}
                       <td className="td-points text-end">
-                        <span className="points-val">{formatPoints(ath.punti)}</span>
+                        <span className="badge-points-official">{formatPoints(ath.punti)}</span>
                       </td>
 
                       {/* Pos Naz */}

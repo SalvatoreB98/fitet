@@ -213,137 +213,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
 
   return (
     <div className="home-container">
-      {/* ───────────────────────────────────────────────────────────
-          SEZIONE 1: ATLETI PREFERITI
-         ─────────────────────────────────────────────────────────── */}
-      <section className="home-section" aria-labelledby="heading-fav-athletes">
-        <div className="home-section-header">
-          <div className="home-section-title-wrap">
-            <div className="home-section-icon heart">
-              <i className="bi bi-star-fill text-warning"></i>
-            </div>
-            <h3 id="heading-fav-athletes" className="home-section-title">
-              Atleti Preferiti
-              {athletesCount > 0 && (
-                <span className="home-section-count">
-                  {athletesCount} {athletesCount === 1 ? 'salvato' : 'salvati'}
-                </span>
-              )}
-            </h3>
-          </div>
-
-          <button
-            type="button"
-            className="home-section-btn"
-            onClick={() => setIsSearchAtletaModalOpen(true)}
-            title="Cerca un atleta da salvare"
-          >
-            <i className="bi bi-search"></i>
-            <span>Cerca Giocatori</span>
-          </button>
-        </div>
-
-        {favoriteAthletes.length > 0 ? (
-          <div className="home-cards-grid">
-            {favoriteAthletes.map((athlete: FavoriteAthlete) => (
-              <div
-                key={`fav-athlete-${athlete.id}`}
-                className="home-borderless-card home-athlete-card"
-                onClick={() => onOpenAtletaModal(athlete.id, athlete.name)}
-              >
-                <div className="home-athlete-top">
-                  <div className="title-wrapper">
-                    <div className="home-athlete-profile">
-                      <div className="home-athlete-avatar-wrap">
-                        <AthleteAvatar
-                          atletaId={athlete.id}
-                          nome={athlete.name}
-                          size={46}
-                        />
-                      </div>
-                      <div className="home-athlete-info">
-                        <h4 className="home-card-title" title={athlete.name}>
-                          {athlete.name}
-                        </h4>
-                        {athlete.squadra ? (
-                          <div className="home-athlete-team" title={athlete.squadra}>
-                            <span>{athlete.squadra}</span>
-                          </div>
-                        ) : (
-                          <div className="home-athlete-team">
-                            <i className="bi bi-person"></i>
-                            <span>Tessera #{athlete.id}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="home-card-fav-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeAthleteFavorite(athlete.id);
-                      }}
-                      title="Rimuovi atleta dai preferiti"
-                      aria-label="Rimuovi atleta dai preferiti"
-                    >
-                      <i className="bi bi-star-fill text-warning"></i>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="home-athlete-stats-row">
-                  <div className="home-athlete-stat">
-                    <span className="home-athlete-stat-label">Ranking</span>
-                    <span className="home-athlete-stat-val rank">
-                      {athlete.ranking ? `#${athlete.ranking}` : '—'}
-                    </span>
-                  </div>
-                  <div className="home-athlete-stat">
-                    <span className="home-athlete-stat-label">Punti</span>
-                    <span className="home-athlete-stat-val points">
-                      {athlete.punti !== undefined && athlete.punti !== null
-                        ? athlete.punti.toLocaleString('it-IT')
-                        : '—'}
-                    </span>
-                  </div>
-                  <div className="home-athlete-stat">
-                    <span className="home-athlete-stat-label">Categoria</span>
-                    <span className="home-athlete-stat-val">
-                      {formatCategoria(athlete.categoria) || '—'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="home-card-footer-link">
-                  <span>Apri Scheda Atleta</span>
-                  <i className="bi bi-arrow-right"></i>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="home-empty-card">
-            <div className="home-empty-icon icon-heart">
-              <i className="bi bi-star"></i>
-            </div>
-            <h4 className="home-empty-title">Nessun Giocatore tra i Preferiti</h4>
-            <p className="home-empty-desc">
-              Cerca i tuoi compagni di squadra, avversari o atleti di riferimento e tocca la stella per salvarli
-              qui e consultarli in qualsiasi momento.
-            </p>
-            <button
-              type="button"
-              className="home-empty-btn"
-              onClick={() => setIsSearchAtletaModalOpen(true)}
-            >
-              <i className="bi bi-search"></i>
-              <span>Cerca e Aggiungi Atleta</span>
-            </button>
-          </div>
-        )}
-      </section>
 
       {/* ───────────────────────────────────────────────────────────
           SEZIONE 2: CAMPIONATI PREFERITI
@@ -351,9 +220,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       <section className="home-section" aria-labelledby="heading-fav-championships">
         <div className="home-section-header">
           <div className="home-section-title-wrap">
-            <div className="home-section-icon trophy">
-              <i className="bi bi-trophy-fill text-warning"></i>
-            </div>
             <h3 id="heading-fav-championships" className="home-section-title">
               {resolvedFavoriteChampionships.length > 0 ? 'Campionati Preferiti' : 'Campionato Attuale'}
               {resolvedFavoriteChampionships.length > 0 && (
@@ -376,7 +242,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         </div>
 
         {resolvedFavoriteChampionships.length > 0 ? (
-          <div className="home-cards-grid">
+          <div className="home-cards-grid home-cards-grid--compact">
             {resolvedFavoriteChampionships.map((champ) => {
               const serieKey = getChampionshipSerieKey(champ);
               const serieConfig = SERIE_CONFIGS[serieKey];
@@ -455,7 +321,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             })}
           </div>
         ) : currentChampionshipResolved ? (
-          <div className="home-cards-grid">
+          <div className="home-cards-grid home-cards-grid--compact">
             {(() => {
               const serieKey = getChampionshipSerieKey(currentChampionshipResolved);
               const serieConfig = SERIE_CONFIGS[serieKey];
@@ -582,6 +448,136 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       </section>
 
       {/* ───────────────────────────────────────────────────────────
+          SEZIONE 1: ATLETI PREFERITI
+         ─────────────────────────────────────────────────────────── */}
+      <section className="home-section" aria-labelledby="heading-fav-athletes">
+        <div className="home-section-header">
+          <div className="home-section-title-wrap">
+
+            <h3 id="heading-fav-athletes" className="home-section-title">
+              Atleti Preferiti
+              {athletesCount > 0 && (
+                <span className="home-section-count">
+                  {athletesCount} {athletesCount === 1 ? 'salvato' : 'salvati'}
+                </span>
+              )}
+            </h3>
+          </div>
+
+          <button
+            type="button"
+            className="home-section-btn"
+            onClick={() => setIsSearchAtletaModalOpen(true)}
+            title="Cerca un atleta da salvare"
+          >
+            <i className="bi bi-search"></i>
+            <span>Cerca Giocatori</span>
+          </button>
+        </div>
+
+        {favoriteAthletes.length > 0 ? (
+          <div className="home-cards-grid home-cards-grid--compact home-cards-grid--athletes">
+            {favoriteAthletes.map((athlete: FavoriteAthlete) => (
+              <div
+                key={`fav-athlete-${athlete.id}`}
+                className="home-borderless-card home-athlete-card"
+                onClick={() => onOpenAtletaModal(athlete.id, athlete.name)}
+              >
+                <div className="home-athlete-top">
+                  <div className="title-wrapper">
+                    <div className="home-athlete-profile">
+                      <div className="home-athlete-avatar-wrap">
+                        <AthleteAvatar
+                          atletaId={athlete.id}
+                          nome={athlete.name}
+                          size={46}
+                        />
+                      </div>
+                      <div className="home-athlete-info">
+                        <h4 className="home-card-title" title={athlete.name}>
+                          {athlete.name}
+                        </h4>
+                        {athlete.squadra ? (
+                          <div className="home-athlete-team" title={athlete.squadra}>
+                            <span>{athlete.squadra}</span>
+                          </div>
+                        ) : (
+                          <div className="home-athlete-team">
+                            <i className="bi bi-person"></i>
+                            <span>Tessera #{athlete.id}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="home-card-fav-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeAthleteFavorite(athlete.id);
+                      }}
+                      title="Rimuovi atleta dai preferiti"
+                      aria-label="Rimuovi atleta dai preferiti"
+                    >
+                      <i className="bi bi-star-fill text-warning"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="home-athlete-stats-row">
+                  <div className="home-athlete-stat">
+                    <span className="home-athlete-stat-label">Ranking</span>
+                    <span className="home-athlete-stat-val rank">
+                      {athlete.ranking ? `#${athlete.ranking}` : '—'}
+                    </span>
+                  </div>
+                  <div className="home-athlete-stat">
+                    <span className="home-athlete-stat-label">Punti</span>
+                    <span className="home-athlete-stat-val points">
+                      {athlete.punti !== undefined && athlete.punti !== null
+                        ? athlete.punti.toLocaleString('it-IT')
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="home-athlete-stat">
+                    <span className="home-athlete-stat-label">Categoria</span>
+                    <span className="home-athlete-stat-val">
+                      {formatCategoria(athlete.categoria) || '—'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="home-card-footer-link">
+                  <span>Apri Scheda Atleta</span>
+                  <i className="bi bi-arrow-right"></i>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="home-empty-card">
+            <div className="home-empty-icon icon-heart">
+              <i className="bi bi-star"></i>
+            </div>
+            <h4 className="home-empty-title">Nessun Giocatore tra i Preferiti</h4>
+            <p className="home-empty-desc">
+              Cerca i tuoi compagni di squadra, avversari o atleti di riferimento e tocca la stella per salvarli
+              qui e consultarli in qualsiasi momento.
+            </p>
+            <button
+              type="button"
+              className="home-empty-btn"
+              onClick={() => setIsSearchAtletaModalOpen(true)}
+            >
+              <i className="bi bi-search"></i>
+              <span>Cerca e Aggiungi Atleta</span>
+            </button>
+          </div>
+        )}
+      </section>
+
+      {/* ───────────────────────────────────────────────────────────
           SEZIONE 3: CRONOLOGIA ATLETI VISITATI
          ─────────────────────────────────────────────────────────── */}
       <section className="home-section" aria-labelledby="heading-recent-athletes">
@@ -614,7 +610,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         </div>
 
         {recentAthletes.length > 0 ? (
-          <div className="home-cards-grid">
+          <div className="home-cards-grid home-cards-grid--compact home-cards-grid--athletes">
             {recentAthletes.map((item) => {
               const isFav = isFavoriteAthlete(item.id);
 
@@ -735,7 +731,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         </div>
 
         {recentChampionships.length > 0 ? (
-          <div className="home-cards-grid">
+          <div className="home-cards-grid home-cards-grid--compact">
             {recentChampionships.map((item) => {
               const isFav = isFavoriteChamp(item.id);
               const serieKey = getChampionshipSerieKey(item);

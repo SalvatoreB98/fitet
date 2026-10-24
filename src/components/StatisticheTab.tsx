@@ -361,7 +361,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
                 ref={searchInputRef}
                 type="text"
                 className="search-expandable-input"
-                placeholder="Cerca atleta o squadra..."
+                placeholder="Cerca atleta nel girone"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />

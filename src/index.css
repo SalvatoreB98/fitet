@@ -1061,6 +1061,12 @@ nav {
   margin-top: 82px;
 }
 
+@media screen and (max-width: 768px) {
+  .portal-main.without-portal-nav {
+    margin-top: 70px;
+  }
+}
+
 .portal-title-static {
   margin: 0 auto;
   padding: 6px 14px;

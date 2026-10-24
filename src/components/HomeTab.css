@@ -296,6 +296,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  opacity: 0.7;
 }
 
 .home-section-icon {
@@ -323,7 +324,7 @@
 
 .home-section-title {
   font-family: var(--font-serif, serif);
-  font-size: 1.4rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--text-dark, #0f172a);
   margin: 0;
@@ -678,7 +679,7 @@
   background: var(--bg-card, #ffffff);
   border: 1.5px dashed var(--border-color, #cbd5e1);
   border-radius: 18px;
-  padding: 38px 24px;
+  padding: 1em;
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -853,7 +854,7 @@
 }
 
 .home-card-title {
-  font-family: var(--font-serif, serif);
+  font-family: var(--font-sans, sans-serif);
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--text-dark, #0f172a);
@@ -926,4 +927,256 @@
   cursor: pointer;
   padding-top: 6px;
   border-top: 1px solid var(--border-light, #f1f5f9);
+}
+
+/* ==========================================================================
+   Compact championship cards: one row per card
+   ========================================================================== */
+.home-cards-grid--compact {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.home-cards-grid--compact .home-borderless-card {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 14px;
+  padding: 8px 14px;
+  border-radius: 10px;
+}
+
+.home-cards-grid--compact .home-borderless-card:hover {
+  transform: none;
+}
+
+.home-cards-grid--compact .home-card-top {
+  order: 3;
+  flex-direction: row;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.home-cards-grid--compact .home-card-badges {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.home-cards-grid--compact .home-card-main {
+  order: 1;
+  flex: 1;
+  min-width: 0;
+}
+
+.home-cards-grid--compact .home-card-title {
+  font-size: 0.95rem;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-cards-grid--compact .home-card-sub {
+  display: none;
+}
+
+.home-cards-grid--compact .home-card-actions {
+  order: 2;
+  flex-shrink: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.home-cards-grid--compact .home-action-btn {
+  flex: none;
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+@media screen and (max-width: 768px) {
+  .home-cards-grid--compact .home-borderless-card {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+  }
+
+  .home-cards-grid--compact .home-card-main {
+    flex: 1 1 100%;
+  }
+
+  .home-cards-grid--compact .home-card-top {
+    order: 0;
+    flex: 1 1 100%;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .home-cards-grid--compact .home-card-main {
+    order: 1;
+  }
+
+  .home-cards-grid--compact .home-card-actions {
+    order: 2;
+    flex: 1 1 100%;
+  }
+
+  .home-cards-grid--compact .home-action-btn {
+    flex: 1;
+  }
+}
+
+/* ==========================================================================
+   Compact athlete cards: one row per card (desktop + mobile)
+   ========================================================================== */
+.home-cards-grid--athletes .home-athlete-card {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 6px 12px;
+  border-radius: 10px;
+}
+
+.home-cards-grid--athletes .home-athlete-card:hover {
+  transform: none;
+}
+
+.home-cards-grid--athletes .home-athlete-top,
+.home-cards-grid--athletes .home-athlete-top .title-wrapper {
+  display: contents;
+}
+
+.home-cards-grid--athletes .home-athlete-profile {
+  order: 1;
+  flex: 1;
+  gap: 10px;
+}
+
+.home-cards-grid--athletes .home-athlete-top .title-wrapper> :last-child {
+  order: 3;
+  flex-shrink: 0;
+}
+
+.home-cards-grid--athletes .home-card-title {
+  font-size: 0.92rem;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-cards-grid--athletes .home-athlete-team {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.home-cards-grid--athletes .home-athlete-team span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-cards-grid--athletes .home-athlete-stats-row {
+  order: 2;
+  display: flex;
+  gap: 14px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.home-cards-grid--athletes .home-athlete-stat-label {
+  font-size: 9.5px;
+  margin-bottom: 0;
+}
+
+.home-cards-grid--athletes .home-card-footer-link {
+  display: none;
+}
+
+@media screen and (max-width: 640px) {
+  .home-cards-grid--athletes .home-athlete-card {
+    gap: 8px;
+    padding: 6px 10px;
+  }
+
+  .home-cards-grid--athletes .home-athlete-profile {
+    gap: 8px;
+  }
+
+  .home-cards-grid--athletes .home-athlete-stat-label,
+  .home-cards-grid--athletes .home-athlete-stat:nth-child(3) {
+    display: none;
+  }
+
+  .home-cards-grid--athletes .home-athlete-stats-row {
+    background: transparent;
+    border: none;
+    padding: 0;
+    gap: 8px;
+  }
+
+  .home-cards-grid--athletes .home-athlete-team {
+    display: none;
+  }
+}
+
+.home-cards-grid--athletes .home-athlete-card {
+  flex-wrap: nowrap;
+}
+
+.home-cards-grid--athletes .home-athlete-profile {
+  min-width: 0;
+}
+
+/* Compact cards: always a single row, also on mobile */
+.home-cards-grid--compact .home-borderless-card {
+  flex-wrap: nowrap;
+}
+
+.home-cards-grid--compact .home-card-top>div:not(.home-card-badges) {
+  flex-shrink: 0;
+}
+
+@media screen and (max-width: 768px) {
+  .home-cards-grid--compact .home-borderless-card {
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 6px 10px;
+  }
+
+  .home-cards-grid--compact .home-card-main {
+    order: 1;
+    flex: 1 1 0;
+  }
+
+  .home-cards-grid--compact .home-card-actions {
+    order: 2;
+    flex: 0 0 auto;
+    gap: 4px;
+  }
+
+  .home-cards-grid--compact .home-card-top {
+    order: 3;
+    flex: 0 0 auto;
+    flex-direction: row-reverse;
+    gap: 4px;
+  }
+
+  .home-cards-grid--compact .home-action-btn {
+    flex: none;
+    padding: 6px 8px;
+  }
+
+  .home-cards-grid--compact .home-action-btn span,
+  .home-cards-grid--compact .home-soft-region,
+  .home-cards-grid--compact .home-current-badge,
+  .home-cards-grid--compact .home-soft-pill {
+    display: none;
+  }
+}
+
+.home-cards-grid--compact .home-card-footer-link {
+  display: none;
 }

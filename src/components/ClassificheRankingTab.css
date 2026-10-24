@@ -14,11 +14,8 @@
 
 /* Filter Card */
 .ranking-filter-card {
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 18px;
   padding: 18px 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -279,45 +276,50 @@
   color: #ef4444;
 }
 
-/* Table Card */
+/* Table Card: base look comes from .ranking-card-block.primary-official (index.css) */
 .ranking-table-card {
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: 18px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
+  background: var(--bg-container, #ffffff);
 }
 
 .ranking-table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 0.88rem;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .ranking-table thead th {
-  background: var(--bg-soft, #f8fafc);
-  color: var(--text-muted, #64748b);
-  font-size: 0.76rem;
+  background: var(--bg-th, #f8fafc);
+  color: #334155;
+  font-size: 11.5px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  text-transform: none;
+  letter-spacing: 0.04em;
+  padding: 0 8px;
+  height: 38px;
+  white-space: nowrap;
+  border-bottom: 2px solid #cbd5e1;
 }
 
 .ranking-table tbody tr {
   transition: background-color 0.15s ease;
   cursor: pointer;
+  background-color: var(--bg-container, #ffffff);
+}
+
+.ranking-table tbody tr:nth-child(odd) {
+  background-color: #e5eaee;
 }
 
 .ranking-table tbody tr:hover {
-  background-color: var(--bg-hover, #f1f5f9);
+  background-color: var(--bg-hover, #dbe3ea);
 }
 
 .ranking-table tbody td {
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--border-subtle, #f1f5f9);
+  padding: 0 8px;
+  height: 40px;
+  border-bottom: 1px solid var(--border-light, #e2e8f0);
   vertical-align: middle;
 }
 
@@ -394,7 +396,8 @@
   gap: 6px;
   color: var(--text-main, #0f172a);
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 12px;
+  padding-top: 5px;
   cursor: pointer;
 }
 
@@ -576,13 +579,6 @@
    Dark mode adjustments
    ========================================================================== */
 
-/* 1. Header & Filter Card */
-[data-theme="dark"] .ranking-filter-card {
-  background: #0d1a33;
-  border-color: #1a2d52;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-
 [data-theme="dark"] .ranking-title {
   color: #f8fafc;
 }
@@ -675,25 +671,23 @@
   color: #cbd5e1;
 }
 
-/* 5. Table & Table Card (ranking-table) */
-[data-theme="dark"] .ranking-table-card {
-  background: #0d1a33;
-  border-color: #1a2d52;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
-}
-
+/* 5. Table & Table Card: unified with .ranking-card-block.primary-official */
 [data-theme="dark"] .ranking-table {
   color: #cbd5e1;
 }
 
 [data-theme="dark"] .ranking-table thead th {
-  background: #091224;
-  color: #8899b5;
-  border-bottom: 1px solid #1a2d52;
+  background: #0e1a34;
+  color: #94a3b8;
+  border-bottom: 2px solid #1c3258;
 }
 
 [data-theme="dark"] .ranking-table tbody tr {
-  background: transparent;
+  background: var(--bg-container);
+}
+
+[data-theme="dark"] .ranking-table tbody tr:nth-child(odd) {
+  background: #0e1a33;
 }
 
 [data-theme="dark"] .ranking-table tbody tr:hover {
@@ -701,7 +695,7 @@
 }
 
 [data-theme="dark"] .ranking-table tbody td {
-  border-bottom: 1px solid #14223d;
+  border-bottom: 1px solid #121f38;
   color: #cbd5e1;
 }
 
