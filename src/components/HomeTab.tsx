@@ -10,6 +10,7 @@ import { useRecentHistory } from '../utils/history';
 import { fetchAtleta } from '../services/api';
 import { AthleteAvatar } from './AthleteAvatar';
 import { SearchAtletaModal } from './SearchAtletaModal';
+import { MarqueeText } from './MarqueeText';
 import {
   SERIE_CONFIGS,
   getChampionshipSerieKey,
@@ -318,9 +319,10 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                         />
                       </div>
                       <div className="home-athlete-info">
-                        <h4 className="home-card-title" title={athlete.name}>
-                          {athlete.name}
-                        </h4>
+                        <MarqueeText
+                          text={athlete.name}
+                          className="home-card-title"
+                        />
                         {athlete.squadra ? (
                           <div className="home-athlete-team" title={athlete.squadra}>
                             <span>{athlete.squadra}</span>
@@ -429,9 +431,10 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                           />
                         </div>
                         <div className="home-athlete-info">
-                          <h4 className="home-card-title" title={item.name}>
-                            {item.name}
-                          </h4>
+                          <MarqueeText
+                            text={item.name}
+                            className="home-card-title"
+                          />
                           <div className="home-athlete-team">
                             {item.squadra ? (
                               <span title={item.squadra}>{item.squadra}</span>

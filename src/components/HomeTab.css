@@ -1050,8 +1050,16 @@
 
 .home-cards-grid--athletes .home-athlete-profile {
   order: 1;
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
   gap: 10px;
+}
+
+.home-cards-grid--athletes .home-athlete-info {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .home-cards-grid--athletes .home-athlete-top .title-wrapper> :last-child {
@@ -1061,10 +1069,20 @@
 
 .home-cards-grid--athletes .home-card-title {
   font-size: 0.92rem;
+  font-weight: 700;
   margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.home-cards-grid--athletes .home-card-title.marquee-text-wrapper {
+  overflow: hidden !important;
+  text-overflow: clip !important;
+  max-width: 100%;
+  width: 100%;
+}
+
+.home-cards-grid--athletes .home-card-title .marquee-text-content {
+  text-overflow: clip !important;
 }
 
 .home-cards-grid--athletes .home-athlete-team {
@@ -1103,6 +1121,8 @@
 
   .home-cards-grid--athletes .home-athlete-profile {
     gap: 8px;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .home-cards-grid--athletes .home-athlete-stat-label,
@@ -1115,6 +1135,7 @@
     border: none;
     padding: 0;
     gap: 8px;
+    flex-shrink: 0;
   }
 
   .home-cards-grid--athletes .home-athlete-team {
@@ -1124,10 +1145,13 @@
 
 .home-cards-grid--athletes .home-athlete-card {
   flex-wrap: nowrap;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .home-cards-grid--athletes .home-athlete-profile {
   min-width: 0;
+  overflow: hidden;
 }
 
 /* Compact cards: always a single row, also on mobile */
