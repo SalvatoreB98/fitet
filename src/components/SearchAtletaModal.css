@@ -1,0 +1,61 @@
+/* ==========================================================================
+   Search Atleta Modal Styles
+   ========================================================================== */
+
+.search-atleta-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overscroll-behavior: contain;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1100;
+  height: 100vh;
+}
+
+.search-atleta-modal-card {
+  display: flex;
+  flex-direction: column;
+  max-width: 720px;
+  width: 94%;
+  max-height: 85vh;
+  max-height: 85dvh;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(10, 25, 47, 0.45);
+}
+
+.search-atleta-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 20px 20px;
+  overscroll-behavior: contain;
+}
+
+/* Mobile & Small Screens (Handles on-screen keyboard & safe areas) */
+@media (max-width: 768px) {
+  .search-atleta-modal-backdrop {
+    align-items: flex-start !important;
+    padding: 8px !important;
+    padding-top: max(8px, env(safe-area-inset-top)) !important;
+    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .search-atleta-modal-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100dvh - 16px) !important;
+    max-height: calc(100vh - 16px) !important;
+    margin-top: 0 !important;
+    border-radius: 14px !important;
+  }
+
+  .search-atleta-modal-body {
+    padding: 6px 12px 16px !important;
+  }
+}

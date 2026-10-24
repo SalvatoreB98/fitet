@@ -78,7 +78,7 @@
   border: none;
   outline: none;
   background: transparent;
-  font-size: 15px;
+  font-size: 16px; /* 16px prevents iOS Safari auto-zoom on focus */
   color: var(--text-dark, #0f172a);
   font-weight: 500;
   padding: 8px 0;
@@ -453,4 +453,78 @@
 
 .cerca-atleta-star-btn.is-favorited {
   color: #f59e0b;
+}
+
+/* ==========================================================================
+   Compact Mode (Inside Search Modal)
+   ========================================================================== */
+.cerca-atleta-container.is-compact {
+  padding: 0;
+  max-width: 100%;
+}
+
+.cerca-atleta-container.is-compact .cerca-atleta-search-box {
+  margin: 0 0 12px 0;
+  max-width: 100%;
+}
+
+.cerca-atleta-container.is-compact .cerca-atleta-input-wrapper {
+  padding: 4px 12px;
+}
+
+.cerca-atleta-container.is-compact .cerca-atleta-results-grid {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.cerca-atleta-container.is-compact .cerca-atleta-card {
+  padding: 10px 12px;
+  gap: 10px;
+}
+
+.cerca-atleta-container.is-compact .cerca-atleta-avatar {
+  width: 44px;
+  height: 44px;
+}
+
+.cerca-atleta-container.is-compact .cerca-atleta-initials {
+  font-size: 15px;
+}
+
+.cerca-atleta-container.is-compact .cerca-atleta-name {
+  font-size: 14px;
+  margin-bottom: 3px;
+}
+
+.cerca-atleta-container.is-compact .cerca-atleta-badge {
+  font-size: 11px;
+  padding: 1px 6px;
+}
+
+@media (max-width: 768px) {
+  .cerca-atleta-input {
+    font-size: 16px !important; /* Mandatory 16px on mobile to avoid iOS Safari zoom */
+  }
+
+  .cerca-atleta-container {
+    padding: 12px 8px;
+  }
+
+  .cerca-atleta-container.is-compact {
+    padding: 0;
+  }
+
+  .cerca-atleta-results-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .cerca-atleta-card {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .cerca-atleta-badge.team-badge {
+    max-width: 150px;
+  }
 }

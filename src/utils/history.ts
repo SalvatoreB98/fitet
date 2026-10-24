@@ -4,6 +4,9 @@ export interface RecentAthlete {
   id: string;
   name: string;
   squadra?: string;
+  ranking?: number;
+  punti?: number;
+  categoria?: string;
   timestamp: number;
 }
 
@@ -30,16 +33,27 @@ export function getRecentAthletes(): RecentAthlete[] {
   }
 }
 
-export function addRecentAthlete(athlete: { id: string; name: string; squadra?: string }): void {
+export function addRecentAthlete(athlete: {
+  id: string;
+  name: string;
+  squadra?: string;
+  ranking?: number;
+  punti?: number;
+  categoria?: string;
+}): void {
   if (typeof window === 'undefined' || !athlete.id) return;
   try {
     const current = getRecentAthletes();
+    const existing = current.find((a) => a.id === athlete.id);
     const filtered = current.filter((a) => a.id !== athlete.id);
     const updated: RecentAthlete[] = [
       {
         id: athlete.id,
         name: athlete.name,
-        squadra: athlete.squadra,
+        squadra: athlete.squadra ?? existing?.squadra,
+        ranking: athlete.ranking ?? existing?.ranking,
+        punti: athlete.punti ?? existing?.punti,
+        categoria: athlete.categoria ?? existing?.categoria,
         timestamp: Date.now(),
       },
       ...filtered,

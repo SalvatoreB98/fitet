@@ -3099,12 +3099,19 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
           squadraNome = found.squadra;
           const classHtml = await FitetClient.fetchClassifica(cam);
           const $c = cheerio12.load(classHtml);
+          const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const foundNorm = norm(found.squadra);
+
           $c('a[href*="SQUADRA="]').each((_, el) => {
             const text = $c(el).text().trim();
-            if (text.toUpperCase() === found.squadra.toUpperCase()) {
+            const textNorm = norm(text);
+            if (textNorm === foundNorm || textNorm.includes(foundNorm) || foundNorm.includes(textNorm)) {
               const href = $c(el).attr("href") || "";
               const m = href.match(/SQUADRA=(\d+)/i);
-              if (m) squadraId = m[1];
+              if (m && !squadraId) {
+                squadraId = m[1];
+                squadraNome = text;
+              }
             }
           });
         }
@@ -3120,18 +3127,23 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
             const m = href.match(/SQUADRA=(\d+)/i);
             if (m) candidateTeams.push({ id: m[1], name: $c(el).text().trim() });
           });
-          for (const team of candidateTeams) {
-            try {
-              const testUrl = `https://portale.fitet.org/risultati/campionati/dettaglio_percentuali.php?IDA=${atletaId}&CAM=${cam}&SQUADRA=${team.id}`;
-              const testHtml = await FitetClient.fetchHtml(testUrl);
-              const rowCount = (testHtml.match(/<tr[\s\S]*?<\/tr>/gi) || []).length;
-              if (rowCount > 2) {
-                squadraId = team.id;
-                squadraNome = team.name;
-                break;
-              }
-            } catch {
-            }
+          const testResults = await Promise.all(
+            candidateTeams.map(async (team) => {
+              try {
+                const testUrl = `https://portale.fitet.org/risultati/campionati/dettaglio_percentuali.php?IDA=${atletaId}&CAM=${cam}&SQUADRA=${team.id}`;
+                const testHtml = await FitetClient.fetchHtml(testUrl);
+                const rowCount = (testHtml.match(/<tr[\s\S]*?<\/tr>/gi) || []).length;
+                if (rowCount > 2) {
+                  return team;
+                }
+              } catch {}
+              return null;
+            })
+          );
+          const matchedTeam = testResults.find((t) => t !== null);
+          if (matchedTeam) {
+            squadraId = matchedTeam.id;
+            squadraNome = matchedTeam.name;
           }
         } catch {
         }

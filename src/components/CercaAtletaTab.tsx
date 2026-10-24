@@ -99,7 +99,17 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
   };
 
   useEffect(() => {
-    if (autoFocus && inputRef.current) {
+    if (!autoFocus || !inputRef.current) return;
+    // Don't auto-focus on mobile/touch screens: it forces the virtual keyboard to pop up
+    // immediately covering the modal, background and results before the user chooses to type
+    const isTouchOrMobile =
+      typeof window !== 'undefined' &&
+      (window.matchMedia('(pointer: coarse)').matches ||
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0 ||
+        window.innerWidth <= 768);
+
+    if (!isTouchOrMobile) {
       inputRef.current.focus();
     }
     return () => {
@@ -107,8 +117,17 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
     };
   }, [autoFocus]);
 
+  const handleDismissKeyboard = () => {
+    if (document.activeElement === inputRef.current) {
+      inputRef.current?.blur();
+    }
+  };
+
   return (
-    <div className={`cerca-atleta-container ${compactMode ? 'is-compact' : ''}`}>
+    <div
+      className={`cerca-atleta-container ${compactMode ? 'is-compact' : ''}`}
+      onTouchMove={handleDismissKeyboard}
+    >
 
       {!hideHeader && (
         <div className="cerca-atleta-header">
@@ -129,11 +148,21 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
           <i className="bi bi-search cerca-atleta-input-icon"></i>
           <input
             ref={inputRef}
-            type="text"
+            type="search"
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck="false"
             className="cerca-atleta-input"
             placeholder="Cerca atleta per cognome o nome (es. BUTERA S, ROSSI, BOBOCICA)..."
             value={query}
             onChange={handleInputChange}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                inputRef.current?.blur();
+              }
+            }}
             aria-label="Cerca atleta FITeT"
           />
           {loading && (

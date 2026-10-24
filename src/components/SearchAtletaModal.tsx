@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { CercaAtletaTab } from './CercaAtletaTab';
+import './SearchAtletaModal.css';
 
 interface SearchAtletaModalProps {
   isOpen: boolean;
@@ -39,7 +40,6 @@ export const SearchAtletaModal: React.FC<SearchAtletaModalProps> = ({
       <div
         className="modal-card-simple search-atleta-modal-card"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '720px', width: '94%' }}
       >
         <div className="modal-header-simple">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
@@ -66,10 +66,10 @@ export const SearchAtletaModal: React.FC<SearchAtletaModalProps> = ({
           </button>
         </div>
 
-        <div className="modal-body-simple" style={{ padding: '8px 20px 20px', maxHeight: '78vh', overflowY: 'auto' }}>
+        <div className="modal-body-simple search-atleta-modal-body">
           <CercaAtletaTab
             compactMode
-            autoFocus
+            autoFocus={false}
             hideHeader
             hideFavorites
             onOpenAtletaModal={(id, name) => {
@@ -83,3 +83,4 @@ export const SearchAtletaModal: React.FC<SearchAtletaModalProps> = ({
     document.body
   );
 };
+

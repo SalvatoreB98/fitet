@@ -9,6 +9,7 @@ import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { MarqueeText } from './MarqueeText';
 import { recordAndGetAthleteViews } from '../utils/athleteViews';
 import { useFavoriteAthletes, saveFavoriteAthlete } from '../utils/favorites';
+import { addRecentAthlete } from '../utils/history';
 
 interface AtletaModalProps {
   atletaId: string;
@@ -135,16 +136,58 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
     setError(null);
     setImgError(false);
 
+    // 1. Se camId è presente, avvia SUBITO il recupero delle partite del campionato in parallelo
+    if (camId) {
+      setLoadingPartite(true);
+      fetchAtletaCampionatoPartite(atletaId, camId, undefined, athleteName)
+        .then((res) => {
+          if (isMounted) {
+            const matches = res.matches || [];
+            setCampionatoPartite(matches);
+            setSquadraCampionato(res.squadra || null);
+            setLoadingPartite(false);
+
+            // Se non ci sono partite in questo girone ma ci sono partite di ranking, passerà a ranking
+            if (matches.length === 0 && (atleta?.partiteRanking?.campionato.length || atleta?.partiteRanking?.tornei.length)) {
+              setMatchTab('ranking');
+            } else if (matches.length > 0) {
+              setMatchTab('girone');
+            }
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setCampionatoPartite([]);
+            setLoadingPartite(false);
+          }
+        });
+    } else {
+      setLoadingPartite(false);
+      setMatchTab('ranking');
+    }
+
+    // 2. Recupera i dati anagrafici e ranking dell'atleta
     fetchAtleta(atletaId)
       .then((data) => {
         if (isMounted) {
           setAtleta(data);
           setLoading(false);
 
+          const storico = data.storicoClassifica || [];
+          const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
+
+          // Sincronizza anche la cronologia recente con i dati anagrafici e di ranking reali
+          addRecentAthlete({
+            id: data.id,
+            name: data.anagrafica.nome,
+            squadra: data.anagrafica.societa || undefined,
+            ranking: ultimoSnapshot?.posizione ?? undefined,
+            punti: data.anagrafica.punti ?? ultimoSnapshot?.punti ?? undefined,
+            categoria: data.anagrafica.categoria ?? ultimoSnapshot?.categoria ?? undefined,
+          });
+
           // Se l'atleta è nei preferiti, mantieni sincronizzati ranking reale, punti e categoria
           if (isFavorite(data.id) || isFavorite(data.anagrafica.nome)) {
-            const storico = data.storicoClassifica || [];
-            const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
             saveFavoriteAthlete({
               id: data.id,
               name: data.anagrafica.nome,
@@ -157,37 +200,23 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             });
           }
 
-          // Se non c'è un campionato attivo aperto, mostra direttamente il tab del ranking
+          // Se non c'è camId, mostra direttamente ranking
           if (!camId) {
             setMatchTab('ranking');
           }
 
-          // Se camId è presente e non abbiamo ancora provato con il nome anagrafico risolto
-          if (camId) {
-            setLoadingPartite(true);
-            fetchAtletaCampionatoPartite(atletaId, camId, undefined, athleteName || data.anagrafica.nome)
+          // Se camId è presente ma athleteName non era passato e abbiamo bisogno del nome anagrafico per risolvere la squadra
+          if (camId && !athleteName && data.anagrafica?.nome) {
+            fetchAtletaCampionatoPartite(atletaId, camId, undefined, data.anagrafica.nome)
               .then((res) => {
-                if (isMounted) {
-                  const matches = res.matches || [];
-                  setCampionatoPartite(matches);
+                if (isMounted && res.matches && res.matches.length > 0) {
+                  setCampionatoPartite(res.matches);
                   setSquadraCampionato(res.squadra || null);
                   setLoadingPartite(false);
-
-                  // Se non ci sono partite in questo girone ma ci sono partite di ranking, passa a ranking
-                  if (matches.length === 0 && (data.partiteRanking?.campionato.length || data.partiteRanking?.tornei.length)) {
-                    setMatchTab('ranking');
-                  } else {
-                    setMatchTab('girone');
-                  }
+                  setMatchTab('girone');
                 }
               })
-              .catch(() => {
-                if (isMounted) {
-                  setCampionatoPartite([]);
-                  setLoadingPartite(false);
-                  setMatchTab('ranking');
-                }
-              });
+              .catch(() => {});
           }
         }
       })
@@ -599,9 +628,18 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                   unifiedRankingMatches.sort((a, b) => parseDateIT(b.data) - parseDateIT(a.data));
 
-                  const activeTabResolved = (camId && hasGironeMatches) ? matchTab : 'ranking';
+                  const activeTabResolved =
+                    camId && (loadingPartite || hasGironeMatches)
+                      ? matchTab
+                      : hasGironeMatches
+                      ? 'girone'
+                      : totalRankingMatches > 0
+                      ? 'ranking'
+                      : camId
+                      ? 'girone'
+                      : 'ranking';
 
-                  // Nessuna partita disponibile (né girone né ranking): nascondi l'intera sezione
+                  // Nessuna partita disponibile (né girone né ranking): nascondi l'intera sezione solo quando il caricamento è terminato
                   if (!hasGironeMatches && totalRankingMatches === 0 && !loadingPartite) return null;
 
                   return (
