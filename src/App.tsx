@@ -66,6 +66,8 @@ export const App: React.FC = () => {
     setShowIntro(false);
     if (typeof window !== 'undefined') {
       localStorage.setItem('fitet_intro_completed', 'true');
+      // Redirect to the championship view (drops ?intro=1 and other params)
+      window.location.replace('/?view=campionato');
     }
   };
 
