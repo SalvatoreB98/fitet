@@ -288,7 +288,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                             {/* Mobile submeta */}
                             <div className="athlete-mobile-meta show-xs">
                               {ath.provinciaOrRegione && <span>{ath.provinciaOrRegione}</span>}
-                              {ath.settore && <span> • Settore {ath.settore}</span>}
+                              {ath.settore && <span> • {ath.settore}</span>}
                             </div>
                           </div>
                         </div>
