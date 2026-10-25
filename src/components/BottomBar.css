@@ -118,7 +118,7 @@
 /* Dark Mode styles */
 [data-theme="dark"] .portal-bottom-bar {
   background: rgba(15, 23, 42, 0.88);
-  border-color: rgba(51, 65, 85, 0.8);
+  border: none;
   box-shadow:
     0 16px 40px -4px rgba(0, 0, 0, 0.6),
     0 6px 16px -2px rgba(0, 0, 0, 0.3),
