@@ -103,32 +103,6 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
       <div className="ranking-filter-card">
         <div className="ranking-filter-header">
 
-          <div className="ranking-header-actions">
-
-            <button
-              type="button"
-              className="ranking-refresh-btn"
-              onClick={() => loadRanking(page, sesso, comitId, true)}
-              disabled={loading || refreshing}
-              title="Aggiorna dati classifica"
-            >
-              <i className={`bi bi-arrow-clockwise ${refreshing ? 'spin-anim' : ''}`}></i>
-              <span>{refreshing ? 'Aggiornamento...' : 'Aggiorna'}</span>
-            </button>
-
-            <button
-              type="button"
-              className="ranking-refresh-btn"
-              onClick={() => onOpenSearchModal?.()}
-              title="Cerca atleta"
-            >
-              <i className="bi bi-search"></i>
-              <span>Cerca atleta</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="ranking-controls-row">
           {/* Gender Selector Buttons */}
           <div className="ranking-gender-group" role="group" aria-label="Sesso">
             <button
@@ -148,7 +122,9 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
               Femminile
             </button>
           </div>
+        </div>
 
+        <div className="ranking-controls-row">
           {/* Region Dropdown */}
           <div className="ranking-region-select-wrap">
             <label htmlFor="ranking-region-select" className="ranking-select-label">
@@ -172,22 +148,6 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
             </div>
           </div>
         </div>
-
-        {/* Info summary strip */}
-        {data && (
-          <div className="ranking-summary-strip">
-            <span className="ranking-official-title">{data.title}</span>
-            <div className="ranking-badges-group">
-              <span className="ranking-pill-badge">
-                <i className="bi bi-people-fill me-1"></i>
-                {data.totalAthletes} {data.totalAthletes === 1 ? 'Atleta' : 'Atleti totali'}
-              </span>
-              <span className="ranking-pill-badge">
-                Pagina {data.currentPage} di {data.totalPages}
-              </span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Main Content Area */}

@@ -1591,6 +1591,8 @@ nav {
 .match-meta-phase {
   font-weight: 500;
   color: var(--text-muted, #64748b);
+  opacity: 0.5;
+  font-style: italic;
 }
 
 .match-card-status {
@@ -1656,7 +1658,6 @@ nav {
 
 .team-name-text.name-winner,
 .team-name-text.name-winner .marquee-text-content {
-  font-weight: 700;
   color: var(--text-dark, #0f172a);
 }
 
@@ -1664,14 +1665,14 @@ nav {
 .team-name-text.name-loser .marquee-text-content {
   font-weight: 400;
   color: var(--text-muted, #64748b);
-  opacity: 0.85;
+  opacity: 1;
 }
 
 .team-name-text.name-neutral,
 .team-name-text.name-neutral .marquee-text-content {
-  font-weight: 100;
-  opacity: 0.7;
-  color: var(--text-dark, #0f172a);
+  font-weight: 400;
+  color: var(--text-muted, #64748b);
+  opacity: 1;
 }
 
 /* Pure tabular score digits - No box, no border, no background */
@@ -6701,24 +6702,19 @@ body.modal-open {
 }
 
 .badge-nationality-flag {
-  font-size: 9.5px;
-  font-weight: 700;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: white;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
-  flex-shrink: 0;
   position: absolute;
-  left: 25px;
-  top: 0;
+  bottom: 7px;
+  left: 5px;
+}
+
+.badge-nationality-flag img {
+  width: 10px;
+  height: auto;
 }
 
 .player-row-cell {
   position: relative;
 }
-
-[data-theme="dark"] .badge-nationality-flag {}
 
 .btn-scheda-compact {
   padding: 3px 8px;
@@ -7261,4 +7257,16 @@ body.modal-open {
   100% {
     left: 100%;
   }
+}
+
+.atleta-modal-team-logo {
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 100%;
+}
+
+.actual-giornata {
+  opacity: 0.5;
+  font-size: 12px;
+  font-style: italic;
 }

@@ -3077,13 +3077,22 @@ app.get("/api/atleta/:id", async (req, res) => {
         nome: foundCamp.nome,
         categoria: foundCamp.categoria,
         regione: foundCamp.regione,
-        squadra: foundCamp.squadra
+        squadra: foundCamp.squadra,
+        logoUrl: foundCamp.squadra ? teamResolver.getLogo(foundCamp.squadra) : undefined
       };
     }
+
+    // Risoluzione logo società atleta
+    if (atleta?.anagrafica?.societa) {
+      atleta.anagrafica.logoUrl = teamResolver.getLogo(atleta.anagrafica.societa)
+        || (foundCamp?.squadra ? teamResolver.getLogo(foundCamp.squadra) : undefined);
+    }
+
     const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith("Atleta ") || atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0);
     if (!isHollow) {
       cacheService.set(cacheKey, atleta, TTL_ATLETA);
     }
+
     if (partiteRanking && (partiteRanking.campionato.length > 0 || partiteRanking.tornei.length > 0)) {
       headToHeadService.enrichRankingMatches(id, partiteRanking, resolvedIdClass).then((enriched) => {
         if (enriched && !isHollow) {

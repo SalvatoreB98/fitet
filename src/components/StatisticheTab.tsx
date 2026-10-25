@@ -300,7 +300,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
           </span>
           {a.nazionalita && a.nazionalita !== 'IT' && (
             <span className="badge-nationality-flag" title={`Nazionalità: ${a.nazionalita}`} style={{ fontSize: '5px' }}>
-              {a.nazionalita}
+              <img src={`https://portale.fitet.org/images/bandiere/${a.nazionalita}.png`} alt="" />
             </span>
           )}
         </div>

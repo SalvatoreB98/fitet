@@ -245,6 +245,7 @@ export interface DettaglioAtleta {
     punti: number;
     stato: string;
     recordClassifica?: string;
+    logoUrl?: string;
   };
   riepilogo: {
     puntiIniziali: number;

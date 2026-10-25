@@ -10,6 +10,7 @@ import { MarqueeText } from './MarqueeText';
 import { recordAndGetAthleteViews } from '../utils/athleteViews';
 import { useFavoriteAthletes, saveFavoriteAthlete } from '../utils/favorites';
 import { addRecentAthlete } from '../utils/history';
+import { TeamLogo } from './TeamLogo';
 
 interface AtletaModalProps {
   atletaId: string;
@@ -474,7 +475,11 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     {atleta.anagrafica.nome}
                   </div>
                   <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    <strong>Società:</strong> {atleta.anagrafica.societa || 'N.D.'} {atleta.anagrafica.regione && `(${atleta.anagrafica.regione})`}
+                    <TeamLogo
+                      teamName={atleta.anagrafica.societa}
+                      logoUrl={atleta.anagrafica.logoUrl}
+                      className="atleta-modal-team-logo me-2"
+                    /> {atleta.anagrafica.societa || 'N.D.'} {atleta.anagrafica.regione && `(${atleta.anagrafica.regione})`}
                   </div>
 
                   {/* Secondary subtle metadata text: Birth date and Profile Views */}
@@ -507,9 +512,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     )}
                     {atleta.anagrafica.settore && (
                       <span className="badge badge-neutral">{atleta.anagrafica.settore}</span>
-                    )}
-                    {atleta.anagrafica.stato && atleta.anagrafica.stato !== 'Attivo' && (
-                      <span className="badge badge-neutral">{atleta.anagrafica.stato}</span>
                     )}
                   </div>
                 </div>

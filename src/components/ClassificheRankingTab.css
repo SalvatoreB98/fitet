@@ -205,22 +205,6 @@
   color: var(--text-muted, #64748b);
   font-size: 0.75rem;
 }
-
-/* Summary Strip */
-.ranking-summary-strip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  background: var(--bg-soft, #f8fafc);
-  padding: 8px 14px;
-  border-radius: 10px;
-  font-size: 0.8rem;
-  color: var(--text-muted, #475569);
-  border: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.04));
-}
-
 .ranking-official-title {
   font-weight: 600;
   color: var(--text-main, #1e293b);
@@ -696,13 +680,6 @@
 }
 
 [data-theme="dark"] .ranking-select-chevron {
-  color: #8899b5;
-}
-
-/* 4. Summary Strip (ranking-summary-strip) */
-[data-theme="dark"] .ranking-summary-strip {
-  background: #091224;
-  border-color: #1a2d52;
   color: #8899b5;
 }
 
