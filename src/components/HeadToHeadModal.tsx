@@ -205,7 +205,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                       {onSelectAthlete && player2.id ? (
                         <button
                           type="button"
-                          onClick={() => onSelectAthlete(player2.id, player2.nome)}
+
                           className="h2h-player-link-inline"
                         >
                           {player2.nome}
