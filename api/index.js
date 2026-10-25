@@ -1839,6 +1839,20 @@ function formatDateItalian(val) {
   }
   return clean;
 }
+function isCurrentSeasonDate(dateStr) {
+  if (!dateStr) return true;
+  const m = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/) || dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    const year = parseInt(m[3] && m[3].length === 4 ? m[3] : m[1], 10);
+    const month = parseInt(m[3] && m[3].length === 4 ? m[2] : m[2], 10);
+    if (year < 2026) return false;
+    if (year === 2026 && month < 7) return false;
+    if (year > 2027) return false;
+    if (year === 2027 && month > 6) return false;
+    return true;
+  }
+  return true;
+}
 function parsePartiteRanking(html, atletaId) {
   const $ = cheerio7.load(html);
   let $p = $(`#player_${atletaId}`);
@@ -1868,7 +1882,9 @@ function parsePartiteRanking(html, atletaId) {
     const text = $(h3).text().replace(/\s+/g, " ").toLowerCase();
     const table = $(h3).nextAll("table").first();
     if (!table.length) return;
-    if (text.includes("campionato")) {
+    const headerText = table.find("th, tr:first-child td").text().toLowerCase();
+    if (!headerText.includes("avversario")) return;
+    if (text.includes("campionato") && !text.includes("punti") && !text.includes("posizionamento")) {
       table.find("tbody tr").each((_2, tr) => {
         const cells = $(tr).find("td");
         if (cells.length < 4) return;
@@ -1877,6 +1893,7 @@ function parsePartiteRanking(html, atletaId) {
         const rawData = $(cells[0]).text().trim();
         if (!rawData || !rawData.includes("/") && !rawData.includes("-")) return;
         const data = formatDateItalian(rawData);
+        if (!isCurrentSeasonDate(data)) return;
         let campionato = "";
         let punti = 0;
         let ris = "";
@@ -1920,7 +1937,7 @@ function parsePartiteRanking(html, atletaId) {
           stato
         });
       });
-    } else if (text.includes("torne")) {
+    } else if (text.includes("torne") && !text.includes("punti") && !text.includes("posizionamento") && !text.includes("vinti nei gironi")) {
       table.find("tbody tr").each((_2, tr) => {
         const cells = $(tr).find("td");
         if (cells.length < 5) return;
@@ -1929,6 +1946,7 @@ function parsePartiteRanking(html, atletaId) {
         const rawData = $(cells[0]).text().trim();
         if (!rawData || !rawData.includes("/") && !rawData.includes("-")) return;
         const data = formatDateItalian(rawData);
+        if (!isCurrentSeasonDate(data)) return;
         const torneo = $(cells[1]).text().trim();
         const gara = $(cells[2]).text().trim();
         const stato = $(cells[3]).text().trim();
@@ -1940,6 +1958,7 @@ function parsePartiteRanking(html, atletaId) {
         const avversarioId = idMatch ? idMatch[1] : void 0;
         const fase = cells.length >= 6 ? $(cells[5]).text().trim() : void 0;
         const ris = cells.length >= 7 ? $(cells[6]).text().trim() : $(cells[cells.length - 1]).text().trim();
+        if (ris.toUpperCase() !== "V" && ris.toUpperCase() !== "S" && ris.toLowerCase() !== "win" && ris.toLowerCase() !== "loss") return;
         const isVittoria = ris.toUpperCase() === "V" || ris.toLowerCase() === "win";
         const isDiscarded = $(tr).hasClass("discarded") || ris.toUpperCase() === "S";
         result.tornei.push({
@@ -2931,7 +2950,7 @@ app.get("/api/ranking", async (req, res) => {
 });
 app.get("/api/atleta/:id", async (req, res) => {
   let { id } = req.params;
-  const forceRefresh = req.query.refresh === "true";
+  const forceRefresh = req.query.refresh === "true" || req.query.force === "true";
   if (!id || id === "null" || id === "undefined") {
     return res.status(400).json({ error: "ID atleta non valido" });
   }

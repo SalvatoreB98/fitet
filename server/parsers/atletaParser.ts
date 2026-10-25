@@ -67,6 +67,25 @@ function formatDateItalian(val: string): string {
 }
 
 /**
+ * Verifica se una data appartiene alla stagione sportiva corrente (2026/2027: da 01/07/2026 a 30/06/2027)
+ */
+export function isCurrentSeasonDate(dateStr: string): boolean {
+  if (!dateStr) return true;
+  const m = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/) || dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    const year = parseInt(m[3] && m[3].length === 4 ? m[3] : m[1], 10);
+    const month = parseInt(m[3] && m[3].length === 4 ? m[2] : m[2], 10);
+    // Stagione sportiva corrente 2026/2027: da Luglio 2026 a Giugno 2027
+    if (year < 2026) return false;
+    if (year === 2026 && month < 7) return false;
+    if (year > 2027) return false;
+    if (year === 2027 && month > 6) return false;
+    return true;
+  }
+  return true;
+}
+
+/**
  * Parsa la pagina HTML caricata dall'iframe di ranking (contenente gli incontri di campionato e torneo)
  */
 export function parsePartiteRanking(html: string, atletaId: string): PartiteRankingAtleta {
@@ -104,7 +123,11 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
     const table = $(h3).nextAll('table').first();
     if (!table.length) return;
 
-    if (text.includes('campionato')) {
+    // Verifica che sia effettivamente una tabella di incontri (deve contenere 'avversario' nell'intestazione)
+    const headerText = table.find('th, tr:first-child td').text().toLowerCase();
+    if (!headerText.includes('avversario')) return;
+
+    if (text.includes('campionato') && !text.includes('punti') && !text.includes('posizionamento')) {
       table.find('tbody tr').each((_, tr) => {
         const cells = $(tr).find('td');
         if (cells.length < 4) return;
@@ -114,6 +137,7 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
         const rawData = $(cells[0]).text().trim();
         if (!rawData || (!rawData.includes('/') && !rawData.includes('-'))) return;
         const data = formatDateItalian(rawData);
+        if (!isCurrentSeasonDate(data)) return;
 
         let campionato = '';
         let punti = 0;
@@ -163,7 +187,7 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
           stato,
         });
       });
-    } else if (text.includes('torne')) {
+    } else if (text.includes('torne') && !text.includes('punti') && !text.includes('posizionamento') && !text.includes('vinti nei gironi')) {
       table.find('tbody tr').each((_, tr) => {
         const cells = $(tr).find('td');
         if (cells.length < 5) return;
@@ -173,6 +197,7 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
         const rawData = $(cells[0]).text().trim();
         if (!rawData || (!rawData.includes('/') && !rawData.includes('-'))) return;
         const data = formatDateItalian(rawData);
+        if (!isCurrentSeasonDate(data)) return;
 
         const torneo = $(cells[1]).text().trim();
         const gara = $(cells[2]).text().trim();
@@ -185,6 +210,9 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
         const avversarioId = idMatch ? idMatch[1] : undefined;
         const fase = cells.length >= 6 ? $(cells[5]).text().trim() : undefined;
         const ris = cells.length >= 7 ? $(cells[6]).text().trim() : $(cells[cells.length - 1]).text().trim();
+        
+        // Risultato dell'incontro deve essere V (vinto) o S (perso)
+        if (ris.toUpperCase() !== 'V' && ris.toUpperCase() !== 'S' && ris.toLowerCase() !== 'win' && ris.toLowerCase() !== 'loss') return;
         const isVittoria = ris.toUpperCase() === 'V' || ris.toLowerCase() === 'win';
         const isDiscarded = $(tr).hasClass('discarded') || ris.toUpperCase() === 'S';
 

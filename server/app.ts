@@ -303,7 +303,7 @@ app.get('/api/ranking', async (req, res) => {
 // 5. Scheda Singolo Atleta
 app.get('/api/atleta/:id', async (req, res) => {
     let { id } = req.params;
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = req.query.refresh === 'true' || req.query.force === 'true';
 
     if (!id || id === 'null' || id === 'undefined') {
         return res.status(400).json({ error: 'ID atleta non valido' });
