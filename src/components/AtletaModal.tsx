@@ -699,11 +699,11 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                   unifiedRankingMatches.sort((a, b) => parseDateIT(b.data) - parseDateIT(a.data));
 
-                  const activeTabResolved =
-                    camId && (loadingPartite || hasGironeMatches)
+                  const activeTabResolved: 'girone' | 'ranking' =
+                    hasGironeMatches
+                      ? (matchTab === 'ranking' && totalRankingMatches > 0 ? 'ranking' : 'girone')
+                      : camId && loadingPartite
                       ? matchTab
-                      : hasGironeMatches
-                      ? 'girone'
                       : totalRankingMatches > 0
                       ? 'ranking'
                       : camId
