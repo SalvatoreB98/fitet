@@ -113,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="portal-header">
           <div className='portal-header-logo'>
             <a href="https://portale.fitet.org/" target="_blank" rel="noopener noreferrer">
-              <img className='logo-fitet' src="logo-fitet-portal.png" alt="FITeT" />
+              <img className='logo-fitet' src="bw.png" alt="FITeT" />
             </a>
           </div>
 
