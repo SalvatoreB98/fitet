@@ -6887,4 +6887,346 @@ body.modal-open {
 .spin-icon {
   display: inline-block;
   animation: spin-icon-anim 0.8s linear infinite;
-}
+}
+
+/* ========================================================
+   PING PONG BALLS LOADER (Federal Table Tennis Animation)
+   ======================================================== */
+.ping-pong-loader-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  min-height: 420px;
+  width: 100%;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.ping-pong-loader-card {
+  position: relative;
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 20px;
+  box-shadow: 0 12px 36px -4px rgba(0, 0, 0, 0.08), 0 4px 16px -2px rgba(0, 0, 0, 0.04);
+  padding: 36px 28px;
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+[data-theme="dark"] .ping-pong-loader-card {
+  background: rgba(15, 23, 42, 0.85);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 40px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* --- Arena: Table Tennis Surface, Net & Balls Track --- */
+.ping-pong-arena {
+  position: relative;
+  width: 240px;
+  height: 110px;
+  margin: 0 auto 18px auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.ping-pong-table-surface {
+  position: absolute;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: linear-gradient(180deg, #1d4ed8 0%, #1e40af 100%);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme="dark"] .ping-pong-table-surface {
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+}
+
+.ping-pong-table-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 8px;
+  right: 8px;
+  border-top: 1.5px solid rgba(255, 255, 255, 0.75);
+}
+
+.ping-pong-net {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 28px;
+  background: #ffffff;
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+  z-index: 2;
+}
+
+.ping-pong-net-top {
+  position: absolute;
+  top: 0;
+  left: -2px;
+  right: -2px;
+  height: 3px;
+  background: #ffffff;
+  border-radius: 1px;
+}
+
+.ping-pong-balls-track {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  width: 180px;
+  z-index: 3;
+  margin-bottom: 4px;
+}
+
+.ping-pong-ball-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 80px;
+}
+
+/* 3D Realistic Ping Pong Ball */
+.ping-pong-ball {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  user-select: none;
+  animation: pingPongBounce 0.85s cubic-bezier(0.28, 0.84, 0.42, 1) infinite;
+}
+
+/* White 3-Star Federal Celluloid Ball */
+.ping-pong-ball.ball-white {
+  background: radial-gradient(circle at 35% 28%, #ffffff 0%, #f8fafc 40%, #e2e8f0 75%, #94a3b8 100%);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18), inset -2px -2px 4px rgba(0, 0, 0, 0.2);
+  color: #3b82f6;
+}
+
+/* Orange 40+ Tournament Ball */
+.ping-pong-ball.ball-orange {
+  background: radial-gradient(circle at 35% 28%, #fff7ed 0%, #ff8c00 45%, #ea580c 80%, #9a3412 100%);
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35), inset -2px -2px 4px rgba(154, 52, 18, 0.3);
+  color: #ffffff;
+}
+
+/* Electric Cyan / Blue Modern Ball */
+.ping-pong-ball.ball-blue {
+  background: radial-gradient(circle at 35% 28%, #e0f2fe 0%, #0ea5e9 45%, #0284c7 80%, #0369a1 100%);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.35), inset -2px -2px 4px rgba(3, 105, 161, 0.3);
+  color: #ffffff;
+}
+
+.ball-stamp {
+  opacity: 0.7;
+  transform: scale(0.85);
+}
+
+/* Contact Shadow underneath ball */
+.ping-pong-ball-shadow {
+  width: 20px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  margin-top: 4px;
+  animation: pingPongShadow 0.85s cubic-bezier(0.28, 0.84, 0.42, 1) infinite;
+}
+
+[data-theme="dark"] .ping-pong-ball-shadow {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+/* Staggered Bounce Delays */
+.column-1 .ping-pong-ball { animation-delay: 0s; }
+.column-1 .ping-pong-ball-shadow { animation-delay: 0s; }
+
+.column-2 .ping-pong-ball { animation-delay: 0.16s; }
+.column-2 .ping-pong-ball-shadow { animation-delay: 0.16s; }
+
+.column-3 .ping-pong-ball { animation-delay: 0.32s; }
+.column-3 .ping-pong-ball-shadow { animation-delay: 0.32s; }
+
+/* Squash and Stretch Bouncing Keyframe */
+@keyframes pingPongBounce {
+  0%, 100% {
+    transform: translateY(-46px) scale(1, 1);
+  }
+  42% {
+    transform: translateY(-6px) scale(0.92, 1.1);
+  }
+  50% {
+    transform: translateY(0px) scale(1.25, 0.75);
+  }
+  58% {
+    transform: translateY(-6px) scale(0.92, 1.1);
+  }
+  78% {
+    transform: translateY(-38px) scale(0.98, 1.02);
+  }
+}
+
+@keyframes pingPongShadow {
+  0%, 100% {
+    transform: scale(0.35);
+    opacity: 0.15;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.75;
+  }
+}
+
+/* --- Loader Content & Typography --- */
+.ping-pong-loader-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ping-pong-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-primary-600, #2563eb);
+  margin-bottom: 12px;
+}
+
+[data-theme="dark"] .ping-pong-badge-pill {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+}
+
+.ping-pong-champ-title {
+  font-size: 20px;
+  font-weight: 800;
+  font-family: var(--font-serif);
+  color: var(--text-dark, #0f172a);
+  margin: 0 0 8px 0;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  max-width: 440px;
+}
+
+[data-theme="dark"] .ping-pong-champ-title {
+  color: #f8fafc;
+}
+
+.ping-pong-champ-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.ping-pong-meta-item {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+[data-theme="dark"] .ping-pong-meta-item {
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+}
+
+.ping-pong-meta-item.badge-id {
+  font-family: monospace;
+  font-size: 11px;
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--color-primary-600, #2563eb);
+}
+
+[data-theme="dark"] .ping-pong-meta-item.badge-id {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+}
+
+.ping-pong-status-desc {
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
+  margin: 0 0 16px 0;
+  max-width: 380px;
+  line-height: 1.45;
+}
+
+.ping-pong-submessage {
+  font-size: 11.5px;
+  color: var(--text-muted, #94a3b8);
+  margin-top: -10px;
+  margin-bottom: 14px;
+}
+
+/* Shimmer Progress Track */
+.ping-pong-shimmer-track {
+  width: 100%;
+  max-width: 260px;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+[data-theme="dark"] .ping-pong-shimmer-track {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ping-pong-shimmer-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, #3b82f6, #f97316, transparent);
+  border-radius: 999px;
+  animation: pingPongShimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes pingPongShimmer {
+  0% {
+    left: -45%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
