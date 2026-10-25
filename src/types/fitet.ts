@@ -225,6 +225,7 @@ export interface CampionatoAttualeInfo {
   nome: string;
   categoria?: string;
   regione?: string;
+  squadra?: string;
 }
 
 export interface DettaglioAtleta {

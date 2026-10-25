@@ -353,19 +353,28 @@ app.get('/api/atleta/:id', async (req, res) => {
 
         const atleta = parseDettaglioAtleta(html, id, partiteRanking);
 
-        // Risoluzione istantanea in memoria (0ms) del campionato attuale dell'atleta
+        // Risoluzione campionato attuale dell'atleta
+        let foundCamp: (ChampionshipItem & { squadra?: string }) | undefined = undefined;
         const campRanking = partiteRanking?.campionato;
         const campName = campRanking && campRanking.length > 0 ? campRanking[0].campionato : undefined;
         if (campName) {
-            const foundCamp = championshipCatalog.resolveChampionship(campName, atleta.anagrafica?.regione);
-            if (foundCamp) {
-                atleta.campionatoAttuale = {
-                    camId: foundCamp.id,
-                    nome: foundCamp.nome,
-                    categoria: foundCamp.categoria,
-                    regione: foundCamp.regione,
-                };
-            }
+            foundCamp = championshipCatalog.resolveChampionship(campName, atleta.anagrafica?.regione);
+        }
+
+        // Se non trovato tramite stringa ranking (es. atleta non classificato o privo di dettaglio ranking),
+        // cerchiamo il suo campionato attivo della stagione nei campionati regionali/nazionali
+        if (!foundCamp) {
+            foundCamp = await championshipCatalog.findAthleteChampionship(id, atleta.anagrafica?.nome, atleta.anagrafica?.regione);
+        }
+
+        if (foundCamp) {
+            atleta.campionatoAttuale = {
+                camId: foundCamp.id,
+                nome: foundCamp.nome,
+                categoria: foundCamp.categoria,
+                regione: foundCamp.regione,
+                squadra: foundCamp.squadra,
+            };
         }
 
         const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith('Atleta ') || (atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0));
@@ -587,12 +596,22 @@ app.get('/api/squadra/:squadraId', async (req, res) => {
 // 6. Partite disputate dall'atleta nel campionato
 app.get('/api/atleta-campionato-partite', async (req, res) => {
     let atletaId = req.query.atletaId as string;
-    const cam = req.query.cam as string;
+    let cam = req.query.cam as string;
     let squadraId = req.query.squadraId as string | undefined;
     let atletaNome = req.query.atletaNome as string | undefined;
 
-    if (!atletaId || !cam || cam === 'auto' || cam === 'null' || cam === 'undefined') {
+    if (!atletaId) {
         return res.json({ matches: [], squadra: null });
+    }
+
+    // Se cam non è specificato o è 'auto', cerchiamo automaticamente il campionato dell'atleta
+    if (!cam || cam === 'auto' || cam === 'null' || cam === 'undefined') {
+        const autoCamp = await championshipCatalog.findAthleteChampionship(atletaId, atletaNome);
+        if (autoCamp) {
+            cam = String(autoCamp.id);
+        } else {
+            return res.json({ matches: [], squadra: null });
+        }
     }
 
     // Se l'atletaId non è puramente numerico (es. passato il nome), prova a risolverlo

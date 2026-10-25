@@ -204,7 +204,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
               .then((res) => {
                 if (isMounted && res.matches && res.matches.length > 0) {
                   setCampionatoPartite(res.matches);
-                  setSquadraCampionato(res.squadra || null);
+                  setSquadraCampionato(res.squadra || data.campionatoAttuale?.squadra || null);
                   setLoadingPartite(false);
                   setMatchTab('girone');
                 } else if (isMounted) {
@@ -258,10 +258,23 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
         targetCamId ? fetchAtletaCampionatoPartite(targetId, targetCamId, undefined, targetName, true).catch(() => null) : Promise.resolve(null),
       ]);
       setAtleta(freshData);
+      const resolvedCam = targetCamId || (freshData?.campionatoAttuale ? String(freshData.campionatoAttuale.camId) : undefined);
       if (freshMatchesRes && freshMatchesRes.matches && freshMatchesRes.matches.length > 0) {
         setCampionatoPartite(freshMatchesRes.matches);
-        if (freshMatchesRes.squadra) setSquadraCampionato(freshMatchesRes.squadra);
-      } else if (!targetCamId) {
+        if (freshMatchesRes.squadra || freshData?.campionatoAttuale?.squadra) {
+          setSquadraCampionato(freshMatchesRes.squadra || freshData?.campionatoAttuale?.squadra || null);
+        }
+      } else if (resolvedCam && (!freshMatchesRes || !freshMatchesRes.matches || freshMatchesRes.matches.length === 0)) {
+        fetchAtletaCampionatoPartite(targetId, resolvedCam, undefined, freshData?.anagrafica?.nome, true)
+          .then((res) => {
+            if (res.matches && res.matches.length > 0) {
+              setCampionatoPartite(res.matches);
+              setSquadraCampionato(res.squadra || freshData?.campionatoAttuale?.squadra || null);
+              setMatchTab('girone');
+            }
+          })
+          .catch(() => {});
+      } else if (!resolvedCam) {
         setCampionatoPartite([]);
       }
     } catch (err: any) {
@@ -495,6 +508,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     )}
                     {atleta.anagrafica.stato && atleta.anagrafica.stato !== 'Attivo' && (
                       <span className="badge badge-neutral">{atleta.anagrafica.stato}</span>
+                    )}
+                    {(campionatoNome || atleta.campionatoAttuale?.nome) && (
+                      <span className="badge badge-neutral" title={`Campionato: ${campionatoNome || atleta.campionatoAttuale?.nome}`}>
+                        <i className="bi bi-trophy me-1 text-primary"></i>
+                        {campionatoNome || atleta.campionatoAttuale?.nome}
+                      </span>
                     )}
                   </div>
                 </div>

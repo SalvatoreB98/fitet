@@ -1,6 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import * as cheerio from 'cheerio';
+import { cacheService } from './cacheService';
+import { FitetClient } from './fitetClient';
+import { parseStatisticheAtleti } from '../parsers/statisticheParser';
+import { athleteResolver } from './athleteResolver';
+import { StatisticaAtleta } from '../../src/types/fitet';
 
 export interface ChampionshipItem {
   id: number;
@@ -162,6 +167,98 @@ class ChampionshipCatalog {
     }
 
     return highestScore >= 50 ? bestItem : undefined;
+  }
+
+  /**
+   * Cerca attivamente il campionato attuale della stagione corrente per un atleta
+   * controllando le statistiche dei campionati regionali (e se necessario nazionali).
+   * Risultato memorizzato in cache per risposta istantanea.
+   */
+  public async findAthleteChampionship(
+    atletaId: string,
+    atletaNome?: string,
+    regione?: string
+  ): Promise<(ChampionshipItem & { squadra?: string }) | undefined> {
+    if (!atletaId && !atletaNome) return undefined;
+
+    const cacheKey = `athlete_champ_${atletaId || atletaNome}`;
+    const cached = cacheService.get<ChampionshipItem & { squadra?: string }>(cacheKey);
+    if (cached) return cached;
+
+    const allCamps = await this.getAllCampionati();
+    if (!allCamps || allCamps.length === 0) return undefined;
+
+    const cleanNorm = (s?: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const targetRegNorm = cleanNorm(regione);
+    const targetNomeNorm = cleanNorm(atletaNome);
+    const targetIdStr = String(atletaId || '').trim();
+
+    // 1. Prioritizza campionati della regione dell'atleta, poi campionati nazionali
+    const regionalCamps = targetRegNorm 
+      ? allCamps.filter(c => cleanNorm(c.regione) === targetRegNorm)
+      : [];
+    const nationalCamps = allCamps.filter(c => cleanNorm(c.regione) === 'nazionale');
+
+    const searchPool = [...regionalCamps, ...nationalCamps];
+
+    // 2. Controllo istantaneo (0ms): verifichiamo prima se qualche campionato ha già le statistiche in cache
+    for (const camp of searchPool) {
+      const statsCached = cacheService.get<StatisticaAtleta[]>(`statistiche_${camp.id}`);
+      if (statsCached && Array.isArray(statsCached)) {
+        const found = statsCached.find(s => 
+          (targetIdStr && String(s.atletaId || '').trim() === targetIdStr) ||
+          (targetNomeNorm && cleanNorm(s.atleta) === targetNomeNorm)
+        );
+        if (found) {
+          const res = { ...camp, squadra: found.squadra };
+          cacheService.set(cacheKey, res, 24 * 60 * 60 * 1000); // 24h
+          return res;
+        }
+      }
+    }
+
+    // 3. Se non ancora in cache, facciamo il fetch delle statistiche dei campionati regionali a piccoli batch
+    const mapping = athleteResolver.getMapping();
+    const batchSize = 6;
+    for (let i = 0; i < searchPool.length; i += batchSize) {
+      const batch = searchPool.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map(async (camp) => {
+          try {
+            const statKey = `statistiche_${camp.id}`;
+            let stats = cacheService.get<StatisticaAtleta[]>(statKey);
+            if (!stats) {
+              const html = await FitetClient.fetchStatisticheAtleti(String(camp.id));
+              stats = parseStatisticheAtleti(html, mapping);
+              if (stats && stats.length > 0) {
+                cacheService.set(statKey, stats, 60 * 60 * 1000); // 1h
+              }
+            }
+            if (stats && Array.isArray(stats)) {
+              const found = stats.find(s => 
+                (targetIdStr && String(s.atletaId || '').trim() === targetIdStr) ||
+                (targetNomeNorm && cleanNorm(s.atleta) === targetNomeNorm)
+              );
+              if (found) {
+                return { camp, squadra: found.squadra };
+              }
+            }
+          } catch {
+            // Ignora singoli errori di fetch
+          }
+          return null;
+        })
+      );
+
+      const foundMatch = batchResults.find(Boolean);
+      if (foundMatch) {
+        const res = { ...foundMatch.camp, squadra: foundMatch.squadra };
+        cacheService.set(cacheKey, res, 24 * 60 * 60 * 1000);
+        return res;
+      }
+    }
+
+    return undefined;
   }
 
   private async scrapeFromFitet(): Promise<ChampionshipItem[]> {

@@ -1395,7 +1395,61 @@ var teamResolver = new TeamResolver();
 // server/services/championshipCatalog.ts
 import fs4 from "fs";
 import path4 from "path";
+import * as cheerio4 from "cheerio";
+
+// server/parsers/statisticheParser.ts
 import * as cheerio3 from "cheerio";
+function parseStatisticheAtleti(html, athleteMapping = {}) {
+  const $ = cheerio3.load(html);
+  const atleti = [];
+  $("table tr").each((_, row) => {
+    const $row = $(row);
+    const cells = $row.find("td");
+    if (cells.length < 12) return;
+    const nomeText = $(cells[1]).text().trim().replace(/\s+/g, " ");
+    if (!nomeText || nomeText === "Atleta" || nomeText.includes("S t a t i s t i c h e")) return;
+    const flagImg = $(cells[0]).find("img").attr("src") || "";
+    const flagMatch = flagImg.match(/bandiere\/([A-Za-z0-9_]+)\.png/i);
+    const nazionalita = flagMatch ? flagMatch[1].toUpperCase() : "IT";
+    const bandieraUrl = flagImg.startsWith("http") ? flagImg : `https://portale.fitet.org/images/bandiere/${nazionalita}.png`;
+    const squadra = $(cells[2]).text().trim().replace(/\s+/g, " ");
+    const getCellInt = (idx) => {
+      const text = $(cells[idx]).text().trim().replace(/\D+/g, "");
+      return parseInt(text, 10) || 0;
+    };
+    const incontriDisputati = getCellInt(3);
+    const partiteDisputate = getCellInt(4);
+    const partiteVinte = getCellInt(5);
+    const partitePerse = getCellInt(6);
+    const setVinti = getCellInt(7);
+    const setPersi = getCellInt(8);
+    const puntiVinti = getCellInt(9);
+    const puntiPersi = getCellInt(10);
+    const percText = $(cells[11]).text().trim().replace("%", "");
+    const percentualeVittorie = parseFloat(percText) || 0;
+    const athleteId = athleteMapping[nomeText] || athleteMapping[nomeText.toUpperCase()] || null;
+    atleti.push({
+      posizione: atleti.length + 1,
+      nazionalita,
+      bandieraUrl,
+      atleta: nomeText,
+      atletaId: athleteId,
+      squadra,
+      incontriDisputati,
+      partiteDisputate,
+      partiteVinte,
+      partitePerse,
+      setVinti,
+      setPersi,
+      puntiVinti,
+      puntiPersi,
+      percentualeVittorie
+    });
+  });
+  return atleti;
+}
+
+// server/services/championshipCatalog.ts
 var REGIONI = [
   { id: 19, nome: "Calabria" },
   { id: 14, nome: "Abruzzo" },
@@ -1519,6 +1573,76 @@ var ChampionshipCatalog = class {
     }
     return highestScore >= 50 ? bestItem : void 0;
   }
+  /**
+   * Cerca attivamente il campionato attuale della stagione corrente per un atleta
+   * controllando le statistiche dei campionati regionali (e se necessario nazionali).
+   * Risultato memorizzato in cache per risposta istantanea.
+   */
+  async findAthleteChampionship(atletaId, atletaNome, regione) {
+    if (!atletaId && !atletaNome) return void 0;
+    const cacheKey = `athlete_champ_${atletaId || atletaNome}`;
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+    const allCamps = await this.getAllCampionati();
+    if (!allCamps || allCamps.length === 0) return void 0;
+    const cleanNorm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const targetRegNorm = cleanNorm(regione);
+    const targetNomeNorm = cleanNorm(atletaNome);
+    const targetIdStr = String(atletaId || "").trim();
+    const regionalCamps = targetRegNorm ? allCamps.filter((c) => cleanNorm(c.regione) === targetRegNorm) : [];
+    const nationalCamps = allCamps.filter((c) => cleanNorm(c.regione) === "nazionale");
+    const searchPool = [...regionalCamps, ...nationalCamps];
+    for (const camp of searchPool) {
+      const statsCached = cacheService.get(`statistiche_${camp.id}`);
+      if (statsCached && Array.isArray(statsCached)) {
+        const found = statsCached.find(
+          (s) => targetIdStr && String(s.atletaId || "").trim() === targetIdStr || targetNomeNorm && cleanNorm(s.atleta) === targetNomeNorm
+        );
+        if (found) {
+          const res = { ...camp, squadra: found.squadra };
+          cacheService.set(cacheKey, res, 24 * 60 * 60 * 1e3);
+          return res;
+        }
+      }
+    }
+    const mapping = athleteResolver.getMapping();
+    const batchSize = 6;
+    for (let i = 0; i < searchPool.length; i += batchSize) {
+      const batch = searchPool.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map(async (camp) => {
+          try {
+            const statKey = `statistiche_${camp.id}`;
+            let stats = cacheService.get(statKey);
+            if (!stats) {
+              const html = await FitetClient.fetchStatisticheAtleti(String(camp.id));
+              stats = parseStatisticheAtleti(html, mapping);
+              if (stats && stats.length > 0) {
+                cacheService.set(statKey, stats, 60 * 60 * 1e3);
+              }
+            }
+            if (stats && Array.isArray(stats)) {
+              const found = stats.find(
+                (s) => targetIdStr && String(s.atletaId || "").trim() === targetIdStr || targetNomeNorm && cleanNorm(s.atleta) === targetNomeNorm
+              );
+              if (found) {
+                return { camp, squadra: found.squadra };
+              }
+            }
+          } catch {
+          }
+          return null;
+        })
+      );
+      const foundMatch = batchResults.find(Boolean);
+      if (foundMatch) {
+        const res = { ...foundMatch.camp, squadra: foundMatch.squadra };
+        cacheService.set(cacheKey, res, 24 * 60 * 60 * 1e3);
+        return res;
+      }
+    }
+    return void 0;
+  }
   async scrapeFromFitet() {
     const all = [];
     for (const nat of NAZIONALI) {
@@ -1527,7 +1651,7 @@ var ChampionshipCatalog = class {
           headers: { "User-Agent": "Mozilla/5.0" }
         });
         const text = new TextDecoder("iso-8859-1").decode(await res.arrayBuffer());
-        const $ = cheerio3.load(text);
+        const $ = cheerio4.load(text);
         $('a[href*="CAM="]').each((_, el) => {
           const href = $(el).attr("href") || "";
           const m = href.match(/CAM=(\d+)/i);
@@ -1558,7 +1682,7 @@ var ChampionshipCatalog = class {
             headers: { "User-Agent": "Mozilla/5.0" }
           });
           const text = new TextDecoder("iso-8859-1").decode(await res.arrayBuffer());
-          const $ = cheerio3.load(text);
+          const $ = cheerio4.load(text);
           $('a[href*="CAM="]').each((_, el) => {
             const href = $(el).attr("href") || "";
             const m = href.match(/CAM=(\d+)/i);
@@ -1594,9 +1718,9 @@ var ChampionshipCatalog = class {
 var championshipCatalog = new ChampionshipCatalog();
 
 // server/parsers/classificaParser.ts
-import * as cheerio4 from "cheerio";
+import * as cheerio5 from "cheerio";
 function parseClassifica(html) {
-  const $ = cheerio4.load(html);
+  const $ = cheerio5.load(html);
   const squadre = [];
   $("table tr").each((_, row) => {
     const $row = $(row);
@@ -1664,9 +1788,9 @@ function parseClassifica(html) {
 }
 
 // server/parsers/calendarioParser.ts
-import * as cheerio5 from "cheerio";
+import * as cheerio6 from "cheerio";
 function parseCalendario(html) {
-  const $ = cheerio5.load(html);
+  const $ = cheerio6.load(html);
   const giornate = [];
   $("table").each((_, table) => {
     const $table = $(table);
@@ -1748,58 +1872,6 @@ function parseCalendario(html) {
     }
   });
   return giornate.sort((a, b) => a.numero - b.numero);
-}
-
-// server/parsers/statisticheParser.ts
-import * as cheerio6 from "cheerio";
-function parseStatisticheAtleti(html, athleteMapping = {}) {
-  const $ = cheerio6.load(html);
-  const atleti = [];
-  $("table tr").each((_, row) => {
-    const $row = $(row);
-    const cells = $row.find("td");
-    if (cells.length < 12) return;
-    const nomeText = $(cells[1]).text().trim().replace(/\s+/g, " ");
-    if (!nomeText || nomeText === "Atleta" || nomeText.includes("S t a t i s t i c h e")) return;
-    const flagImg = $(cells[0]).find("img").attr("src") || "";
-    const flagMatch = flagImg.match(/bandiere\/([A-Za-z0-9_]+)\.png/i);
-    const nazionalita = flagMatch ? flagMatch[1].toUpperCase() : "IT";
-    const bandieraUrl = flagImg.startsWith("http") ? flagImg : `https://portale.fitet.org/images/bandiere/${nazionalita}.png`;
-    const squadra = $(cells[2]).text().trim().replace(/\s+/g, " ");
-    const getCellInt = (idx) => {
-      const text = $(cells[idx]).text().trim().replace(/\D+/g, "");
-      return parseInt(text, 10) || 0;
-    };
-    const incontriDisputati = getCellInt(3);
-    const partiteDisputate = getCellInt(4);
-    const partiteVinte = getCellInt(5);
-    const partitePerse = getCellInt(6);
-    const setVinti = getCellInt(7);
-    const setPersi = getCellInt(8);
-    const puntiVinti = getCellInt(9);
-    const puntiPersi = getCellInt(10);
-    const percText = $(cells[11]).text().trim().replace("%", "");
-    const percentualeVittorie = parseFloat(percText) || 0;
-    const athleteId = athleteMapping[nomeText] || athleteMapping[nomeText.toUpperCase()] || null;
-    atleti.push({
-      posizione: atleti.length + 1,
-      nazionalita,
-      bandieraUrl,
-      atleta: nomeText,
-      atletaId: athleteId,
-      squadra,
-      incontriDisputati,
-      partiteDisputate,
-      partiteVinte,
-      partitePerse,
-      setVinti,
-      setPersi,
-      puntiVinti,
-      puntiPersi,
-      percentualeVittorie
-    });
-  });
-  return atleti;
 }
 
 // server/parsers/atletaParser.ts
@@ -2990,18 +3062,23 @@ app.get("/api/atleta/:id", async (req, res) => {
       }
     }
     const atleta = parseDettaglioAtleta(html, id, partiteRanking);
+    let foundCamp = void 0;
     const campRanking = partiteRanking?.campionato;
     const campName = campRanking && campRanking.length > 0 ? campRanking[0].campionato : void 0;
     if (campName) {
-      const foundCamp = championshipCatalog.resolveChampionship(campName, atleta.anagrafica?.regione);
-      if (foundCamp) {
-        atleta.campionatoAttuale = {
-          camId: foundCamp.id,
-          nome: foundCamp.nome,
-          categoria: foundCamp.categoria,
-          regione: foundCamp.regione
-        };
-      }
+      foundCamp = championshipCatalog.resolveChampionship(campName, atleta.anagrafica?.regione);
+    }
+    if (!foundCamp) {
+      foundCamp = await championshipCatalog.findAthleteChampionship(id, atleta.anagrafica?.nome, atleta.anagrafica?.regione);
+    }
+    if (foundCamp) {
+      atleta.campionatoAttuale = {
+        camId: foundCamp.id,
+        nome: foundCamp.nome,
+        categoria: foundCamp.categoria,
+        regione: foundCamp.regione,
+        squadra: foundCamp.squadra
+      };
     }
     const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith("Atleta ") || atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0);
     if (!isHollow) {
@@ -3177,11 +3254,19 @@ app.get("/api/squadra/:squadraId", async (req, res) => {
 });
 app.get("/api/atleta-campionato-partite", async (req, res) => {
   let atletaId = req.query.atletaId;
-  const cam = req.query.cam;
+  let cam = req.query.cam;
   let squadraId = req.query.squadraId;
   let atletaNome = req.query.atletaNome;
-  if (!atletaId || !cam || cam === "auto" || cam === "null" || cam === "undefined") {
+  if (!atletaId) {
     return res.json({ matches: [], squadra: null });
+  }
+  if (!cam || cam === "auto" || cam === "null" || cam === "undefined") {
+    const autoCamp = await championshipCatalog.findAthleteChampionship(atletaId, atletaNome);
+    if (autoCamp) {
+      cam = String(autoCamp.id);
+    } else {
+      return res.json({ matches: [], squadra: null });
+    }
   }
   if (!/^\d+$/.test(atletaId)) {
     let cleanName = atletaId;
