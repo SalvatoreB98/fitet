@@ -1482,6 +1482,43 @@ var ChampionshipCatalog = class {
     const list = await this.getAllCampionati();
     return list.find((c) => c.id === id);
   }
+  /**
+   * Risolve istantaneamente in memoria (0ms) l'ID numerico del campionato
+   * a partire dalla stringa testuale estratta dalla scheda ranking dell'atleta e dalla regione.
+   */
+  resolveChampionship(campName, regione) {
+    if (!campName) return void 0;
+    if (!this.memoryCache || this.memoryCache.length === 0) {
+      this.loadFromDisk();
+    }
+    const items = this.memoryCache || [];
+    if (items.length === 0) return void 0;
+    const clean = (s) => (s || "").toLowerCase().replace(/girone/g, "gir").replace(/serie/g, "").replace(/maschile/g, "").replace(/femminile/g, "").replace(/[^a-z0-9]/g, "");
+    const normReg = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cClean = clean(campName);
+    if (!cClean) return void 0;
+    const targetRegNorm = normReg(regione);
+    let bestItem;
+    let highestScore = -1;
+    for (const item of items) {
+      const itemClean = clean(item.nome);
+      if (!itemClean) continue;
+      const itemRegNorm = normReg(item.regione);
+      const isSameReg = Boolean(targetRegNorm && itemRegNorm === targetRegNorm);
+      const isNazionale = itemRegNorm === "nazionale";
+      let score = 0;
+      if (itemClean === cClean) {
+        score = isSameReg ? 100 : isNazionale ? 90 : 60;
+      } else if (itemClean.includes(cClean) || cClean.includes(itemClean)) {
+        score = isSameReg ? 80 : isNazionale ? 70 : 50;
+      }
+      if (score > highestScore) {
+        highestScore = score;
+        bestItem = item;
+      }
+    }
+    return highestScore >= 50 ? bestItem : void 0;
+  }
   async scrapeFromFitet() {
     const all = [];
     for (const nat of NAZIONALI) {
@@ -2934,6 +2971,19 @@ app.get("/api/atleta/:id", async (req, res) => {
       }
     }
     const atleta = parseDettaglioAtleta(html, id, partiteRanking);
+    const campRanking = partiteRanking?.campionato;
+    const campName = campRanking && campRanking.length > 0 ? campRanking[0].campionato : void 0;
+    if (campName) {
+      const foundCamp = championshipCatalog.resolveChampionship(campName, atleta.anagrafica?.regione);
+      if (foundCamp) {
+        atleta.campionatoAttuale = {
+          camId: foundCamp.id,
+          nome: foundCamp.nome,
+          categoria: foundCamp.categoria,
+          regione: foundCamp.regione
+        };
+      }
+    }
     const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith("Atleta ") || atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0);
     if (!isHollow) {
       cacheService.set(cacheKey, atleta, TTL_ATLETA);

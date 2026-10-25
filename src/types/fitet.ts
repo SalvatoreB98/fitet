@@ -220,6 +220,13 @@ export interface PartiteRankingAtleta {
   rawSubtle?: string;
 }
 
+export interface CampionatoAttualeInfo {
+  camId: number;
+  nome: string;
+  categoria?: string;
+  regione?: string;
+}
+
 export interface DettaglioAtleta {
   id: string;
   anagrafica: {
@@ -250,6 +257,7 @@ export interface DettaglioAtleta {
   };
   storicoClassifica: StoricoRankingSnapshot[];
   partiteRanking?: PartiteRankingAtleta;
+  campionatoAttuale?: CampionatoAttualeInfo;
 }
 
 export interface ChampionshipInfo {

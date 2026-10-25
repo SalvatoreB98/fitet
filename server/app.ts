@@ -352,6 +352,22 @@ app.get('/api/atleta/:id', async (req, res) => {
         }
 
         const atleta = parseDettaglioAtleta(html, id, partiteRanking);
+
+        // Risoluzione istantanea in memoria (0ms) del campionato attuale dell'atleta
+        const campRanking = partiteRanking?.campionato;
+        const campName = campRanking && campRanking.length > 0 ? campRanking[0].campionato : undefined;
+        if (campName) {
+            const foundCamp = championshipCatalog.resolveChampionship(campName, atleta.anagrafica?.regione);
+            if (foundCamp) {
+                atleta.campionatoAttuale = {
+                    camId: foundCamp.id,
+                    nome: foundCamp.nome,
+                    categoria: foundCamp.categoria,
+                    regione: foundCamp.regione,
+                };
+            }
+        }
+
         const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith('Atleta ') || (atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0));
         if (!isHollow) {
             cacheService.set(cacheKey, atleta, TTL_ATLETA);

@@ -194,27 +194,30 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             });
           }
 
-          // Se non c'è camId, mostra direttamente ranking ufficiale (campionato attuale e ultimi tornei)
-          if (!camId) {
-            setMatchTab('ranking');
-            setLoadingPartite(false);
-            setCampionatoPartite([]);
-          }
+          // Determina il campionato effettivo dell'atleta (prop camId o risolto da data.campionatoAttuale)
+          const resolvedCamId = camId || (data.campionatoAttuale ? String(data.campionatoAttuale.camId) : undefined);
 
-          // Se camId è presente ma le partite del girone non sono ancora caricate (es. atletaId iniziale era nome)
-          if (camId && data.id && (!campionatoPartite || campionatoPartite.length === 0)) {
-            fetchAtletaCampionatoPartite(data.id, camId, undefined, data.anagrafica?.nome)
+          // Se abbiamo un campionato associabile e non abbiamo ancora caricato le partite
+          if (resolvedCamId && data.id && (!campionatoPartite || campionatoPartite.length === 0)) {
+            setLoadingPartite(true);
+            fetchAtletaCampionatoPartite(data.id, resolvedCamId, undefined, data.anagrafica?.nome)
               .then((res) => {
                 if (isMounted && res.matches && res.matches.length > 0) {
                   setCampionatoPartite(res.matches);
                   setSquadraCampionato(res.squadra || null);
                   setLoadingPartite(false);
                   setMatchTab('girone');
+                } else if (isMounted) {
+                  setLoadingPartite(false);
                 }
               })
               .catch(() => {
                 if (isMounted) setLoadingPartite(false);
               });
+          } else if (!resolvedCamId) {
+            setMatchTab('ranking');
+            setLoadingPartite(false);
+            setCampionatoPartite([]);
           }
         }
       })
@@ -234,12 +237,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   useEffect(() => {
     const hasGirone = Boolean(campionatoPartite && campionatoPartite.length > 0);
 
-    if (camId && hasGirone) {
+    if (hasGirone) {
       setMatchTab('girone');
-    } else if (!loadingPartite || !camId) {
+    } else if (!loadingPartite) {
       setMatchTab('ranking');
     }
-  }, [campionatoPartite, loadingPartite, atleta?.partiteRanking, camId]);
+  }, [campionatoPartite, loadingPartite, atleta?.partiteRanking]);
 
   // Funzione di aggiornamento forzato (bypassa cache)
   const handleRefresh = async () => {
@@ -249,15 +252,16 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
     try {
       const targetId = atleta?.id || atletaId;
       const targetName = atleta?.anagrafica?.nome || athleteName;
+      const targetCamId = camId || (atleta?.campionatoAttuale ? String(atleta.campionatoAttuale.camId) : undefined);
       const [freshData, freshMatchesRes] = await Promise.all([
         fetchAtleta(targetId, true),
-        camId ? fetchAtletaCampionatoPartite(targetId, camId, undefined, targetName, true).catch(() => null) : Promise.resolve(null),
+        targetCamId ? fetchAtletaCampionatoPartite(targetId, targetCamId, undefined, targetName, true).catch(() => null) : Promise.resolve(null),
       ]);
       setAtleta(freshData);
       if (freshMatchesRes && freshMatchesRes.matches && freshMatchesRes.matches.length > 0) {
         setCampionatoPartite(freshMatchesRes.matches);
         if (freshMatchesRes.squadra) setSquadraCampionato(freshMatchesRes.squadra);
-      } else if (!camId) {
+      } else if (!targetCamId) {
         setCampionatoPartite([]);
       }
     } catch (err: any) {
@@ -719,13 +723,15 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                           <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-dark)' }}>
                             <i className="bi bi-clock-history me-2 text-primary"></i>
                             {activeTabResolved === 'girone' 
-                              ? (campionatoNome ? `Partite Girone (${campionatoNome})` : (squadraCampionato ? `Partite Campionato (${squadraCampionato})` : 'Partite Girone Corrente'))
+                              ? (campionatoNome || atleta.campionatoAttuale?.nome 
+                                  ? `Partite Campionato (${campionatoNome || atleta.campionatoAttuale?.nome})` 
+                                  : (squadraCampionato ? `Partite Campionato (${squadraCampionato})` : 'Partite Campionato'))
                               : 'Partite Ufficiali FITeT (Campionato & Tornei)'}
                           </span>
                         </div>
 
-                        {/* Switcher visibile solo se è selezionato un campionato e ci sono sia partite del girone sia partite ranking */}
-                        {camId && hasGironeMatches && totalRankingMatches > 0 && (
+                        {/* Switcher visibile se ci sono sia partite del girone/campionato sia partite ranking */}
+                        {hasGironeMatches && totalRankingMatches > 0 && (
                           <div className="pill-switcher-container">
                             <button
                               type="button"
@@ -733,7 +739,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               className={`pill-switcher-btn ${activeTabResolved === 'girone' ? 'active' : ''}`}
                             >
                               <i className="bi bi-calendar-event me-1"></i>
-                              {campionatoNome || (squadraCampionato ? `Girone (${squadraCampionato})` : 'Girone Corrente')} {campionatoPartite && campionatoPartite.length > 0 ? `(${campionatoPartite.length})` : ''}
+                              {campionatoNome || atleta.campionatoAttuale?.nome || (squadraCampionato ? `Campionato (${squadraCampionato})` : 'Campionato')} {campionatoPartite && campionatoPartite.length > 0 ? `(${campionatoPartite.length})` : ''}
                             </button>
                             <button
                               type="button"

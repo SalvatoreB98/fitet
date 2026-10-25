@@ -110,6 +110,60 @@ class ChampionshipCatalog {
     return list.find(c => c.id === id);
   }
 
+  /**
+   * Risolve istantaneamente in memoria (0ms) l'ID numerico del campionato
+   * a partire dalla stringa testuale estratta dalla scheda ranking dell'atleta e dalla regione.
+   */
+  public resolveChampionship(campName?: string, regione?: string): ChampionshipItem | undefined {
+    if (!campName) return undefined;
+    if (!this.memoryCache || this.memoryCache.length === 0) {
+      this.loadFromDisk();
+    }
+    const items = this.memoryCache || [];
+    if (items.length === 0) return undefined;
+
+    const clean = (s: string) =>
+      (s || '')
+        .toLowerCase()
+        .replace(/girone/g, 'gir')
+        .replace(/serie/g, '')
+        .replace(/maschile/g, '')
+        .replace(/femminile/g, '')
+        .replace(/[^a-z0-9]/g, '');
+
+    const normReg = (s?: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    const cClean = clean(campName);
+    if (!cClean) return undefined;
+    const targetRegNorm = normReg(regione);
+
+    let bestItem: ChampionshipItem | undefined;
+    let highestScore = -1;
+
+    for (const item of items) {
+      const itemClean = clean(item.nome);
+      if (!itemClean) continue;
+      const itemRegNorm = normReg(item.regione);
+      const isSameReg = Boolean(targetRegNorm && itemRegNorm === targetRegNorm);
+      const isNazionale = itemRegNorm === 'nazionale';
+
+      let score = 0;
+
+      if (itemClean === cClean) {
+        score = isSameReg ? 100 : (isNazionale ? 90 : 60);
+      } else if (itemClean.includes(cClean) || cClean.includes(itemClean)) {
+        score = isSameReg ? 80 : (isNazionale ? 70 : 50);
+      }
+
+      if (score > highestScore) {
+        highestScore = score;
+        bestItem = item;
+      }
+    }
+
+    return highestScore >= 50 ? bestItem : undefined;
+  }
+
   private async scrapeFromFitet(): Promise<ChampionshipItem[]> {
     const all: ChampionshipItem[] = [];
 
