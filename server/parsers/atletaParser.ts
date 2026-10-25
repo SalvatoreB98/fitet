@@ -57,6 +57,15 @@ export function extractRankingIframeUrl(html: string): string | null {
   }
 }
 
+function formatDateItalian(val: string): string {
+  const clean = val.trim();
+  const m = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+  return clean;
+}
+
 /**
  * Parsa la pagina HTML caricata dall'iframe di ranking (contenente gli incontri di campionato e torneo)
  */
@@ -102,21 +111,45 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
         const rowText = $(tr).text().trim();
         if (rowText.toLowerCase().includes('totale')) return;
 
-        const data = $(cells[0]).text().trim();
-        if (!data || !data.includes('/')) return;
+        const rawData = $(cells[0]).text().trim();
+        if (!rawData || (!rawData.includes('/') && !rawData.includes('-'))) return;
+        const data = formatDateItalian(rawData);
 
-        const campionato = $(cells[1]).text().trim();
-        const punti = parseItalianNumber($(cells[2]).text().trim());
-        const ris = $(cells[3]).text().trim();
-        const sesso = cells.length >= 5 ? $(cells[4]).text().trim() : undefined;
-        const stato = cells.length >= 6 ? $(cells[5]).text().trim() : undefined;
-        const $avvCell = cells.length >= 7 ? $(cells[6]) : $(cells[cells.length - 1]);
-        const avversario = $avvCell.text().trim();
-        const $link = $avvCell.find('a');
-        const href = $link.attr('href') || $link.attr('onclick') || '';
-        const idMatch = href.match(/AVVERSARIO=(\d+)/i) || href.match(/ATLETA=(\d+)/i) || href.match(/atleti\/(\d+)/i) || href.match(/(\d{4,})/);
-        const avversarioId = idMatch ? idMatch[1] : undefined;
-        const isVittoria = ris.toUpperCase() === 'V';
+        let campionato = '';
+        let punti = 0;
+        let ris = '';
+        let sesso: string | undefined = undefined;
+        let stato: string | undefined = undefined;
+        let avversario = '';
+        let avversarioId: string | undefined = undefined;
+
+        if (cells.length === 5) {
+          // Formato provvisori (Data, Campionato, Status, Avversario, Risultato)
+          campionato = $(cells[1]).text().trim();
+          stato = $(cells[2]).text().trim();
+          const $avvCell = $(cells[3]);
+          avversario = $avvCell.text().trim();
+          const $link = $avvCell.find('a');
+          const href = $link.attr('href') || $link.attr('onclick') || '';
+          const idMatch = href.match(/AVVERSARIO=(\d+)/i) || href.match(/ATLETA=(\d+)/i) || href.match(/atleti\/(\d+)/i) || href.match(/(\d{4,})/);
+          avversarioId = idMatch ? idMatch[1] : undefined;
+          ris = $(cells[4]).text().trim();
+        } else {
+          // Formato standard 7 colonne (Data, Campionato, Punti, Ris, Sesso, Stato, Avversario)
+          campionato = $(cells[1]).text().trim();
+          punti = parseItalianNumber($(cells[2]).text().trim());
+          ris = $(cells[3]).text().trim();
+          sesso = cells.length >= 5 ? $(cells[4]).text().trim() : undefined;
+          stato = cells.length >= 6 ? $(cells[5]).text().trim() : undefined;
+          const $avvCell = cells.length >= 7 ? $(cells[6]) : $(cells[cells.length - 1]);
+          avversario = $avvCell.text().trim();
+          const $link = $avvCell.find('a');
+          const href = $link.attr('href') || $link.attr('onclick') || '';
+          const idMatch = href.match(/AVVERSARIO=(\d+)/i) || href.match(/ATLETA=(\d+)/i) || href.match(/atleti\/(\d+)/i) || href.match(/(\d{4,})/);
+          avversarioId = idMatch ? idMatch[1] : undefined;
+        }
+
+        const isVittoria = ris.toUpperCase() === 'V' || ris.toLowerCase() === 'win';
 
         result.campionato.push({
           data,
@@ -130,15 +163,16 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
           stato,
         });
       });
-    } else if (text.includes('torneo')) {
+    } else if (text.includes('torne')) {
       table.find('tbody tr').each((_, tr) => {
         const cells = $(tr).find('td');
-        if (cells.length < 6) return;
+        if (cells.length < 5) return;
         const rowText = $(tr).text().trim();
         if (rowText.toLowerCase().includes('totale')) return;
 
-        const data = $(cells[0]).text().trim();
-        if (!data || !data.includes('/')) return;
+        const rawData = $(cells[0]).text().trim();
+        if (!rawData || (!rawData.includes('/') && !rawData.includes('-'))) return;
+        const data = formatDateItalian(rawData);
 
         const torneo = $(cells[1]).text().trim();
         const gara = $(cells[2]).text().trim();
@@ -151,7 +185,7 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
         const avversarioId = idMatch ? idMatch[1] : undefined;
         const fase = cells.length >= 6 ? $(cells[5]).text().trim() : undefined;
         const ris = cells.length >= 7 ? $(cells[6]).text().trim() : $(cells[cells.length - 1]).text().trim();
-        const isVittoria = ris.toUpperCase() === 'V';
+        const isVittoria = ris.toUpperCase() === 'V' || ris.toLowerCase() === 'win';
         const isDiscarded = $(tr).hasClass('discarded') || ris.toUpperCase() === 'S';
 
         result.tornei.push({

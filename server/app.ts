@@ -337,28 +337,50 @@ app.get('/api/atleta/:id', async (req, res) => {
 
         // Extract & parse official ranking matches from #fragment-3 iframe
         let partiteRanking: PartiteRankingAtleta | undefined = undefined;
-        const iframeUrl = extractRankingIframeUrl(html);
+        let iframeUrl = extractRankingIframeUrl(html);
+        let resolvedIdClass = 247;
+
         if (iframeUrl) {
             try {
                 const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);
                 partiteRanking = parsePartiteRanking(iframeHtml, id);
-
-                // Extract idClass from iframeUrl if available (e.g. /html/247/...)
                 const idClassMatch = iframeUrl.match(/\/html\/(\d+)\//i);
-                const currentIdClass = idClassMatch ? parseInt(idClassMatch[1], 10) : 247;
-
-                // Arricchimento dei punteggi set dai testa a testa (con timeout protettivo per non bloccare la risposta HTTP)
-                try {
-                    const enrichPromise = headToHeadService.enrichRankingMatches(id, partiteRanking, currentIdClass);
-                    const timeoutPromise = new Promise<PartiteRankingAtleta | undefined>((resolve) => 
-                        setTimeout(() => resolve(partiteRanking), 3500)
-                    );
-                    partiteRanking = await Promise.race([enrichPromise, timeoutPromise]);
-                } catch (enrichErr) {
-                    console.warn(`[HeadToHead] Background enrichment warning for athlete ${id}:`, enrichErr);
-                }
+                if (idClassMatch) resolvedIdClass = parseInt(idClassMatch[1], 10);
             } catch (iframeErr) {
                 console.warn(`Could not fetch ranking matches iframe for athlete ${id}:`, iframeErr);
+            }
+        }
+
+        // Se l'atleta non ha partite registrate nel periodo corrente (es. provvisori o inizio stagione),
+        // controlla le pubblicazioni recenti precedenti (246, 245, 244) per recuperare tornei e campionati
+        if (!partiteRanking || (partiteRanking.campionato.length === 0 && partiteRanking.tornei.length === 0)) {
+            for (const prevClass of [246, 245, 244]) {
+                try {
+                    const prevHtml = await FitetClient.fetchSchedaAtleta(id, prevClass);
+                    const prevIframeUrl = extractRankingIframeUrl(prevHtml);
+                    if (prevIframeUrl) {
+                        const prevIframeHtml = await FitetClient.fetchHtml(prevIframeUrl, false);
+                        const prevMatches = parsePartiteRanking(prevIframeHtml, id);
+                        if (prevMatches.campionato.length > 0 || prevMatches.tornei.length > 0) {
+                            partiteRanking = prevMatches;
+                            resolvedIdClass = prevClass;
+                            break;
+                        }
+                    }
+                } catch {}
+            }
+        }
+
+        // Arricchimento dei punteggi set dai testa a testa (con timeout protettivo per non bloccare la risposta HTTP)
+        if (partiteRanking && (partiteRanking.campionato.length > 0 || partiteRanking.tornei.length > 0)) {
+            try {
+                const enrichPromise = headToHeadService.enrichRankingMatches(id, partiteRanking, resolvedIdClass);
+                const timeoutPromise = new Promise<PartiteRankingAtleta | undefined>((resolve) => 
+                    setTimeout(() => resolve(partiteRanking), 3500)
+                );
+                partiteRanking = await Promise.race([enrichPromise, timeoutPromise]);
+            } catch (enrichErr) {
+                console.warn(`[HeadToHead] Background enrichment warning for athlete ${id}:`, enrichErr);
             }
         }
 

@@ -231,12 +231,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
     const hasGirone = Boolean(campionatoPartite && campionatoPartite.length > 0);
     const totalRanking = (atleta?.partiteRanking?.campionato?.length || 0) + (atleta?.partiteRanking?.tornei?.length || 0);
 
-    if (hasGirone) {
+    if (camId && hasGirone) {
       setMatchTab('girone');
-    } else if (!loadingPartite && totalRanking > 0) {
+    } else if (!loadingPartite || !camId) {
       setMatchTab('ranking');
     }
-  }, [campionatoPartite, loadingPartite, atleta?.partiteRanking]);
+  }, [campionatoPartite, loadingPartite, atleta?.partiteRanking, camId]);
 
   // Funzione di aggiornamento forzato (bypassa cache)
   const handleRefresh = async () => {
@@ -711,7 +711,10 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       {/* Header Row: Title & Switcher */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-
+                          <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-dark)' }}>
+                            <i className="bi bi-clock-history me-2 text-primary"></i>
+                            {activeTabResolved === 'girone' ? 'Partite Girone Corrente' : 'Partite Ufficiali FITeT (Ranking & Tornei)'}
+                          </span>
                         </div>
 
                         {/* Switcher visibile solo se esistono sia partite del girone sia partite ranking */}
@@ -761,7 +764,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       )}
 
                       {/* Ranking Sub-Filter Buttons (Tutti / Campionato / Tornei) */}
-                      {activeTabResolved === 'ranking' && totalRankingCampionato > 0 && totalRankingTornei > 0 && (
+                      {activeTabResolved === 'ranking' && (totalRankingCampionato > 0 || totalRankingTornei > 0) && (
                         <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
                           <button
                             type="button"
@@ -770,20 +773,24 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                           >
                             Tutti ({totalRankingMatches})
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setRankingFilter('campionato')}
-                            className={`badge-pill-filter ${rankingFilter === 'campionato' ? 'active' : ''}`}
-                          >
-                            Campionato ({totalRankingCampionato})
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setRankingFilter('tornei')}
-                            className={`badge-pill-filter ${rankingFilter === 'tornei' ? 'active' : ''}`}
-                          >
-                            Tornei ({totalRankingTornei})
-                          </button>
+                          {totalRankingCampionato > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setRankingFilter('campionato')}
+                              className={`badge-pill-filter ${rankingFilter === 'campionato' ? 'active' : ''}`}
+                            >
+                              Campionato ({totalRankingCampionato})
+                            </button>
+                          )}
+                          {totalRankingTornei > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setRankingFilter('tornei')}
+                              className={`badge-pill-filter ${rankingFilter === 'tornei' ? 'active' : ''}`}
+                            >
+                              Tornei ({totalRankingTornei})
+                            </button>
+                          )}
                         </div>
                       )}
 
