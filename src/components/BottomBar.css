@@ -55,11 +55,11 @@
   transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   position: relative;
-  border-radius: 10px;
+  border-radius: 5px;
 }
 
 .bottom-bar-item:nth-child(1) {
-  border-radius: 20px 5px 5px 20px;
+  border-radius: 25px 5px 5px 25px;
 }
 
 

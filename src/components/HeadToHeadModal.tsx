@@ -265,9 +265,6 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                         <div key={idx} className="h2h-match-item">
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
-                              <span className={`h2h-badge-result ${isVittoria ? 'is-vinta' : 'is-persa'}`}>
-                                {isVittoria ? 'VINTA' : 'PERSA'}
-                              </span>
 
                               <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
                                 {enc.data}
