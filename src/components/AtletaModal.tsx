@@ -194,31 +194,15 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             });
           }
 
-          // Se non c'è camId, mostra inizialmente ranking e tenta il recupero in modalità 'auto'
+          // Se non c'è camId, mostra direttamente ranking ufficiale (campionato attuale e ultimi tornei)
           if (!camId) {
             setMatchTab('ranking');
-            if (data.id) {
-              setLoadingPartite(true);
-              fetchAtletaCampionatoPartite(data.id, 'auto', undefined, data.anagrafica?.nome)
-                .then((res) => {
-                  if (isMounted && res.matches && res.matches.length > 0) {
-                    setCampionatoPartite(res.matches);
-                    setSquadraCampionato(res.squadra || null);
-                  } else if (isMounted) {
-                    setCampionatoPartite([]);
-                  }
-                })
-                .catch(() => {
-                  if (isMounted) setCampionatoPartite([]);
-                })
-                .finally(() => {
-                  if (isMounted) setLoadingPartite(false);
-                });
-            }
+            setLoadingPartite(false);
+            setCampionatoPartite([]);
           }
 
-          // Se camId è presente, effettua il recupero mirato per il campionato specificato
-          if (camId && data.id) {
+          // Se camId è presente ma le partite del girone non sono ancora caricate (es. atletaId iniziale era nome)
+          if (camId && data.id && (!campionatoPartite || campionatoPartite.length === 0)) {
             fetchAtletaCampionatoPartite(data.id, camId, undefined, data.anagrafica?.nome)
               .then((res) => {
                 if (isMounted && res.matches && res.matches.length > 0) {
@@ -228,7 +212,9 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   setMatchTab('girone');
                 }
               })
-              .catch(() => {});
+              .catch(() => {
+                if (isMounted) setLoadingPartite(false);
+              });
           }
         }
       })
@@ -247,7 +233,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   // Sincronizzazione automatica del tab delle partite tra Girone Corrente e Tutte le Partite Ranking
   useEffect(() => {
     const hasGirone = Boolean(campionatoPartite && campionatoPartite.length > 0);
-    const totalRanking = (atleta?.partiteRanking?.campionato?.length || 0) + (atleta?.partiteRanking?.tornei?.length || 0);
 
     if (camId && hasGirone) {
       setMatchTab('girone');
@@ -266,12 +251,14 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       const targetName = atleta?.anagrafica?.nome || athleteName;
       const [freshData, freshMatchesRes] = await Promise.all([
         fetchAtleta(targetId, true),
-        fetchAtletaCampionatoPartite(targetId, camId || 'auto', undefined, targetName, true).catch(() => null),
+        camId ? fetchAtletaCampionatoPartite(targetId, camId, undefined, targetName, true).catch(() => null) : Promise.resolve(null),
       ]);
       setAtleta(freshData);
       if (freshMatchesRes && freshMatchesRes.matches && freshMatchesRes.matches.length > 0) {
         setCampionatoPartite(freshMatchesRes.matches);
         if (freshMatchesRes.squadra) setSquadraCampionato(freshMatchesRes.squadra);
+      } else if (!camId) {
+        setCampionatoPartite([]);
       }
     } catch (err: any) {
       console.warn('Errore refresh atleta:', err);
@@ -732,13 +719,13 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                           <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-dark)' }}>
                             <i className="bi bi-clock-history me-2 text-primary"></i>
                             {activeTabResolved === 'girone' 
-                              ? (campionatoNome ? `Partite Girone (${campionatoNome})` : (squadraCampionato ? `Partite Campionato (${squadraCampionato})` : 'Partite Campionato'))
-                              : 'Partite Ufficiali FITeT (Ranking & Tornei)'}
+                              ? (campionatoNome ? `Partite Girone (${campionatoNome})` : (squadraCampionato ? `Partite Campionato (${squadraCampionato})` : 'Partite Girone Corrente'))
+                              : 'Partite Ufficiali FITeT (Campionato & Tornei)'}
                           </span>
                         </div>
 
-                        {/* Switcher visibile se esistono sia partite del girone/campionato sia partite ranking */}
-                        {hasGironeMatches && totalRankingMatches > 0 && (
+                        {/* Switcher visibile solo se è selezionato un campionato e ci sono sia partite del girone sia partite ranking */}
+                        {camId && hasGironeMatches && totalRankingMatches > 0 && (
                           <div className="pill-switcher-container">
                             <button
                               type="button"
@@ -746,7 +733,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               className={`pill-switcher-btn ${activeTabResolved === 'girone' ? 'active' : ''}`}
                             >
                               <i className="bi bi-calendar-event me-1"></i>
-                              {squadraCampionato ? `Campionato (${squadraCampionato})` : (campionatoNome || 'Girone Corrente')} {campionatoPartite && campionatoPartite.length > 0 ? `(${campionatoPartite.length})` : ''}
+                              {campionatoNome || (squadraCampionato ? `Girone (${squadraCampionato})` : 'Girone Corrente')} {campionatoPartite && campionatoPartite.length > 0 ? `(${campionatoPartite.length})` : ''}
                             </button>
                             <button
                               type="button"

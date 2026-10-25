@@ -2933,39 +2933,19 @@ app.get("/api/atleta/:id", async (req, res) => {
         console.warn(`Could not fetch ranking matches iframe for athlete ${id}:`, iframeErr);
       }
     }
-    if (!partiteRanking || partiteRanking.campionato.length === 0 && partiteRanking.tornei.length === 0) {
-      for (const prevClass of [246, 245, 244]) {
-        try {
-          const prevHtml = await FitetClient.fetchSchedaAtleta(id, prevClass);
-          const prevIframeUrl = extractRankingIframeUrl(prevHtml);
-          if (prevIframeUrl) {
-            const prevIframeHtml = await FitetClient.fetchHtml(prevIframeUrl, false);
-            const prevMatches = parsePartiteRanking(prevIframeHtml, id);
-            if (prevMatches.campionato.length > 0 || prevMatches.tornei.length > 0) {
-              partiteRanking = prevMatches;
-              resolvedIdClass = prevClass;
-              break;
-            }
-          }
-        } catch {
-        }
-      }
-    }
-    if (partiteRanking && (partiteRanking.campionato.length > 0 || partiteRanking.tornei.length > 0)) {
-      try {
-        const enrichPromise = headToHeadService.enrichRankingMatches(id, partiteRanking, resolvedIdClass);
-        const timeoutPromise = new Promise(
-          (resolve) => setTimeout(() => resolve(partiteRanking), 3500)
-        );
-        partiteRanking = await Promise.race([enrichPromise, timeoutPromise]);
-      } catch (enrichErr) {
-        console.warn(`[HeadToHead] Background enrichment warning for athlete ${id}:`, enrichErr);
-      }
-    }
     const atleta = parseDettaglioAtleta(html, id, partiteRanking);
     const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith("Atleta ") || atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0);
     if (!isHollow) {
       cacheService.set(cacheKey, atleta, TTL_ATLETA);
+    }
+    if (partiteRanking && (partiteRanking.campionato.length > 0 || partiteRanking.tornei.length > 0)) {
+      headToHeadService.enrichRankingMatches(id, partiteRanking, resolvedIdClass).then((enriched) => {
+        if (enriched && !isHollow) {
+          atleta.partiteRanking = enriched;
+          cacheService.set(cacheKey, atleta, TTL_ATLETA);
+        }
+      }).catch(() => {
+      });
     }
     res.json(atleta);
   } catch (error) {
@@ -3128,10 +3108,13 @@ app.get("/api/squadra/:squadraId", async (req, res) => {
 });
 app.get("/api/atleta-campionato-partite", async (req, res) => {
   let atletaId = req.query.atletaId;
-  let cam = req.query.cam;
+  const cam = req.query.cam;
   let squadraId = req.query.squadraId;
   let atletaNome = req.query.atletaNome;
-  if (atletaId && !/^\d+$/.test(atletaId)) {
+  if (!atletaId || !cam || cam === "auto" || cam === "null" || cam === "undefined") {
+    return res.json({ matches: [], squadra: null });
+  }
+  if (!/^\d+$/.test(atletaId)) {
     let cleanName = atletaId;
     try {
       cleanName = decodeURIComponent(atletaId);
@@ -3143,68 +3126,6 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
     if (resolved) {
       atletaId = resolved;
     }
-  }
-  if (!cam || cam === "auto" || cam === "null" || cam === "undefined") {
-    try {
-      let athleteObj = cacheService.get(`atleta_${atletaId}`);
-      if (!athleteObj || !athleteObj.partiteRanking) {
-        const aHtml = await FitetClient.fetchSchedaAtleta(atletaId);
-        let partiteRanking = void 0;
-        const iframeUrl = extractRankingIframeUrl(aHtml);
-        if (iframeUrl) {
-          try {
-            const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);
-            partiteRanking = parsePartiteRanking(iframeHtml, atletaId);
-          } catch {
-          }
-        }
-        if (!partiteRanking || partiteRanking.campionato.length === 0 && partiteRanking.tornei.length === 0) {
-          for (const prevClass of [246, 245, 244]) {
-            try {
-              const prevHtml = await FitetClient.fetchSchedaAtleta(atletaId, prevClass);
-              const prevIframeUrl = extractRankingIframeUrl(prevHtml);
-              if (prevIframeUrl) {
-                const prevIframeHtml = await FitetClient.fetchHtml(prevIframeUrl, false);
-                const prevMatches = parsePartiteRanking(prevIframeHtml, atletaId);
-                if (prevMatches.campionato.length > 0 || prevMatches.tornei.length > 0) {
-                  partiteRanking = prevMatches;
-                  break;
-                }
-              }
-            } catch {
-            }
-          }
-        }
-        athleteObj = parseDettaglioAtleta(aHtml, atletaId, partiteRanking);
-      }
-      if (athleteObj) {
-        if (!atletaNome && athleteObj.anagrafica?.nome) {
-          atletaNome = athleteObj.anagrafica.nome;
-        }
-        const campRanking = athleteObj.partiteRanking?.campionato;
-        const campName = campRanking && campRanking.length > 0 ? campRanking[0].campionato : void 0;
-        const regione = athleteObj.anagrafica?.regione;
-        const catalog = await championshipCatalog.getAllCampionati();
-        if (campName) {
-          const clean = (s) => s.toLowerCase().replace(/girone/g, "gir").replace(/serie/g, "").replace(/[^a-z0-9]/g, "");
-          const cClean = clean(campName);
-          const normReg = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-          const foundChamp = catalog.find((c) => {
-            const nClean = clean(c.nome);
-            const regMatch = !regione || normReg(c.regione) === normReg(regione);
-            return regMatch && (nClean.includes(cClean) || cClean.includes(nClean));
-          });
-          if (foundChamp) {
-            cam = String(foundChamp.id);
-          }
-        }
-      }
-    } catch (autoErr) {
-      console.warn("[PartiteCampionato] Auto-detection of cam failed:", autoErr);
-    }
-  }
-  if (!atletaId || !cam) {
-    return res.status(400).json({ error: "Parametri atletaId e cam obbligatori" });
   }
   if (!atletaNome && /^\d+$/.test(atletaId)) {
     const mapping = athleteResolver.getMapping();
