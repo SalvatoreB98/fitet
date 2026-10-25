@@ -50,13 +50,18 @@
   padding: 7px 14px;
   border: none;
   background: transparent;
-  border-radius: 32px;
   color: var(--text-muted, #64748b);
   cursor: pointer;
   transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   position: relative;
+  border-radius: 10px;
 }
+
+.bottom-bar-item:nth-child(1) {
+  border-radius: 20px 5px 5px 20px;
+}
+
 
 .bottom-bar-icon-wrap {
   font-size: 1.18rem;
