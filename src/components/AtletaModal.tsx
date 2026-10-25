@@ -194,12 +194,30 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             });
           }
 
-          // Se non c'è camId, mostra direttamente ranking
+          // Se non c'è camId, mostra inizialmente ranking e tenta il recupero in modalità 'auto'
           if (!camId) {
             setMatchTab('ranking');
+            if (data.id) {
+              setLoadingPartite(true);
+              fetchAtletaCampionatoPartite(data.id, 'auto', undefined, data.anagrafica?.nome)
+                .then((res) => {
+                  if (isMounted && res.matches && res.matches.length > 0) {
+                    setCampionatoPartite(res.matches);
+                    setSquadraCampionato(res.squadra || null);
+                  } else if (isMounted) {
+                    setCampionatoPartite([]);
+                  }
+                })
+                .catch(() => {
+                  if (isMounted) setCampionatoPartite([]);
+                })
+                .finally(() => {
+                  if (isMounted) setLoadingPartite(false);
+                });
+            }
           }
 
-          // Se camId è presente ma le partite del girone sono risultate vuote o se atletaId iniziale non era numerico
+          // Se camId è presente, effettua il recupero mirato per il campionato specificato
           if (camId && data.id) {
             fetchAtletaCampionatoPartite(data.id, camId, undefined, data.anagrafica?.nome)
               .then((res) => {
@@ -248,11 +266,11 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       const targetName = atleta?.anagrafica?.nome || athleteName;
       const [freshData, freshMatchesRes] = await Promise.all([
         fetchAtleta(targetId, true),
-        camId ? fetchAtletaCampionatoPartite(targetId, camId, undefined, targetName, true).catch(() => null) : Promise.resolve(null),
+        fetchAtletaCampionatoPartite(targetId, camId || 'auto', undefined, targetName, true).catch(() => null),
       ]);
       setAtleta(freshData);
-      if (freshMatchesRes) {
-        setCampionatoPartite(freshMatchesRes.matches || []);
+      if (freshMatchesRes && freshMatchesRes.matches && freshMatchesRes.matches.length > 0) {
+        setCampionatoPartite(freshMatchesRes.matches);
         if (freshMatchesRes.squadra) setSquadraCampionato(freshMatchesRes.squadra);
       }
     } catch (err: any) {
@@ -713,25 +731,29 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-dark)' }}>
                             <i className="bi bi-clock-history me-2 text-primary"></i>
-                            {activeTabResolved === 'girone' ? 'Partite Girone Corrente' : 'Partite Ufficiali FITeT (Ranking & Tornei)'}
+                            {activeTabResolved === 'girone' 
+                              ? (campionatoNome ? `Partite Girone (${campionatoNome})` : (squadraCampionato ? `Partite Campionato (${squadraCampionato})` : 'Partite Campionato'))
+                              : 'Partite Ufficiali FITeT (Ranking & Tornei)'}
                           </span>
                         </div>
 
-                        {/* Switcher visibile solo se esistono sia partite del girone sia partite ranking */}
-                        {camId && hasGironeMatches && totalRankingMatches > 0 && (
+                        {/* Switcher visibile se esistono sia partite del girone/campionato sia partite ranking */}
+                        {hasGironeMatches && totalRankingMatches > 0 && (
                           <div className="pill-switcher-container">
                             <button
                               type="button"
                               onClick={() => setMatchTab('girone')}
                               className={`pill-switcher-btn ${activeTabResolved === 'girone' ? 'active' : ''}`}
                             >
-                              Girone Corrente {campionatoPartite && campionatoPartite.length > 0 ? `(${campionatoPartite.length})` : ''}
+                              <i className="bi bi-calendar-event me-1"></i>
+                              {squadraCampionato ? `Campionato (${squadraCampionato})` : (campionatoNome || 'Girone Corrente')} {campionatoPartite && campionatoPartite.length > 0 ? `(${campionatoPartite.length})` : ''}
                             </button>
                             <button
                               type="button"
                               onClick={() => setMatchTab('ranking')}
                               className={`pill-switcher-btn ${activeTabResolved === 'ranking' ? 'active' : ''}`}
                             >
+                              <i className="bi bi-trophy-fill me-1"></i>
                               Tutte le Partite FITeT {totalRankingMatches > 0 ? `(${totalRankingMatches})` : ''}
                             </button>
                           </div>
@@ -765,7 +787,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                       {/* Ranking Sub-Filter Buttons (Tutti / Campionato / Tornei) */}
                       {activeTabResolved === 'ranking' && (totalRankingCampionato > 0 || totalRankingTornei > 0) && (
-                        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
                           <button
                             type="button"
                             onClick={() => setRankingFilter('tutti')}
@@ -779,6 +801,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               onClick={() => setRankingFilter('campionato')}
                               className={`badge-pill-filter ${rankingFilter === 'campionato' ? 'active' : ''}`}
                             >
+                              <i className="bi bi-trophy me-1 text-primary"></i>
                               Campionato ({totalRankingCampionato})
                             </button>
                           )}
@@ -788,6 +811,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               onClick={() => setRankingFilter('tornei')}
                               className={`badge-pill-filter ${rankingFilter === 'tornei' ? 'active' : ''}`}
                             >
+                              <i className="bi bi-award me-1 text-warning"></i>
                               Tornei ({totalRankingTornei})
                             </button>
                           )}
