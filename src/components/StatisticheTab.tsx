@@ -292,30 +292,14 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
     const isFav = isFavorite(athleteKey) || isFavorite(a.atleta);
 
     return (
-      <div className="grid-cell text-left" style={{ paddingLeft: '6px', overflow: 'hidden' }}>
+      <div className="grid-cell text-left player-row-cell" style={{ paddingLeft: '6px', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', width: '100%' }}>
-          <button
-            type="button"
-            className={`athlete-row-star-btn favorite-star-btn ${isFav ? 'is-fav' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleFavorite({
-                id: a.atletaId || a.atleta,
-                name: a.atleta,
-                squadra: a.squadra,
-              });
-            }}
-            title={isFav ? `Rimuovi ${a.atleta} dai preferiti` : `Aggiungi ${a.atleta} ai preferiti`}
-            aria-label={isFav ? `Rimuovi ${a.atleta} dai preferiti` : `Aggiungi ${a.atleta} ai preferiti`}
-          >
-            <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
-          </button>
           <AthleteAvatar atletaId={a.atletaId} nome={a.atleta} />
           <span className="athlete-name-cell" title={a.atleta}>
             {a.atleta}
           </span>
           {a.nazionalita && a.nazionalita !== 'IT' && (
-            <span className="badge-nationality-flag" title={`Nazionalità: ${a.nazionalita}`}>
+            <span className="badge-nationality-flag" title={`Nazionalità: ${a.nazionalita}`} style={{ fontSize: '5px' }}>
               {a.nazionalita}
             </span>
           )}

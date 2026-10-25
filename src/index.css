@@ -6705,17 +6705,20 @@ body.modal-open {
   font-weight: 700;
   padding: 1px 4px;
   border-radius: 3px;
-  background: #fee2e2;
+  background: white;
   color: #b91c1c;
   border: 1px solid #fecaca;
   flex-shrink: 0;
+  position: absolute;
+  left: 25px;
+  top: 0;
 }
 
-[data-theme="dark"] .badge-nationality-flag {
-  background: rgba(220, 38, 38, 0.2);
-  color: #fca5a5;
-  border-color: rgba(220, 38, 38, 0.35);
+.player-row-cell {
+  position: relative;
 }
+
+[data-theme="dark"] .badge-nationality-flag {}
 
 .btn-scheda-compact {
   padding: 3px 8px;
@@ -6880,8 +6883,13 @@ body.modal-open {
 }
 
 @keyframes spin-icon-anim {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .spin-icon {
@@ -7062,39 +7070,63 @@ body.modal-open {
 }
 
 /* Staggered Bounce Delays */
-.column-1 .ping-pong-ball { animation-delay: 0s; }
-.column-1 .ping-pong-ball-shadow { animation-delay: 0s; }
+.column-1 .ping-pong-ball {
+  animation-delay: 0s;
+}
 
-.column-2 .ping-pong-ball { animation-delay: 0.16s; }
-.column-2 .ping-pong-ball-shadow { animation-delay: 0.16s; }
+.column-1 .ping-pong-ball-shadow {
+  animation-delay: 0s;
+}
 
-.column-3 .ping-pong-ball { animation-delay: 0.32s; }
-.column-3 .ping-pong-ball-shadow { animation-delay: 0.32s; }
+.column-2 .ping-pong-ball {
+  animation-delay: 0.16s;
+}
+
+.column-2 .ping-pong-ball-shadow {
+  animation-delay: 0.16s;
+}
+
+.column-3 .ping-pong-ball {
+  animation-delay: 0.32s;
+}
+
+.column-3 .ping-pong-ball-shadow {
+  animation-delay: 0.32s;
+}
 
 /* Squash and Stretch Bouncing Keyframe */
 @keyframes pingPongBounce {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(-46px) scale(1, 1);
   }
+
   42% {
     transform: translateY(-6px) scale(0.92, 1.1);
   }
+
   50% {
     transform: translateY(0px) scale(1.25, 0.75);
   }
+
   58% {
     transform: translateY(-6px) scale(0.92, 1.1);
   }
+
   78% {
     transform: translateY(-38px) scale(0.98, 1.02);
   }
 }
 
 @keyframes pingPongShadow {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(0.35);
     opacity: 0.15;
   }
+
   50% {
     transform: scale(1.25);
     opacity: 0.75;
@@ -7225,8 +7257,8 @@ body.modal-open {
   0% {
     left: -45%;
   }
+
   100% {
     left: 100%;
   }
 }
-
