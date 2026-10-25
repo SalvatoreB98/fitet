@@ -402,7 +402,7 @@ var athlete_mapping_default = {
   "MONTESANTO MARIO": "797038",
   "D'ANDREA MARCO": "817090",
   "RENDE FEDELE": "743857",
-  "FILOGRANA G": "608787",
+  "FILOGRANA G": "745378",
   "CARRO SANDRO": "799213",
   "RUBINO CLAUDIO": "600410",
   "PEPINO GIANCARLO": "766358",
@@ -2887,7 +2887,8 @@ app.get("/api/atleta/:id", async (req, res) => {
   try {
     if (!forceRefresh) {
       const cached = cacheService.get(cacheKey);
-      if (cached && cached.partiteRanking) return res.json(cached);
+      const isHollow2 = !cached || !cached.anagrafica || cached.anagrafica.nome?.startsWith("Atleta ") || cached.anagrafica.punti === 0 && (!cached.storicoClassifica || cached.storicoClassifica.length === 0);
+      if (cached && !isHollow2 && cached.partiteRanking) return res.json(cached);
     }
     const html = await FitetClient.fetchSchedaAtleta(id);
     let partiteRanking = void 0;
@@ -2912,7 +2913,10 @@ app.get("/api/atleta/:id", async (req, res) => {
       }
     }
     const atleta = parseDettaglioAtleta(html, id, partiteRanking);
-    cacheService.set(cacheKey, atleta, TTL_ATLETA);
+    const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith("Atleta ") || atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0);
+    if (!isHollow) {
+      cacheService.set(cacheKey, atleta, TTL_ATLETA);
+    }
     res.json(atleta);
   } catch (error) {
     console.error(`Error fetching athlete ${id}:`, error);
@@ -3073,39 +3077,63 @@ app.get("/api/squadra/:squadraId", async (req, res) => {
   }
 });
 app.get("/api/atleta-campionato-partite", async (req, res) => {
-  const atletaId = req.query.atletaId;
+  let atletaId = req.query.atletaId;
   const cam = req.query.cam;
   let squadraId = req.query.squadraId;
-  const atletaNome = req.query.atletaNome;
+  let atletaNome = req.query.atletaNome;
   if (!atletaId || !cam) {
     return res.status(400).json({ error: "Parametri atletaId e cam obbligatori" });
   }
+  if (!/^\d+$/.test(atletaId)) {
+    let cleanName = atletaId;
+    try {
+      cleanName = decodeURIComponent(atletaId);
+    } catch {
+    }
+    cleanName = cleanName.trim();
+    if (!atletaNome) atletaNome = cleanName;
+    const resolved = await athleteResolver.resolveAthleteId(cleanName);
+    if (resolved) {
+      atletaId = resolved;
+    }
+  }
+  if (!atletaNome && /^\d+$/.test(atletaId)) {
+    const mapping = athleteResolver.getMapping();
+    for (const [name, id] of Object.entries(mapping)) {
+      if (String(id) === String(atletaId)) {
+        atletaNome = name;
+        break;
+      }
+    }
+  }
   const force = req.query.force === "true";
-  const cacheKey = `atleta_camp_partite_${cam}_${atletaId}_${squadraId || "auto"}_v2`;
+  const cacheKey = `atleta_camp_partite_${cam}_${atletaId}_${squadraId || "auto"}_v3`;
   const cached = cacheService.get(cacheKey);
-  if (cached && !force) {
+  if (cached && !force && !cached.error && cached.matches && cached.matches.length > 0) {
     return res.json(cached);
   }
   try {
     let squadraNome;
+    const mapping = athleteResolver.getMapping();
     if (!squadraId) {
       try {
         const statHtml = await FitetClient.fetchStatisticheAtleti(cam);
-        const stats = parseStatisticheAtleti(statHtml);
+        const stats = parseStatisticheAtleti(statHtml, mapping);
+        const normName = (s) => (s || "").toUpperCase().replace(/[^A-Z]/g, "");
+        const targetNorm = normName(atletaNome);
         const found = stats.find(
-          (s) => s.atletaId && String(s.atletaId) === String(atletaId) || atletaNome && s.atleta.toUpperCase().trim() === atletaNome.toUpperCase().trim()
+          (s) => s.atletaId && String(s.atletaId) === String(atletaId) || targetNorm && normName(s.atleta) === targetNorm || targetNorm && (normName(s.atleta).includes(targetNorm) || targetNorm.includes(normName(s.atleta)))
         );
         if (found) {
           squadraNome = found.squadra;
           const classHtml = await FitetClient.fetchClassifica(cam);
           const $c = cheerio12.load(classHtml);
-          const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
           const foundNorm = norm(found.squadra);
-
           $c('a[href*="SQUADRA="]').each((_, el) => {
             const text = $c(el).text().trim();
             const textNorm = norm(text);
-            if (textNorm === foundNorm || textNorm.includes(foundNorm) || foundNorm.includes(textNorm)) {
+            if (textNorm.length >= 3 && (textNorm === foundNorm || textNorm.includes(foundNorm) || foundNorm.includes(textNorm))) {
               const href = $c(el).attr("href") || "";
               const m = href.match(/SQUADRA=(\d+)/i);
               if (m && !squadraId) {
@@ -3115,7 +3143,8 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
             }
           });
         }
-      } catch {
+      } catch (statErr) {
+        console.warn("[PartiteCampionato] Statistiche look-up error:", statErr);
       }
       if (!squadraId) {
         try {
@@ -3125,25 +3154,24 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
           $c('a[href*="SQUADRA="]').each((_, el) => {
             const href = $c(el).attr("href") || "";
             const m = href.match(/SQUADRA=(\d+)/i);
-            if (m) candidateTeams.push({ id: m[1], name: $c(el).text().trim() });
+            const text = $c(el).text().trim();
+            if (m && !candidateTeams.some((t) => t.id === m[1])) {
+              candidateTeams.push({ id: m[1], name: text });
+            }
           });
-          const testResults = await Promise.all(
-            candidateTeams.map(async (team) => {
-              try {
-                const testUrl = `https://portale.fitet.org/risultati/campionati/dettaglio_percentuali.php?IDA=${atletaId}&CAM=${cam}&SQUADRA=${team.id}`;
-                const testHtml = await FitetClient.fetchHtml(testUrl);
-                const rowCount = (testHtml.match(/<tr[\s\S]*?<\/tr>/gi) || []).length;
-                if (rowCount > 2) {
-                  return team;
-                }
-              } catch {}
-              return null;
-            })
-          );
-          const matchedTeam = testResults.find((t) => t !== null);
-          if (matchedTeam) {
-            squadraId = matchedTeam.id;
-            squadraNome = matchedTeam.name;
+          for (const team of candidateTeams) {
+            try {
+              const testUrl = `https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${team.id}&CAM=${cam}`;
+              const testHtml = await FitetClient.fetchHtml(testUrl);
+              const normName = (s) => (s || "").toUpperCase().replace(/[^A-Z]/g, "");
+              const targetNorm = normName(atletaNome);
+              if (testHtml.includes(`IDA=${atletaId}`) || targetNorm && normName(testHtml).includes(targetNorm)) {
+                squadraId = team.id;
+                squadraNome = team.name || squadraNome;
+                break;
+              }
+            } catch {
+            }
           }
         } catch {
         }
@@ -3155,7 +3183,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
         matches: [],
         error: "Atleta non presente tra le squadre o le statistiche del campionato selezionato"
       };
-      cacheService.set(cacheKey, responsePayload2, 10 * 60 * 1e3);
+      cacheService.set(cacheKey, responsePayload2, 15 * 1e3);
       return res.json(responsePayload2);
     }
     const url = `https://portale.fitet.org/risultati/campionati/dettaglio_percentuali.php?IDA=${atletaId}&CAM=${cam}&SQUADRA=${squadraId}`;
@@ -3170,19 +3198,18 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
       }
     }
     let targetAthleteName = atletaNome;
-    if (!targetAthleteName) {
-      const atMatch = headerText.match(/Atleta:\s*([^\n\t\-]+)/i);
-      if (atMatch) {
-        targetAthleteName = atMatch[1].trim();
-      }
+    const atMatch = headerText.match(/Atleta:\s*([^\n\t\-]+)/i);
+    if (atMatch) {
+      targetAthleteName = atMatch[1].trim();
     }
+    const normTarget = (targetAthleteName || "").toUpperCase().replace(/[^A-Z]/g, "");
     $p("table tr").each((i, tr) => {
       if (i < 2) return;
       const cells = $p(tr).find("td").map((_, td) => $p(td).text().trim()).get();
       if (cells.length < 15) return;
       const giornata = parseInt(cells[0], 10) || 0;
-      const atleta1 = cells[1];
-      const atleta2 = cells[2];
+      const atleta1 = cells[1].trim();
+      const atleta2 = cells[2].trim();
       const setsRaw = [];
       for (let s = 0; s < 5; s++) {
         const a = parseInt(cells[3 + s * 2], 10);
@@ -3193,7 +3220,16 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
       }
       const set1 = parseInt(cells[13], 10) || 0;
       const set2 = parseInt(cells[14], 10) || 0;
-      const isPlayer1 = targetAthleteName ? atleta1.toUpperCase().includes(targetAthleteName.toUpperCase()) || targetAthleteName.toUpperCase().includes(atleta1.toUpperCase()) : true;
+      const norm1 = atleta1.toUpperCase().replace(/[^A-Z]/g, "");
+      const norm2 = atleta2.toUpperCase().replace(/[^A-Z]/g, "");
+      let isPlayer1 = true;
+      if (normTarget) {
+        if (norm1 === normTarget || norm1.includes(normTarget) || normTarget.includes(norm1)) {
+          isPlayer1 = true;
+        } else if (norm2 === normTarget || norm2.includes(normTarget) || normTarget.includes(norm2)) {
+          isPlayer1 = false;
+        }
+      }
       const avversario = isPlayer1 ? atleta2 : atleta1;
       const setVinti = isPlayer1 ? set1 : set2;
       const setPersi = isPlayer1 ? set2 : set1;

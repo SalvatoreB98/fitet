@@ -50,6 +50,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
   const [atleta, setAtleta] = useState<DettaglioAtleta | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [imgError, setImgError] = useState<boolean>(false);
   const [viewsCount, setViewsCount] = useState<number>(0);
@@ -146,13 +147,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             setCampionatoPartite(matches);
             setSquadraCampionato(res.squadra || null);
             setLoadingPartite(false);
-
-            // Se non ci sono partite in questo girone ma ci sono partite di ranking, passerà a ranking
-            if (matches.length === 0 && (atleta?.partiteRanking?.campionato.length || atleta?.partiteRanking?.tornei.length)) {
-              setMatchTab('ranking');
-            } else if (matches.length > 0) {
-              setMatchTab('girone');
-            }
           }
         })
         .catch(() => {
@@ -205,9 +199,9 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             setMatchTab('ranking');
           }
 
-          // Se camId è presente ma athleteName non era passato e abbiamo bisogno del nome anagrafico per risolvere la squadra
-          if (camId && !athleteName && data.anagrafica?.nome) {
-            fetchAtletaCampionatoPartite(atletaId, camId, undefined, data.anagrafica.nome)
+          // Se camId è presente ma le partite del girone sono risultate vuote o se atletaId iniziale non era numerico
+          if (camId && data.id) {
+            fetchAtletaCampionatoPartite(data.id, camId, undefined, data.anagrafica?.nome)
               .then((res) => {
                 if (isMounted && res.matches && res.matches.length > 0) {
                   setCampionatoPartite(res.matches);
@@ -231,6 +225,42 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       isMounted = false;
     };
   }, [atletaId, camId, athleteName]);
+
+  // Sincronizzazione automatica del tab delle partite tra Girone Corrente e Tutte le Partite Ranking
+  useEffect(() => {
+    const hasGirone = Boolean(campionatoPartite && campionatoPartite.length > 0);
+    const totalRanking = (atleta?.partiteRanking?.campionato?.length || 0) + (atleta?.partiteRanking?.tornei?.length || 0);
+
+    if (hasGirone) {
+      setMatchTab('girone');
+    } else if (!loadingPartite && totalRanking > 0) {
+      setMatchTab('ranking');
+    }
+  }, [campionatoPartite, loadingPartite, atleta?.partiteRanking]);
+
+  // Funzione di aggiornamento forzato (bypassa cache)
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    setError(null);
+    try {
+      const targetId = atleta?.id || atletaId;
+      const targetName = atleta?.anagrafica?.nome || athleteName;
+      const [freshData, freshMatchesRes] = await Promise.all([
+        fetchAtleta(targetId, true),
+        camId ? fetchAtletaCampionatoPartite(targetId, camId, undefined, targetName, true).catch(() => null) : Promise.resolve(null),
+      ]);
+      setAtleta(freshData);
+      if (freshMatchesRes) {
+        setCampionatoPartite(freshMatchesRes.matches || []);
+        if (freshMatchesRes.squadra) setSquadraCampionato(freshMatchesRes.squadra);
+      }
+    } catch (err: any) {
+      console.warn('Errore refresh atleta:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Recupera in automatico i risultati set tramite la chiamata head_to_head per tutti gli incontri privi di punteggio set
   useEffect(() => {
@@ -338,6 +368,19 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            <button
+              type="button"
+              className={`modal-favorite-toggle-btn ${refreshing ? 'is-favorited' : ''}`}
+              onClick={handleRefresh}
+              title="Aggiorna scheda e partite (ignora cache)"
+              aria-label="Aggiorna dati atleta"
+              disabled={refreshing || loading}
+            >
+              <i className={`bi bi-arrow-clockwise ${refreshing ? 'spin-icon' : ''}`}></i>
+              <span className="modal-favorite-btn-text d-none d-sm-inline">
+                {refreshing ? 'Aggiornamento...' : 'Aggiorna'}
+              </span>
+            </button>
             <button
               type="button"
               className={`modal-favorite-toggle-btn ${isFav ? 'is-favorited' : ''}`}
@@ -639,8 +682,29 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       ? 'girone'
                       : 'ranking';
 
-                  // Nessuna partita disponibile (né girone né ranking): nascondi l'intera sezione solo quando il caricamento è terminato
-                  if (!hasGironeMatches && totalRankingMatches === 0 && !loadingPartite) return null;
+                  // Nessuna partita disponibile (né girone né ranking): mostra blocco informativo con tasto di ricarica
+                  if (!hasGironeMatches && totalRankingMatches === 0 && !loadingPartite) {
+                    return (
+                      <div className="modal-campionato-partite-section" style={{ marginTop: '20px', marginBottom: '20px' }}>
+                        <div className="modal-empty-notice" style={{ padding: '20px', textAlign: 'center' }}>
+                          <i className="bi bi-calendar-x me-2" style={{ fontSize: '18px' }}></i>
+                          Nessuna partita precedente registrata per questo atleta.
+                          <div style={{ marginTop: '10px' }}>
+                            <button
+                              type="button"
+                              className="btn-action"
+                              onClick={handleRefresh}
+                              disabled={refreshing}
+                              style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '6px' }}
+                            >
+                              <i className={`bi bi-arrow-clockwise me-1 ${refreshing ? 'spin-icon' : ''}`}></i>
+                              Aggiorna partite dalla FITeT
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
                     <div className="modal-campionato-partite-section" style={{ marginTop: '20px', marginBottom: '20px' }}>

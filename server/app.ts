@@ -329,7 +329,8 @@ app.get('/api/atleta/:id', async (req, res) => {
     try {
         if (!forceRefresh) {
             const cached = cacheService.get<any>(cacheKey);
-            if (cached && cached.partiteRanking) return res.json(cached);
+            const isHollow = !cached || !cached.anagrafica || cached.anagrafica.nome?.startsWith('Atleta ') || (cached.anagrafica.punti === 0 && (!cached.storicoClassifica || cached.storicoClassifica.length === 0));
+            if (cached && !isHollow && cached.partiteRanking) return res.json(cached);
         }
 
         const html = await FitetClient.fetchSchedaAtleta(id);
@@ -362,7 +363,10 @@ app.get('/api/atleta/:id', async (req, res) => {
         }
 
         const atleta = parseDettaglioAtleta(html, id, partiteRanking);
-        cacheService.set(cacheKey, atleta, TTL_ATLETA);
+        const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith('Atleta ') || (atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0));
+        if (!isHollow) {
+            cacheService.set(cacheKey, atleta, TTL_ATLETA);
+        }
         res.json(atleta);
     } catch (error: any) {
         console.error(`Error fetching athlete ${id}:`, error);
@@ -564,34 +568,63 @@ app.get('/api/squadra/:squadraId', async (req, res) => {
 
 // 6. Partite disputate dall'atleta nel campionato
 app.get('/api/atleta-campionato-partite', async (req, res) => {
-    const atletaId = req.query.atletaId as string;
+    let atletaId = req.query.atletaId as string;
     const cam = req.query.cam as string;
     let squadraId = req.query.squadraId as string | undefined;
-    const atletaNome = req.query.atletaNome as string | undefined;
+    let atletaNome = req.query.atletaNome as string | undefined;
 
     if (!atletaId || !cam) {
         return res.status(400).json({ error: 'Parametri atletaId e cam obbligatori' });
     }
 
+    // Se l'atletaId non è puramente numerico (es. passato il nome), prova a risolverlo
+    if (!/^\d+$/.test(atletaId)) {
+        let cleanName = atletaId;
+        try { cleanName = decodeURIComponent(atletaId); } catch {}
+        cleanName = cleanName.trim();
+        if (!atletaNome) atletaNome = cleanName;
+        const resolved = await athleteResolver.resolveAthleteId(cleanName);
+        if (resolved) {
+            atletaId = resolved;
+        }
+    }
+
+    // Se manca il nome atleta ma l'ID è noto, ricava il nome dal mapping
+    if (!atletaNome && /^\d+$/.test(atletaId)) {
+        const mapping = athleteResolver.getMapping();
+        for (const [name, id] of Object.entries(mapping)) {
+            if (String(id) === String(atletaId)) {
+                atletaNome = name;
+                break;
+            }
+        }
+    }
+
     const force = req.query.force === 'true';
-    const cacheKey = `atleta_camp_partite_${cam}_${atletaId}_${squadraId || 'auto'}_v2`;
+    const cacheKey = `atleta_camp_partite_${cam}_${atletaId}_${squadraId || 'auto'}_v3`;
     const cached = cacheService.get<AtletaCampionatoPartiteResponse>(cacheKey);
-    if (cached && !force) {
+    // Non restituire dalla cache se cached contiene un errore o 0 partite (fallimento precedente)
+    if (cached && !force && !cached.error && cached.matches && cached.matches.length > 0) {
         return res.json(cached);
     }
 
     try {
         let squadraNome: string | undefined;
+        const mapping = athleteResolver.getMapping();
 
-        // Se squadraId non è fornito, cerchiamo squadra e squadraId dal campionato
+        // 1. Se squadraId non è fornito, cerchiamo squadra e squadraId dal campionato
         if (!squadraId) {
             try {
                 const statHtml = await FitetClient.fetchStatisticheAtleti(cam);
-                const stats = parseStatisticheAtleti(statHtml);
+                const stats = parseStatisticheAtleti(statHtml, mapping);
+                const normName = (s?: string) => (s || '').toUpperCase().replace(/[^A-Z]/g, '');
+                const targetNorm = normName(atletaNome);
+
                 const found = stats.find(
                     (s) =>
                         (s.atletaId && String(s.atletaId) === String(atletaId)) ||
-                        (atletaNome && s.atleta.toUpperCase().trim() === atletaNome.toUpperCase().trim())
+                        (targetNorm && normName(s.atleta) === targetNorm) ||
+                        (targetNorm && (normName(s.atleta).includes(targetNorm) || targetNorm.includes(normName(s.atleta))))
                 );
 
                 if (found) {
@@ -604,7 +637,8 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
                     $c('a[href*="SQUADRA="]').each((_, el) => {
                         const text = $c(el).text().trim();
                         const textNorm = norm(text);
-                        if (textNorm === foundNorm || textNorm.includes(foundNorm) || foundNorm.includes(textNorm)) {
+                        // Filtro protettivo: solo testi validi con almeno 3 caratteri per evitare di agganciare link vuoti
+                        if (textNorm.length >= 3 && (textNorm === foundNorm || textNorm.includes(foundNorm) || foundNorm.includes(textNorm))) {
                             const href = $c(el).attr('href') || '';
                             const m = href.match(/SQUADRA=(\d+)/i);
                             if (m && !squadraId) {
@@ -614,9 +648,11 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
                         }
                     });
                 }
-            } catch {}
+            } catch (statErr) {
+                console.warn('[PartiteCampionato] Statistiche look-up error:', statErr);
+            }
 
-            // Se ancora non trovato (es. inizio campionato prima delle statistiche aggregate), cerca nelle squadre della classifica in parallelo
+            // 2. Se ancora non trovato (es. inizio campionato prima delle statistiche aggregate), cerca nelle squadre del girone
             if (!squadraId) {
                 try {
                     const classHtml = await FitetClient.fetchClassifica(cam);
@@ -625,28 +661,25 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
                     $c('a[href*="SQUADRA="]').each((_, el) => {
                         const href = $c(el).attr('href') || '';
                         const m = href.match(/SQUADRA=(\d+)/i);
-                        if (m) candidateTeams.push({ id: m[1], name: $c(el).text().trim() });
+                        const text = $c(el).text().trim();
+                        if (m && !candidateTeams.some(t => t.id === m[1])) {
+                            candidateTeams.push({ id: m[1], name: text });
+                        }
                     });
 
-                    // Verifica le squadre candidate in parallelo con timeout per velocità massima
-                    const testResults = await Promise.all(
-                        candidateTeams.map(async (team) => {
-                            try {
-                                const testUrl = `https://portale.fitet.org/risultati/campionati/dettaglio_percentuali.php?IDA=${atletaId}&CAM=${cam}&SQUADRA=${team.id}`;
-                                const testHtml = await FitetClient.fetchHtml(testUrl);
-                                const rowCount = (testHtml.match(/<tr[\s\S]*?<\/tr>/gi) || []).length;
-                                if (rowCount > 2) {
-                                    return team;
-                                }
-                            } catch {}
-                            return null;
-                        })
-                    );
-
-                    const matchedTeam = testResults.find((t) => t !== null);
-                    if (matchedTeam) {
-                        squadraId = matchedTeam.id;
-                        squadraNome = matchedTeam.name;
+                    // Cerca l'atleta nelle percentuali delle squadre
+                    for (const team of candidateTeams) {
+                        try {
+                            const testUrl = `https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${team.id}&CAM=${cam}`;
+                            const testHtml = await FitetClient.fetchHtml(testUrl);
+                            const normName = (s?: string) => (s || '').toUpperCase().replace(/[^A-Z]/g, '');
+                            const targetNorm = normName(atletaNome);
+                            if (testHtml.includes(`IDA=${atletaId}`) || (targetNorm && normName(testHtml).includes(targetNorm))) {
+                                squadraId = team.id;
+                                squadraNome = team.name || squadraNome;
+                                break;
+                            }
+                        } catch {}
                     }
                 } catch {}
             }
@@ -658,7 +691,8 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
                 matches: [],
                 error: 'Atleta non presente tra le squadre o le statistiche del campionato selezionato',
             };
-            cacheService.set(cacheKey, responsePayload, 10 * 60 * 1000);
+            // Cache molto breve (15 secondi) per gli errori in modo che un retry non sia bloccato a lungo
+            cacheService.set(cacheKey, responsePayload, 15 * 1000);
             return res.json(responsePayload);
         }
 
@@ -667,7 +701,7 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
         const $p = cheerio.load(html);
         const matches: PartitaCampionatoAtleta[] = [];
 
-        // Estrai il nome della squadra e il nome atleta dal titolo se non noto
+        // Estrai il nome della squadra e il nome atleta dal titolo della tabella
         const headerText = $p('table tr').first().text();
         if (!squadraNome) {
             const sqMatch = headerText.match(/Squadra:\s*([^\n\t\-]+)/i);
@@ -675,13 +709,14 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
                 squadraNome = sqMatch[1].trim();
             }
         }
+
         let targetAthleteName = atletaNome;
-        if (!targetAthleteName) {
-            const atMatch = headerText.match(/Atleta:\s*([^\n\t\-]+)/i);
-            if (atMatch) {
-                targetAthleteName = atMatch[1].trim();
-            }
+        const atMatch = headerText.match(/Atleta:\s*([^\n\t\-]+)/i);
+        if (atMatch) {
+            targetAthleteName = atMatch[1].trim();
         }
+
+        const normTarget = (targetAthleteName || '').toUpperCase().replace(/[^A-Z]/g, '');
 
         $p('table tr').each((i, tr) => {
             if (i < 2) return; // Salta intestazione squadra e testata colonne
@@ -689,8 +724,8 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
             if (cells.length < 15) return;
 
             const giornata = parseInt(cells[0], 10) || 0;
-            const atleta1 = cells[1];
-            const atleta2 = cells[2];
+            const atleta1 = cells[1].trim();
+            const atleta2 = cells[2].trim();
 
             const setsRaw: string[] = [];
             for (let s = 0; s < 5; s++) {
@@ -704,10 +739,18 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
             const set1 = parseInt(cells[13], 10) || 0;
             const set2 = parseInt(cells[14], 10) || 0;
 
-            // Determina se l'atleta analizzato è Atleta 1 o Atleta 2
-            const isPlayer1 = targetAthleteName
-                ? atleta1.toUpperCase().includes(targetAthleteName.toUpperCase()) || targetAthleteName.toUpperCase().includes(atleta1.toUpperCase())
-                : true;
+            // Determina con precisione se l'atleta analizzato è Atleta 1 o Atleta 2
+            const norm1 = atleta1.toUpperCase().replace(/[^A-Z]/g, '');
+            const norm2 = atleta2.toUpperCase().replace(/[^A-Z]/g, '');
+
+            let isPlayer1 = true;
+            if (normTarget) {
+                if (norm1 === normTarget || norm1.includes(normTarget) || normTarget.includes(norm1)) {
+                    isPlayer1 = true;
+                } else if (norm2 === normTarget || norm2.includes(normTarget) || normTarget.includes(norm2)) {
+                    isPlayer1 = false;
+                }
+            }
 
             const avversario = isPlayer1 ? atleta2 : atleta1;
             const setVinti = isPlayer1 ? set1 : set2;
@@ -737,7 +780,8 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
             matches,
         };
 
-        cacheService.set(cacheKey, responsePayload, 30 * 60 * 1000); // 30 min
+        // Cache partite valide per 30 minuti
+        cacheService.set(cacheKey, responsePayload, 30 * 60 * 1000);
         res.json(responsePayload);
     } catch (err: any) {
         console.error('Errore nel recupero partite campionato per atleta:', err);

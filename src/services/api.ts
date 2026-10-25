@@ -111,7 +111,8 @@ export async function fetchAtletaCampionatoPartite(
   atletaId: string,
   cam: string | number,
   squadraId?: string,
-  atletaNome?: string
+  atletaNome?: string,
+  force = false
 ): Promise<AtletaCampionatoPartiteResponse> {
   const params = new URLSearchParams({
     atletaId,
@@ -119,6 +120,7 @@ export async function fetchAtletaCampionatoPartite(
   });
   if (squadraId) params.append('squadraId', squadraId);
   if (atletaNome) params.append('atletaNome', atletaNome);
+  if (force) params.append('force', 'true');
   const res = await fetch(`${API_BASE}/atleta-campionato-partite?${params.toString()}`);
   if (!res.ok) {
     throw new Error(`Errore caricamento partite campionato (${res.status})`);
