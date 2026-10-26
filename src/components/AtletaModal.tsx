@@ -938,7 +938,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-dark)' }}>
-                            <i className="bi bi-clock-history me-2 text-primary"></i>
                             {activeTabResolved === 'girone'
                               ? (campionatoNome || atleta.campionatoAttuale?.nome
                                 ? `Partite Campionato`
