@@ -741,7 +741,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                             <i className="bi bi-clock-history me-2 text-primary"></i>
                             {activeTabResolved === 'girone'
                               ? (campionatoNome || atleta.campionatoAttuale?.nome
-                                ? `Partite Campionato (${campionatoNome || atleta.campionatoAttuale?.nome})`
+                                ? `Partite Campionato`
                                 : (squadraCampionato ? `Partite Campionato (${squadraCampionato})` : 'Partite Campionato'))
                               : 'Partite Ufficiali FITeT (Campionato & Tornei)'}
                           </span>
@@ -1090,8 +1090,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                           title={`${m.titolo}${m.sottotitolo ? ` • ${m.sottotitolo}` : ''}`}
                                         >
                                           <i className={`bi ${m.tipo === 'torneo' ? 'bi-award' : 'bi-trophy'} me-1`}></i>
-                                          {m.titolo}
-                                          {m.sottotitolo && ` • ${m.sottotitolo}`}
+                                          {m.sottotitolo && `  ${m.sottotitolo}`}
                                         </MarqueeText>
                                       </div>
 
