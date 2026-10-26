@@ -289,6 +289,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 className="home-hero-btn home-hero-btn-secondary"
                 onClick={onOpenChampionshipModal}
                 title="Sfoglia altri campionati"
+                style={{ minWidth: '166px' }}
               >
                 <i className="bi bi-grid-fill"></i>
                 <span>Cambia campionato</span>
