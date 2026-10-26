@@ -7,12 +7,16 @@ interface SearchAtletaModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectAthlete: (id: string, name: string) => void;
+  title?: string;
+  subtitle?: string;
 }
 
 export const SearchAtletaModal: React.FC<SearchAtletaModalProps> = ({
   isOpen,
   onClose,
   onSelectAthlete,
+  title = 'Cerca Atleta',
+  subtitle = 'Trova un atleta e aprine la scheda',
 }) => {
   useEffect(() => {
     if (!isOpen) return;
@@ -48,11 +52,9 @@ export const SearchAtletaModal: React.FC<SearchAtletaModalProps> = ({
             </div>
             <div style={{ minWidth: 0 }}>
               <h3 id="search-atleta-modal-title" className="modal-header-title-serif">
-                Cerca Atleta
+                {title}
               </h3>
-              <div className="modal-header-subtext">
-                Trova un atleta e aprine la scheda
-              </div>
+              <div className="modal-header-subtext">{subtitle}</div>
             </div>
           </div>
           <button

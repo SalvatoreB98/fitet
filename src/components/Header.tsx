@@ -27,6 +27,7 @@ interface HeaderProps {
   onOpenFavoritesModal?: () => void;
   onOpenSearchModal?: () => void;
   onOpenInstallAppModal?: () => void;
+  onPrecacheChampionship?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -47,6 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenFavoritesModal,
   onOpenSearchModal,
   onOpenInstallAppModal,
+  onPrecacheChampionship,
 }) => {
   const { favoritesCount } = useFavoriteAthletes();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -344,6 +346,28 @@ export const Header: React.FC<HeaderProps> = ({
                         <div className="burger-item-content">
                           <span className="burger-item-title">Scarica App</span>
                           <span className="burger-item-desc">Installa per uso a schermo intero (PWA)</span>
+                        </div>
+                        <i className="bi bi-chevron-right burger-item-arrow"></i>
+                      </button>
+                    )}
+
+                    {/* 7b. Salva per la Palestra (Offline Pre-cache) */}
+                    {onPrecacheChampionship && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="burger-menu-item"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onPrecacheChampionship();
+                        }}
+                      >
+                        <div className="burger-item-icon-box" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#0284c7' }}>
+                          <i className="bi bi-cloud-arrow-down-fill"></i>
+                        </div>
+                        <div className="burger-item-content">
+                          <span className="burger-item-title">Salva per la Palestra</span>
+                          <span className="burger-item-desc">Scarica dati per consultazione offline</span>
                         </div>
                         <i className="bi bi-chevron-right burger-item-arrow"></i>
                       </button>

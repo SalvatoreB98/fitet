@@ -19,6 +19,8 @@ import { InstallAppModal } from './components/InstallAppModal';
 import { PingPongLoader } from './components/PingPongLoader';
 import { registerTeamLogos } from './utils/teamLogos';
 import { addRecentAthlete, addRecentChampionship } from './utils/history';
+import { VenueConnectionBanner } from './components/VenueConnectionBanner';
+import { preCacheChampionshipForVenue } from './services/api';
 
 const getAthleteFromUrl = (): { id: string; name: string } | null => {
   if (typeof window === 'undefined') return null;
@@ -346,6 +348,44 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  // Weak Venue Connection: ascolta richieste di retry manuali o riconnessione
+  useEffect(() => {
+    const handleVenueRetry = () => {
+      if (camId) {
+        loadDashboard(camId, annoId, true);
+      }
+    };
+    window.addEventListener('fitet-venue-retry', handleVenueRetry);
+    window.addEventListener('fitet-connection-restored', handleVenueRetry);
+    return () => {
+      window.removeEventListener('fitet-venue-retry', handleVenueRetry);
+      window.removeEventListener('fitet-connection-restored', handleVenueRetry);
+    };
+  }, [camId, annoId]);
+
+  // Pre-caching del campionato per consultazione offline in palestra
+  const [isPrecaching, setIsPrecaching] = useState<boolean>(false);
+  const [precacheStatus, setPrecacheStatus] = useState<string | null>(null);
+
+  const handlePrecache = async () => {
+    if (!camId || isPrecaching) return;
+    setIsPrecaching(true);
+    try {
+      await preCacheChampionshipForVenue(camId, annoId, (step) => {
+        setPrecacheStatus(step);
+      });
+      setTimeout(() => {
+        setIsPrecaching(false);
+        setPrecacheStatus('Campionato salvato per la palestra! Pronto offline.');
+        setTimeout(() => setPrecacheStatus(null), 3000);
+      }, 600);
+    } catch {
+      setIsPrecaching(false);
+      setPrecacheStatus('Errore durante il salvataggio');
+      setTimeout(() => setPrecacheStatus(null), 3000);
+    }
+  };
+
   // Fetch dashboard whenever camId or annoId changes
   useEffect(() => {
     if (!camId) {
@@ -542,6 +582,14 @@ export const App: React.FC = () => {
         onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
         onOpenSearchModal={() => setIsSearchModalOpen(true)}
         onOpenInstallAppModal={() => setIsInstallModalOpen(true)}
+        onPrecacheChampionship={camId ? handlePrecache : undefined}
+      />
+
+      {/* Weak Venue Connection Banner (Indicatore e fallback automatico per palestre con segnale debole/assente) */}
+      <VenueConnectionBanner
+        onRefresh={() => camId && loadDashboard(camId, annoId, true)}
+        currentChampionshipName={headerChampionshipName}
+        onOpenPrecache={camId ? handlePrecache : undefined}
       />
 
       {/* Error Alert */}
@@ -765,6 +813,13 @@ export const App: React.FC = () => {
             setChampionshipTab('calendario');
           }}
         />
+      )}
+      {/* Toast progresso salvataggio per la palestra */}
+      {precacheStatus && (
+        <div className="atleta-share-toast" style={{ bottom: '85px', zIndex: 10050 }} role="status">
+          <i className="bi bi-cloud-arrow-down-fill text-info me-2"></i>
+          <span>{precacheStatus}</span>
+        </div>
       )}
     </div>
   );

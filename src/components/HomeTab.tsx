@@ -10,6 +10,7 @@ import { useRecentHistory } from '../utils/history';
 import { fetchAtleta } from '../services/api';
 import { AthleteAvatar } from './AthleteAvatar';
 import { SearchAtletaModal } from './SearchAtletaModal';
+import { MyProfileHero } from './MyProfileHero';
 import { MarqueeText } from './MarqueeText';
 import {
   SERIE_CONFIGS,
@@ -209,6 +210,11 @@ export const HomeTab: React.FC<HomeTabProps> = ({
 
   return (
     <div className="home-container">
+      {/* ───────────────────────────────────────────────────────────
+          IL MIO PROFILO (Scheda personale o invito alla configurazione)
+         ─────────────────────────────────────────────────────────── */}
+      <MyProfileHero onOpenAtletaModal={onOpenAtletaModal} />
+
       {/* ───────────────────────────────────────────────────────────
           HERO MINIMAL SENZA BORDI (Campionato Corrente o Navigazione Rapida)
          ─────────────────────────────────────────────────────────── */}
