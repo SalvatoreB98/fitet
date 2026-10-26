@@ -373,7 +373,34 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           </>
         )}
       </section>
+      <section
+        className="home-hero home-hero-sub"
+        aria-label="Archivio e Strumenti"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '1rem',
+        }}
+      >
+        <div className="home-hero-content">
+          <h3 className="home-hero-title" style={{ margin: 0 }}>
+            Archivio
+          </h3>
+        </div>
 
+        <div className="home-hero-actions">
+          <button
+            type="button"
+            className="home-hero-btn home-hero-btn-secondary"
+            onClick={handleOpenH2hPicker}
+            title="Confronta due atleti"
+          >
+            <i className="bi bi-arrow-left-right"></i>
+            <span>Testa a Testa</span>
+          </button>
+        </div>
+      </section>
       {/* ───────────────────────────────────────────────────────────
           SEZIONE 1: CAMPIONATI PREFERITI (mostrata solo se presenti)
          ─────────────────────────────────────────────────────────── */}
