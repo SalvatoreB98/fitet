@@ -48,6 +48,43 @@ export class FitetClient {
   }
 
   /**
+   * Fetches a FITeT page through a POST form and decodes the ISO-8859-1 response.
+   */
+  static async postForm(
+    url: string,
+    formData: Record<string, string>,
+    customReferer?: string
+  ): Promise<string> {
+    const headers: Record<string, string> = {
+      ...DEFAULT_HEADERS,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Referer': customReferer || `${BASE_URL}/risultati/new_rank/scelta_atleta.php`,
+    };
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: new URLSearchParams(formData).toString(),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`FITeT HTTP error: ${response.status} ${response.statusText} on ${url}`);
+      }
+
+      const buffer = await response.arrayBuffer();
+      const decoder = new TextDecoder('iso-8859-1');
+      return decoder.decode(buffer);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /**
    * Endpoint 1: Classifica Squadre
    */
   static async fetchClassifica(cam: number | string): Promise<string> {
@@ -175,6 +212,28 @@ export class FitetClient {
     }
 
     return scored.map((s) => s.item);
+  }
+
+  /**
+   * Ricerca atleti tramite il form ufficiale "scelta_atleta.php".
+   * ATLETA viene usato da FITeT per escludere l'atleta già selezionato.
+   */
+  static async fetchSceltaAtleta(
+    query: string,
+    excludeId = '0',
+    idClass = 247
+  ): Promise<string> {
+    const url = `${BASE_URL}/risultati/new_rank/scelta_atleta.php`;
+    return this.postForm(
+      url,
+      {
+        CERCA: query.trim(),
+        ATLETA: excludeId || '0',
+        ZU: '1',
+        ID_CLASS: String(idClass),
+      },
+      `${BASE_URL}/risultati/new_rank/scelta_atleta.php`
+    );
   }
 
   /**

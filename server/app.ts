@@ -16,6 +16,7 @@ import { headToHeadService } from './services/headToHeadService';
 import { parseDettaglioSquadra } from './parsers/squadraParser';
 import { parseRefertoIncontro, parseDettaglioPartita } from './parsers/refertoParser';
 import { parseRankingHtml } from './parsers/rankingParser';
+import { parseSceltaAtleta } from './parsers/sceltaAtletaParser';
 import * as cheerio from 'cheerio';
 import {
     DashboardData,
@@ -26,6 +27,7 @@ import {
     AtletaCampionatoPartiteResponse,
     PartiteRankingAtleta,
     ChampionshipItem,
+    AthleteSearchResult,
 } from '../src/types/fitet';
 
 export const app = express();
@@ -43,6 +45,7 @@ const TTL_CALENDARIO = 30 * 60 * 1000; // 30 min
 const TTL_STATISTICHE = 60 * 60 * 1000; // 60 min
 const TTL_ATLETA = 24 * 60 * 60 * 1000; // 24 hours
 const TTL_REFERTO = 12 * 60 * 60 * 1000; // 12 hours
+const TTL_RICERCA_ATLETA = 10 * 60 * 1000; // 10 min
 
 /**
  * Calculates recent form ('V', 'P', 'N') for each team based on played calendar matches
@@ -470,6 +473,64 @@ app.get('/api/search-atleta', async (req, res) => {
         res.json(enriched);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// 6b. Ricerca atleti dal form ufficiale scelta_atleta.php (usata dal Testa a Testa)
+app.get('/api/search-atleta-scelta', async (req, res) => {
+    const query = ((req.query.q as string) || '').trim();
+    const excludeId = ((req.query.excludeId as string) || '0').trim() || '0';
+    const idClass = req.query.idClass ? parseInt(req.query.idClass as string, 10) || 247 : 247;
+
+    if (query.length < 2) {
+        return res.json([]);
+    }
+
+    const cacheKey = `scelta_atleta_${query.toUpperCase()}_${excludeId}_${idClass}`;
+    const cached = cacheService.get<AthleteSearchResult[]>(cacheKey);
+    if (cached) return res.json(cached);
+
+    try {
+        const html = await FitetClient.fetchSceltaAtleta(query, excludeId, idClass);
+        const parsed = parseSceltaAtleta(html);
+        const enriched: AthleteSearchResult[] = parsed.map((atleta) => ({
+            id: atleta.id,
+            value: atleta.nome,
+            label: atleta.nome,
+            dataNascita: atleta.dataNascita,
+            tessera: null,
+            fotoUrl: `https://portale.fitet.org/images/atleti/${atleta.id}.jpg`,
+        }));
+
+        cacheService.set(cacheKey, enriched, TTL_RICERCA_ATLETA);
+        res.json(enriched);
+    } catch (error: any) {
+        console.warn(`[search-atleta-scelta] Fallback autocomplete per "${query}":`, error?.message || error);
+
+        // Se il form ufficiale non risponde, usa l'autocomplete FITeT già esistente.
+        try {
+            const fallback = await FitetClient.searchAtleta(query);
+            const enriched: AthleteSearchResult[] = fallback
+                .filter((atleta) => atleta.id !== excludeId)
+                .map((atleta) => {
+                    const dateMatch = atleta.label ? atleta.label.match(/\((\d{2}\/\d{2}\/\d{4})\)/) : null;
+                    const tesseraMatch = atleta.label ? atleta.label.match(/\[(\d+)\]/) : null;
+                    return {
+                        id: atleta.id,
+                        value: atleta.value,
+                        label: atleta.label,
+                        dataNascita: dateMatch ? dateMatch[1] : null,
+                        tessera: tesseraMatch ? tesseraMatch[1] : null,
+                        fotoUrl: `https://portale.fitet.org/images/atleti/${atleta.id}.jpg`,
+                    };
+                });
+            res.json(enriched);
+        } catch (fallbackError: any) {
+            res.status(500).json({
+                error: 'Errore nella ricerca atleti',
+                details: fallbackError?.message,
+            });
+        }
     }
 });
 

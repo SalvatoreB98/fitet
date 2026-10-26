@@ -10,6 +10,9 @@ import { useRecentHistory } from '../utils/history';
 import { fetchAtleta } from '../services/api';
 import { AthleteAvatar } from './AthleteAvatar';
 import { SearchAtletaModal } from './SearchAtletaModal';
+import { HeadToHeadModal } from './HeadToHeadModal';
+import { HeadToHeadPickerModal } from './HeadToHeadPickerModal';
+import type { HeadToHeadPlayer } from './HeadToHeadPickerModal';
 import { MyProfileHero } from './MyProfileHero';
 import { MarqueeText } from './MarqueeText';
 import {
@@ -74,6 +77,18 @@ export const HomeTab: React.FC<HomeTabProps> = ({
 
   // Modale Cerca Atleta
   const [isSearchAtletaModalOpen, setIsSearchAtletaModalOpen] = useState(false);
+
+  // Modale Testa a Testa (selezione due atleti + storico FITeT)
+  const [isH2hPickerOpen, setIsH2hPickerOpen] = useState(false);
+  const [h2hPlayers, setH2hPlayers] = useState<{
+    player1: HeadToHeadPlayer;
+    player2: HeadToHeadPlayer;
+  } | null>(null);
+
+  const handleOpenH2hPicker = () => {
+    setH2hPlayers(null);
+    setIsH2hPickerOpen(true);
+  };
 
   // Sincronizza in background i dati dei preferiti con l'ultimo snapshot ufficiale
   const syncedRef = useRef<boolean>(false);
@@ -287,6 +302,15 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               <button
                 type="button"
                 className="home-hero-btn home-hero-btn-secondary"
+                onClick={handleOpenH2hPicker}
+                title="Confronta due atleti"
+              >
+                <i className="bi bi-arrow-left-right"></i>
+                <span>Testa a Testa</span>
+              </button>
+              <button
+                type="button"
+                className="home-hero-btn home-hero-btn-secondary"
                 onClick={onOpenChampionshipModal}
                 title="Sfoglia altri campionati"
                 style={{ minWidth: '166px' }}
@@ -335,6 +359,15 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               >
                 <i className="bi bi-search"></i>
                 <span>Cerca Giocatori</span>
+              </button>
+              <button
+                type="button"
+                className="home-hero-btn home-hero-btn-secondary"
+                onClick={handleOpenH2hPicker}
+                title="Confronta due atleti"
+              >
+                <i className="bi bi-arrow-left-right"></i>
+                <span>Testa a Testa</span>
               </button>
             </div>
           </>
@@ -828,6 +861,35 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           onOpenAtletaModal(id, name);
         }}
       />
+
+      {/* Modale selezione due atleti per il Testa a Testa */}
+      {isH2hPickerOpen && (
+        <HeadToHeadPickerModal
+          isOpen={isH2hPickerOpen}
+          onClose={() => setIsH2hPickerOpen(false)}
+          onCompare={(player1, player2) => {
+            setIsH2hPickerOpen(false);
+            setH2hPlayers({ player1, player2 });
+          }}
+        />
+      )}
+
+      {/* Storico Testa a Testa tra i due atleti selezionati */}
+      {h2hPlayers && (
+        <HeadToHeadModal
+          isOpen={true}
+          atleta1Id={h2hPlayers.player1.id}
+          atleta1Nome={h2hPlayers.player1.name}
+          atleta2Id={h2hPlayers.player2.id}
+          atleta2Nome={h2hPlayers.player2.name}
+          onClose={() => setH2hPlayers(null)}
+          onSelectAthlete={onOpenAtletaModal}
+          onNewSearch={() => {
+            setH2hPlayers(null);
+            setIsH2hPickerOpen(true);
+          }}
+        />
+      )}
     </div>
   );
 };

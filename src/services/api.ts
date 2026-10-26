@@ -176,6 +176,30 @@ export async function searchAtleti(query: string): Promise<AthleteSearchResult[]
   }
 }
 
+/**
+ * Ricerca atleti tramite il form ufficiale FITeT "scelta_atleta.php",
+ * usato dal confronto Testa a Testa. Se non disponibile, usa l'autocomplete classico.
+ */
+export async function searchAtletiScelta(
+  query: string,
+  excludeId?: string
+): Promise<AthleteSearchResult[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  const params = new URLSearchParams({ q: trimmed });
+  if (excludeId) params.set('excludeId', excludeId);
+
+  try {
+    const res = await fetch(`${API_BASE}/search-atleta-scelta?${params.toString()}`);
+    if (!res.ok) throw new Error(`Errore ricerca atleti (${res.status})`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return searchAtleti(trimmed);
+  }
+}
+
 export async function fetchSquadra(
   squadraId: string,
   cam?: number | string,

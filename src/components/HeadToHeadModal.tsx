@@ -12,6 +12,7 @@ interface HeadToHeadModalProps {
   atleta2Nome: string;
   onClose: () => void;
   onSelectAthlete?: (id: string, name: string) => void;
+  onNewSearch?: () => void;
 }
 
 export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
@@ -22,6 +23,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
   atleta2Nome,
   onClose,
   onSelectAthlete,
+  onNewSearch,
 }) => {
   useBodyScrollLock(isOpen);
 
@@ -116,14 +118,27 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Chiudi"
-            className="h2h-close-button"
-          >
-            <i className="bi bi-x-lg"></i>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+            {onNewSearch && (
+              <button
+                type="button"
+                onClick={onNewSearch}
+                aria-label="Nuovo confronto"
+                title="Scegli altri due atleti"
+                className="h2h-close-button"
+              >
+                <i className="bi bi-search"></i>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Chiudi"
+              className="h2h-close-button"
+            >
+              <i className="bi bi-x-lg"></i>
+            </button>
+          </div>
         </div>
 
         {/* Modal Body */}

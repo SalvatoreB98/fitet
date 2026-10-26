@@ -41,6 +41,34 @@ var FitetClient = class {
     }
   }
   /**
+   * Fetches a FITeT page through a POST form and decodes the ISO-8859-1 response.
+   */
+  static async postForm(url, formData, customReferer) {
+    const headers = {
+      ...DEFAULT_HEADERS,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Referer": customReferer || `${BASE_URL}/risultati/new_rank/scelta_atleta.php`
+    };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12e3);
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: new URLSearchParams(formData).toString(),
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        throw new Error(`FITeT HTTP error: ${response.status} ${response.statusText} on ${url}`);
+      }
+      const buffer = await response.arrayBuffer();
+      const decoder = new TextDecoder("iso-8859-1");
+      return decoder.decode(buffer);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  /**
    * Endpoint 1: Classifica Squadre
    */
   static async fetchClassifica(cam) {
@@ -138,6 +166,23 @@ var FitetClient = class {
       return positive.length > 0 ? positive.map((s) => s.item) : scored.map((s) => s.item);
     }
     return scored.map((s) => s.item);
+  }
+  /**
+   * Ricerca atleti tramite il form ufficiale "scelta_atleta.php".
+   * ATLETA viene usato da FITeT per escludere l'atleta già selezionato.
+   */
+  static async fetchSceltaAtleta(query, excludeId = "0", idClass = 247) {
+    const url = `${BASE_URL}/risultati/new_rank/scelta_atleta.php`;
+    return this.postForm(
+      url,
+      {
+        CERCA: query.trim(),
+        ATLETA: excludeId || "0",
+        ZU: "1",
+        ID_CLASS: String(idClass)
+      },
+      `${BASE_URL}/risultati/new_rank/scelta_atleta.php`
+    );
   }
   /**
    * Endpoint 5: Referto Incontro Gara
@@ -2811,8 +2856,35 @@ function parseRankingHtml(html, sesso = "M", currentPage = 1, comitId) {
   };
 }
 
-// server/app.ts
+// server/parsers/sceltaAtletaParser.ts
 import * as cheerio12 from "cheerio";
+function parseSceltaAtleta(html) {
+  if (!html) return [];
+  const $ = cheerio12.load(html);
+  const results = [];
+  const seen = /* @__PURE__ */ new Set();
+  $('a[href*="head_head.php"]').each((_, element) => {
+    const href = $(element).attr("href") || "";
+    const idMatch = href.match(/[?&]AVVERSARIO=(\d+)/i);
+    if (!idMatch) return;
+    const id = idMatch[1];
+    if (!id || seen.has(id)) return;
+    const nome = $(element).text().replace(/\s+/g, " ").trim();
+    if (!nome) return;
+    const dateText = $(element).closest("tr").find("td").last().text().trim();
+    const dateMatch = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    seen.add(id);
+    results.push({
+      id,
+      nome,
+      dataNascita: dateMatch ? `${dateMatch[3]}/${dateMatch[2]}/${dateMatch[1]}` : null
+    });
+  });
+  return results;
+}
+
+// server/app.ts
+import * as cheerio13 from "cheerio";
 var app = express();
 app.use(cors());
 app.use(express.json());
@@ -2823,6 +2895,7 @@ var TTL_CALENDARIO = 30 * 60 * 1e3;
 var TTL_STATISTICHE = 60 * 60 * 1e3;
 var TTL_ATLETA = 24 * 60 * 60 * 1e3;
 var TTL_REFERTO = 12 * 60 * 60 * 1e3;
+var TTL_RICERCA_ATLETA = 10 * 60 * 1e3;
 function computeTeamForm(classifica, calendario) {
   const playedMatches = [];
   for (const g of calendario) {
@@ -3149,6 +3222,54 @@ app.get("/api/search-atleta", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+app.get("/api/search-atleta-scelta", async (req, res) => {
+  const query = (req.query.q || "").trim();
+  const excludeId = (req.query.excludeId || "0").trim() || "0";
+  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) || 247 : 247;
+  if (query.length < 2) {
+    return res.json([]);
+  }
+  const cacheKey = `scelta_atleta_${query.toUpperCase()}_${excludeId}_${idClass}`;
+  const cached = cacheService.get(cacheKey);
+  if (cached) return res.json(cached);
+  try {
+    const html = await FitetClient.fetchSceltaAtleta(query, excludeId, idClass);
+    const parsed = parseSceltaAtleta(html);
+    const enriched = parsed.map((atleta) => ({
+      id: atleta.id,
+      value: atleta.nome,
+      label: atleta.nome,
+      dataNascita: atleta.dataNascita,
+      tessera: null,
+      fotoUrl: `https://portale.fitet.org/images/atleti/${atleta.id}.jpg`
+    }));
+    cacheService.set(cacheKey, enriched, TTL_RICERCA_ATLETA);
+    res.json(enriched);
+  } catch (error) {
+    console.warn(`[search-atleta-scelta] Fallback autocomplete per "${query}":`, error?.message || error);
+    try {
+      const fallback = await FitetClient.searchAtleta(query);
+      const enriched = fallback.filter((atleta) => atleta.id !== excludeId).map((atleta) => {
+        const dateMatch = atleta.label ? atleta.label.match(/\((\d{2}\/\d{2}\/\d{4})\)/) : null;
+        const tesseraMatch = atleta.label ? atleta.label.match(/\[(\d+)\]/) : null;
+        return {
+          id: atleta.id,
+          value: atleta.value,
+          label: atleta.label,
+          dataNascita: dateMatch ? dateMatch[1] : null,
+          tessera: tesseraMatch ? tesseraMatch[1] : null,
+          fotoUrl: `https://portale.fitet.org/images/atleti/${atleta.id}.jpg`
+        };
+      });
+      res.json(enriched);
+    } catch (fallbackError) {
+      res.status(500).json({
+        error: "Errore nella ricerca atleti",
+        details: fallbackError?.message
+      });
+    }
+  }
+});
 app.get("/api/referto/:incontroId", async (req, res) => {
   const { incontroId } = req.params;
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : 0;
@@ -3310,7 +3431,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
         if (found) {
           squadraNome = found.squadra;
           const classHtml = await FitetClient.fetchClassifica(cam);
-          const $c = cheerio12.load(classHtml);
+          const $c = cheerio13.load(classHtml);
           const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
           const foundNorm = norm(found.squadra);
           $c('a[href*="SQUADRA="]').each((_, el) => {
@@ -3332,7 +3453,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
       if (!squadraId) {
         try {
           const classHtml = await FitetClient.fetchClassifica(cam);
-          const $c = cheerio12.load(classHtml);
+          const $c = cheerio13.load(classHtml);
           const candidateTeams = [];
           $c('a[href*="SQUADRA="]').each((_, el) => {
             const href = $c(el).attr("href") || "";
@@ -3371,7 +3492,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
     }
     const url = `https://portale.fitet.org/risultati/campionati/dettaglio_percentuali.php?IDA=${atletaId}&CAM=${cam}&SQUADRA=${squadraId}`;
     const html = await FitetClient.fetchHtml(url);
-    const $p = cheerio12.load(html);
+    const $p = cheerio13.load(html);
     const matches = [];
     const headerText = $p("table tr").first().text();
     if (!squadraNome) {
