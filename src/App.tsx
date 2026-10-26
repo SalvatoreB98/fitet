@@ -17,6 +17,7 @@ import { SearchAtletaModal } from './components/SearchAtletaModal';
 import { FavoritesModal } from './components/FavoritesModal';
 import { InstallAppModal } from './components/InstallAppModal';
 import { PingPongLoader } from './components/PingPongLoader';
+import { CoffeeNudge } from './components/CoffeeNudge';
 import { registerTeamLogos } from './utils/teamLogos';
 import { addRecentAthlete, addRecentChampionship } from './utils/history';
 import { VenueConnectionBanner } from './components/VenueConnectionBanner';
@@ -77,6 +78,9 @@ export const App: React.FC = () => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('intro') === '1') return true;
+      // URL di anteprima: ?paywall=true salta l'intro per mostrare subito il bannerino
+      const paywallParam = urlParams.get('paywall');
+      if (paywallParam === 'true' || paywallParam === '1') return false;
       const isPlayerPath = /^\/(?:player|atleta)\//i.test(window.location.pathname) || urlParams.has('player') || urlParams.has('atleta');
       if (isPlayerPath) return false;
       const completed = localStorage.getItem('fitet_intro_completed');
@@ -561,6 +565,16 @@ export const App: React.FC = () => {
       ? data.championship.regione
       : activeChampionshipInfo?.regione || undefined;
 
+  // Il promemoria caffè non deve mai comparire sopra intro o modali aperte
+  const isAnyOverlayOpen =
+    showIntro ||
+    isChampionshipModalOpen ||
+    isFavoritesModalOpen ||
+    isSearchModalOpen ||
+    isInstallModalOpen ||
+    athleteStack.length > 0 ||
+    Boolean(selectedSquadra);
+
   return (
     <div className="portal-container">
       {/* Motion Graphic Intro (first access only) */}
@@ -749,8 +763,17 @@ export const App: React.FC = () => {
           {data?.championship?.nome && ` • ${data.championship.nome}`}
           {data?.championship?.regione && ` (${data.championship.regione})`}
           <div>Progetto non ufficiale della community, dati sincronizzati da portale.fitet.org</div>
+          <div className="portal-footer-coffee">
+            Se ti è utile, puoi{' '}
+            <a href="https://buymeacoffee.com/salvatore.butera" target="_blank" rel="noopener noreferrer">
+              offrirmi un caffè
+            </a>
+          </div>
         </div>
       </footer>
+
+      {/* Promemoria discreto per sostenere il progetto (una sola volta) */}
+      <CoffeeNudge isSuppressed={isAnyOverlayOpen} />
 
       {/* Fixed Rounded Bottom Bar */}
       <BottomBar

@@ -2401,6 +2401,23 @@ nav {
   padding-bottom: 2em;
 }
 
+.portal-footer-coffee {
+  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.85;
+  background-color: var(-color-accent-amber);
+}
+
+.portal-footer-coffee a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.portal-footer-coffee a:hover {
+  color: var(--color-primary-600);
+}
+
 /* Modal Animation & Refinement */
 html.modal-open,
 body.modal-open {

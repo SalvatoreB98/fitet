@@ -1,0 +1,152 @@
+/* ==========================================================================
+   CoffeeNudge.css - Promemoria discreto per sostenere il progetto
+   ========================================================================== */
+
+.coffee-nudge {
+  position: fixed;
+  left: 20px;
+  bottom: 96px;
+  /* lascia spazio alla BottomBar flottante */
+  z-index: 1040;
+  /* sotto ai modali (1050+) */
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 330px;
+  padding: 12px 34px 12px 14px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--color-accent-amber, #e2e8f0);
+  border-radius: 16px;
+  box-shadow: var(--shadow-container, 0 10px 25px -5px rgba(15, 23, 42, 0.12));
+  animation: coffeeNudgeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.coffee-nudge.is-leaving {
+  animation: coffeeNudgeOut 0.18s ease-in forwards;
+}
+
+.coffee-nudge-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--color-primary-600, #1d538e);
+  font-size: 16px;
+}
+
+.coffee-nudge-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted, #64748b);
+}
+
+.coffee-nudge-text strong {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-main, #1e293b);
+}
+
+.coffee-nudge-link {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--color-primary-600, #1d538e);
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+
+.coffee-nudge-link:hover {
+  background: var(--color-primary-700, #163d6b);
+  color: #ffffff;
+}
+
+.coffee-nudge-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  font-size: 10px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.coffee-nudge-close:hover {
+  background: var(--bg-hover, #f1f5f9);
+  color: var(--text-main, #1e293b);
+}
+
+[data-theme="dark"] .coffee-nudge-icon {
+  background: rgba(96, 165, 250, 0.14);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .coffee-nudge-link {
+  background: #2563eb;
+}
+
+[data-theme="dark"] .coffee-nudge-link:hover {
+  background: #1d4ed8;
+}
+
+@keyframes coffeeNudgeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes coffeeNudgeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (max-width: 560px) {
+  .coffee-nudge {
+    left: 12px;
+    right: 12px;
+    bottom: 92px;
+    max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .coffee-nudge,
+  .coffee-nudge.is-leaving {
+    animation: none;
+  }
+}

@@ -1089,17 +1089,7 @@
     object-position: 62% 12%;
   }
 
-  .my-profile-hero-overlay {
-    background:
-      linear-gradient(90deg,
-        rgba(3, 8, 18, 0.97) 0%,
-        rgba(3, 8, 18, 0.9) 42%,
-        rgba(3, 8, 18, 0.62) 100%),
-      linear-gradient(0deg,
-        rgba(3, 8, 18, 0.92) 0%,
-        rgba(3, 8, 18, 0.25) 62%,
-        rgba(3, 8, 18, 0.16) 100%);
-  }
+  .my-profile-hero-overlay {}
 
   [data-theme="light"] .my-profile-hero-content {
     background: linear-gradient(180deg,
