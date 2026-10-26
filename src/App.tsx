@@ -740,7 +740,7 @@ export const App: React.FC = () => {
           <strong>Federazione Italiana Tennistavolo (FITeT)</strong>
           {data?.championship?.nome && ` • ${data.championship.nome}`}
           {data?.championship?.regione && ` (${data.championship.regione})`}
-          <div>Progetto autonomo della community, dati sincronizzati da portale.fitet.org</div>
+          <div>Progetto non ufficiale della community, dati sincronizzati da portale.fitet.org</div>
         </div>
       </footer>
 
