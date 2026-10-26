@@ -179,7 +179,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="portal-burger-dropdown" role="menu">
                   <div className="burger-menu-header">
                     <span className="burger-menu-title">Menu Rapido</span>
-                    <span className="burger-menu-badge">FITeT</span>
+                    <button className="burger-menu-close" onClick={() => setIsMenuOpen(false)}><i className='bi bi-x-lg'></i></button>
                   </div>
 
                   <div className="burger-menu-items">

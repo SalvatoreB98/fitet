@@ -483,6 +483,7 @@ nav {
 /* Semi-transparent Backdrop for Dismissal */
 .portal-burger-backdrop {
   position: fixed;
+  top: 0;
   inset: 0;
   background: rgba(4, 9, 20, 0.38);
   backdrop-filter: blur(2px);
@@ -494,7 +495,7 @@ nav {
 /* Floating Dropdown Card */
 .portal-burger-dropdown {
   position: absolute;
-  top: calc(100% + 10px);
+  top: -0px;
   right: 0;
   width: 310px;
   max-width: calc(100vw - 24px);
@@ -542,17 +543,14 @@ nav {
   color: var(--text-muted, #64748b);
 }
 
-.burger-menu-badge {
-  font-size: 0.65rem;
-  font-weight: 700;
+.burger-menu-close {
+  all: unset;
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: 5px;
   background: rgba(37, 99, 235, 0.12);
-  color: var(--color-primary-500, #2563eb);
-  letter-spacing: 0.04em;
 }
 
-[data-theme="dark"] .burger-menu-badge {
+[data-theme="dark"] .burger-menu-close {
   background: rgba(59, 130, 246, 0.2);
   color: #93c5fd;
 }
