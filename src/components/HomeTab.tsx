@@ -302,15 +302,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               <button
                 type="button"
                 className="home-hero-btn home-hero-btn-secondary"
-                onClick={handleOpenH2hPicker}
-                title="Confronta due atleti"
-              >
-                <i className="bi bi-arrow-left-right"></i>
-                <span>Testa a Testa</span>
-              </button>
-              <button
-                type="button"
-                className="home-hero-btn home-hero-btn-secondary"
                 onClick={onOpenChampionshipModal}
                 title="Sfoglia altri campionati"
                 style={{ minWidth: '166px' }}
