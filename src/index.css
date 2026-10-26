@@ -311,7 +311,7 @@ nav {
 }
 
 .portal-title-block h1 {
-  font-family: var(--font-serif);
+  font-family: 'Poppins';
   font-size: 1.45rem;
   font-weight: 700;
   margin: 0;
@@ -3026,13 +3026,13 @@ body.modal-open {
 }
 
 [data-theme="dark"] .btn-action {
-  background: #122244;
-  color: #93c5fd;
+  background: var(--color-primary-600);
+  color: #ffffff;
   border-color: #1d4ed8;
 }
 
 [data-theme="dark"] .btn-action:hover {
-  background: #2563eb;
+  background: var(--color-primary-700);
   color: #ffffff;
   border-color: #3b82f6;
 }
@@ -5732,6 +5732,7 @@ body.modal-open {
   font-weight: 700;
   color: var(--text-main, #0f172a);
   margin-bottom: 8px;
+  font-family: 'Poppins';
 }
 
 .no-championship-desc {
