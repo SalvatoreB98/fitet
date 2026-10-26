@@ -285,7 +285,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 title="Sfoglia altri campionati"
               >
                 <i className="bi bi-grid-fill"></i>
-                <span>Campionati</span>
+                <span>Cambia campionato</span>
               </button>
             </div>
           </>
@@ -463,6 +463,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             onClick={() => setIsSearchAtletaModalOpen(true)}
             title="Cerca giocatori"
             aria-label="Cerca giocatori"
+            style={{ minWidth: '43px' }}
           >
             <i className="bi bi-search"></i>
           </button>
@@ -614,28 +615,28 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                           </div>
                         </div>
                       </div>
-<div className="home-athlete-stats-row">
-  <div className="home-athlete-stat">
-    <span className="home-athlete-stat-label">Ranking</span>
-    <span className="home-athlete-stat-val rank">
-      {item.ranking ? `#${item.ranking}` : '—'}
-    </span>
-  </div>
-  <div className="home-athlete-stat">
-    <span className="home-athlete-stat-label">Punti</span>
-    <span className="home-athlete-stat-val points">
-      {item.punti !== undefined && item.punti !== null
-        ? item.punti.toLocaleString('it-IT')
-        : '—'}
-    </span>
-  </div>
-  <div className="home-athlete-stat">
-    <span className="home-athlete-stat-label">Categoria</span>
-    <span className="home-athlete-stat-val">
-      {formatCategoria(item.categoria) || '—'}
-    </span>
-  </div>
-</div>
+                      <div className="home-athlete-stats-row">
+                        <div className="home-athlete-stat">
+                          <span className="home-athlete-stat-label">Ranking</span>
+                          <span className="home-athlete-stat-val rank">
+                            {item.ranking ? `#${item.ranking}` : '—'}
+                          </span>
+                        </div>
+                        <div className="home-athlete-stat">
+                          <span className="home-athlete-stat-label">Punti</span>
+                          <span className="home-athlete-stat-val points">
+                            {item.punti !== undefined && item.punti !== null
+                              ? item.punti.toLocaleString('it-IT')
+                              : '—'}
+                          </span>
+                        </div>
+                        <div className="home-athlete-stat">
+                          <span className="home-athlete-stat-label">Categoria</span>
+                          <span className="home-athlete-stat-val">
+                            {formatCategoria(item.categoria) || '—'}
+                          </span>
+                        </div>
+                      </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <button
