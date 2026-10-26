@@ -212,9 +212,6 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({ onOpenAtletaModal 
       {!playerId ? (
         <div className="my-profile-empty" aria-labelledby="my-profile-empty-title">
           <div className="my-profile-empty-main">
-            <div className="my-profile-empty-icon" aria-hidden="true">
-              <i className="bi bi-person-plus-fill"></i>
-            </div>
             <div className="my-profile-empty-copy">
               <span className="my-profile-empty-eyebrow">
                 Il mio profilo

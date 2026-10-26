@@ -366,9 +366,12 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         }}
       >
         <div className="home-hero-content w-100">
+          <div className="my-profile-empty-eyebrow">
+            Consulta storico e compara atleti
+
+          </div>
           <h3 className="home-hero-title" style={{ margin: 0 }}>
-            <i className='contorno bi bi-archive me-2'></i>
-            Archivio
+            Archivio e comparatore
           </h3>
         </div>
 
