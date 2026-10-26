@@ -151,7 +151,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
               <div className="install-step-item">
                 <div className="install-step-num">1</div>
                 <div className="install-step-text">
-                  In Safari, tocca il pulsante Condividi{' '}
+                  In Safari, tocca '...' e poi il pulsante Condividi{' '}
                   <span className="install-inline-icon">
                     <i className="bi bi-box-arrow-up"></i>
                   </span>{' '}

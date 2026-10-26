@@ -303,39 +303,43 @@ var ViewsService = class {
   /**
    * Incrementa atomicamente il contatore delle visualizzazioni per un determinato atleta.
    */
-  async incrementViews(id) {
+  async incrementViews(id, ip = null) {
     if (!id) return 0;
     const playerId = this.parsePlayerId(id);
     const cacheKey = String(playerId ?? id);
+
     if (this.supabase && playerId !== null) {
       try {
         const { data: rpcCount, error: rpcError } = await this.supabase.rpc("increment_athlete_views", {
-          player_id: playerId
+          p_player_id: Number(playerId),
+          p_client_ip: ip || null,
+          p_cooldown_minutes: 60
         });
-        if (!rpcError && typeof rpcCount === "number") {
-          this.memoryCache.set(cacheKey, rpcCount);
-          return rpcCount;
+
+        if (!rpcError && rpcCount !== null) {
+          const count = Number(rpcCount);
+          this.memoryCache.set(cacheKey, count);
+          return count;
         }
-        const { data: existing } = await this.supabase.from("views").select("count").eq("playerId", playerId).maybeSingle();
-        const nextCount = (existing?.count || 0) + 1;
-        const { error: upsertErr } = await this.supabase.from("views").upsert(
-          { playerId, count: nextCount },
-          { onConflict: "playerId" }
-        );
-        if (!upsertErr) {
-          this.memoryCache.set(cacheKey, nextCount);
-          return nextCount;
-        } else {
-          console.error(`[ViewsService] Errore upsert views per atleta ${playerId}:`, upsertErr);
+
+        // Se c'è un errore nella RPC, loggalo chiaramente
+        if (rpcError) {
+          console.error(`[ViewsService] ERRORE RPC increment_athlete_views:`, rpcError);
+          // NON fare l'upsert qui altrimenti vanifichi il controllo dell'IP!
+          const { data: existing } = await this.supabase
+            .from("views")
+            .select("count")
+            .eq("playerId", playerId)
+            .maybeSingle();
+          return existing?.count || 0;
         }
       } catch (err) {
-        console.error(`[ViewsService] Errore imprevisto Supabase incrementViews per ${playerId}:`, err);
+        console.error(`[ViewsService] Eccezione Supabase incrementViews:`, err);
       }
     }
+
     const current = this.memoryCache.get(cacheKey) || 0;
-    const next = current + 1;
-    this.memoryCache.set(cacheKey, next);
-    return next;
+    return current;
   }
   /**
    * Recupera il contatore delle visualizzazioni per un determinato atleta.
@@ -2865,6 +2869,7 @@ function computeTeamForm(classifica, calendario) {
     };
   });
 }
+
 async function getClassifica(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, forceRefresh = false) {
   const cacheKey = `classifica_${camId}`;
   if (!forceRefresh) {
@@ -2886,6 +2891,7 @@ async function getClassifica(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, f
   cacheService.set(cacheKey, withLogos, TTL_CLASSIFICA);
   return withLogos;
 }
+
 async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, forceRefresh = false) {
   const cacheKey = `calendario_${camId}_${annoId}`;
   if (!forceRefresh) {
@@ -2897,6 +2903,7 @@ async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, f
   cacheService.set(cacheKey, data, TTL_CALENDARIO);
   return data;
 }
+
 async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squadraIds = []) {
   const cacheKey = `statistiche_${camId}`;
   if (!forceRefresh) {
@@ -2916,6 +2923,7 @@ async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squa
   cacheService.set(cacheKey, data, TTL_STATISTICHE);
   return data;
 }
+
 app.get("/api/campionati", async (req, res) => {
   const forceRefresh = req.query.refresh === "true";
   try {
@@ -2926,6 +2934,7 @@ app.get("/api/campionati", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 app.get("/api/dashboard", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
@@ -2958,6 +2967,7 @@ app.get("/api/dashboard", async (req, res) => {
     res.status(500).json({ error: "Errore durante il recupero dei dati FITeT", details: error.message });
   }
 });
+
 app.get("/api/classifica", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
@@ -2969,6 +2979,7 @@ app.get("/api/classifica", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 app.get("/api/calendario", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
@@ -2980,6 +2991,7 @@ app.get("/api/calendario", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 app.get("/api/statistiche", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const forceRefresh = req.query.refresh === "true";
@@ -2992,6 +3004,7 @@ app.get("/api/statistiche", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 app.get("/api/ranking", async (req, res) => {
   const sesso = req.query.sesso === "F" ? "F" : "M";
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -3020,6 +3033,7 @@ app.get("/api/ranking", async (req, res) => {
     res.status(500).json({ error: "Errore nel recupero della classifica", details: error.message });
   }
 });
+
 app.get("/api/atleta/:id", async (req, res) => {
   let { id } = req.params;
   const forceRefresh = req.query.refresh === "true" || req.query.force === "true";
@@ -3108,6 +3122,7 @@ app.get("/api/atleta/:id", async (req, res) => {
     res.status(500).json({ error: "Errore nel recupero della scheda atleta", details: error.message });
   }
 });
+
 app.get("/api/head-to-head", async (req, res) => {
   const atleta1 = req.query.atleta1;
   const atleta2 = req.query.atleta2;
@@ -3123,12 +3138,22 @@ app.get("/api/head-to-head", async (req, res) => {
     res.status(500).json({ error: "Errore nel recupero del testa a testa", details: error.message });
   }
 });
+
 app.post("/api/atleta/:id/view", async (req, res) => {
+  console.log(req, "[IP DETECTED]");
   const { id } = req.params;
   if (!id) return res.status(400).json({ error: "ID atleta mancante" });
-  const count = await viewsService.incrementViews(id);
+
+  const clientIp =
+    req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
+    req.socket.remoteAddress ||
+    "127.0.0.1";
+
+  console.log(clientIp, "[IP DETECTED]");
+  const count = await viewsService.incrementViews(id, clientIp);
   res.json({ id, views: count });
 });
+
 app.get("/api/atleta/:id/views", async (req, res) => {
   const { id } = req.params;
   if (!id) return res.status(400).json({ error: "ID atleta mancante" });
