@@ -1079,19 +1079,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                             Visualizza storico (testa a testa)
                                           </button>
                                         </div>
-
-                                        <MarqueeText
-                                          className="match-event-title-scroll"
-                                          style={{
-                                            fontSize: '11px',
-                                            color: 'var(--text-muted)',
-                                            marginTop: '3px',
-                                          }}
-                                          title={`${m.titolo}${m.sottotitolo ? ` • ${m.sottotitolo}` : ''}`}
-                                        >
-                                          <i className={`bi ${m.tipo === 'torneo' ? 'bi-award' : 'bi-trophy'} me-1`}></i>
-                                          {m.sottotitolo && `  ${m.sottotitolo}`}
-                                        </MarqueeText>
                                       </div>
 
                                       {/* Bottom Row: Set Details and Prominent Numeric Score */}
