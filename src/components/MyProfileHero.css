@@ -915,6 +915,197 @@
 }
 
 /* --------------------------------------------------------------------------
+   Light theme: white editorial surface with a portrait fading in from the right
+   -------------------------------------------------------------------------- */
+[data-theme="light"] .my-profile-hero {
+  border-color: #dbe5f2;
+  background: #ffffff;
+  box-shadow:
+    0 20px 44px -30px rgba(15, 23, 42, 0.34),
+    0 3px 10px -5px rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .my-profile-hero:hover {
+  border-color: #c4d4e8;
+  box-shadow:
+    0 24px 48px -30px rgba(15, 23, 42, 0.38),
+    0 5px 14px -7px rgba(15, 23, 42, 0.1);
+}
+
+[data-theme="light"] .my-profile-hero-bg {
+  background: #f8fafc;
+}
+
+[data-theme="light"] .my-profile-hero-photo-blur {
+  filter: blur(26px) brightness(1.08) saturate(0.72);
+  opacity: 0.16;
+}
+
+[data-theme="light"] .my-profile-hero-overlay {
+  background: linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.34) 0%,
+    rgba(255, 255, 255, 0.06) 52%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+[data-theme="light"] .my-profile-hero-content {
+  background:
+    linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.98) 0%,
+      rgba(255, 255, 255, 0.88) 15%,
+      rgba(255, 255, 255, 0) 38%
+    ),
+    linear-gradient(
+      90deg,
+      #ffffff 0%,
+      #ffffff 44%,
+      rgba(255, 255, 255, 0.96) 54%,
+      rgba(255, 255, 255, 0.66) 68%,
+      rgba(255, 255, 255, 0.16) 84%,
+      rgba(255, 255, 255, 0) 100%
+    );
+}
+
+[data-theme="light"] .my-profile-hero-name {
+  color: var(--text-dark, #0f172a);
+  text-shadow: none;
+}
+
+[data-theme="light"] .my-profile-hero-club {
+  color: var(--text-muted, #64748b);
+}
+
+[data-theme="light"] .my-profile-hero-club i {
+  color: #94a3b8;
+}
+
+[data-theme="light"] .my-profile-hero-data {
+  border-top-color: #e2e8f0;
+}
+
+[data-theme="light"] .my-profile-hero-metric-label {
+  color: #64748b;
+}
+
+[data-theme="light"] .my-profile-hero-metric-value {
+  color: var(--text-dark, #0f172a);
+  text-shadow: none;
+}
+
+[data-theme="light"] .my-profile-hero-metric-unit {
+  color: #64748b;
+}
+
+[data-theme="light"] .my-profile-hero-form-empty {
+  color: #64748b;
+}
+
+[data-theme="light"] .my-profile-hero-badge {
+  border-color: rgba(29, 83, 142, 0.18);
+  background: rgba(255, 255, 255, 0.84);
+  color: #163d6b;
+  box-shadow:
+    0 2px 8px -5px rgba(15, 23, 42, 0.28),
+    inset 0 1px 0 #ffffff;
+}
+
+[data-theme="light"] .my-profile-hero-badge i {
+  color: #b45309;
+}
+
+[data-theme="light"] .my-profile-hero-icon-btn {
+  border-color: rgba(29, 83, 142, 0.16);
+  background: rgba(255, 255, 255, 0.86);
+  color: #334155;
+  box-shadow:
+    0 2px 8px -5px rgba(15, 23, 42, 0.3),
+    inset 0 1px 0 #ffffff;
+}
+
+[data-theme="light"] .my-profile-hero-icon-btn:hover {
+  border-color: rgba(29, 83, 142, 0.3);
+  background: #ffffff;
+  color: #1d538e;
+}
+
+[data-theme="light"] .my-profile-hero-menu {
+  border-color: #e2e8f0;
+  background: #ffffff;
+  box-shadow:
+    0 20px 42px -18px rgba(15, 23, 42, 0.32),
+    0 0 0 1px rgba(15, 23, 42, 0.03);
+}
+
+[data-theme="light"] .my-profile-hero-menu-label {
+  color: #94a3b8;
+}
+
+[data-theme="light"] .my-profile-hero-menu-item {
+  color: #334155;
+}
+
+[data-theme="light"] .my-profile-hero-menu-item i {
+  color: #2563eb;
+}
+
+[data-theme="light"] .my-profile-hero-menu-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+[data-theme="light"] .my-profile-hero-menu-item.is-danger {
+  color: #be123c;
+}
+
+[data-theme="light"] .my-profile-hero-menu-item.is-danger i {
+  color: #e11d48;
+}
+
+[data-theme="light"] .my-profile-hero-menu-item.is-danger:hover {
+  background: #fff1f2;
+  color: #9f1239;
+}
+
+[data-theme="light"] .my-profile-hero-open-area:focus-visible {
+  box-shadow: inset 0 0 0 3px rgba(37, 99, 235, 0.68);
+}
+
+[data-theme="light"] .my-profile-hero-fallback {
+  background:
+    radial-gradient(circle at 78% 26%, rgba(37, 99, 235, 0.14) 0%, transparent 42%),
+    radial-gradient(circle at 92% 86%, rgba(245, 158, 11, 0.1) 0%, transparent 38%),
+    linear-gradient(125deg, #f8fafc 0%, #eff6ff 52%, #ffffff 100%);
+}
+
+[data-theme="light"] .my-profile-hero-fallback-initials {
+  color: rgba(29, 83, 142, 0.1);
+}
+
+[data-theme="light"] .my-profile-hero-fallback i {
+  color: rgba(29, 83, 142, 0.08);
+}
+
+[data-theme="light"] .my-profile-hero--skeleton,
+[data-theme="light"] .my-profile-hero--skeleton .my-profile-hero-bg {
+  background:
+    radial-gradient(circle at 78% 25%, rgba(37, 99, 235, 0.08) 0%, transparent 44%),
+    linear-gradient(125deg, #f8fafc 0%, #eff6ff 58%, #ffffff 100%);
+}
+
+[data-theme="light"] .my-profile-skeleton {
+  background: linear-gradient(
+    100deg,
+    #e8eef6 20%,
+    #f7fafd 38%,
+    #e8eef6 56%
+  );
+  background-size: 260% 100%;
+}
+
+/* --------------------------------------------------------------------------
    Responsive
    -------------------------------------------------------------------------- */
 @media screen and (max-width: 768px) {
@@ -955,6 +1146,28 @@
         rgba(3, 8, 18, 0.25) 62%,
         rgba(3, 8, 18, 0.16) 100%
       );
+  }
+
+  [data-theme="light"] .my-profile-hero-content {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.08) 20%,
+      rgba(255, 255, 255, 0.55) 36%,
+      rgba(255, 255, 255, 0.94) 52%,
+      #ffffff 64%,
+      #ffffff 100%
+    );
+  }
+
+  [data-theme="light"] .my-profile-hero-overlay {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.05) 42%,
+      rgba(255, 255, 255, 0.5) 66%,
+      #ffffff 88%
+    );
   }
 
   .my-profile-hero-identity {
