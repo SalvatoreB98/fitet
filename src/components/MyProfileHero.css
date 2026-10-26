@@ -127,19 +127,15 @@
   border-radius: inherit;
   pointer-events: none;
   background:
-    linear-gradient(
-      90deg,
+    linear-gradient(90deg,
       rgba(3, 8, 18, 0.97) 0%,
       rgba(3, 8, 18, 0.92) 36%,
       rgba(3, 8, 18, 0.62) 66%,
-      rgba(3, 8, 18, 0.5) 100%
-    ),
-    linear-gradient(
-      0deg,
+      rgba(3, 8, 18, 0.5) 100%),
+    linear-gradient(0deg,
       rgba(3, 8, 18, 0.88) 0%,
       rgba(3, 8, 18, 0.18) 56%,
-      rgba(3, 8, 18, 0.1) 100%
-    );
+      rgba(3, 8, 18, 0.1) 100%);
 }
 
 .my-profile-hero-content {
@@ -149,6 +145,8 @@
   flex-direction: column;
   min-height: 292px;
   padding: 20px 24px 18px;
+  overflow: hidden;
+  border-radius: 18px;
 }
 
 /* Transparent keyboard/assistive-tech hit area. Pointer clicks are handled by
@@ -547,12 +545,10 @@
 .my-profile-skeleton {
   display: inline-block;
   border-radius: 7px;
-  background: linear-gradient(
-    100deg,
-    rgba(255, 255, 255, 0.07) 20%,
-    rgba(255, 255, 255, 0.16) 38%,
-    rgba(255, 255, 255, 0.07) 56%
-  );
+  background: linear-gradient(100deg,
+      rgba(255, 255, 255, 0.07) 20%,
+      rgba(255, 255, 255, 0.16) 38%,
+      rgba(255, 255, 255, 0.07) 56%);
   background-size: 260% 100%;
   animation: myProfileShimmer 1.35s ease-in-out infinite;
 }
@@ -654,12 +650,10 @@
 
 [data-theme="dark"] .my-profile-empty {
   border-color: rgba(96, 165, 250, 0.16);
-  background: linear-gradient(
-    135deg,
-    rgba(30, 58, 138, 0.17) 0%,
-    rgba(13, 26, 51, 0.64) 58%,
-    rgba(11, 20, 38, 0.72) 100%
-  );
+  background: linear-gradient(135deg,
+      rgba(30, 58, 138, 0.17) 0%,
+      rgba(13, 26, 51, 0.64) 58%,
+      rgba(11, 20, 38, 0.72) 100%);
   box-shadow: 0 6px 24px -16px rgba(0, 0, 0, 0.8);
 }
 
@@ -942,31 +936,25 @@
 }
 
 [data-theme="light"] .my-profile-hero-overlay {
-  background: linear-gradient(
-    0deg,
-    rgba(255, 255, 255, 0.34) 0%,
-    rgba(255, 255, 255, 0.06) 52%,
-    rgba(255, 255, 255, 0) 100%
-  );
+  background: linear-gradient(0deg,
+      rgba(255, 255, 255, 0.34) 0%,
+      rgba(255, 255, 255, 0.06) 52%,
+      rgba(255, 255, 255, 0) 100%);
 }
 
 [data-theme="light"] .my-profile-hero-content {
   background:
-    linear-gradient(
-      0deg,
+    linear-gradient(0deg,
       rgba(255, 255, 255, 0.98) 0%,
       rgba(255, 255, 255, 0.88) 15%,
-      rgba(255, 255, 255, 0) 38%
-    ),
-    linear-gradient(
-      90deg,
+      rgba(255, 255, 255, 0) 38%),
+    linear-gradient(90deg,
       #ffffff 0%,
       #ffffff 44%,
       rgba(255, 255, 255, 0.96) 54%,
       rgba(255, 255, 255, 0.66) 68%,
       rgba(255, 255, 255, 0.16) 84%,
-      rgba(255, 255, 255, 0) 100%
-    );
+      rgba(255, 255, 255, 0) 100%);
 }
 
 [data-theme="light"] .my-profile-hero-name {
@@ -1096,12 +1084,10 @@
 }
 
 [data-theme="light"] .my-profile-skeleton {
-  background: linear-gradient(
-    100deg,
-    #e8eef6 20%,
-    #f7fafd 38%,
-    #e8eef6 56%
-  );
+  background: linear-gradient(100deg,
+      #e8eef6 20%,
+      #f7fafd 38%,
+      #e8eef6 56%);
   background-size: 260% 100%;
 }
 
@@ -1134,40 +1120,32 @@
 
   .my-profile-hero-overlay {
     background:
-      linear-gradient(
-        90deg,
+      linear-gradient(90deg,
         rgba(3, 8, 18, 0.97) 0%,
         rgba(3, 8, 18, 0.9) 42%,
-        rgba(3, 8, 18, 0.62) 100%
-      ),
-      linear-gradient(
-        0deg,
+        rgba(3, 8, 18, 0.62) 100%),
+      linear-gradient(0deg,
         rgba(3, 8, 18, 0.92) 0%,
         rgba(3, 8, 18, 0.25) 62%,
-        rgba(3, 8, 18, 0.16) 100%
-      );
+        rgba(3, 8, 18, 0.16) 100%);
   }
 
   [data-theme="light"] .my-profile-hero-content {
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.08) 20%,
-      rgba(255, 255, 255, 0.55) 36%,
-      rgba(255, 255, 255, 0.94) 52%,
-      #ffffff 64%,
-      #ffffff 100%
-    );
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.08) 20%,
+        rgba(255, 255, 255, 0.55) 36%,
+        rgba(255, 255, 255, 0.94) 52%,
+        #ffffff 64%,
+        #ffffff 100%);
   }
 
   [data-theme="light"] .my-profile-hero-overlay {
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.05) 42%,
-      rgba(255, 255, 255, 0.5) 66%,
-      #ffffff 88%
-    );
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.05) 42%,
+        rgba(255, 255, 255, 0.5) 66%,
+        #ffffff 88%);
   }
 
   .my-profile-hero-identity {
@@ -1289,6 +1267,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .my-profile-section,
   .my-profile-hero,
   .my-profile-hero-portrait img,
