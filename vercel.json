@@ -10,6 +10,18 @@
     {
       "source": "/api/(.*)",
       "destination": "/api/index.js"
+    },
+    {
+      "source": "/player/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/atleta/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }

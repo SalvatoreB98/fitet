@@ -20,6 +20,22 @@ import { PingPongLoader } from './components/PingPongLoader';
 import { registerTeamLogos } from './utils/teamLogos';
 import { addRecentAthlete, addRecentChampionship } from './utils/history';
 
+const getAthleteFromUrl = (): { id: string; name: string } | null => {
+  if (typeof window === 'undefined') return null;
+  const pathname = window.location.pathname;
+  const match = pathname.match(/^\/(?:player|atleta)\/([^/?#]+)/i);
+  if (match && match[1]) {
+    const raw = decodeURIComponent(match[1]).trim();
+    if (raw) return { id: raw, name: '' };
+  }
+  const urlParams = new URLSearchParams(window.location.search);
+  const paramId = urlParams.get('player') || urlParams.get('atleta') || urlParams.get('atletaId');
+  if (paramId && paramId.trim()) {
+    return { id: paramId.trim(), name: '' };
+  }
+  return null;
+};
+
 export const App: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -54,11 +70,13 @@ export const App: React.FC = () => {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
 
-  // Motion Graphic Intro on first access only
+  // Motion Graphic Intro on first access only (bypassed if landing directly on athlete link)
   const [showIntro, setShowIntro] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('intro') === '1') return true;
+      const isPlayerPath = /^\/(?:player|atleta)\//i.test(window.location.pathname) || urlParams.has('player') || urlParams.has('atleta');
+      if (isPlayerPath) return false;
       const completed = localStorage.getItem('fitet_intro_completed');
       return !completed;
     }
@@ -110,9 +128,16 @@ export const App: React.FC = () => {
 
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
 
-  // Athlete modal navigation stack
-  const [athleteStack, setAthleteStack] = useState<Array<{ key: string; id: string; name: string; fromReferto?: boolean }>>([]);
+  // Athlete modal navigation stack synced with /player/:id URL
+  const [athleteStack, setAthleteStack] = useState<Array<{ key: string; id: string; name: string; fromReferto?: boolean }>>(() => {
+    const fromUrl = getAthleteFromUrl();
+    if (fromUrl) {
+      return [{ key: 'athlete-init', id: fromUrl.id, name: fromUrl.name }];
+    }
+    return [];
+  });
   const athleteKeyCounter = useRef(0);
+
   const setSelectedAthlete = (a: { id: string; name: string; fromReferto?: boolean }) => {
     addRecentAthlete({ id: a.id, name: a.name });
     setAthleteStack((prev) => {
@@ -121,8 +146,71 @@ export const App: React.FC = () => {
       athleteKeyCounter.current += 1;
       return [...prev, { key: `athlete-${athleteKeyCounter.current}`, ...a }];
     });
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.pathname = `/player/${encodeURIComponent(a.id)}`;
+      url.searchParams.delete('player');
+      url.searchParams.delete('atleta');
+      url.searchParams.delete('atletaId');
+      window.history.pushState(
+        { ...(window.history.state || {}), athleteId: a.id, athleteName: a.name },
+        '',
+        url.toString()
+      );
+    }
   };
-  const closeTopAthlete = () => setAthleteStack((prev) => prev.slice(0, -1));
+
+  const closeTopAthlete = () => {
+    if (typeof window !== 'undefined' && window.history.state?.athleteId) {
+      window.history.back();
+      return;
+    }
+
+    setAthleteStack((prev) => {
+      const nextStack = prev.slice(0, -1);
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        const nextTop = nextStack[nextStack.length - 1];
+        if (nextTop) {
+          url.pathname = `/player/${encodeURIComponent(nextTop.id)}`;
+          window.history.replaceState({ ...(window.history.state || {}), athleteId: nextTop.id }, '', url.toString());
+        } else {
+          url.pathname = '/';
+          url.searchParams.delete('player');
+          url.searchParams.delete('atleta');
+          url.searchParams.delete('atletaId');
+          window.history.replaceState({ ...(window.history.state || {}), athleteId: null }, '', url.toString());
+        }
+      }
+      return nextStack;
+    });
+  };
+
+  const handleResolveAthlete = (resolvedId: string, resolvedName: string) => {
+    addRecentAthlete({ id: resolvedId, name: resolvedName });
+    setAthleteStack((prev) => {
+      if (prev.length === 0) return prev;
+      const copy = [...prev];
+      const lastIdx = copy.length - 1;
+      copy[lastIdx] = { ...copy[lastIdx], id: resolvedId, name: resolvedName };
+      return copy;
+    });
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.pathname = `/player/${encodeURIComponent(resolvedId)}`;
+      url.searchParams.delete('player');
+      url.searchParams.delete('atleta');
+      url.searchParams.delete('atletaId');
+      window.history.replaceState(
+        { ...(window.history.state || {}), athleteId: resolvedId, athleteName: resolvedName },
+        '',
+        url.toString()
+      );
+    }
+  };
+
   const selectedAthlete = athleteStack.length > 0 ? athleteStack[athleteStack.length - 1] : null;
   const [selectedSquadra, setSelectedSquadra] = useState<{ id: string; name: string } | null>(null);
 
@@ -381,6 +469,23 @@ export const App: React.FC = () => {
       if (urlAnno && /^\d+$/.test(urlAnno)) {
         const parsedAnno = parseInt(urlAnno, 10);
         setAnnoId((prev) => (prev !== parsedAnno ? parsedAnno : prev));
+      }
+
+      // Sync athlete modal stack with URL
+      const routePlayer = getAthleteFromUrl();
+      if (routePlayer) {
+        setAthleteStack((prev) => {
+          const top = prev[prev.length - 1];
+          if (top && top.id === routePlayer.id) return prev;
+          const existingIdx = prev.findIndex((item) => item.id === routePlayer.id);
+          if (existingIdx !== -1) {
+            return prev.slice(0, existingIdx + 1);
+          }
+          athleteKeyCounter.current += 1;
+          return [...prev, { key: `athlete-${athleteKeyCounter.current}`, id: routePlayer.id, name: '' }];
+        });
+      } else {
+        setAthleteStack((prev) => (prev.length > 0 ? [] : prev));
       }
     };
 
@@ -641,6 +746,7 @@ export const App: React.FC = () => {
           isTopModal={index === athleteStack.length - 1}
           onClose={closeTopAthlete}
           onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+          onResolveAthlete={handleResolveAthlete}
         />
       ))}
 

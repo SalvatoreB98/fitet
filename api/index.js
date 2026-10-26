@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import path5 from "path";
+import fs5 from "fs";
 
 // server/services/fitetClient.ts
 var BASE_URL = "https://portale.fitet.org";
@@ -305,41 +306,33 @@ var ViewsService = class {
    */
   async incrementViews(id, ip = null) {
     if (!id) return 0;
-    const playerId = this.parsePlayerId(id);
+    const playerId = this.parsePlayerId(String(id));
     const cacheKey = String(playerId ?? id);
-
     if (this.supabase && playerId !== null) {
       try {
         const { data: rpcCount, error: rpcError } = await this.supabase.rpc("increment_athlete_views", {
           p_player_id: Number(playerId),
-          p_client_ip: ip || null,
+          p_client_ip: ip,
           p_cooldown_minutes: 60
         });
-
-        if (!rpcError && rpcCount !== null) {
+        console.log(`[ViewsService] RPC result:`, { rpcCount, rpcError });
+        if (!rpcError && rpcCount !== null && rpcCount !== void 0) {
           const count = Number(rpcCount);
           this.memoryCache.set(cacheKey, count);
           return count;
         }
-
-        // Se c'è un errore nella RPC, loggalo chiaramente
         if (rpcError) {
-          console.error(`[ViewsService] ERRORE RPC increment_athlete_views:`, rpcError);
-          // NON fare l'upsert qui altrimenti vanifichi il controllo dell'IP!
-          const { data: existing } = await this.supabase
-            .from("views")
-            .select("count")
-            .eq("playerId", playerId)
-            .maybeSingle();
-          return existing?.count || 0;
+          console.error(`[ViewsService] Errore RPC increment_athlete_views:`, rpcError);
         }
+        const { data: existing } = await this.supabase.from("views").select("count").eq("playerId", playerId).maybeSingle();
+        const currentFromDb = Number(existing?.count || 0);
+        this.memoryCache.set(cacheKey, currentFromDb);
+        return currentFromDb;
       } catch (err) {
-        console.error(`[ViewsService] Eccezione Supabase incrementViews:`, err);
+        console.error(`[ViewsService] Eccezione Supabase:`, err);
       }
     }
-
-    const current = this.memoryCache.get(cacheKey) || 0;
-    return current;
+    return this.memoryCache.get(cacheKey) || 0;
   }
   /**
    * Recupera il contatore delle visualizzazioni per un determinato atleta.
@@ -2869,7 +2862,6 @@ function computeTeamForm(classifica, calendario) {
     };
   });
 }
-
 async function getClassifica(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, forceRefresh = false) {
   const cacheKey = `classifica_${camId}`;
   if (!forceRefresh) {
@@ -2891,7 +2883,6 @@ async function getClassifica(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, f
   cacheService.set(cacheKey, withLogos, TTL_CLASSIFICA);
   return withLogos;
 }
-
 async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, forceRefresh = false) {
   const cacheKey = `calendario_${camId}_${annoId}`;
   if (!forceRefresh) {
@@ -2903,7 +2894,6 @@ async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, f
   cacheService.set(cacheKey, data, TTL_CALENDARIO);
   return data;
 }
-
 async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squadraIds = []) {
   const cacheKey = `statistiche_${camId}`;
   if (!forceRefresh) {
@@ -2923,7 +2913,6 @@ async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squa
   cacheService.set(cacheKey, data, TTL_STATISTICHE);
   return data;
 }
-
 app.get("/api/campionati", async (req, res) => {
   const forceRefresh = req.query.refresh === "true";
   try {
@@ -2934,7 +2923,6 @@ app.get("/api/campionati", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 app.get("/api/dashboard", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
@@ -2967,7 +2955,6 @@ app.get("/api/dashboard", async (req, res) => {
     res.status(500).json({ error: "Errore durante il recupero dei dati FITeT", details: error.message });
   }
 });
-
 app.get("/api/classifica", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
@@ -2979,7 +2966,6 @@ app.get("/api/classifica", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 app.get("/api/calendario", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
@@ -2991,7 +2977,6 @@ app.get("/api/calendario", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 app.get("/api/statistiche", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const forceRefresh = req.query.refresh === "true";
@@ -3004,7 +2989,6 @@ app.get("/api/statistiche", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
 app.get("/api/ranking", async (req, res) => {
   const sesso = req.query.sesso === "F" ? "F" : "M";
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -3033,7 +3017,6 @@ app.get("/api/ranking", async (req, res) => {
     res.status(500).json({ error: "Errore nel recupero della classifica", details: error.message });
   }
 });
-
 app.get("/api/atleta/:id", async (req, res) => {
   let { id } = req.params;
   const forceRefresh = req.query.refresh === "true" || req.query.force === "true";
@@ -3091,22 +3074,13 @@ app.get("/api/atleta/:id", async (req, res) => {
         nome: foundCamp.nome,
         categoria: foundCamp.categoria,
         regione: foundCamp.regione,
-        squadra: foundCamp.squadra,
-        logoUrl: foundCamp.squadra ? teamResolver.getLogo(foundCamp.squadra) : undefined
+        squadra: foundCamp.squadra
       };
     }
-
-    // Risoluzione logo società atleta
-    if (atleta?.anagrafica?.societa) {
-      atleta.anagrafica.logoUrl = teamResolver.getLogo(atleta.anagrafica.societa)
-        || (foundCamp?.squadra ? teamResolver.getLogo(foundCamp.squadra) : undefined);
-    }
-
     const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith("Atleta ") || atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0);
     if (!isHollow) {
       cacheService.set(cacheKey, atleta, TTL_ATLETA);
     }
-
     if (partiteRanking && (partiteRanking.campionato.length > 0 || partiteRanking.tornei.length > 0)) {
       headToHeadService.enrichRankingMatches(id, partiteRanking, resolvedIdClass).then((enriched) => {
         if (enriched && !isHollow) {
@@ -3122,7 +3096,6 @@ app.get("/api/atleta/:id", async (req, res) => {
     res.status(500).json({ error: "Errore nel recupero della scheda atleta", details: error.message });
   }
 });
-
 app.get("/api/head-to-head", async (req, res) => {
   const atleta1 = req.query.atleta1;
   const atleta2 = req.query.atleta2;
@@ -3138,22 +3111,14 @@ app.get("/api/head-to-head", async (req, res) => {
     res.status(500).json({ error: "Errore nel recupero del testa a testa", details: error.message });
   }
 });
-
 app.post("/api/atleta/:id/view", async (req, res) => {
-  console.log(req, "[IP DETECTED]");
   const { id } = req.params;
   if (!id) return res.status(400).json({ error: "ID atleta mancante" });
-
-  const clientIp =
-    req.headers["x-forwarded-for"]?.split(",")[0].trim() ||
-    req.socket.remoteAddress ||
-    "127.0.0.1";
-
-  console.log(clientIp, "[IP DETECTED]");
+  const clientIp = req.headers["x-forwarded-for"]?.split(",")[0].trim() || req.socket.remoteAddress || "127.0.0.1";
+  console.log(`[VIEW HIT] ID Atleta: ${id} | Client IP: ${clientIp}`);
   const count = await viewsService.incrementViews(id, clientIp);
   res.json({ id, views: count });
 });
-
 app.get("/api/atleta/:id/views", async (req, res) => {
   const { id } = req.params;
   if (!id) return res.status(400).json({ error: "ID atleta mancante" });
@@ -3499,6 +3464,46 @@ app.post("/api/refresh", async (req, res) => {
 if (!process.env.VERCEL) {
   const distPath = path5.resolve(process.cwd(), "dist");
   app.use(express.static(distPath));
+  app.get(["/player/:id", "/atleta/:id"], async (req, res, next) => {
+    const { id } = req.params;
+    const indexFile = path5.join(distPath, "index.html");
+    if (!fs5.existsSync(indexFile)) return next();
+    try {
+      let html = await fs5.promises.readFile(indexFile, "utf8");
+      let athleteName = `Atleta #${id}`;
+      let photoUrl = "https://portale.fitet.org/images/atleti/" + encodeURIComponent(id) + ".jpg";
+      let description = "Visualizza la scheda atleta, ranking e storico incontri su FITeT Campionati.";
+      const cached = cacheService.get(`atleta_${id}`);
+      if (cached?.anagrafica?.nome) {
+        athleteName = cached.anagrafica.nome;
+        if (cached.anagrafica.societa) {
+          description = `${athleteName} (${cached.anagrafica.societa}) - Scheda ranking, risultati e statistiche campionati FITeT.`;
+        }
+        if (cached.anagrafica.fotoUrl) {
+          photoUrl = cached.anagrafica.fotoUrl;
+        }
+      }
+      const title = `${athleteName} | Scheda Ranking FITeT`;
+      const currentUrl = `${req.protocol}://${req.get("host")}/player/${encodeURIComponent(id)}`;
+      const ogMeta = `
+  <title>${title}</title>
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="${photoUrl}" />
+  <meta property="og:url" content="${currentUrl}" />
+  <meta property="og:type" content="profile" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${title}" />
+  <meta name="twitter:description" content="${description}" />
+  <meta name="twitter:image" content="${photoUrl}" />
+`;
+      html = html.replace(/<title>.*?<\/title>/i, ogMeta);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.send(html);
+    } catch {
+      return next();
+    }
+  });
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
     const indexFile = path5.join(distPath, "index.html");

@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { FitetClient } from './services/fitetClient';
 import { cacheService } from './services/cacheService';
 import { viewsService } from './services/viewsService';
@@ -24,6 +25,7 @@ import {
     PartitaCampionatoAtleta,
     AtletaCampionatoPartiteResponse,
     PartiteRankingAtleta,
+    ChampionshipItem,
 } from '../src/types/fitet';
 
 export const app = express();
@@ -860,6 +862,53 @@ app.post('/api/refresh', async (req, res) => {
 if (!process.env.VERCEL) {
     const distPath = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distPath));
+
+    // Dynamic OG tags for /player/:id and /atleta/:id for WhatsApp and social preview crawlers
+    app.get(['/player/:id', '/atleta/:id'], async (req, res, next) => {
+        const { id } = req.params;
+        const indexFile = path.join(distPath, 'index.html');
+        if (!fs.existsSync(indexFile)) return next();
+
+        try {
+            let html = await fs.promises.readFile(indexFile, 'utf8');
+            let athleteName = `Atleta #${id}`;
+            let photoUrl = 'https://portale.fitet.org/images/atleti/' + encodeURIComponent(id) + '.jpg';
+            let description = 'Visualizza la scheda atleta, ranking e storico incontri su FITeT Campionati.';
+
+            const cached = cacheService.get<any>(`atleta_${id}`);
+            if (cached?.anagrafica?.nome) {
+                athleteName = cached.anagrafica.nome;
+                if (cached.anagrafica.societa) {
+                    description = `${athleteName} (${cached.anagrafica.societa}) - Scheda ranking, risultati e statistiche campionati FITeT.`;
+                }
+                if (cached.anagrafica.fotoUrl) {
+                    photoUrl = cached.anagrafica.fotoUrl;
+                }
+            }
+
+            const title = `${athleteName} | Scheda Ranking FITeT`;
+            const currentUrl = `${req.protocol}://${req.get('host')}/player/${encodeURIComponent(id)}`;
+
+            const ogMeta = `
+  <title>${title}</title>
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="${photoUrl}" />
+  <meta property="og:url" content="${currentUrl}" />
+  <meta property="og:type" content="profile" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${title}" />
+  <meta name="twitter:description" content="${description}" />
+  <meta name="twitter:image" content="${photoUrl}" />
+`;
+            html = html.replace(/<title>.*?<\/title>/i, ogMeta);
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            return res.send(html);
+        } catch {
+            return next();
+        }
+    });
+
     app.get('*', (req, res, next) => {
         if (req.path.startsWith('/api')) return next();
         const indexFile = path.join(distPath, 'index.html');

@@ -20,6 +20,7 @@ interface AtletaModalProps {
   campionatoNome?: string | null;
   onClose: () => void;
   onSelectAthlete?: (id: string, name: string) => void;
+  onResolveAthlete?: (resolvedId: string, resolvedName: string) => void;
   isTopModal?: boolean;
 }
 
@@ -44,6 +45,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   campionatoNome,
   onClose,
   onSelectAthlete,
+  onResolveAthlete,
   isTopModal = true,
 }) => {
   useBodyScrollLock(true);
@@ -57,6 +59,13 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [viewsCount, setViewsCount] = useState<number>(0);
   const [halfAtletaTarget, setHalfAtletaTarget] = useState<{ id?: string; name: string } | null>(null);
   const lastTrackedKeyRef = useRef<string | null>(null);
+
+  // Share state
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState<boolean>(false);
+  const [copied, setCopied] = useState<boolean>(false);
+  const [showToast, setShowToast] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string>('');
+  const shareMenuRef = useRef<HTMLDivElement>(null);
 
   const currentAtletaId = atleta?.id || atletaId;
   const currentAthleteName = atleta?.anagrafica?.nome || athleteName || 'Atleta';
@@ -133,6 +142,103 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   }, [matchTab, rankingFilter, campionatoPartite, viewMode]);
 
   useEffect(() => {
+    if (!isTopModal) return;
+    const originalTitle = document.title;
+    const name = atleta?.anagrafica?.nome || athleteName;
+    if (name && name !== 'Atleta') {
+      document.title = `${name} | Scheda Atleta & Ranking FITeT`;
+    }
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [atleta?.anagrafica?.nome, athleteName, isTopModal]);
+
+  // Close share popover when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(e.target as Node)) {
+        setIsShareMenuOpen(false);
+      }
+    };
+    if (isShareMenuOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isShareMenuOpen]);
+
+  const sharePlayerId = atleta?.id || atletaId;
+  const shareUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/player/${encodeURIComponent(sharePlayerId)}`
+    : `/player/${encodeURIComponent(sharePlayerId)}`;
+
+  const handleShareWhatsApp = () => {
+    const name = atleta?.anagrafica?.nome || athleteName || 'Atleta';
+    const club = atleta?.anagrafica?.societa || squadraCampionato || '';
+    const cat = atleta?.anagrafica?.categoria ? `${atleta.anagrafica.categoria}ª Categoria` : '';
+    const storico = atleta?.storicoClassifica || [];
+    const ultimo = storico.length > 0 ? storico[storico.length - 1] : null;
+    const pos = ultimo?.posizione ? `#${ultimo.posizione}` : (atleta?.anagrafica?.stato || '');
+    const pts = atleta?.anagrafica?.punti || ultimo?.punti;
+
+    let msg = `🏓 *${name}* - Scheda Atleta FITeT\n`;
+    if (club) msg += `🏢 Società: ${club}\n`;
+    if (cat) msg += `🎯 Categoria: ${cat}\n`;
+    if (pos) msg += `🏆 Ranking: ${pos}\n`;
+    if (pts) msg += `⭐ Punti: ${typeof pts === 'number' ? pts.toLocaleString('it-IT') : pts}\n`;
+    msg += `\nVisualizza profilo completo, andamento e storico incontri:\n${shareUrl}`;
+
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+    setIsShareMenuOpen(false);
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        textArea.remove();
+      }
+      setCopied(true);
+      setToastMessage('Link profilo copiato negli appunti!');
+      setShowToast(true);
+      setTimeout(() => setCopied(false), 2200);
+      setTimeout(() => setShowToast(false), 2800);
+      setIsShareMenuOpen(false);
+    } catch (err) {
+      console.error('Errore copia link:', err);
+    }
+  };
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        const name = atleta?.anagrafica?.nome || athleteName || 'Atleta';
+        await navigator.share({
+          title: `${name} - Scheda FITeT`,
+          text: `Scheda atleta e statistiche di ${name} sul portale FITeT:`,
+          url: shareUrl,
+        });
+        setIsShareMenuOpen(false);
+      } catch {
+        // User cancelled share
+      }
+    } else {
+      handleCopyLink();
+    }
+  };
+
+  useEffect(() => {
     let isMounted = true;
     setLoading(true);
     setError(null);
@@ -188,6 +294,10 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
         setAtleta(data);
         setLoading(false);
+
+        if (onResolveAthlete && data.id && (data.id !== atletaId || !athleteName)) {
+          onResolveAthlete(data.id, data.anagrafica.nome);
+        }
 
         const storico = data.storicoClassifica || [];
         const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
@@ -258,6 +368,10 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
       const freshData = await fetchAtleta(targetId, true);
       setAtleta(freshData);
+
+      if (onResolveAthlete && freshData.id && (freshData.id !== atletaId || !athleteName)) {
+        onResolveAthlete(freshData.id, freshData.anagrafica.nome);
+      }
 
       const actualCamId = freshData?.campionatoAttuale ? String(freshData.campionatoAttuale.camId) : undefined;
       let effectiveCam = camId || actualCamId;
@@ -418,6 +532,70 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                 {isFav ? 'Preferito' : 'Preferiti'}
               </span>
             </button>
+
+            {/* Share / WhatsApp Popover Toggle Button */}
+            <div className="position-relative" ref={shareMenuRef}>
+              <button
+                type="button"
+                className={`modal-favorite-toggle-btn ${isShareMenuOpen ? 'is-favorited' : ''}`}
+                onClick={() => setIsShareMenuOpen((prev) => !prev)}
+                title="Condividi scheda atleta (WhatsApp, Copia Link)"
+                aria-label="Condividi scheda atleta"
+              >
+                <i className="bi bi-share-fill" style={{ fontSize: '12px', color: '#25D366' }}></i>
+                <span className="modal-favorite-btn-text d-none d-sm-inline">
+                  Condividi
+                </span>
+              </button>
+
+              {isShareMenuOpen && (
+                <div className="athlete-share-popover">
+                  <div className="athlete-share-popover-header">
+                    <span>Condividi Scheda</span>
+                    <button
+                      type="button"
+                      className="btn-close-popover"
+                      onClick={() => setIsShareMenuOpen(false)}
+                      aria-label="Chiudi"
+                    >
+                      <i className="bi bi-x-lg"></i>
+                    </button>
+                  </div>
+                  <div className="athlete-share-url-box">
+                    <span className="athlete-share-url-text">{shareUrl}</span>
+                  </div>
+                  <div className="athlete-share-actions">
+                    <button
+                      type="button"
+                      className="athlete-share-action-btn btn-whatsapp"
+                      onClick={handleShareWhatsApp}
+                    >
+                      <i className="bi bi-whatsapp me-2" style={{ fontSize: '16px' }}></i>
+                      <span>Invia su WhatsApp</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="athlete-share-action-btn btn-copy-link"
+                      onClick={handleCopyLink}
+                    >
+                      <i className={`bi ${copied ? 'bi-check2 text-success' : 'bi-link-45deg'} me-2`} style={{ fontSize: '16px' }}></i>
+                      <span>{copied ? 'Link Copiato!' : 'Copia Link Diretto'}</span>
+                    </button>
+                    {typeof navigator !== 'undefined' && 'share' in navigator && (
+                      <button
+                        type="button"
+                        className="athlete-share-action-btn btn-native-share"
+                        onClick={handleNativeShare}
+                      >
+                        <i className="bi bi-box-arrow-up me-2" style={{ fontSize: '14px' }}></i>
+                        <span>Altre opzioni...</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               className="modal-close-btn"
@@ -513,6 +691,28 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     {atleta.anagrafica.settore && (
                       <span className="badge badge-neutral">{atleta.anagrafica.settore}</span>
                     )}
+                  </div>
+
+                  {/* Quick Share Buttons on profile card */}
+                  <div className="atleta-profile-quick-actions">
+                    <button
+                      type="button"
+                      className="atleta-quick-share-btn btn-quick-wa"
+                      onClick={handleShareWhatsApp}
+                      title="Condividi scheda direttamente su WhatsApp"
+                    >
+                      <i className="bi bi-whatsapp"></i>
+                      <span>Condividi su WhatsApp</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="atleta-quick-share-btn btn-quick-copy"
+                      onClick={handleCopyLink}
+                      title="Copia link profilo condivisibile"
+                    >
+                      <i className={`bi ${copied ? 'bi-check-lg text-success' : 'bi-link-45deg'}`}></i>
+                      <span>{copied ? 'Link Copiato!' : 'Copia Link'}</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1377,6 +1577,14 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             }
           }}
         />
+      )}
+
+      {/* Toast Feedback for Copy Link */}
+      {showToast && (
+        <div className="atleta-share-toast" role="status" aria-live="polite">
+          <i className="bi bi-check-circle-fill text-success" style={{ fontSize: '15px' }}></i>
+          <span>{toastMessage}</span>
+        </div>
       )}
     </div>,
     document.body

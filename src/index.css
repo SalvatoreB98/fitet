@@ -7270,3 +7270,254 @@ body.modal-open {
   font-size: 12px;
   font-style: italic;
 }
+
+/* ==========================================================================
+   ATHLETE SHARE POPOVER, QUICK ACTIONS & TOAST
+   ========================================================================== */
+.athlete-share-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 290px;
+  max-width: calc(100vw - 32px);
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  box-shadow: 0 14px 35px -6px rgba(0, 0, 0, 0.22), 0 8px 16px -4px rgba(0, 0, 0, 0.12);
+  padding: 12px;
+  z-index: 10000;
+  animation: popoverFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] .athlete-share-popover {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.athlete-share-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #64748b);
+}
+
+.athlete-share-popover-header .btn-close-popover {
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #64748b);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.athlete-share-popover-header .btn-close-popover:hover {
+  color: var(--text-main, #0f172a);
+}
+
+.athlete-share-url-box {
+  background: var(--bg-hover, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+[data-theme="dark"] .athlete-share-url-box {
+  background: rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.athlete-share-url-text {
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--text-muted, #64748b);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: all;
+}
+
+.athlete-share-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.athlete-share-action-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.athlete-share-action-btn.btn-whatsapp {
+  background: #25D366;
+  color: #ffffff;
+}
+
+.athlete-share-action-btn.btn-whatsapp:hover {
+  background: #20bd5a;
+  transform: translateY(-1px);
+}
+
+.athlete-share-action-btn.btn-copy-link {
+  background: var(--bg-hover, #f1f5f9);
+  color: var(--text-main, #0f172a);
+  border-color: var(--border-color, #e2e8f0);
+}
+
+[data-theme="dark"] .athlete-share-action-btn.btn-copy-link {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.athlete-share-action-btn.btn-copy-link:hover {
+  background: var(--border-color, #e2e8f0);
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .athlete-share-action-btn.btn-copy-link:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.athlete-share-action-btn.btn-native-share {
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  border-color: var(--border-color, #e2e8f0);
+}
+
+.athlete-share-action-btn.btn-native-share:hover {
+  color: var(--text-main, #0f172a);
+  background: var(--bg-hover, #f8fafc);
+}
+
+/* Quick Share buttons inside athlete profile bar */
+.atleta-profile-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.atleta-quick-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+.atleta-quick-share-btn.btn-quick-wa {
+  background: rgba(37, 211, 102, 0.12);
+  color: #15803d;
+  border-color: rgba(37, 211, 102, 0.35);
+}
+
+[data-theme="dark"] .atleta-quick-share-btn.btn-quick-wa {
+  background: rgba(37, 211, 102, 0.18);
+  color: #4ade80;
+  border-color: rgba(37, 211, 102, 0.4);
+}
+
+.atleta-quick-share-btn.btn-quick-wa:hover {
+  background: #25D366;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.atleta-quick-share-btn.btn-quick-copy {
+  background: var(--bg-hover, #f1f5f9);
+  color: var(--text-main, #334155);
+  border-color: var(--border-color, #cbd5e1);
+}
+
+[data-theme="dark"] .atleta-quick-share-btn.btn-quick-copy {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.atleta-quick-share-btn.btn-quick-copy:hover {
+  background: var(--border-color, #e2e8f0);
+  transform: translateY(-1px);
+}
+
+[data-theme="dark"] .atleta-quick-share-btn.btn-quick-copy:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Floating feedback toast for link copying */
+.atleta-share-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0f172a;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 4px 8px rgba(0, 0, 0, 0.2);
+  padding: 9px 18px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  z-index: 10050;
+  pointer-events: none;
+  animation: toastPopIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] .atleta-share-toast {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+@keyframes toastPopIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
