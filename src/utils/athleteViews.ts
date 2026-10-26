@@ -20,8 +20,8 @@ function saveStoredViewsMap(map: Record<string, number>) {
 }
 
 /**
- * Incrementa e restituisce il conteggio REALE delle visualizzazioni per un atleta.
- * Registra localmente in localStorage e sincronizza con il backend.
+ * Invia la visualizzazione al server e restituisce subito l'ultimo valore noto in cache locale.
+ * Quando il server risponde, invoca onServerUpdate con il valore reale aggiornato dal DB.
  */
 export function recordAndGetAthleteViews(
   athleteKey: string,
@@ -30,32 +30,35 @@ export function recordAndGetAthleteViews(
   if (typeof window === 'undefined' || !athleteKey) return 0;
   const cleanKey = athleteKey.toLowerCase().trim();
   const map = getStoredViewsMap();
-  const current = map[cleanKey] || 0;
-  const next = current + 1;
-  map[cleanKey] = next;
-  saveStoredViewsMap(map);
 
-  // Sincronizzazione asincrona con il server per conteggio reale condiviso
+  // Ritorna subito il valore già memorizzato (senza forzare +1 a caso)
+  const cachedViews = map[cleanKey] || 0;
+
+  // Sincronizzazione con il backend (è Supabase a decidere se incrementare o no)
   fetch(`/api/atleta/${encodeURIComponent(cleanKey)}/view`, { method: 'POST' })
     .then((res) => (res.ok ? res.json() : null))
     .then((data) => {
-      if (data && typeof data.views === 'number' && data.views > next) {
-        map[cleanKey] = data.views;
-        saveStoredViewsMap(map);
+      // Accetta qualsiasi numero valido restituito dal server
+      const serverViews = Number(data?.views);
+      if (!isNaN(serverViews)) {
+        const freshMap = getStoredViewsMap();
+        freshMap[cleanKey] = serverViews;
+        saveStoredViewsMap(freshMap);
+
         if (onServerUpdate) {
-          onServerUpdate(data.views);
+          onServerUpdate(serverViews);
         }
       }
     })
-    .catch(() => {
-      // Offline fallback: mantiene il conteggio reale locale
+    .catch((err) => {
+      console.warn('[Views] Impossibile sincronizzare views con il server:', err);
     });
 
-  return next;
+  return cachedViews;
 }
 
 /**
- * Legge il conteggio visualizzazioni reale senza incrementare
+ * Legge il conteggio visualizzazioni memorizzato in locale
  */
 export function getAthleteViews(athleteKey: string): number {
   if (typeof window === 'undefined' || !athleteKey) return 0;

@@ -493,7 +493,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       )}
                       {atleta.anagrafica.dataNascita && viewsCount > 0 && <span style={{ opacity: 0.5 }}>•</span>}
                       {viewsCount > 0 && (
-                        <span title={`${viewsCount.toLocaleString('it-IT')} visualizzazioni reali del profilo`}>
+                        <span title={`${viewsCount.toLocaleString('it-IT')} visualizzazioni del profilo`}>
                           <i className="bi bi-eye me-1" style={{ fontSize: '11px' }}></i>
                           {viewsCount.toLocaleString('it-IT')} {viewsCount === 1 ? 'visita' : 'visite'}
                         </span>

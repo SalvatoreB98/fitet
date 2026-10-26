@@ -421,11 +421,20 @@ app.get('/api/head-to-head', async (req, res) => {
 });
 
 // 5c. Athlete Real Views tracking
-app.post('/api/atleta/:id/view', async (req, res) => {
-    const { id } = req.params;
-    if (!id) return res.status(400).json({ error: 'ID atleta mancante' });
-    const count = await viewsService.incrementViews(id);
-    res.json({ id, views: count });
+app.post("/api/atleta/:id/view", async (req, res) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: "ID atleta mancante" });
+
+  // Estrae l'IP reale (utile sia in locale che dietro reverse proxy/Vercel)
+  const clientIp =
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ||
+    req.socket.remoteAddress ||
+    "127.0.0.1";
+
+  console.log(`[VIEW HIT] ID Atleta: ${id} | Client IP: ${clientIp}`);
+
+  const count = await viewsService.incrementViews(id, clientIp);
+  res.json({ id, views: count });
 });
 
 app.get('/api/atleta/:id/views', async (req, res) => {

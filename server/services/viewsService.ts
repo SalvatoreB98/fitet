@@ -55,56 +55,49 @@ class ViewsService {
   /**
    * Incrementa atomicamente il contatore delle visualizzazioni per un determinato atleta.
    */
-  async incrementViews(id: string): Promise<number> {
+  async incrementViews(id: string | number, ip: string | null = null) {
     if (!id) return 0;
-    const playerId = this.parsePlayerId(id);
+    const playerId = this.parsePlayerId(String(id));
     const cacheKey = String(playerId ?? id);
 
-    // 1. Incremento su Supabase
     if (this.supabase && playerId !== null) {
       try {
-        // Tentativo 1: Chiamata a funzione RPC atomica ad alta concorrenza
-        const { data: rpcCount, error: rpcError } = await this.supabase.rpc('increment_athlete_views', {
-          player_id: playerId,
+        const { data: rpcCount, error: rpcError } = await this.supabase.rpc("increment_athlete_views", {
+          p_player_id: Number(playerId),
+          p_client_ip: ip,
+          p_cooldown_minutes: 60,
         });
 
-        if (!rpcError && typeof rpcCount === 'number') {
-          this.memoryCache.set(cacheKey, rpcCount);
-          return rpcCount;
+        console.log(`[ViewsService] RPC result:`, { rpcCount, rpcError });
+
+        // Non usare `typeof rpcCount === "number"` perché i BIGINT possono arrivare come stringhe
+        if (!rpcError && rpcCount !== null && rpcCount !== undefined) {
+          const count = Number(rpcCount);
+          this.memoryCache.set(cacheKey, count);
+          return count;
         }
 
-        // Tentativo 2 (fallback): Upsert diretto con onConflict
+        if (rpcError) {
+          console.error(`[ViewsService] Errore RPC increment_athlete_views:`, rpcError);
+        }
+
+        // Se la RPC fallisce, restituisci solo il valore attuale senza incrementare
         const { data: existing } = await this.supabase
-          .from('views')
-          .select('count')
-          .eq('playerId', playerId)
+          .from("views")
+          .select("count")
+          .eq("playerId", playerId)
           .maybeSingle();
 
-        const nextCount = ((existing?.count as number) || 0) + 1;
+        const currentFromDb = Number(existing?.count || 0);
+        this.memoryCache.set(cacheKey, currentFromDb);
+        return currentFromDb;
 
-        const { error: upsertErr } = await this.supabase
-          .from('views')
-          .upsert(
-            { playerId, count: nextCount },
-            { onConflict: 'playerId' }
-          );
-
-        if (!upsertErr) {
-          this.memoryCache.set(cacheKey, nextCount);
-          return nextCount;
-        } else {
-          console.error(`[ViewsService] Errore upsert views per atleta ${playerId}:`, upsertErr);
-        }
       } catch (err) {
-        console.error(`[ViewsService] Errore imprevisto Supabase incrementViews per ${playerId}:`, err);
+        console.error(`[ViewsService] Eccezione Supabase:`, err);
       }
     }
 
-    // 2. Fallback memory-safe
-    const current = this.memoryCache.get(cacheKey) || 0;
-    const next = current + 1;
-    this.memoryCache.set(cacheKey, next);
-    return next;
+    return this.memoryCache.get(cacheKey) || 0;
   }
 
   /**
