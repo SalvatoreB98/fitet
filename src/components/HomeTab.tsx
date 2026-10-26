@@ -33,6 +33,7 @@ interface HomeTabProps {
   campionati: ChampionshipItem[];
   isLoadingCampionati?: boolean;
   onSelectChampionship: (camId: number, annoId?: number) => void;
+  onAutoSelectProfileChampionship: (camId: number) => void;
   onNavigateTab: (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => void;
   onOpenChampionshipModal: () => void;
   onOpenAtletaModal: (id: string, name: string) => void;
@@ -45,6 +46,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   currentChampionship,
   campionati,
   onSelectChampionship,
+  onAutoSelectProfileChampionship,
   onNavigateTab,
   onOpenChampionshipModal,
   onOpenAtletaModal,
@@ -178,6 +180,11 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     return cleanChampionshipCardName(activeChampionship.nome, activeChampionship.categoria);
   }, [activeChampionship]);
 
+  const handleProfileChampionshipDetected = (championshipId: number) => {
+    if (currentCamId !== null || !championshipId) return;
+    onAutoSelectProfileChampionship(championshipId);
+  };
+
   // Evita ripetizioni tra preferiti e cronologia:
   // Mostra nella cronologia solo gli atleti che NON sono già nei preferiti
   const filteredRecentAthletes = useMemo(() => {
@@ -228,7 +235,10 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       {/* ───────────────────────────────────────────────────────────
           IL MIO PROFILO (Scheda personale o invito alla configurazione)
          ─────────────────────────────────────────────────────────── */}
-      <MyProfileHero onOpenAtletaModal={onOpenAtletaModal} />
+      <MyProfileHero
+        onOpenAtletaModal={onOpenAtletaModal}
+        onChampionshipDetected={handleProfileChampionshipDetected}
+      />
 
       {/* ───────────────────────────────────────────────────────────
           HERO MINIMAL SENZA BORDI (Campionato Corrente o Navigazione Rapida)

@@ -16,6 +16,7 @@ import './MyProfileHero.css';
 
 interface MyProfileHeroProps {
   onOpenAtletaModal: (id: string, name: string) => void;
+  onChampionshipDetected?: (championshipId: number) => void;
 }
 
 const getInitialProfileState = (): {
@@ -55,7 +56,10 @@ const formatPoints = (points?: number | null): string => {
   return formatItalianInteger(points);
 };
 
-export const MyProfileHero: React.FC<MyProfileHeroProps> = ({ onOpenAtletaModal }) => {
+export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
+  onOpenAtletaModal,
+  onChampionshipDetected,
+}) => {
   const [initialProfile] = useState(getInitialProfileState);
   const [playerId, setPlayerId] = useState<string | null>(initialProfile.id);
   const [snapshot, setSnapshot] = useState<MyProfileSnapshot | null>(initialProfile.snapshot);
@@ -66,6 +70,11 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({ onOpenAtletaModal 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [photoError, setPhotoError] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const onChampionshipDetectedRef = useRef(onChampionshipDetected);
+
+  useEffect(() => {
+    onChampionshipDetectedRef.current = onChampionshipDetected;
+  }, [onChampionshipDetected]);
 
   // Keep the hero in sync if another part of the app sets/removes the profile.
   useEffect(
@@ -117,6 +126,11 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({ onOpenAtletaModal 
           setMyPlayer(data.id, data.anagrafica?.nome);
           setPlayerId(data.id);
           return;
+        }
+
+        const championshipId = data.campionatoAttuale?.camId;
+        if (typeof championshipId === 'number' && championshipId > 0) {
+          onChampionshipDetectedRef.current?.(championshipId);
         }
 
         const freshSnapshot = buildMyProfileSnapshot(data);

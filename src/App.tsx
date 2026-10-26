@@ -404,6 +404,15 @@ export const App: React.FC = () => {
     }
   }, [camId, annoId, showIntro]);
 
+  // Se viene impostato "Il mio profilo" senza un campionato attivo,
+  // allinea la Home al campionato dell'atleta senza cambiare vista.
+  const handleAutoSelectProfileChampionship = (newCam: number) => {
+    if (camId !== null || !newCam) return;
+    const match = campionati.find((c) => c.id === newCam);
+    setCamId(newCam);
+    if (match?.anno) setAnnoId(match.anno);
+  };
+
   const handleSelectChampionship = (newCam: number, newAnno = 41) => {
     setSelectedTeamFilter(null);
     if (newCam !== camId || !data) {
@@ -618,6 +627,7 @@ export const App: React.FC = () => {
             campionati={campionati}
             isLoadingCampionati={loadingCampionati}
             onSelectChampionship={handleSelectChampionship}
+            onAutoSelectProfileChampionship={handleAutoSelectProfileChampionship}
             onNavigateTab={(tab) => {
               if (tab === 'cercaAtleta') {
                 setIsSearchModalOpen(true);
