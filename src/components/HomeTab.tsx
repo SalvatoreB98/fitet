@@ -323,7 +323,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                   }}
                 >
                   <i className="bi bi-trophy"></i>
-                  <span>FITeT Campionati</span>
+                  <span>Campionati FITeT </span>
                 </span>
               </div>
               <h2 className="home-hero-title">Esplora i Campionati</h2>
@@ -351,15 +351,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 <i className="bi bi-search"></i>
                 <span>Cerca Giocatori</span>
               </button>
-              <button
-                type="button"
-                className="home-hero-btn home-hero-btn-secondary"
-                onClick={handleOpenH2hPicker}
-                title="Confronta due atleti"
-              >
-                <i className="bi bi-arrow-left-right"></i>
-                <span>Testa a Testa</span>
-              </button>
             </div>
           </>
         )}
@@ -374,8 +365,9 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           gap: '1rem',
         }}
       >
-        <div className="home-hero-content">
+        <div className="home-hero-content w-100">
           <h3 className="home-hero-title" style={{ margin: 0 }}>
+            <i className='contorno bi bi-archive me-2'></i>
             Archivio
           </h3>
         </div>

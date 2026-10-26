@@ -907,7 +907,6 @@ const FavoriteCard: React.FC<{
   return (
     <div className={favoriteClass}>
       <div className="h2h-cmp-favorite-kicker">
-        <i className="bi bi-stars" aria-hidden="true"></i>
         <span>Pronostico</span>
       </div>
 

@@ -1098,6 +1098,10 @@
   border-radius: 10px;
 }
 
+.contorno {
+
+}
+
 .home-cards-grid--athletes .home-athlete-card:hover {
   transform: none;
 }

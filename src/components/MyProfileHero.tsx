@@ -217,7 +217,6 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({ onOpenAtletaModal 
             </div>
             <div className="my-profile-empty-copy">
               <span className="my-profile-empty-eyebrow">
-                <i className="bi bi-stars"></i>
                 Il mio profilo
               </span>
               <h2 id="my-profile-empty-title" className="my-profile-empty-title">
