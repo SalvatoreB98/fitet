@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { HeadToHeadData } from '../types/fitet';
 import { fetchHeadToHead } from '../services/api';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { HeadToHeadComparisonPanel } from './HeadToHeadComparisonPanel';
 
 interface HeadToHeadModalProps {
   isOpen: boolean;
@@ -95,6 +96,8 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
   const totalMatches = data?.totaleIncontri ?? (player1.vittorie + player2.vittorie);
   const p1Rate = totalMatches > 0 ? Math.round((player1.vittorie / totalMatches) * 100) : 50;
   const p2Rate = 100 - p1Rate;
+  const player1Id = player1.id || atleta1Id;
+  const player2Id = player2.id || atleta2Id;
 
   return createPortal(
     <div className="modal-backdrop-simple modal-h2h-backdrop" onClick={onClose} style={{ zIndex: 1600 }}>
@@ -259,6 +262,16 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                   </div>
                 )}
               </div>
+
+              {player1Id && player2Id && (
+                <HeadToHeadComparisonPanel
+                  atleta1Id={player1Id}
+                  atleta1Nome={player1.nome}
+                  atleta2Id={player2Id}
+                  atleta2Nome={player2.nome}
+                  h2h={data}
+                />
+              )}
 
               {/* Encounters Timeline List */}
               <div style={{ marginBottom: '8px' }}>
