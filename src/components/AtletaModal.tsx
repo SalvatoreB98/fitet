@@ -764,7 +764,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               className={`pill-switcher-btn ${activeTabResolved === 'ranking' ? 'active' : ''}`}
                             >
                               <i className="bi bi-trophy-fill me-1"></i>
-                              Tutte le Partite FITeT {totalRankingMatches > 0 ? `(${totalRankingMatches})` : ''}
+                              Altre Partite FITeT {totalRankingMatches > 0 ? `(${totalRankingMatches})` : ''}
                             </button>
                           </div>
                         )}
