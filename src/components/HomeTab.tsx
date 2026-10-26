@@ -181,7 +181,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   }, [activeChampionship]);
 
   const handleProfileChampionshipDetected = (championshipId: number) => {
-    if (currentCamId !== null || !championshipId) return;
     onAutoSelectProfileChampionship(championshipId);
   };
 

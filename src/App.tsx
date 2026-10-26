@@ -407,7 +407,7 @@ export const App: React.FC = () => {
   // Se viene impostato "Il mio profilo" senza un campionato attivo,
   // allinea la Home al campionato dell'atleta senza cambiare vista.
   const handleAutoSelectProfileChampionship = (newCam: number) => {
-    if (camId !== null || !newCam) return;
+    if (!newCam) return;
     const match = campionati.find((c) => c.id === newCam);
     setCamId(newCam);
     if (match?.anno) setAnnoId(match.anno);
