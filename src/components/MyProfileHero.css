@@ -151,8 +151,9 @@
   padding: 20px 24px 18px;
 }
 
-/* Transparent hit area: keeps the whole card tappable while leaving the
-   actions menu as a real sibling button instead of a nested control. */
+/* Transparent keyboard/assistive-tech hit area. Pointer clicks are handled by
+   the article itself so the text stays selectable and exposed, while this
+   button keeps the whole card keyboard-operable without nesting the menu. */
 .my-profile-hero-open-area {
   position: absolute;
   inset: 0;

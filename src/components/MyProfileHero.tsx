@@ -345,7 +345,6 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({ onOpenAtletaModal 
                 className="my-profile-hero-actions"
                 ref={menuRef}
                 onClick={(event) => event.stopPropagation()}
-                onKeyDown={(event) => event.stopPropagation()}
               >
                 <button
                   type="button"
@@ -443,7 +442,9 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({ onOpenAtletaModal 
                 {form.length > 0 ? (
                   <div
                     className="my-profile-hero-form-badges"
-                    aria-label={`Forma recente: ${wins} vittorie e ${losses} sconfitte`}
+                    aria-label={`Forma recente: ${wins} ${
+                      wins === 1 ? 'vittoria' : 'vittorie'
+                    } e ${losses} ${losses === 1 ? 'sconfitta' : 'sconfitte'}`}
                   >
                     {form.map((match, index) => (
                       <span
