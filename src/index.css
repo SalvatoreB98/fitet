@@ -548,7 +548,7 @@ nav {
   all: unset;
   padding: 2px 7px;
   border-radius: 5px;
-  background: rgba(37, 99, 235, 0.12);
+  background: #748b9c8a;
 }
 
 [data-theme="dark"] .burger-menu-close {
