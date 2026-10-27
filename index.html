@@ -12,20 +12,59 @@
   <link rel="apple-touch-icon" href="/icon.png" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>FITeT Campionati | Risultati, Classifiche & Statistiche Tennistavolo</title>
+  <title>Portale Risultati FITeT | Classifiche, Gironi e Tennistavolo</title>
   <meta name="description"
-    content="Dashboard moderna e reattiva per i campionati FITeT: classifica a squadre, calendario andata/ritorno, statistiche atleti e schede ranking individuali con storico punti." />
-  <meta property="og:site_name" content="FITeT Campionati" />
+    content="Portale Risultati FITeT non ufficiale: consulta calendari, classifiche campionati a squadre, statistiche atleti e schede ranking tennistavolo aggiornate in tempo reale." />
+  <meta name="keywords"
+    content="portale risultati, portale risultati fitet, portale risultati ftet, risultati fitet, campionati fitet, classifiche tennistavolo, fitet portale, ranking fitet, calendario campionati tennistavolo, atleti fitet" />
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
+  <meta name="author" content="Salvatore Butera" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:site_name" content="Portale Risultati FITeT" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="FITeT Campionati | Risultati, Classifiche & Schede Atleti" />
+  <meta property="og:title" content="Portale Risultati FITeT | Classifiche, Gironi e Tennistavolo" />
   <meta property="og:description"
-    content="Dashboard moderna e reattiva per i campionati FITeT: schede atleti con storico ranking, classifica a squadre, calendario e statistiche." />
+    content="Il portale moderno e reattivo per i risultati FITeT: calendari andata/ritorno, classifiche campionati, statistiche e schede ranking atleti con storico punti." />
   <meta property="og:image" content="/fitet-icon.png" />
+
+  <!-- Twitter -->
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="FITeT Campionati | Risultati, Classifiche & Schede Atleti" />
+  <meta name="twitter:title" content="Portale Risultati FITeT | Classifiche, Gironi e Tennistavolo" />
   <meta name="twitter:description"
-    content="Dashboard moderna e reattiva per i campionati FITeT: schede atleti con storico ranking, classifica a squadre, calendario e statistiche." />
+    content="Il portale moderno e reattivo per i risultati FITeT: calendari andata/ritorno, classifiche campionati, statistiche e schede ranking atleti con storico punti." />
   <meta name="twitter:image" content="/fitet-icon.png" />
+
+  <!-- Schema.org Structured Data (JSON-LD) for Search Engines -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "#website",
+        "name": "Portale Risultati FITeT",
+        "alternateName": [
+          "Portale Risultati",
+          "Portale Risultati FTET",
+          "FITeT Portale Risultati",
+          "FITeT Risultati",
+          "Campionati FITeT"
+        ],
+        "description": "Portale risultati non ufficiale della Federazione Italiana Tennistavolo: classifiche, calendari e ranking atleti.",
+        "inLanguage": "it-IT"
+      },
+      {
+        "@type": "SportsOrganization",
+        "@id": "#organization",
+        "name": "Portale Risultati FITeT",
+        "sport": "Table Tennis",
+        "description": "Dashboard consultazione risultati campionati e classifiche di tennistavolo FITeT"
+      }
+    ]
+  }
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -40,6 +79,25 @@
 </head>
 
 <body>
+  <!-- Semantic crawlable fallback for Googlebot and non-JS clients -->
+  <noscript>
+    <div style="max-width: 800px; margin: 40px auto; padding: 24px; font-family: sans-serif; line-height: 1.6; color: #1e293b;">
+      <h1>Portale Risultati FITeT - Tennistavolo</h1>
+      <p>
+        Benvenuto sul <strong>Portale Risultati FITeT</strong>. Qui puoi consultare in tempo reale tutti i risultati ufficiali,
+        le classifiche a squadre, i calendari degli incontri di andata e ritorno e le statistiche atleti per tutti i campionati italiani
+        di tennistavolo (Serie A1, Serie A2, Serie B1, Serie B2, Serie C1, Serie C2, Serie D1, Serie D2, Serie D3 maschili e femminili).
+      </p>
+      <h2>Cosa puoi trovare nel Portale Risultati:</h2>
+      <ul>
+        <li><strong>Classifiche Campionati a Squadre</strong>: punti, partite vinte, pareggiate, perse e stato forma delle squadre.</li>
+        <li><strong>Calendario Incontri e Referti</strong>: dettagli completi delle singole partite individuali e dei set disputati.</li>
+        <li><strong>Schede Ranking Atleti</strong>: punteggio FITeT, posizione nazionale, categoria, storico classifica e confronti testa a testa.</li>
+        <li><strong>Statistiche di Rendimento</strong>: percentuali di vittoria, partite giocate e rendimento atleti nei rispettivi gironi.</li>
+      </ul>
+      <p>Per un&apos;esperienza interattiva completa, visualizzare grafici e filtri in tempo reale, abilita JavaScript nel browser.</p>
+    </div>
+  </noscript>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>

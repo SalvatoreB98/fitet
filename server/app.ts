@@ -934,24 +934,25 @@ if (!process.env.VERCEL) {
             let html = await fs.promises.readFile(indexFile, 'utf8');
             let athleteName = `Atleta #${id}`;
             let photoUrl = 'https://portale.fitet.org/images/atleti/' + encodeURIComponent(id) + '.jpg';
-            let description = 'Visualizza la scheda atleta, ranking e storico incontri su FITeT Campionati.';
+            let description = 'Visualizza la scheda atleta, ranking e storico incontri sul Portale Risultati FITeT.';
 
             const cached = cacheService.get<any>(`atleta_${id}`);
             if (cached?.anagrafica?.nome) {
                 athleteName = cached.anagrafica.nome;
                 if (cached.anagrafica.societa) {
-                    description = `${athleteName} (${cached.anagrafica.societa}) - Scheda ranking, risultati e statistiche campionati FITeT.`;
+                    description = `${athleteName} (${cached.anagrafica.societa}) - Scheda ranking, risultati e statistiche sul Portale Risultati FITeT.`;
                 }
                 if (cached.anagrafica.fotoUrl) {
                     photoUrl = cached.anagrafica.fotoUrl;
                 }
             }
 
-            const title = `${athleteName} | Scheda Ranking FITeT`;
+            const title = `${athleteName} | Scheda Ranking Portale Risultati FITeT`;
             const currentUrl = `${req.protocol}://${req.get('host')}/player/${encodeURIComponent(id)}`;
 
             const ogMeta = `
   <title>${title}</title>
+  <meta name="description" content="${description}" />
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${description}" />
   <meta property="og:image" content="${photoUrl}" />
@@ -968,6 +969,60 @@ if (!process.env.VERCEL) {
         } catch {
             return next();
         }
+    });
+
+    // Dynamic OG tags for /campionato/:id and /cam/:id
+    app.get(['/campionato/:id', '/cam/:id'], async (req, res, next) => {
+        const { id } = req.params;
+        const indexFile = path.join(distPath, 'index.html');
+        if (!fs.existsSync(indexFile)) return next();
+
+        try {
+            let html = await fs.promises.readFile(indexFile, 'utf8');
+            const champ = await championshipCatalog.getChampionship(parseInt(id, 10));
+            const champName = champ ? champ.nome : `Campionato #${id}`;
+            const region = champ?.regione || 'Nazionale';
+            const title = `${champName} (${region}) | Portale Risultati FITeT`;
+            const description = `Consulta classifica, calendario andata/ritorno e risultati di ${champName} sul Portale Risultati FITeT.`;
+            const currentUrl = `${req.protocol}://${req.get('host')}/campionato/${id}`;
+
+            const ogMeta = `
+  <title>${title}</title>
+  <meta name="description" content="${description}" />
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="/fitet-icon.png" />
+  <meta property="og:url" content="${currentUrl}" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${title}" />
+  <meta name="twitter:description" content="${description}" />
+  <meta name="twitter:image" content="/fitet-icon.png" />
+`;
+            html = html.replace(/<title>.*?<\/title>/i, ogMeta);
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            return res.send(html);
+        } catch {
+            return next();
+        }
+    });
+
+    app.get('/sitemap.xml', (req, res) => {
+        const sitemapFile = path.resolve(process.cwd(), 'public', 'sitemap.xml');
+        if (fs.existsSync(sitemapFile)) {
+            res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+            return res.sendFile(sitemapFile);
+        }
+        res.status(404).send('Not Found');
+    });
+
+    app.get('/robots.txt', (req, res) => {
+        const robotsFile = path.resolve(process.cwd(), 'public', 'robots.txt');
+        if (fs.existsSync(robotsFile)) {
+            res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+            return res.sendFile(robotsFile);
+        }
+        res.status(404).send('Not Found');
     });
 
     app.get('*', (req, res, next) => {

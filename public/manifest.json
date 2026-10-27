@@ -1,7 +1,7 @@
 {
-  "name": "FITeT Campionati",
-  "short_name": "FITeT",
-  "description": "Risultati, Classifiche e Statistiche Tennistavolo FITeT",
+  "name": "Portale Risultati FITeT",
+  "short_name": "Portale Risultati",
+  "description": "Portale Risultati FITeT: calendari, classifiche campionati e schede ranking atleti tennistavolo.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
