@@ -151,11 +151,16 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
               <div className="install-step-item">
                 <div className="install-step-num">1</div>
                 <div className="install-step-text">
-                  In Safari, tocca '...' e poi il pulsante Condividi{' '}
-                  <span className="install-inline-icon">
+                  In Safari, tocca il pulsante {' '}
+                  <img
+                    src="/iOS-icon.png"
+                    alt="new setting icon"
+                    width="20px"
+                    style={{ display: 'inline-block', verticalAlign: 'middle' }}
+                  />{' '} oppure  {' '}<i className="bi bi-three-dots"></i>{' '}
+                  poi: <span className="install-inline-icon">
                     <i className="bi bi-box-arrow-up"></i>
                   </span>{' '}
-                  nella barra in basso.
                 </div>
               </div>
               <div className="install-step-item">
