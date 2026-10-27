@@ -485,6 +485,30 @@ export const App: React.FC = () => {
     handleSelectChampionship(myCamId, match?.anno || 41);
   };
 
+  const handleCloseConsultation = () => {
+    if (!myCamId) return;
+    const match = campionati.find((c) => c.id === myCamId);
+    const targetAnno = match?.anno || 41;
+    setSelectedTeamFilter(null);
+    if (myCamId !== camId || !data) {
+      setData(null);
+      setLoading(true);
+    }
+    setCamId(myCamId);
+    setAnnoId(targetAnno);
+    localStorage.setItem('fitet_selected_cam', String(myCamId));
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('cam', String(myCamId));
+      if (mainView === 'home') {
+        url.searchParams.delete('view');
+        url.searchParams.delete('tab');
+      }
+      window.history.pushState({ ...(window.history.state || {}), cam: myCamId }, '', url.toString());
+    }
+  };
+
   const handleSetAsMyChampionship = (newCam: number) => {
     setMyCamId(newCam);
     setMyChampionshipId(newCam);
@@ -724,6 +748,7 @@ export const App: React.FC = () => {
                 : null
             }
             onReturnToMyChampionship={handleReturnToMyChampionship}
+            onCloseConsultation={handleCloseConsultation}
             annoId={annoId}
             currentChampionship={data?.championship}
             campionati={campionati}

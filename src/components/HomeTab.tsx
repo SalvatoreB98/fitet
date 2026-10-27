@@ -50,6 +50,7 @@ interface HomeTabProps {
   onSelectChampionship: (camId: number, annoId?: number) => void;
   onAutoSelectProfileChampionship: (camId: number) => void;
   onReturnToMyChampionship?: () => void;
+  onCloseConsultation?: () => void;
   onNavigateTab: (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => void;
   onOpenChampionshipModal: () => void;
   onOpenInstallAppModal: () => void;
@@ -68,6 +69,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   onSelectChampionship,
   onAutoSelectProfileChampionship,
   onReturnToMyChampionship,
+  onCloseConsultation,
   onNavigateTab,
   onOpenChampionshipModal,
   onOpenInstallAppModal,
@@ -387,12 +389,12 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               <i className="bi bi-arrow-right-circle"></i>
               <span>Continua</span>
             </button>
-            {onReturnToMyChampionship && (
+            {(onCloseConsultation || onReturnToMyChampionship) && (
               <button
                 type="button"
                 className="home-consultation-btn home-consultation-btn-ghost"
-                onClick={onReturnToMyChampionship}
-                title="Chiudi la consultazione e torna al tuo campionato"
+                onClick={onCloseConsultation || onReturnToMyChampionship}
+                title="Chiudi la consultazione"
               >
                 <i className="bi bi-x-lg"></i>
                 <span>Chiudi</span>
