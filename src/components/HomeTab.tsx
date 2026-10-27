@@ -38,6 +38,7 @@ interface HomeTabProps {
   onAutoSelectProfileChampionship: (camId: number) => void;
   onNavigateTab: (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => void;
   onOpenChampionshipModal: () => void;
+  onOpenInstallAppModal: () => void;
   onOpenAtletaModal: (id: string, name: string) => void;
   dashboardData?: DashboardData | null;
 }
@@ -51,6 +52,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   onAutoSelectProfileChampionship,
   onNavigateTab,
   onOpenChampionshipModal,
+  onOpenInstallAppModal,
   onOpenAtletaModal,
 }) => {
   const {
@@ -440,6 +442,37 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           >
             <i className="bi bi-arrow-left-right"></i>
             <span>Testa a Testa</span>
+          </button>
+        </div>
+      </section>
+      <section
+        className="home-hero home-hero-sub"
+        aria-label="Versione app"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '1rem',
+        }}
+      >
+        <div className="home-hero-content w-100">
+          <div className="my-profile-empty-eyebrow">
+            Prova la versione app del sito web da aggiungere in home per un accesso rapido
+          </div>
+          <h3 className="home-hero-title" style={{ margin: 0 }}>
+            Versione app
+          </h3>
+        </div>
+
+        <div className="home-hero-actions">
+          <button
+            type="button"
+            className="home-hero-btn home-hero-btn-secondary"
+            onClick={onOpenInstallAppModal}
+            title="Scarica la versione app del portale"
+          >
+            <i className="bi bi-download"></i>
+            <span>Scarica App</span>
           </button>
         </div>
       </section>

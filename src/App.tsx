@@ -675,6 +675,7 @@ export const App: React.FC = () => {
               }
             }}
             onOpenChampionshipModal={() => setIsChampionshipModalOpen(true)}
+            onOpenInstallAppModal={() => setIsInstallModalOpen(true)}
             onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
             dashboardData={data}
           />
