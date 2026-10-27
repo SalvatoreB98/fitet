@@ -162,27 +162,51 @@ export const App: React.FC = () => {
   };
 
   const closeTopAthlete = () => {
-    if (typeof window !== 'undefined' && window.history.state?.athleteId) {
+    if (typeof window === 'undefined') return;
+
+    // Verifica se esiste uno storico all'interno della stessa origine
+    const hasInternalHistory =
+      window.history.length > 1 &&
+      document.referrer &&
+      new URL(document.referrer).origin === window.location.origin;
+
+    if (window.history.state?.athleteId && hasInternalHistory) {
       window.history.back();
       return;
     }
 
+    // Se non c'è una cronologia precedente utile, gestisci lo stack o forza la home
     setAthleteStack((prev) => {
       const nextStack = prev.slice(0, -1);
-      if (typeof window !== 'undefined') {
+      const nextTop = nextStack[nextStack.length - 1];
+
+      if (nextTop) {
         const url = new URL(window.location.href);
-        const nextTop = nextStack[nextStack.length - 1];
-        if (nextTop) {
-          url.pathname = `/player/${encodeURIComponent(nextTop.id)}`;
-          window.history.replaceState({ ...(window.history.state || {}), athleteId: nextTop.id }, '', url.toString());
+        url.pathname = `/player/${encodeURIComponent(nextTop.id)}`;
+        window.history.replaceState(
+          { ...(window.history.state || {}), athleteId: nextTop.id },
+          '',
+          url.toString()
+        );
+      } else {
+        // Se lo stack è vuoto e non c'è cronologia valida a cui tornare,
+        // puliamo l'URL e navighiamo direttamente alla home
+        if (!hasInternalHistory && window.location.pathname !== '/') {
+          window.location.href = '/'; // oppure router.push('/') se usi Next.js / React Router
         } else {
+          const url = new URL(window.location.href);
           url.pathname = '/';
           url.searchParams.delete('player');
           url.searchParams.delete('atleta');
           url.searchParams.delete('atletaId');
-          window.history.replaceState({ ...(window.history.state || {}), athleteId: null }, '', url.toString());
+          window.history.replaceState(
+            { ...(window.history.state || {}), athleteId: null },
+            '',
+            url.toString()
+          );
         }
       }
+
       return nextStack;
     });
   };

@@ -158,3 +158,34 @@ export function cleanChampionshipCardName(nome?: string, categoria?: string): st
 
   return trimmedNome;
 }
+
+export type ChampionshipGender = 'M' | 'F';
+
+export const FEMININE_NATIONAL_CAM_IDS = new Set<number>([
+  2,  // Serie A1 Femminile
+  18, // Serie A2 Femminile Gir.A
+  19, // Serie A2 Femminile Gir.B
+  20, // Serie A2 Femminile Gir.C
+  21, // Serie A2 Femminile Gir.D
+  22, // Serie B Femminile Gir.A
+  23, // Serie B Femminile Gir.B
+  24, // Serie B Femminile Gir.C
+  25, // Serie B Femminile Gir.D
+  26, // Serie B Femminile Gir.E
+  27, // Serie B Femminile Gir.F
+  28, // Serie B Femminile Gir.G
+  29, // Serie B Femminile Gir.H
+  30, // Serie B Femminile Gir.I
+]);
+
+export function isFemminileChampionship(champ: Partial<ChampionshipItem>): boolean {
+  if (champ.sesso === 'F') return true;
+  if (champ.sesso === 'M') return false;
+  if (champ.id && FEMININE_NATIONAL_CAM_IDS.has(champ.id)) return true;
+  const text = `${champ.nome || ''} ${champ.categoria || ''}`.toUpperCase();
+  return /\bFEMM\b|\bFEMMINIL[EI]\b|\bDONNE\b|\bFEM\b/i.test(text);
+}
+
+export function getChampionshipGender(champ: Partial<ChampionshipItem>): ChampionshipGender {
+  return isFemminileChampionship(champ) ? 'F' : 'M';
+}

@@ -14,9 +14,17 @@ import type { MyProfileSnapshot } from '../utils/myProfile';
 import { SearchAtletaModal } from './SearchAtletaModal';
 import './MyProfileHero.css';
 
+export interface PlayerChampionshipStatus {
+  playerId: string | null;
+  hasChampionship: boolean;
+  loading: boolean;
+  athleteName?: string;
+}
+
 interface MyProfileHeroProps {
   onOpenAtletaModal: (id: string, name: string) => void;
   onChampionshipDetected?: (championshipId: number) => void;
+  onProfileStatusChange?: (status: PlayerChampionshipStatus) => void;
 }
 
 const getInitialProfileState = (): {
@@ -59,6 +67,7 @@ const formatPoints = (points?: number | null): string => {
 export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
   onOpenAtletaModal,
   onChampionshipDetected,
+  onProfileStatusChange,
 }) => {
   const [initialProfile] = useState(getInitialProfileState);
   const [playerId, setPlayerId] = useState<string | null>(initialProfile.id);
@@ -71,10 +80,33 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
   const [photoError, setPhotoError] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const onChampionshipDetectedRef = useRef(onChampionshipDetected);
+  const onProfileStatusChangeRef = useRef(onProfileStatusChange);
 
   useEffect(() => {
     onChampionshipDetectedRef.current = onChampionshipDetected;
   }, [onChampionshipDetected]);
+
+  useEffect(() => {
+    onProfileStatusChangeRef.current = onProfileStatusChange;
+  }, [onProfileStatusChange]);
+
+  // Initial status notification
+  useEffect(() => {
+    if (initialProfile.id) {
+      onProfileStatusChangeRef.current?.({
+        playerId: initialProfile.id,
+        hasChampionship: initialProfile.snapshot?.hasChampionship ?? true,
+        loading: initialProfile.snapshot?.hasChampionship === undefined,
+        athleteName: initialProfile.snapshot?.name,
+      });
+    } else {
+      onProfileStatusChangeRef.current?.({
+        playerId: null,
+        hasChampionship: false,
+        loading: false,
+      });
+    }
+  }, []);
 
   // Keep the hero in sync if another part of the app sets/removes the profile.
   useEffect(
@@ -87,18 +119,35 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
           setSnapshot(null);
           setLoading(false);
           setError(null);
+          onProfileStatusChangeRef.current?.({
+            playerId: null,
+            hasChampionship: false,
+            loading: false,
+          });
           return;
         }
 
         const cached = getMyProfileSnapshot(nextId);
         if (cached) {
           setSnapshot(cached);
+          onProfileStatusChangeRef.current?.({
+            playerId: nextId,
+            hasChampionship: cached.hasChampionship ?? true,
+            loading: cached.hasChampionship === undefined,
+            athleteName: cached.name,
+          });
           return;
         }
 
         const name = getMyPlayerName();
         if (name) {
           setSnapshot({ id: nextId, name, updatedAt: 0 });
+          onProfileStatusChangeRef.current?.({
+            playerId: nextId,
+            hasChampionship: true,
+            loading: true,
+            athleteName: name,
+          });
         }
       }),
     []
@@ -116,6 +165,12 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
     setLoading(true);
     setError(null);
     setPhotoError(false);
+    onProfileStatusChangeRef.current?.({
+      playerId,
+      hasChampionship: snapshot?.hasChampionship ?? true,
+      loading: true,
+      athleteName: snapshot?.name,
+    });
 
     fetchAtleta(playerId)
       .then((data) => {
@@ -129,19 +184,33 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
         }
 
         const championshipId = data.campionatoAttuale?.camId;
-        if (typeof championshipId === 'number' && championshipId > 0) {
+        const hasChampionship = typeof championshipId === 'number' && championshipId > 0;
+        if (hasChampionship) {
           onChampionshipDetectedRef.current?.(championshipId);
         }
 
         const freshSnapshot = buildMyProfileSnapshot(data);
         setSnapshot(freshSnapshot);
         saveMyProfileSnapshot(freshSnapshot);
+
+        onProfileStatusChangeRef.current?.({
+          playerId: data.id || playerId,
+          hasChampionship,
+          loading: false,
+          athleteName: freshSnapshot.name,
+        });
       })
       .catch((err: unknown) => {
         if (!active) return;
         const message =
           err instanceof Error ? err.message : 'Impossibile caricare i dati del profilo.';
         setError(message);
+        onProfileStatusChangeRef.current?.({
+          playerId,
+          hasChampionship: snapshot?.hasChampionship ?? false,
+          loading: false,
+          athleteName: snapshot?.name,
+        });
       })
       .finally(() => {
         if (active) setLoading(false);

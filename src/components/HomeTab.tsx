@@ -14,6 +14,8 @@ import { HeadToHeadModal } from './HeadToHeadModal';
 import { HeadToHeadPickerModal } from './HeadToHeadPickerModal';
 import type { HeadToHeadPlayer } from './HeadToHeadPickerModal';
 import { MyProfileHero } from './MyProfileHero';
+import type { PlayerChampionshipStatus } from './MyProfileHero';
+import { getMyPlayerId, getMyProfileSnapshot } from '../utils/myProfile';
 import { MarqueeText } from './MarqueeText';
 import {
   SERIE_CONFIGS,
@@ -76,6 +78,19 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     removeAthlete,
     removeChampionship,
   } = useRecentHistory();
+
+  // Stato campionato atleta configurato nel profilo
+  const [profileStatus, setProfileStatus] = useState<PlayerChampionshipStatus>(() => {
+    const id = getMyPlayerId();
+    if (!id) return { playerId: null, hasChampionship: false, loading: false };
+    const snap = getMyProfileSnapshot(id);
+    return {
+      playerId: id,
+      hasChampionship: snap?.hasChampionship ?? true,
+      loading: !snap || snap.hasChampionship === undefined,
+      athleteName: snap?.name,
+    };
+  });
 
   // Modale Cerca Atleta
   const [isSearchAtletaModalOpen, setIsSearchAtletaModalOpen] = useState(false);
@@ -237,7 +252,39 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       <MyProfileHero
         onOpenAtletaModal={onOpenAtletaModal}
         onChampionshipDetected={handleProfileChampionshipDetected}
+        onProfileStatusChange={setProfileStatus}
       />
+
+      {/* ───────────────────────────────────────────────────────────
+          AVVISO GIOCATORE SENZA CAMPIONATO
+         ─────────────────────────────────────────────────────────── */}
+      {profileStatus.playerId && !profileStatus.loading && !profileStatus.hasChampionship && (
+        <div className="home-player-warning-banner" role="alert">
+          <div className="warning-banner-icon-box">
+            <i className="bi bi-exclamation-triangle-fill"></i>
+          </div>
+          <div className="warning-banner-content">
+            <div className="warning-banner-title">
+              {profileStatus.athleteName ? (
+                <span><strong>{profileStatus.athleteName}</strong>: nessun campionato trovato per il momento</span>
+              ) : (
+                <span>Nessun campionato trovato per il momento</span>
+              )}
+            </div>
+            <p className="warning-banner-desc">
+              L&apos;atleta non risulta iscritto ad alcun campionato attivo della stagione. Puoi selezionare comunque un campionato dal catalogo generale per consultarne le classifiche e calendario.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="warning-banner-btn"
+            onClick={onOpenChampionshipModal}
+            title="Sfoglia catalogo campionati"
+          >
+            <i className="bi bi-trophy me-1"></i> Sfoglia campionati
+          </button>
+        </div>
+      )}
 
       {/* ───────────────────────────────────────────────────────────
           HERO MINIMAL SENZA BORDI (Campionato Corrente o Navigazione Rapida)

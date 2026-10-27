@@ -22,6 +22,8 @@ export interface MyProfileSnapshot {
   categoria?: string;
   fotoUrl?: string;
   form?: MyProfileFormMatch[];
+  campionatoId?: number | null;
+  hasChampionship?: boolean;
   updatedAt: number;
 }
 
@@ -177,6 +179,8 @@ export function buildMyProfileSnapshot(data: DettaglioAtleta): MyProfileSnapshot
     .sort((a, b) => parseDateValue(a.data) - parseDateValue(b.data));
 
   const form = rankingMatches.slice(-5);
+  const champId = data.campionatoAttuale?.camId;
+  const hasChampionship = typeof champId === 'number' && champId > 0;
 
   return {
     id: data.id,
@@ -189,6 +193,8 @@ export function buildMyProfileSnapshot(data: DettaglioAtleta): MyProfileSnapshot
       data.anagrafica?.fotoUrl ||
       `https://portale.fitet.org/images/atleti/${encodeURIComponent(data.id)}.jpg`,
     form,
+    campionatoId: hasChampionship ? champId : null,
+    hasChampionship,
     updatedAt: Date.now(),
   };
 }

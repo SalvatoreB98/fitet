@@ -1694,23 +1694,28 @@ var ChampionshipCatalog = class {
         });
         const text = new TextDecoder("iso-8859-1").decode(await res.arrayBuffer());
         const $ = cheerio4.load(text);
-        $('a[href*="CAM="]').each((_, el) => {
-          const href = $(el).attr("href") || "";
-          const m = href.match(/CAM=(\d+)/i);
-          if (m) {
-            const id = parseInt(m[1], 10);
-            const name = $(el).text().replace(/\s+/g, " ").trim();
-            if (id && name) {
-              all.push({
-                id,
-                nome: `${nat.nome} - ${name}`,
-                categoria: nat.nome,
-                regione: "Nazionale",
-                anno: 41,
-                formula: 19
-              });
+        $("tr").each((_, tr) => {
+          const rowText = $(tr).find("td").first().text().trim().toLowerCase();
+          const isFem = rowText.includes("femminil");
+          $(tr).find('a[href*="CAM="]').each((_2, el) => {
+            const href = $(el).attr("href") || "";
+            const m = href.match(/CAM=(\d+)/i);
+            if (m) {
+              const id = parseInt(m[1], 10);
+              const name = $(el).text().replace(/\s+/g, " ").trim();
+              if (id && name) {
+                all.push({
+                  id,
+                  nome: `${nat.nome}${isFem ? " Femminile" : ""} - ${name}`,
+                  categoria: nat.nome,
+                  regione: "Nazionale",
+                  anno: 41,
+                  formula: 19,
+                  sesso: isFem ? "F" : "M"
+                });
+              }
             }
-          }
+          });
         });
       } catch (e) {
         console.error(`Error scraping national ${nat.nome}:`, e);
@@ -1737,6 +1742,7 @@ var ChampionshipCatalog = class {
                 if (firstPart.includes("/") || firstPart.length <= 4) {
                   cat = firstPart;
                 }
+                const isFem = /femm|femminil/i.test(name) || /femm|femminil/i.test(cat);
                 all.push({
                   id,
                   nome: name,
@@ -1744,7 +1750,8 @@ var ChampionshipCatalog = class {
                   regione: reg.nome,
                   regioneId: reg.id,
                   anno: 41,
-                  formula: 19
+                  formula: 19,
+                  sesso: isFem ? "F" : "M"
                 });
               }
             }

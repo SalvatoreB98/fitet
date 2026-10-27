@@ -4650,6 +4650,65 @@ body.modal-open {
   color: var(--text-main, #0f172a);
 }
 
+/* Gender / Sector Filter Bar */
+.championship-gender-bar {
+  padding: 10px 20px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card, #ffffff);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.championship-gender-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.gender-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 20px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-container, #f8fafc);
+  color: var(--text-main, #334155);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.16s ease;
+  flex-shrink: 0;
+}
+
+.gender-pill:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.gender-pill.active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.22);
+}
+
+.gender-pill-m.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.22);
+}
+
+.gender-pill-f.active {
+  background: #db2777;
+  color: #ffffff;
+  border-color: #db2777;
+  box-shadow: 0 2px 6px rgba(219, 39, 119, 0.22);
+}
+
 /* Region Filter Bar */
 .championship-regions-bar {
   padding: 10px 20px;
@@ -4798,6 +4857,40 @@ body.modal-open {
   color: var(--text-muted, #64748b);
 }
 
+.champ-gender-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1.5px 6px;
+  border-radius: 5px;
+  letter-spacing: 0.01em;
+}
+
+.gender-badge-m {
+  background: rgba(2, 132, 199, 0.1);
+  color: #0284c7;
+  border: 1px solid rgba(2, 132, 199, 0.2);
+}
+
+.gender-badge-f {
+  background: rgba(219, 39, 119, 0.1);
+  color: #db2777;
+  border: 1px solid rgba(219, 39, 119, 0.22);
+}
+
+.fem-title-tag {
+  color: #db2777;
+  font-weight: 700;
+  font-size: 0.9em;
+  margin-left: 4px;
+}
+
+.championship-card.card-femminile:hover {
+  border-color: #f472b6;
+}
+
 .championship-card-name {
   color: var(--text-main, #0f172a);
   font-size: 13.5px;
@@ -4943,6 +5036,54 @@ body.modal-open {
 [data-theme="dark"] .championship-search-input:focus {
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .championship-gender-bar {
+  background: #0f172a;
+}
+
+[data-theme="dark"] .gender-pill {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .gender-pill:hover {
+  background: #334155;
+}
+
+[data-theme="dark"] .gender-pill.active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #3b82f6;
+}
+
+[data-theme="dark"] .gender-pill-m.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+}
+
+[data-theme="dark"] .gender-pill-f.active {
+  background: #db2777;
+  color: #ffffff;
+  border-color: #f472b6;
+}
+
+[data-theme="dark"] .gender-badge-m {
+  background: rgba(2, 132, 199, 0.2);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.35);
+}
+
+[data-theme="dark"] .gender-badge-f {
+  background: rgba(219, 39, 119, 0.2);
+  color: #f472b6;
+  border-color: rgba(244, 114, 182, 0.35);
+}
+
+[data-theme="dark"] .fem-title-tag {
+  color: #f472b6;
 }
 
 [data-theme="dark"] .championship-regions-bar {

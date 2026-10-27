@@ -1,4 +1,5 @@
 import { ChampionshipItem } from '../types/fitet';
+import { getChampionshipGender } from './championshipUtils';
 
 /**
  * Normalizes a string for search by lowercasing and removing diacritics/accents.
@@ -35,7 +36,9 @@ export function searchCampionati(campionati: ChampionshipItem[], query: string):
   });
 
   return campionati.filter((c) => {
-    const raw = `${c.nome} ${c.regione} ${c.categoria} ${c.id}`;
+    const isFem = getChampionshipGender(c) === 'F';
+    const genderTerms = isFem ? 'femminile donne femm' : 'maschile';
+    const raw = `${c.nome} ${c.regione} ${c.categoria} ${c.id} ${genderTerms}`;
     const normTarget = normalizeForSearch(raw);
     const noSlashTarget = normTarget.replace(/[/\\]+/g, '');
     const spacedTarget = normTarget.replace(/[/\\]+/g, ' ');

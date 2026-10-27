@@ -77,6 +77,7 @@ export interface ChampionshipItem {
   regioneId?: number;
   anno?: number;
   formula?: number;
+  sesso?: 'M' | 'F';
 }
 
 export interface GiornataCalendario {

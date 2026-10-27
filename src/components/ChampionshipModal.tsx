@@ -12,6 +12,7 @@ import {
   SERIE_CONFIGS,
   getChampionshipSerieKey,
   cleanChampionshipCardName,
+  getChampionshipGender,
 } from '../utils/championshipUtils';
 
 interface ChampionshipModalProps {
@@ -34,6 +35,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
   useBodyScrollLock(isOpen);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedGender, setSelectedGender] = useState<'all' | 'M' | 'F'>('all');
   const [userRegion, setUserRegion] = useState<string>(getCachedUserRegion);
   const [selectedRegion, setSelectedRegion] = useState<string>('Tutti');
   const [hasGeoLocation, setHasGeoLocation] = useState<boolean>(() => {
@@ -90,20 +92,35 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
     return ['Tutti', 'Nazionale', ...list.filter((r) => r !== 'Nazionale')];
   }, [campionati, userRegion]);
 
-  // Filtered championships using tokenized search & normalization
-  const filteredCampionati = useMemo(() => {
-    const q = searchQuery.trim();
+  // Quick stats by gender
+  const countMaschili = useMemo(
+    () => campionati.filter((c) => getChampionshipGender(c) === 'M').length,
+    [campionati]
+  );
+  const countFemminili = useMemo(
+    () => campionati.filter((c) => getChampionshipGender(c) === 'F').length,
+    [campionati]
+  );
 
+  // Filtered championships using gender, region, and search tokens
+  const filteredCampionati = useMemo(() => {
+    let list = campionati;
+
+    if (selectedGender !== 'all') {
+      list = list.filter((c) => getChampionshipGender(c) === selectedGender);
+    }
+
+    const q = searchQuery.trim();
     if (q) {
-      return searchCampionati(campionati, q);
+      return searchCampionati(list, q);
     }
 
     if (selectedRegion === 'Tutti') {
-      return campionati;
+      return list;
     }
 
-    return campionati.filter((c) => c.regione.toLowerCase() === selectedRegion.toLowerCase());
-  }, [campionati, selectedRegion, searchQuery]);
+    return list.filter((c) => c.regione.toLowerCase() === selectedRegion.toLowerCase());
+  }, [campionati, selectedGender, selectedRegion, searchQuery]);
 
   // Favorites that match current filtered list
   const favoriteCampionati = useMemo(() => {
@@ -162,21 +179,29 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
   const renderCard = (champ: ChampionshipItem) => {
     const isSelected = champ.id === currentCamId;
     const isFav = favoriteIds.includes(champ.id);
+    const gender = getChampionshipGender(champ);
+    const isFem = gender === 'F';
+    const cleanedTitle = cleanChampionshipCardName(champ.nome, champ.categoria);
+    const needsFemLabel = isFem && !/\bfemm/i.test(cleanedTitle) && !/\bfemminil/i.test(cleanedTitle);
 
     return (
       <button
         key={`${champ.regione}_${champ.id}`}
         type="button"
-        className={`championship-card ${isSelected ? 'is-selected' : ''}`}
+        className={`championship-card ${isSelected ? 'is-selected' : ''} ${isFem ? 'card-femminile' : 'card-maschile'}`}
         onClick={() => {
           onSelectChampionship(champ.id, champ.anno || 41, champ.formula || 19);
           onClose();
         }}
       >
         <div className="championship-card-top">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <span className={`cat-badge cat-${champ.categoria.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`}>
               {champ.categoria}
+            </span>
+            <span className={`champ-gender-badge ${isFem ? 'gender-badge-f' : 'gender-badge-m'}`}>
+              <i className={`bi ${isFem ? 'bi-gender-female' : 'bi-gender-male'}`}></i>
+              {isFem ? 'Femminile' : 'Maschile'}
             </span>
             <span className="region-tag">{champ.regione}</span>
           </div>
@@ -193,7 +218,10 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
         </div>
 
         <div className="championship-card-name">
-          <strong>{cleanChampionshipCardName(champ.nome, champ.categoria)}</strong>
+          <strong>
+            {cleanedTitle}
+            {needsFemLabel && <span className="fem-title-tag"> (Femminile)</span>}
+          </strong>
         </div>
 
         <div className="championship-card-footer">
@@ -272,6 +300,31 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
               </button>
             )}
           </div>
+        </div>
+
+        {/* Gender / Sector Filter Tabs */}
+        <div className="championship-gender-bar">
+          <button
+            type="button"
+            className={`gender-pill ${selectedGender === 'all' ? 'active' : ''}`}
+            onClick={() => setSelectedGender('all')}
+          >
+            Tutti ({campionati.length})
+          </button>
+          <button
+            type="button"
+            className={`gender-pill gender-pill-m ${selectedGender === 'M' ? 'active' : ''}`}
+            onClick={() => setSelectedGender('M')}
+          >
+            <i className="bi bi-gender-male me-1"></i> Maschile ({countMaschili})
+          </button>
+          <button
+            type="button"
+            className={`gender-pill gender-pill-f ${selectedGender === 'F' ? 'active' : ''}`}
+            onClick={() => setSelectedGender('F')}
+          >
+            <i className="bi bi-gender-female me-1"></i> Femminile ({countFemminili})
+          </button>
         </div>
 
         {/* Region Filter Tabs */}
@@ -362,6 +415,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
                 onClick={() => {
                   setSearchQuery('');
                   setSelectedRegion('Tutti');
+                  setSelectedGender('all');
                 }}
               >
                 Mostra tutti i campionati

@@ -5,7 +5,8 @@
     "categoria": "Serie A",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 3,
@@ -13,7 +14,8 @@
     "categoria": "Serie A",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 4,
@@ -21,7 +23,8 @@
     "categoria": "Serie A",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2,
@@ -29,7 +32,8 @@
     "categoria": "Serie A",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 18,
@@ -37,7 +41,8 @@
     "categoria": "Serie A",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 19,
@@ -45,7 +50,8 @@
     "categoria": "Serie A",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 20,
@@ -53,7 +59,8 @@
     "categoria": "Serie A",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 21,
@@ -61,7 +68,8 @@
     "categoria": "Serie A",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 5,
@@ -69,7 +77,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 6,
@@ -77,7 +86,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 7,
@@ -85,7 +95,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 8,
@@ -93,7 +104,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 9,
@@ -101,7 +113,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 10,
@@ -109,7 +122,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 11,
@@ -117,7 +131,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 12,
@@ -125,7 +140,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 13,
@@ -133,7 +149,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 14,
@@ -141,7 +158,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 15,
@@ -149,7 +167,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 16,
@@ -157,7 +176,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 17,
@@ -165,7 +185,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 22,
@@ -173,7 +194,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 23,
@@ -181,7 +203,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 24,
@@ -189,7 +212,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 25,
@@ -197,7 +221,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 26,
@@ -205,7 +230,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 27,
@@ -213,7 +239,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 28,
@@ -221,7 +248,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 29,
@@ -229,7 +257,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 30,
@@ -237,7 +266,8 @@
     "categoria": "Serie B",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 31,
@@ -245,7 +275,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 32,
@@ -253,7 +284,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 33,
@@ -261,7 +293,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 34,
@@ -269,7 +302,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 35,
@@ -277,7 +311,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 36,
@@ -285,7 +320,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 37,
@@ -293,7 +329,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 38,
@@ -301,7 +338,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 39,
@@ -309,7 +347,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 40,
@@ -317,7 +356,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 41,
@@ -325,7 +365,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 42,
@@ -333,7 +374,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 43,
@@ -341,7 +383,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 44,
@@ -349,7 +392,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 45,
@@ -357,7 +401,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 46,
@@ -365,7 +410,8 @@
     "categoria": "Serie C1",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 59,
@@ -373,7 +419,8 @@
     "categoria": "Master Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 60,
@@ -381,7 +428,8 @@
     "categoria": "Master Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 61,
@@ -389,7 +437,8 @@
     "categoria": "Master Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 62,
@@ -397,7 +446,8 @@
     "categoria": "Master Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 63,
@@ -405,7 +455,8 @@
     "categoria": "Master Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 64,
@@ -413,7 +464,8 @@
     "categoria": "Master Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 65,
@@ -421,7 +473,8 @@
     "categoria": "Master Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 66,
@@ -429,7 +482,8 @@
     "categoria": "Master Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 67,
@@ -437,7 +491,8 @@
     "categoria": "Master Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 51,
@@ -445,7 +500,8 @@
     "categoria": "Paralimpici Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 52,
@@ -453,7 +509,8 @@
     "categoria": "Paralimpici Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 49,
@@ -461,7 +518,8 @@
     "categoria": "Paralimpici Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 50,
@@ -469,7 +527,8 @@
     "categoria": "Paralimpici Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 53,
@@ -477,7 +536,8 @@
     "categoria": "Paralimpici Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 54,
@@ -485,7 +545,8 @@
     "categoria": "Paralimpici Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 55,
@@ -493,7 +554,8 @@
     "categoria": "Paralimpici Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 56,
@@ -501,7 +563,8 @@
     "categoria": "Paralimpici Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 57,
@@ -509,7 +572,8 @@
     "categoria": "Paralimpici Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 58,
@@ -517,7 +581,8 @@
     "categoria": "Paralimpici Naz.",
     "regione": "Nazionale",
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1906,
@@ -526,7 +591,8 @@
     "regione": "Calabria",
     "regioneId": 19,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1905,
@@ -535,7 +601,8 @@
     "regione": "Calabria",
     "regioneId": 19,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1901,
@@ -544,7 +611,8 @@
     "regione": "Calabria",
     "regioneId": 19,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1902,
@@ -553,7 +621,8 @@
     "regione": "Calabria",
     "regioneId": 19,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1903,
@@ -562,7 +631,8 @@
     "regione": "Calabria",
     "regioneId": 19,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1701,
@@ -571,7 +641,8 @@
     "regione": "Basilicata",
     "regioneId": 17,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1401,
@@ -580,7 +651,8 @@
     "regione": "Abruzzo",
     "regioneId": 14,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1407,
@@ -589,7 +661,8 @@
     "regione": "Abruzzo",
     "regioneId": 14,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1406,
@@ -598,7 +671,8 @@
     "regione": "Abruzzo",
     "regioneId": 14,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1404,
@@ -607,7 +681,8 @@
     "regione": "Abruzzo",
     "regioneId": 14,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1405,
@@ -616,7 +691,8 @@
     "regione": "Abruzzo",
     "regioneId": 14,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1609,
@@ -625,7 +701,8 @@
     "regione": "Campania",
     "regioneId": 16,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1611,
@@ -634,7 +711,8 @@
     "regione": "Campania",
     "regioneId": 16,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1610,
@@ -643,7 +721,8 @@
     "regione": "Campania",
     "regioneId": 16,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1605,
@@ -652,7 +731,8 @@
     "regione": "Campania",
     "regioneId": 16,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1606,
@@ -661,7 +741,8 @@
     "regione": "Campania",
     "regioneId": 16,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1608,
@@ -670,7 +751,8 @@
     "regione": "Campania",
     "regioneId": 16,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1607,
@@ -679,7 +761,8 @@
     "regione": "Campania",
     "regioneId": 16,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1601,
@@ -688,7 +771,8 @@
     "regione": "Campania",
     "regioneId": 16,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1602,
@@ -697,7 +781,8 @@
     "regione": "Campania",
     "regioneId": 16,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1604,
@@ -706,7 +791,8 @@
     "regione": "Campania",
     "regioneId": 16,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1603,
@@ -715,7 +801,8 @@
     "regione": "Campania",
     "regioneId": 16,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 701,
@@ -724,7 +811,8 @@
     "regione": "Alto Adige",
     "regioneId": 7,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 703,
@@ -733,7 +821,8 @@
     "regione": "Alto Adige",
     "regioneId": 7,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 702,
@@ -742,7 +831,8 @@
     "regione": "Alto Adige",
     "regioneId": 7,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1311,
@@ -751,7 +841,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 1312,
@@ -760,7 +851,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 1301,
@@ -769,7 +861,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1302,
@@ -778,7 +871,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1303,
@@ -787,7 +881,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1304,
@@ -796,7 +891,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1305,
@@ -805,7 +901,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1306,
@@ -814,7 +911,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1307,
@@ -823,7 +921,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1308,
@@ -832,7 +931,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1309,
@@ -841,7 +941,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1310,
@@ -850,7 +951,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1313,
@@ -859,7 +961,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1314,
@@ -868,7 +971,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1315,
@@ -877,7 +981,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1316,
@@ -886,7 +991,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1317,
@@ -895,7 +1001,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1318,
@@ -904,7 +1011,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1319,
@@ -913,7 +1021,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1320,
@@ -922,7 +1031,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1321,
@@ -931,7 +1041,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1322,
@@ -940,7 +1051,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1323,
@@ -949,7 +1061,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1324,
@@ -958,7 +1071,8 @@
     "regione": "Lazio",
     "regioneId": 13,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 812,
@@ -967,7 +1081,8 @@
     "regione": "Friuli Venezia Giulia",
     "regioneId": 8,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 801,
@@ -976,7 +1091,8 @@
     "regione": "Friuli Venezia Giulia",
     "regioneId": 8,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 802,
@@ -985,7 +1101,8 @@
     "regione": "Friuli Venezia Giulia",
     "regioneId": 8,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 803,
@@ -994,7 +1111,8 @@
     "regione": "Friuli Venezia Giulia",
     "regioneId": 8,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 804,
@@ -1003,7 +1121,8 @@
     "regione": "Friuli Venezia Giulia",
     "regioneId": 8,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 805,
@@ -1012,7 +1131,8 @@
     "regione": "Friuli Venezia Giulia",
     "regioneId": 8,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 807,
@@ -1021,7 +1141,8 @@
     "regione": "Friuli Venezia Giulia",
     "regioneId": 8,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 806,
@@ -1030,7 +1151,8 @@
     "regione": "Friuli Venezia Giulia",
     "regioneId": 8,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 811,
@@ -1039,7 +1161,8 @@
     "regione": "Friuli Venezia Giulia",
     "regioneId": 8,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 810,
@@ -1048,7 +1171,8 @@
     "regione": "Friuli Venezia Giulia",
     "regioneId": 8,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 808,
@@ -1057,7 +1181,8 @@
     "regione": "Friuli Venezia Giulia",
     "regioneId": 8,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 809,
@@ -1066,7 +1191,8 @@
     "regione": "Friuli Venezia Giulia",
     "regioneId": 8,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 404,
@@ -1075,7 +1201,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 405,
@@ -1084,7 +1211,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 406,
@@ -1093,7 +1221,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 407,
@@ -1102,7 +1231,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 408,
@@ -1111,7 +1241,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 409,
@@ -1120,7 +1251,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 410,
@@ -1129,7 +1261,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 411,
@@ -1138,7 +1271,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 412,
@@ -1147,7 +1281,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 413,
@@ -1156,7 +1291,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 401,
@@ -1165,7 +1301,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 402,
@@ -1174,7 +1311,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 403,
@@ -1183,7 +1321,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 414,
@@ -1192,7 +1331,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 415,
@@ -1201,7 +1341,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 416,
@@ -1210,7 +1351,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 417,
@@ -1219,7 +1361,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 418,
@@ -1228,7 +1371,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 419,
@@ -1237,7 +1381,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 420,
@@ -1246,7 +1391,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 421,
@@ -1255,7 +1401,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 422,
@@ -1264,7 +1411,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 423,
@@ -1273,7 +1421,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 424,
@@ -1282,7 +1431,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 425,
@@ -1291,7 +1441,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 426,
@@ -1300,7 +1451,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 427,
@@ -1309,7 +1461,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 428,
@@ -1318,7 +1471,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 429,
@@ -1327,7 +1481,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 430,
@@ -1336,7 +1491,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 431,
@@ -1345,7 +1501,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 432,
@@ -1354,7 +1511,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 433,
@@ -1363,7 +1521,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 434,
@@ -1372,7 +1531,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 435,
@@ -1381,7 +1541,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 436,
@@ -1390,7 +1551,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 437,
@@ -1399,7 +1561,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 438,
@@ -1408,7 +1571,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 439,
@@ -1417,7 +1581,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 440,
@@ -1426,7 +1591,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 441,
@@ -1435,7 +1601,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 442,
@@ -1444,7 +1611,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 443,
@@ -1453,7 +1621,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 444,
@@ -1462,7 +1631,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 445,
@@ -1471,7 +1641,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 446,
@@ -1480,7 +1651,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 447,
@@ -1489,7 +1661,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 448,
@@ -1498,7 +1671,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 449,
@@ -1507,7 +1681,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 450,
@@ -1516,7 +1691,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 451,
@@ -1525,7 +1701,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 452,
@@ -1534,7 +1711,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 453,
@@ -1543,7 +1721,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 454,
@@ -1552,7 +1731,8 @@
     "regione": "Lombardia",
     "regioneId": 4,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 301,
@@ -1561,7 +1741,8 @@
     "regione": "Liguria",
     "regioneId": 3,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 302,
@@ -1570,7 +1751,8 @@
     "regione": "Liguria",
     "regioneId": 3,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 303,
@@ -1579,7 +1761,8 @@
     "regione": "Liguria",
     "regioneId": 3,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 304,
@@ -1588,7 +1771,8 @@
     "regione": "Liguria",
     "regioneId": 3,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 305,
@@ -1597,7 +1781,8 @@
     "regione": "Liguria",
     "regioneId": 3,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 306,
@@ -1606,7 +1791,8 @@
     "regione": "Liguria",
     "regioneId": 3,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 307,
@@ -1615,7 +1801,8 @@
     "regione": "Liguria",
     "regioneId": 3,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 901,
@@ -1624,7 +1811,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 902,
@@ -1633,7 +1821,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 903,
@@ -1642,7 +1831,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 904,
@@ -1651,7 +1841,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 905,
@@ -1660,7 +1851,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 906,
@@ -1669,7 +1861,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 907,
@@ -1678,7 +1871,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 908,
@@ -1687,7 +1881,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 909,
@@ -1696,7 +1891,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 910,
@@ -1705,7 +1901,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 911,
@@ -1714,7 +1911,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 912,
@@ -1723,7 +1921,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 913,
@@ -1732,7 +1931,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 914,
@@ -1741,7 +1941,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 915,
@@ -1750,7 +1951,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 916,
@@ -1759,7 +1961,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 917,
@@ -1768,7 +1971,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 918,
@@ -1777,7 +1981,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 919,
@@ -1786,7 +1991,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 920,
@@ -1795,7 +2001,8 @@
     "regione": "Emilia Romagna",
     "regioneId": 9,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1501,
@@ -1804,7 +2011,8 @@
     "regione": "Molise",
     "regioneId": 15,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1801,
@@ -1813,7 +2021,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 1802,
@@ -1822,7 +2031,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1804,
@@ -1831,7 +2041,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1805,
@@ -1840,7 +2051,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1806,
@@ -1849,7 +2061,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1807,
@@ -1858,7 +2071,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1808,
@@ -1867,7 +2081,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1809,
@@ -1876,7 +2091,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1810,
@@ -1885,7 +2101,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1811,
@@ -1894,7 +2111,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1812,
@@ -1903,7 +2121,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1813,
@@ -1912,7 +2131,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1814,
@@ -1921,7 +2141,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1815,
@@ -1930,7 +2151,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1816,
@@ -1939,7 +2161,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1817,
@@ -1948,7 +2171,8 @@
     "regione": "Puglia",
     "regioneId": 18,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1101,
@@ -1957,7 +2181,8 @@
     "regione": "Marche",
     "regioneId": 11,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1110,
@@ -1966,7 +2191,8 @@
     "regione": "Marche",
     "regioneId": 11,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1111,
@@ -1975,7 +2201,8 @@
     "regione": "Marche",
     "regioneId": 11,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1102,
@@ -1984,7 +2211,8 @@
     "regione": "Marche",
     "regioneId": 11,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1103,
@@ -1993,7 +2221,8 @@
     "regione": "Marche",
     "regioneId": 11,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1104,
@@ -2002,7 +2231,8 @@
     "regione": "Marche",
     "regioneId": 11,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1105,
@@ -2011,7 +2241,8 @@
     "regione": "Marche",
     "regioneId": 11,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1106,
@@ -2020,7 +2251,8 @@
     "regione": "Marche",
     "regioneId": 11,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1107,
@@ -2029,7 +2261,8 @@
     "regione": "Marche",
     "regioneId": 11,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1108,
@@ -2038,7 +2271,8 @@
     "regione": "Marche",
     "regioneId": 11,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1109,
@@ -2047,7 +2281,8 @@
     "regione": "Marche",
     "regioneId": 11,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2101,
@@ -2056,7 +2291,8 @@
     "regione": "Sardegna",
     "regioneId": 21,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2102,
@@ -2065,7 +2301,8 @@
     "regione": "Sardegna",
     "regioneId": 21,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2103,
@@ -2074,7 +2311,8 @@
     "regione": "Sardegna",
     "regioneId": 21,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2104,
@@ -2083,7 +2321,8 @@
     "regione": "Sardegna",
     "regioneId": 21,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2105,
@@ -2092,7 +2331,8 @@
     "regione": "Sardegna",
     "regioneId": 21,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2106,
@@ -2101,7 +2341,8 @@
     "regione": "Sardegna",
     "regioneId": 21,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2107,
@@ -2110,7 +2351,8 @@
     "regione": "Sardegna",
     "regioneId": 21,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2108,
@@ -2119,7 +2361,8 @@
     "regione": "Sardegna",
     "regioneId": 21,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2109,
@@ -2128,7 +2371,8 @@
     "regione": "Sardegna",
     "regioneId": 21,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2110,
@@ -2137,7 +2381,8 @@
     "regione": "Sardegna",
     "regioneId": 21,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 240,
@@ -2146,7 +2391,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 241,
@@ -2155,7 +2401,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 233,
@@ -2164,7 +2411,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 235,
@@ -2173,7 +2421,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 234,
@@ -2182,7 +2431,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 236,
@@ -2191,7 +2441,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 237,
@@ -2200,7 +2451,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 238,
@@ -2209,7 +2461,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 239,
@@ -2218,7 +2471,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 201,
@@ -2227,7 +2481,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 202,
@@ -2236,7 +2491,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 203,
@@ -2245,7 +2501,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 204,
@@ -2254,7 +2511,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 205,
@@ -2263,7 +2521,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 206,
@@ -2272,7 +2531,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 207,
@@ -2281,7 +2541,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 208,
@@ -2290,7 +2551,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 209,
@@ -2299,7 +2561,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 210,
@@ -2308,7 +2571,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 211,
@@ -2317,7 +2581,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 212,
@@ -2326,7 +2591,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 213,
@@ -2335,7 +2601,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 214,
@@ -2344,7 +2611,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 215,
@@ -2353,7 +2621,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 216,
@@ -2362,7 +2631,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 217,
@@ -2371,7 +2641,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 218,
@@ -2380,7 +2651,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 219,
@@ -2389,7 +2661,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 220,
@@ -2398,7 +2671,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 221,
@@ -2407,7 +2681,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 222,
@@ -2416,7 +2691,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 223,
@@ -2425,7 +2701,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 224,
@@ -2434,7 +2711,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 225,
@@ -2443,7 +2721,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 226,
@@ -2452,7 +2731,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 227,
@@ -2461,7 +2741,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 228,
@@ -2470,7 +2751,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 229,
@@ -2479,7 +2761,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 230,
@@ -2488,7 +2771,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 231,
@@ -2497,7 +2781,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 232,
@@ -2506,7 +2791,8 @@
     "regione": "Piemonte",
     "regioneId": 2,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1206,
@@ -2515,7 +2801,8 @@
     "regione": "Umbria",
     "regioneId": 12,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 1201,
@@ -2524,7 +2811,8 @@
     "regione": "Umbria",
     "regioneId": 12,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1202,
@@ -2533,7 +2821,8 @@
     "regione": "Umbria",
     "regioneId": 12,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1203,
@@ -2542,7 +2831,8 @@
     "regione": "Umbria",
     "regioneId": 12,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1204,
@@ -2551,7 +2841,8 @@
     "regione": "Umbria",
     "regioneId": 12,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1205,
@@ -2560,7 +2851,8 @@
     "regione": "Umbria",
     "regioneId": 12,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 608,
@@ -2569,7 +2861,8 @@
     "regione": "Trentino",
     "regioneId": 6,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 609,
@@ -2578,7 +2871,8 @@
     "regione": "Trentino",
     "regioneId": 6,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 610,
@@ -2587,7 +2881,8 @@
     "regione": "Trentino",
     "regioneId": 6,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 611,
@@ -2596,7 +2891,8 @@
     "regione": "Trentino",
     "regioneId": 6,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 601,
@@ -2605,7 +2901,8 @@
     "regione": "Trentino",
     "regioneId": 6,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 603,
@@ -2614,7 +2911,8 @@
     "regione": "Trentino",
     "regioneId": 6,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 605,
@@ -2623,7 +2921,8 @@
     "regione": "Trentino",
     "regioneId": 6,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 604,
@@ -2632,7 +2931,8 @@
     "regione": "Trentino",
     "regioneId": 6,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 602,
@@ -2641,7 +2941,8 @@
     "regione": "Trentino",
     "regioneId": 6,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 606,
@@ -2650,7 +2951,8 @@
     "regione": "Trentino",
     "regioneId": 6,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 607,
@@ -2659,7 +2961,8 @@
     "regione": "Trentino",
     "regioneId": 6,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1001,
@@ -2668,7 +2971,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1002,
@@ -2677,7 +2981,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1003,
@@ -2686,7 +2991,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1004,
@@ -2695,7 +3001,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1005,
@@ -2704,7 +3011,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1006,
@@ -2713,7 +3021,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1007,
@@ -2722,7 +3031,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1008,
@@ -2731,7 +3041,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1009,
@@ -2740,7 +3051,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1010,
@@ -2749,7 +3061,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1011,
@@ -2758,7 +3071,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1012,
@@ -2767,7 +3081,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1013,
@@ -2776,7 +3091,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 1014,
@@ -2785,7 +3101,8 @@
     "regione": "Toscana",
     "regioneId": 10,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2021,
@@ -2794,7 +3111,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 2022,
@@ -2803,7 +3121,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "F"
   },
   {
     "id": 2024,
@@ -2812,7 +3131,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2025,
@@ -2821,7 +3141,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2026,
@@ -2830,7 +3151,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2001,
@@ -2839,7 +3161,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2002,
@@ -2848,7 +3171,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2003,
@@ -2857,7 +3181,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2004,
@@ -2866,7 +3191,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2027,
@@ -2875,7 +3201,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2029,
@@ -2884,7 +3211,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2028,
@@ -2893,7 +3221,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2005,
@@ -2902,7 +3231,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2006,
@@ -2911,7 +3241,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2007,
@@ -2920,7 +3251,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2008,
@@ -2929,7 +3261,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2009,
@@ -2938,7 +3271,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2010,
@@ -2947,7 +3281,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2011,
@@ -2956,7 +3291,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2012,
@@ -2965,7 +3301,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2013,
@@ -2974,7 +3311,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2014,
@@ -2983,7 +3321,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2015,
@@ -2992,7 +3331,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2016,
@@ -3001,7 +3341,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2017,
@@ -3010,7 +3351,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2018,
@@ -3019,7 +3361,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2019,
@@ -3028,7 +3371,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 2020,
@@ -3037,7 +3381,8 @@
     "regione": "Sicilia",
     "regioneId": 20,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 525,
@@ -3046,7 +3391,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 501,
@@ -3055,7 +3401,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 502,
@@ -3064,7 +3411,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 503,
@@ -3073,7 +3421,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 526,
@@ -3082,7 +3431,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 527,
@@ -3091,7 +3441,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 528,
@@ -3100,7 +3451,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 529,
@@ -3109,7 +3461,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 504,
@@ -3118,7 +3471,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 505,
@@ -3127,7 +3481,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 506,
@@ -3136,7 +3491,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 507,
@@ -3145,7 +3501,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 508,
@@ -3154,7 +3511,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 509,
@@ -3163,7 +3521,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 510,
@@ -3172,7 +3531,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 511,
@@ -3181,7 +3541,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 512,
@@ -3190,7 +3551,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 513,
@@ -3199,7 +3561,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 514,
@@ -3208,7 +3571,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 515,
@@ -3217,7 +3581,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 524,
@@ -3226,7 +3591,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 516,
@@ -3235,7 +3601,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 517,
@@ -3244,7 +3611,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 518,
@@ -3253,7 +3621,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 519,
@@ -3262,7 +3631,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 520,
@@ -3271,7 +3641,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 521,
@@ -3280,7 +3651,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 522,
@@ -3289,7 +3661,8 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   },
   {
     "id": 523,
@@ -3298,6 +3671,7 @@
     "regione": "Veneto",
     "regioneId": 5,
     "anno": 41,
-    "formula": 19
+    "formula": 19,
+    "sesso": "M"
   }
 ]
