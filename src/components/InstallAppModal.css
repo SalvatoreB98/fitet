@@ -223,6 +223,10 @@
   color: #cbd5e1;
 }
 
+[data-theme="light"] .icon-setting-safari {
+  filter: invert(0.7)
+}
+
 [data-theme="dark"] .install-modal-close:hover {
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;

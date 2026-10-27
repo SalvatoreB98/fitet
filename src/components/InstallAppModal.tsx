@@ -153,6 +153,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
                 <div className="install-step-text">
                   In Safari, tocca il pulsante {' '}
                   <img
+                    className='icon-setting-safari'
                     src="/iOS-icon.png"
                     alt="new setting icon"
                     width="20px"
