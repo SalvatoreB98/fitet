@@ -12,6 +12,7 @@ import { SquadraModal } from './components/SquadraModal';
 import { IntroMotionGraphic } from './components/IntroMotionGraphic';
 import { HomeTab } from './components/HomeTab';
 import { ClassificheRankingTab } from './components/ClassificheRankingTab';
+import { TorneiTab } from './components/TorneiTab';
 import { BottomBar } from './components/BottomBar';
 import { SearchAtletaModal } from './components/SearchAtletaModal';
 import { FavoritesModal } from './components/FavoritesModal';
@@ -109,22 +110,23 @@ export const App: React.FC = () => {
     }
   };
 
-  // Main 3-view navigation: 'home' | 'campionato' | 'classifiche'
+  // Main 4-view navigation: 'home' | 'campionato' | 'tornei' | 'classifiche'
   const [mainView, setMainView] = useState<MainViewType>(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const viewParam = urlParams.get('view');
-      if (viewParam && ['home', 'campionato', 'classifiche'].includes(viewParam)) {
+      if (viewParam && ['home', 'campionato', 'tornei', 'classifiche'].includes(viewParam)) {
         return viewParam as MainViewType;
       }
       const tabParam = urlParams.get('tab');
       if (tabParam === 'classifiche') return 'classifiche';
+      if (tabParam === 'tornei') return 'tornei';
       const camParam = urlParams.get('cam');
       if (camParam && ['classifica', 'calendario', 'statistiche'].includes(tabParam || '')) {
         return 'campionato';
       }
       const savedView = localStorage.getItem('fitet_main_view') as MainViewType | null;
-      if (savedView && ['home', 'campionato', 'classifiche'].includes(savedView)) {
+      if (savedView && ['home', 'campionato', 'tornei', 'classifiche'].includes(savedView)) {
         return savedView;
       }
     }
@@ -568,8 +570,8 @@ export const App: React.FC = () => {
       if (view === 'home') {
         url.searchParams.delete('view');
         url.searchParams.delete('tab');
-      } else if (view === 'classifiche') {
-        url.searchParams.set('view', 'classifiche');
+      } else if (view === 'classifiche' || view === 'tornei') {
+        url.searchParams.set('view', view);
         url.searchParams.delete('tab');
       } else if (view === 'campionato') {
         url.searchParams.set('view', 'campionato');
@@ -601,6 +603,8 @@ export const App: React.FC = () => {
 
       if (viewParam === 'classifiche') {
         setMainView('classifiche');
+      } else if (viewParam === 'tornei') {
+        setMainView('tornei');
       } else if (viewParam === 'campionato' || (urlParams.get('cam') && tabParam && ['classifica', 'calendario', 'statistiche'].includes(tabParam))) {
         setMainView('campionato');
         if (tabParam && ['classifica', 'calendario', 'statistiche'].includes(tabParam)) {
@@ -783,6 +787,18 @@ export const App: React.FC = () => {
           />
         </div>
 
+        {/* VIEW 2b: Tornei & Manifestazioni FITeT */}
+        <div
+          className={`tab-pane ${mainView === 'tornei' ? 'active' : ''}`}
+          role="tabpanel"
+          id="tabpanel-tornei"
+          style={{ display: mainView === 'tornei' ? 'block' : 'none' }}
+        >
+          <TorneiTab
+            onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+          />
+        </div>
+
         {/* VIEW 3: Campionato (Classifica, Calendario, Statistiche) */}
         <div
           className={`tab-pane ${mainView === 'campionato' ? 'active' : ''}`}
@@ -833,7 +849,7 @@ export const App: React.FC = () => {
           ) : !camId ? (
             <div className="no-championship-screen">
               <div className="no-championship-icon-badge">
-                <i className="bi bi-trophy-fill"></i>
+                <i className="bi bi-shield-fill"></i>
               </div>
               <h2 className="no-championship-title">
                 Nessun Campionato Selezionato
@@ -847,7 +863,7 @@ export const App: React.FC = () => {
                   className="btn-action no-championship-btn"
                   onClick={() => setIsChampionshipModalOpen(true)}
                 >
-                  <i className="bi bi-trophy me-2"></i>
+                  <i className="bi bi-shield-fill me-2"></i>
                   Scegli Campionato
                 </button>
               </div>

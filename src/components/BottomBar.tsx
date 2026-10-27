@@ -1,7 +1,7 @@
 import React from 'react';
 import './BottomBar.css';
 
-export type MainViewType = 'home' | 'campionato' | 'classifiche';
+export type MainViewType = 'home' | 'campionato' | 'tornei' | 'classifiche';
 
 export interface BottomBarProps {
   activeView: MainViewType;
@@ -40,12 +40,26 @@ export const BottomBar: React.FC<BottomBarProps> = ({
           aria-current={activeView === 'campionato' ? 'page' : undefined}
         >
           <div className="bottom-bar-icon-wrap">
-            <i className="bi bi-trophy-fill"></i>
+            <i className="bi bi-shield-fill"></i>
           </div>
           <span className="bottom-bar-label">Campionato</span>
         </button>
 
-        {/* 3. Classifiche */}
+        {/* 3. Tornei */}
+        <button
+          type="button"
+          className={`bottom-bar-item ${activeView === 'tornei' ? 'is-active' : ''}`}
+          onClick={() => onChangeView('tornei')}
+          aria-label="Tornei FITeT"
+          aria-current={activeView === 'tornei' ? 'page' : undefined}
+        >
+          <div className="bottom-bar-icon-wrap">
+            <i className="bi bi-trophy-fill"></i>
+          </div>
+          <span className="bottom-bar-label">Tornei</span>
+        </button>
+
+        {/* 4. Classifiche */}
         <button
           type="button"
           className={`bottom-bar-item ${activeView === 'classifiche' ? 'is-active' : ''}`}
@@ -59,7 +73,7 @@ export const BottomBar: React.FC<BottomBarProps> = ({
           <span className="bottom-bar-label">Classifiche</span>
         </button>
 
-        {/* 4. Cerca Atleta */}
+        {/* 5. Cerca Atleta */}
         <button
           type="button"
           className="bottom-bar-item bottom-bar-search-item"

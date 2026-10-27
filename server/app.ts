@@ -17,6 +17,19 @@ import { parseDettaglioSquadra } from './parsers/squadraParser';
 import { parseRefertoIncontro, parseDettaglioPartita } from './parsers/refertoParser';
 import { parseRankingHtml } from './parsers/rankingParser';
 import { parseSceltaAtleta } from './parsers/sceltaAtletaParser';
+import {
+    parseTestaTornei,
+    parseElencoTornei,
+    parseMenuManifestazioni,
+    parseDettaglioTorneo,
+    parseIscrizioniGara,
+    parseGestioneGara,
+    parseRisultatiGironi,
+    parseRisultatiTabellone,
+    COMIT_NAMES,
+} from './parsers/torneiParser';
+import { RANKING_CATEGORIES, getRankingCategoryByKey } from '../src/constants/rankingCategories';
+import { TORNEI_CATEGORIES, getTorneoCategoryByKey } from '../src/constants/torneiCategories';
 import * as cheerio from 'cheerio';
 import {
     DashboardData,
@@ -28,6 +41,10 @@ import {
     PartiteRankingAtleta,
     ChampionshipItem,
     AthleteSearchResult,
+    TorneoSectionResult,
+    TorneiResponse,
+    TorneoDettaglioResponse,
+    TorneoGaraDettaglioResponse,
 } from '../src/types/fitet';
 
 export const app = express();
@@ -276,10 +293,22 @@ app.get('/api/ranking', async (req, res) => {
     const comit = req.query.comit ? String(req.query.comit).trim() : '';
     const forceRefresh = req.query.refresh === 'true';
 
+    // Category / Filter parameters
+    const categoryKey = (req.query.category as string) || '';
+    const catDef = categoryKey ? getRankingCategoryByKey(categoryKey) : undefined;
+
+    const tipo = req.query.tipo !== undefined ? String(req.query.tipo) : (catDef ? String(catDef.tipo) : '1');
+    const sett = req.query.sett !== undefined ? String(req.query.sett) : (catDef ? catDef.sett : '0');
+    const s = req.query.s !== undefined ? String(req.query.s) : (catDef ? String(catDef.s) : '0');
+    const fq = req.query.fq !== undefined ? String(req.query.fq) : (catDef ? String(catDef.fq) : '0');
+    const g = req.query.g !== undefined ? String(req.query.g) : (catDef ? String(catDef.g) : '0');
+    const v = req.query.v !== undefined ? String(req.query.v) : (catDef ? String(catDef.v) : '0');
+    const p = req.query.p !== undefined ? String(req.query.p) : (catDef?.p !== undefined ? String(catDef.p) : undefined);
+
     const isRegionale = !!comit && comit !== '0' && comit !== 'all';
     const comitId = isRegionale ? parseInt(comit, 10) : undefined;
 
-    const cacheKey = `ranking_${sesso}_${isRegionale ? `comit_${comitId}` : 'naz'}_p${page}`;
+    const cacheKey = `ranking_${sesso}_${isRegionale ? `comit_${comitId}` : 'naz'}_t${tipo}_s${sett}_S${s}_FQ${fq}_G${g}_V${v}${p ? `_P${p}` : ''}_p${page}`;
 
     try {
         if (!forceRefresh) {
@@ -287,21 +316,489 @@ app.get('/api/ranking', async (req, res) => {
             if (cached) return res.json(cached);
         }
 
+        const pParam = (p !== undefined && p !== null && p !== '') ? `&P=${p}` : '';
         let url = '';
         if (isRegionale) {
-            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=247&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
+            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=247&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
         } else {
-            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=247&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
+            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=247&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
         }
 
         const html = await FitetClient.fetchHtml(url, true);
-        const result = parseRankingHtml(html, sesso, page, comitId);
+        const result = parseRankingHtml(html, sesso, page, comitId, catDef?.key || categoryKey || 'generale');
 
         cacheService.set(cacheKey, result, 60 * 60 * 1000); // 1 hour TTL
         res.json(result);
     } catch (error: any) {
         console.error('Error fetching ranking:', error);
         res.status(500).json({ error: 'Errore nel recupero della classifica', details: error.message });
+    }
+});
+
+// 4c. Tornei & Manifestazioni FITeT (con fallback dinamico degli ID e aggregazione)
+async function getDynamicMenuManifestazioni(forceRefresh = false): Promise<Array<{ label: string; tor: number; comit: number; id: number }>> {
+    const cacheKey = 'tornei_menu_manifestazioni';
+    if (!forceRefresh) {
+        const cached = cacheService.get<Array<{ label: string; tor: number; comit: number; id: number }>>(cacheKey);
+        if (cached) return cached;
+    }
+    try {
+        const html = await FitetClient.fetchHtml('https://portale.fitet.org/menu.php');
+        const parsed = parseMenuManifestazioni(html);
+        if (parsed.length > 0) {
+            cacheService.set(cacheKey, parsed, 6 * 60 * 60 * 1000); // 6 hours
+        }
+        return parsed;
+    } catch {
+        return [];
+    }
+}
+
+async function fetchSingleTorneoSection(
+    key: string,
+    shortLabel: string,
+    fallbackTitle: string,
+    tor: number,
+    comit: number,
+    id: number,
+    regFilter?: number,
+    forceRefresh = false
+): Promise<TorneoSectionResult> {
+    const cacheKey = `tornei_sec_${key}_t${tor}_c${comit}_id${id}_r${regFilter || 0}`;
+    if (!forceRefresh) {
+        const cached = cacheService.get<TorneoSectionResult>(cacheKey);
+        if (cached) return cached;
+    }
+
+    const baseUrl = 'https://portale.fitet.org/risultati/tornei';
+    const testaUrl = `${baseUrl}/testa_tornei.php?TOR=${tor}&COMIT=${comit}&ID=${id}`;
+    const elencoUrl =
+        regFilter && tor === 0
+            ? `${baseUrl}/elenco_tornei.php?REG=${regFilter}&TOR=${tor}&ID=${id}&COMIT=${comit}`
+            : `${baseUrl}/elenco_tornei.php?TOR=${tor}&COMIT=${comit}&ID=${id}`;
+
+    const [testaHtml, elencoHtml] = await Promise.all([
+        FitetClient.fetchHtml(testaUrl).catch(() => ''),
+        FitetClient.fetchHtml(elencoUrl).catch(() => ''),
+    ]);
+
+    const title = parseTestaTornei(testaHtml, fallbackTitle);
+    const parsed = parseElencoTornei(elencoHtml, comit, tor, regFilter, key, shortLabel);
+
+    // Se l'endpoint restituisce i link alle regioni (es. TOR=0&COMIT=30&ID=36 -> Tornei Open)
+    if (parsed.regions.length > 0 && parsed.tornei.length === 0) {
+        const targetRegions = regFilter
+            ? parsed.regions.filter((r) => r.regId === regFilter)
+            : parsed.regions;
+
+        const regResults = await Promise.all(
+            targetRegions.map(async (r) => {
+                const regUrl = `${baseUrl}/elenco_tornei.php?REG=${r.regId}&TOR=${r.tor}&ID=${r.id}&COMIT=${r.comit}`;
+                const regHtml = await FitetClient.fetchHtml(regUrl).catch(() => '');
+                const subParsed = parseElencoTornei(regHtml, r.comit, r.tor, r.regId, key, shortLabel);
+
+                // Fallback: se REG=...&TOR=0&ID=36 fosse vuoto, prova TOR=100&COMIT=<regId>&ID=0
+                if (subParsed.tornei.length === 0) {
+                    const fallbackHtml = await FitetClient.fetchHtml(
+                        `${baseUrl}/elenco_tornei.php?TOR=100&COMIT=${r.regId}&ID=0`
+                    ).catch(() => '');
+                    return parseElencoTornei(fallbackHtml, r.regId, 100, r.regId, key, shortLabel).tornei;
+                }
+                return subParsed.tornei;
+            })
+        );
+
+        const mergedTornei = regResults.flat();
+        const sectionResult: TorneoSectionResult = {
+            key,
+            title,
+            shortLabel,
+            tor,
+            comit,
+            id,
+            reg: regFilter,
+            regioneNome: regFilter ? COMIT_NAMES[regFilter] : undefined,
+            tornei: mergedTornei,
+            availableRegions: parsed.regions.map((r) => ({
+                regId: r.regId,
+                name: r.name,
+                tor: r.tor,
+                id: r.id,
+                comit: r.comit,
+            })),
+        };
+        cacheService.set(cacheKey, sectionResult, 30 * 60 * 1000);
+        return sectionResult;
+    }
+
+    // Fallback se TOR=0&ID=36 (Tornei Open) avesse cambiato ID su portale.fitet.org
+    if (tor === 0 && parsed.tornei.length === 0 && parsed.regions.length === 0) {
+        const dynamicMenu = await getDynamicMenuManifestazioni(forceRefresh);
+        const dynamicOpen = dynamicMenu.find((m) => m.tor === 0 && m.id > 0 && /open/i.test(m.label));
+        if (dynamicOpen && dynamicOpen.id !== id) {
+            return fetchSingleTorneoSection(
+                key,
+                shortLabel,
+                fallbackTitle,
+                dynamicOpen.tor,
+                dynamicOpen.comit,
+                dynamicOpen.id,
+                regFilter,
+                forceRefresh
+            );
+        }
+        // Ulteriore fallback diretto su TOR=100 per la regione o le principali regioni
+        if (regFilter && regFilter >= 1 && regFilter <= 21) {
+            const fbHtml = await FitetClient.fetchHtml(
+                `${baseUrl}/elenco_tornei.php?TOR=100&COMIT=${regFilter}&ID=0`
+            ).catch(() => '');
+            const fbParsed = parseElencoTornei(fbHtml, regFilter, 100, regFilter, key, shortLabel);
+            parsed.tornei = fbParsed.tornei;
+        }
+    }
+
+    const sectionResult: TorneoSectionResult = {
+        key,
+        title,
+        shortLabel,
+        tor,
+        comit,
+        id,
+        reg: regFilter,
+        regioneNome: regFilter ? COMIT_NAMES[regFilter] : comit <= 21 ? COMIT_NAMES[comit] : undefined,
+        tornei: parsed.tornei,
+    };
+
+    cacheService.set(cacheKey, sectionResult, 30 * 60 * 1000);
+    return sectionResult;
+}
+
+app.get('/api/tornei', async (req, res) => {
+    const categoryKey = ((req.query.category as string) || 'all').trim();
+    const comitParam = req.query.comit ? parseInt(req.query.comit as string, 10) : 0;
+    const regParam = req.query.reg ? parseInt(req.query.reg as string, 10) : 0;
+    const customTor = req.query.tor !== undefined ? parseInt(req.query.tor as string, 10) : undefined;
+    const customId = req.query.id !== undefined ? parseInt(req.query.id as string, 10) : undefined;
+    const forceRefresh = req.query.refresh === 'true';
+
+    try {
+        // Caso 1: Vista "Tutti i Tornei Attivi" (o "Tutti Regionali" quando è selezionata una regione)
+        if (categoryKey === 'all' || categoryKey === 'reg_all') {
+            const isRegionSelected = comitParam >= 1 && comitParam <= 21;
+
+            if (isRegionSelected || categoryKey === 'reg_all') {
+                const targetRegion = isRegionSelected ? comitParam : (regParam >= 1 && regParam <= 21 ? regParam : 4);
+                const regCategories = TORNEI_CATEGORIES.filter((c) => c.group === 'regionali');
+
+                const sections = await Promise.all(
+                    regCategories.map((c) =>
+                        fetchSingleTorneoSection(
+                            c.key,
+                            c.shortLabel,
+                            c.label,
+                            c.tor,
+                            targetRegion,
+                            c.id,
+                            targetRegion,
+                            forceRefresh
+                        )
+                    )
+                );
+
+                const populated = sections.filter((s) => s.tornei.length > 0);
+                const payload: TorneiResponse = {
+                    title: `TORNEI REGIONALI ${COMIT_NAMES[targetRegion]?.toUpperCase() || ''} - STAGIONE 2026/27`,
+                    categoryKey,
+                    comitId: targetRegion,
+                    regId: targetRegion,
+                    sections: populated.length > 0 ? populated : sections.slice(0, 1),
+                    totalTornei: populated.reduce((acc, s) => acc + s.tornei.length, 0),
+                    lastUpdated: new Date().toISOString(),
+                };
+                return res.json(payload);
+            }
+
+            // Vista globale: interroga tutte le categorie Nazionali + Open e mostra quelle con contenuto
+            const nationalAndOpenCats = TORNEI_CATEGORIES.filter((c) => c.group !== 'regionali');
+            const sections = await Promise.all(
+                nationalAndOpenCats.map((c) =>
+                    fetchSingleTorneoSection(
+                        c.key,
+                        c.shortLabel,
+                        c.label,
+                        c.tor,
+                        c.comit,
+                        c.id,
+                        regParam > 0 ? regParam : undefined,
+                        forceRefresh
+                    )
+                )
+            );
+
+            const populated = sections.filter((s) => s.tornei.length > 0);
+            const payload: TorneiResponse = {
+                title: 'MANIFESTAZIONI E TORNEI UFFICIALI FITeT - STAGIONE 2026/27',
+                categoryKey: 'all',
+                comitId: 30,
+                regId: regParam > 0 ? regParam : undefined,
+                sections: populated,
+                totalTornei: populated.reduce((acc, s) => acc + s.tornei.length, 0),
+                lastUpdated: new Date().toISOString(),
+            };
+            return res.json(payload);
+        }
+
+        // Caso 2: Categoria specifica o parametri TOR/COMIT/ID espliciti
+        const catDef = getTorneoCategoryByKey(categoryKey);
+        const tor = customTor !== undefined ? customTor : (catDef ? catDef.tor : 21);
+        const id = customId !== undefined ? customId : (catDef ? catDef.id : 0);
+        const isRegCat = catDef?.group === 'regionali' || tor >= 100;
+        const comit = isRegCat
+            ? (comitParam >= 1 && comitParam <= 21 ? comitParam : (regParam >= 1 && regParam <= 21 ? regParam : 4))
+            : (comitParam > 0 && customTor !== undefined ? comitParam : (catDef?.comit || 30));
+
+        const activeRegFilter =
+            tor === 0
+                ? (regParam >= 1 && regParam <= 21 ? regParam : (comitParam >= 1 && comitParam <= 21 ? comitParam : undefined))
+                : isRegCat
+                ? comit
+                : undefined;
+
+        const section = await fetchSingleTorneoSection(
+            catDef?.key || categoryKey,
+            catDef?.shortLabel || 'Tornei',
+            catDef?.label || 'TORNEI FITeT',
+            tor,
+            comit,
+            id,
+            activeRegFilter,
+            forceRefresh
+        );
+
+        const payload: TorneiResponse = {
+            title: section.title,
+            categoryKey: catDef?.key || categoryKey,
+            comitId: comit,
+            regId: activeRegFilter,
+            sections: [section],
+            totalTornei: section.tornei.length,
+            lastUpdated: new Date().toISOString(),
+        };
+
+        return res.json(payload);
+    } catch (error: any) {
+        console.error('Error fetching tornei:', error);
+        res.status(500).json({ error: 'Errore nel recupero dei tornei FITeT', details: error.message });
+    }
+});
+
+// 4d. Dettaglio Singolo Torneo (Gare disputate o in programma + PDF sintetici + Tabelloni)
+app.get('/api/tornei/dettaglio', async (req, res) => {
+    const idt = parseInt(req.query.idt as string, 10);
+    const com = parseInt(req.query.com as string, 10) || 30;
+    const anno = parseInt(req.query.anno as string, 10) || 41;
+    const forceRefresh = req.query.refresh === 'true';
+
+    if (!idt || isNaN(idt)) {
+        return res.status(400).json({ error: 'Parametro IDT mancante o non valido' });
+    }
+
+    const cacheKey = `torneo_dettaglio_${idt}_${com}_${anno}`;
+    if (!forceRefresh) {
+        const cached = cacheService.get<TorneoDettaglioResponse>(cacheKey);
+        if (cached) return res.json(cached);
+    }
+
+    try {
+        const baseUrl = 'https://portale.fitet.org/risultati/tornei';
+        const [elencoGareHtml, iscrizioniHtml] = await Promise.all([
+            FitetClient.fetchHtml(`${baseUrl}/elenco_gare.php?IDT=${idt}&COM=${com}`).catch(() => ''),
+            FitetClient.fetchHtml(`${baseUrl}/iscrizioni.php?IDT=${idt}&COM=${com}`).catch(() => ''),
+        ]);
+
+        const parsed = parseDettaglioTorneo(elencoGareHtml, iscrizioniHtml, idt, com, anno);
+        cacheService.set(cacheKey, parsed, 30 * 60 * 1000);
+        res.json(parsed);
+    } catch (error: any) {
+        console.error(`Error fetching torneo dettaglio IDT=${idt}:`, error);
+        res.status(500).json({ error: 'Errore nel recupero dei dettagli del torneo', details: error.message });
+    }
+});
+
+// 4e. Dettaglio Singola Gara di un Torneo (Iscritti, Gironi di qualificazione, Tabellone Eliminazione Diretta)
+app.get('/api/tornei/gara', async (req, res) => {
+    const idt = parseInt(req.query.idt as string, 10);
+    const com = parseInt(req.query.com as string, 10) || 30;
+    const garaId = ((req.query.gara as string) || '').trim();
+    const anno = parseInt(req.query.anno as string, 10) || 41;
+    const isDoppio = req.query.isDoppio === 'true';
+    const mode = (req.query.mode as string) === 'iscrizioni' ? 'iscrizioni' : 'risultati';
+    const reqCod1 = req.query.cod1 ? parseInt(req.query.cod1 as string, 10) : undefined;
+    const reqCod2 = req.query.cod2 ? parseInt(req.query.cod2 as string, 10) : undefined;
+    const reqTab = req.query.tab ? parseInt(req.query.tab as string, 10) : undefined;
+    const reqTurno = req.query.turno ? parseInt(req.query.turno as string, 10) : undefined;
+    const forceRefresh = req.query.refresh === 'true';
+
+    if (!idt || !garaId) {
+        return res.status(400).json({ error: 'Parametri idt e gara obbligatori' });
+    }
+
+    const cacheKey = `torneo_gara_${idt}_${com}_${garaId}_${mode}_c${reqCod1 || 0}_${reqCod2 || 0}_t${reqTab || 0}_${reqTurno || 0}`;
+    if (!forceRefresh) {
+        const cached = cacheService.get<TorneoGaraDettaglioResponse>(cacheKey);
+        if (cached) return res.json(cached);
+    }
+
+    try {
+        const baseUrl = 'https://portale.fitet.org/risultati/tornei';
+        const mapping = athleteResolver.getMapping();
+
+        // Modalità Iscrizioni
+        if (mode === 'iscrizioni') {
+            const iscrHtml = await FitetClient.fetchHtml(
+                `${baseUrl}/iscrizioni_gara.php?GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}`
+            ).catch(() => '');
+            const parsedIscr = parseIscrizioniGara(iscrHtml, mapping);
+
+            const payload: TorneoGaraDettaglioResponse = {
+                idt,
+                com,
+                garaId,
+                anno,
+                titoloGara: parsedIscr.titoloGara || `Gara ${garaId}`,
+                mode: 'iscrizioni',
+                isDoppio,
+                maxIscritti: parsedIscr.maxIscritti,
+                iscritti: parsedIscr.iscritti,
+                gironiRanges: [],
+                gironi: [],
+                turniTabellone: [],
+                partiteTabellone: [],
+            };
+            cacheService.set(cacheKey, payload, 15 * 60 * 1000);
+            return res.json(payload);
+        }
+
+        // Modalità Risultati (gestione_gare_n.php o gestione_gare_doppio.php)
+        const gestioneUrl = isDoppio
+            ? `${baseUrl}/gestione_gare_doppio.php?ANNO=${anno}&GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}`
+            : `${baseUrl}/gestione_gare_n.php?ANNO=${anno}&GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}&TAB=0`;
+
+        const gestioneHtml = await FitetClient.fetchHtml(gestioneUrl).catch(() => '');
+        const meta = parseGestioneGara(gestioneHtml, mapping);
+
+        // Se non ci sono ancora risultati giocati, fallback automatico alle iscrizioni!
+        if (meta.gironiRanges.length === 0 && meta.turniTabellone.length === 0) {
+            const iscrHtml = await FitetClient.fetchHtml(
+                `${baseUrl}/iscrizioni_gara.php?GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}`
+            ).catch(() => '');
+            const parsedIscr = parseIscrizioniGara(iscrHtml, mapping);
+            if (parsedIscr.iscritti.length > 0) {
+                const fallbackPayload: TorneoGaraDettaglioResponse = {
+                    idt,
+                    com,
+                    garaId,
+                    anno,
+                    titoloGara: parsedIscr.titoloGara || meta.titoloGara || `Gara ${garaId}`,
+                    mode: 'iscrizioni',
+                    isDoppio,
+                    maxIscritti: parsedIscr.maxIscritti,
+                    iscritti: parsedIscr.iscritti,
+                    gironiRanges: [],
+                    gironi: [],
+                    turniTabellone: [],
+                    partiteTabellone: [],
+                };
+                cacheService.set(cacheKey, fallbackPayload, 15 * 60 * 1000);
+                return res.json(fallbackPayload);
+            }
+        }
+
+        // Determina quale blocco di gironi e quale turno di tabellone caricare
+        const activeGironiRange =
+            reqCod1 !== undefined && reqCod2 !== undefined
+                ? { cod1: reqCod1, cod2: reqCod2 }
+                : meta.gironiRanges.length > 0
+                ? { cod1: meta.gironiRanges[0].cod1, cod2: meta.gironiRanges[0].cod2 }
+                : null;
+
+        let activeTurno =
+            reqTurno !== undefined
+                ? meta.turniTabellone.find((t) => t.turno === reqTurno && (!reqTab || t.tab === reqTab)) || {
+                      tab: reqTab || 1,
+                      turno: reqTurno,
+                      label: `Turno ${reqTurno}`,
+                  }
+                : meta.turniTabellone.length > 0
+                ? meta.turniTabellone[0]
+                : null;
+
+        const [gironiHtml, tabelloneHtml] = await Promise.all([
+            activeGironiRange
+                ? FitetClient.fetchHtml(
+                      `${baseUrl}/risultati.php?COD_1=${activeGironiRange.cod1}&COD_2=${activeGironiRange.cod2}&IDT=${idt}&ANNO=${anno}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+                  ).catch(() => '')
+                : Promise.resolve(''),
+            activeTurno
+                ? FitetClient.fetchHtml(
+                      isDoppio
+                          ? `${baseUrl}/risultati_tabellone_doppio.php?ANNO=${anno}&TURNO=${activeTurno.turno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+                          : `${baseUrl}/risultati_tabellone.php?TAB=${activeTurno.tab}&TURNO=${activeTurno.turno}&ANNO=${anno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+                  ).catch(() => '')
+                : Promise.resolve(''),
+        ]);
+
+        const gironi = parseRisultatiGironi(gironiHtml, mapping);
+        let partiteTabellone = parseRisultatiTabellone(tabelloneHtml, mapping);
+
+        // Nota: l'immagine mappa statica di FITeT elenca sempre i turni da 9 (Finale) a 3 (64esimi),
+        // ma per tabelloni più piccoli alcuni turni non hanno incontri o non sono ancora stati giocati.
+        // Se non era richiesto un turno specifico (o se il turno default 9 è vuoto), cerchiamo il turno più avanzato con partite!
+        if (partiteTabellone.length === 0 && reqTurno === undefined && meta.turniTabellone.length > 1) {
+            const candidateTurni = meta.turniTabellone.slice(1);
+            const fallbackTurniResults = await Promise.all(
+                candidateTurni.map(async (t) => {
+                    const html = await FitetClient.fetchHtml(
+                        isDoppio
+                            ? `${baseUrl}/risultati_tabellone_doppio.php?ANNO=${anno}&TURNO=${t.turno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+                            : `${baseUrl}/risultati_tabellone.php?TAB=${t.tab}&TURNO=${t.turno}&ANNO=${anno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+                    ).catch(() => '');
+                    return { turnoObj: t, matches: parseRisultatiTabellone(html, mapping) };
+                })
+            );
+            const firstPopulated = fallbackTurniResults.find((r) => r.matches.length > 0);
+            if (firstPopulated) {
+                activeTurno = firstPopulated.turnoObj;
+                partiteTabellone = firstPopulated.matches;
+            }
+        }
+
+        const payload: TorneoGaraDettaglioResponse = {
+            idt,
+            com,
+            garaId,
+            anno,
+            titoloGara: meta.titoloGara || `Gara ${garaId}`,
+            mode: 'risultati',
+            isDoppio,
+            vincitore: meta.vincitore,
+            vincitoreId: meta.vincitoreId,
+            vincitoreFotoUrl: meta.vincitoreFotoUrl,
+            valoreRanking: meta.valoreRanking,
+            iscritti: [],
+            gironiRanges: meta.gironiRanges,
+            activeGironiRange,
+            gironi,
+            turniTabellone: meta.turniTabellone,
+            activeTurno,
+            partiteTabellone,
+        };
+
+        cacheService.set(cacheKey, payload, 30 * 60 * 1000);
+        return res.json(payload);
+    } catch (error: any) {
+        console.error(`Error fetching gara ${garaId} for IDT=${idt}:`, error);
+        res.status(500).json({ error: 'Errore nel recupero dei risultati della gara', details: error.message });
     }
 });
 
