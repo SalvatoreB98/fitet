@@ -323,19 +323,8 @@ nav {
 }
 
 .portal-title-block small {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.88);
-  background: rgba(255, 255, 255, 0.12);
-  padding: 1.5px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  line-height: 1.3;
+  color: var(--text-dark);
+  font-size: 0.1rem;
 }
 
 
@@ -4198,22 +4187,7 @@ body.modal-open {
   }
 
   .portal-title-block small {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.95);
-    background: rgba(255, 255, 255, 0.18);
-    padding: 1px 7px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.24);
-    line-height: 1.25;
-    max-width: 100%;
-    white-space: nowrap;
-    overflow: visible;
+    display: none;
   }
 
   @media (max-width: 500px) {
@@ -8116,6 +8090,7 @@ body.modal-open {
 
 /* Sticky/Top Banner in Championship View */
 .consultation-mode-bar {
+  font-size: 0.5em;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -8128,6 +8103,7 @@ body.modal-open {
   backdrop-filter: blur(8px);
   box-shadow: 0 4px 14px rgba(245, 158, 11, 0.08);
   animation: slideDownFade 0.25s ease-out;
+  margin-top: 130px;
 }
 
 .consultation-mode-info {
