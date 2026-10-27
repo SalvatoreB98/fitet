@@ -23,6 +23,8 @@ interface HeaderProps {
   onSelectAthleteById: (id: string, name: string) => void;
   championshipName?: string;
   championshipRegion?: string;
+  isConsulting?: boolean;
+  onReturnToMyChampionship?: () => void;
   onOpenChampionshipModal?: () => void;
   onOpenFavoritesModal?: () => void;
   onOpenSearchModal?: () => void;
@@ -44,6 +46,8 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectAthleteById,
   championshipName,
   championshipRegion,
+  isConsulting = false,
+  onReturnToMyChampionship,
   onOpenChampionshipModal,
   onOpenFavoritesModal,
   onOpenSearchModal,
@@ -131,6 +135,11 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="portal-title-block">
                 <div className="portal-title-heading-row">
                   <h1>{championshipName || 'CAMPIONATO'}</h1>
+                  {isConsulting && (
+                    <span className="header-consulting-badge" title="Stai visualizzando questo campionato in consultazione">
+                      <i className="bi bi-eye-fill me-1"></i> Consultazione
+                    </span>
+                  )}
                   <span className="championship-switcher-badge" aria-hidden="true">
                     <i className="bi bi-chevron-down"></i>
                   </span>
@@ -232,6 +241,30 @@ export const Header: React.FC<HeaderProps> = ({
                         <i className="bi bi-chevron-right burger-item-arrow"></i>
                       )}
                     </button>
+
+                    {/* 2b. Azione Rapida: Torna al mio campionato (se in consultazione) */}
+                    {isConsulting && onReturnToMyChampionship && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="burger-menu-item is-consulting-return"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onReturnToMyChampionship();
+                        }}
+                      >
+                        <div className="burger-item-icon-box" style={{ background: '#ecfdf5', color: '#047857' }}>
+                          <i className="bi bi-arrow-return-left"></i>
+                        </div>
+                        <div className="burger-item-content">
+                          <span className="burger-item-title" style={{ color: '#047857', fontWeight: 600 }}>
+                            Torna al mio campionato
+                          </span>
+                          <span className="burger-item-desc">Chiudi la consultazione attiva</span>
+                        </div>
+                        <i className="bi bi-chevron-right burger-item-arrow"></i>
+                      </button>
+                    )}
 
                     {/* 3. Classifiche Nazionali / Regionali */}
                     <button

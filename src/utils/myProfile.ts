@@ -1,7 +1,8 @@
-import { DettaglioAtleta } from '../types/fitet';
+import { DettaglioAtleta, CampionatoAttualeInfo } from '../types/fitet';
 
 export const MY_PLAYER_ID_KEY = 'my_player_id';
 export const MY_PLAYER_NAME_KEY = 'my_player_name';
+export const MY_CHAMPIONSHIP_ID_KEY = 'fitet_my_championship_id';
 
 const PROFILE_SNAPSHOT_KEY = 'fitet_my_profile_snapshot';
 const PROFILE_EVENT_NAME = 'fitet_my_profile_updated';
@@ -23,6 +24,7 @@ export interface MyProfileSnapshot {
   fotoUrl?: string;
   form?: MyProfileFormMatch[];
   campionatoId?: number | null;
+  campionatiGiocati?: CampionatoAttualeInfo[];
   hasChampionship?: boolean;
   updatedAt: number;
 }
@@ -179,7 +181,8 @@ export function buildMyProfileSnapshot(data: DettaglioAtleta): MyProfileSnapshot
     .sort((a, b) => parseDateValue(a.data) - parseDateValue(b.data));
 
   const form = rankingMatches.slice(-5);
-  const champId = data.campionatoAttuale?.camId;
+  const playedCamps = data.campionatiGiocati || (data.campionatoAttuale ? [data.campionatoAttuale] : []);
+  const champId = data.campionatoAttuale?.camId || (playedCamps.length > 0 ? playedCamps[0].camId : null);
   const hasChampionship = typeof champId === 'number' && champId > 0;
 
   return {
@@ -194,9 +197,46 @@ export function buildMyProfileSnapshot(data: DettaglioAtleta): MyProfileSnapshot
       `https://portale.fitet.org/images/atleti/${encodeURIComponent(data.id)}.jpg`,
     form,
     campionatoId: hasChampionship ? champId : null,
+    campionatiGiocati: playedCamps,
     hasChampionship,
     updatedAt: Date.now(),
   };
+}
+
+export function getMyChampionshipId(): number | null {
+  const custom = readStorage(MY_CHAMPIONSHIP_ID_KEY);
+  if (custom && /^\d+$/.test(custom)) return parseInt(custom, 10);
+  const snap = getMyProfileSnapshot();
+  if (snap?.campionatoId) return snap.campionatoId;
+  return null;
+}
+
+export function setMyChampionshipId(camId: number | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (camId) {
+      localStorage.setItem(MY_CHAMPIONSHIP_ID_KEY, String(camId));
+    } else {
+      localStorage.removeItem(MY_CHAMPIONSHIP_ID_KEY);
+    }
+  } catch {}
+}
+
+export function getMyPlayedChampionships(): CampionatoAttualeInfo[] {
+  const snap = getMyProfileSnapshot();
+  if (snap?.campionatiGiocati && snap.campionatiGiocati.length > 0) {
+    return snap.campionatiGiocati;
+  }
+  if (snap?.campionatoId) {
+    return [
+      {
+        camId: snap.campionatoId,
+        nome: snap.squadra ? `Campionato (${snap.squadra})` : `Campionato #${snap.campionatoId}`,
+        categoria: snap.categoria,
+      },
+    ];
+  }
+  return [];
 }
 
 export function subscribeToMyProfile(callback: () => void): () => void {

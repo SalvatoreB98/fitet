@@ -1438,3 +1438,225 @@
   color: white;
   border-radius: 10px;
 }
+
+/* ==========================================================================
+   Home Consultation Banner & Played Championships Selector
+   ========================================================================== */
+
+.home-consultation-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.92) 0%, rgba(240, 253, 250, 0.85) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.08);
+  animation: slideDownFade 0.25s ease-out;
+}
+
+.home-consultation-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.25);
+}
+
+.home-consultation-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.home-consultation-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.home-consultation-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.home-consultation-tag-chip {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #0284c7;
+  background: rgba(2, 132, 199, 0.12);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.home-consultation-title {
+  font-family: var(--font-serif, 'Poppins', sans-serif);
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-dark, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-consultation-sub {
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  margin-top: 2px;
+}
+
+.home-consultation-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.home-consultation-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s ease;
+}
+
+.home-consultation-btn-primary {
+  background: #0284c7;
+  color: white;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.home-consultation-btn-primary:hover {
+  background: #0369a1;
+  transform: translateY(-1px);
+}
+
+.home-consultation-btn-ghost {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-dark, #334155);
+}
+
+.home-consultation-btn-ghost:hover {
+  background: rgba(148, 163, 184, 0.25);
+}
+
+[data-theme="dark"] .home-consultation-banner {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(17, 30, 52, 0.95) 100%);
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .home-consultation-title {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .home-consultation-sub {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .home-consultation-btn-ghost {
+  background: rgba(148, 163, 184, 0.2);
+  color: #e2e8f0;
+}
+
+@media (max-width: 640px) {
+  .home-consultation-banner {
+    flex-wrap: wrap;
+  }
+  .home-consultation-actions {
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 6px;
+  }
+}
+
+/* Multi-championship selector pills */
+.home-played-selector-bar {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: rgba(2, 132, 199, 0.05);
+  border: 1px solid rgba(2, 132, 199, 0.15);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.home-played-selector-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary-700, #163d6b);
+  display: flex;
+  align-items: center;
+}
+
+.home-played-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.home-played-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--bg-card, #ffffff);
+  color: var(--text-dark, #334155);
+  border: 1px solid var(--border-color, #cbd5e1);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.home-played-pill:hover {
+  border-color: #0284c7;
+  color: #0284c7;
+}
+
+.home-played-pill.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
+}
+
+[data-theme="dark"] .home-played-selector-bar {
+  background: rgba(14, 62, 101, 0.2);
+  border-color: rgba(56, 189, 248, 0.2);
+}
+
+[data-theme="dark"] .home-played-selector-header {
+  color: #7dd3fc;
+}
+
+[data-theme="dark"] .home-played-pill {
+  background: #1e293b;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .home-played-pill.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+}

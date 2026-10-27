@@ -18,6 +18,7 @@ import {
 interface ChampionshipModalProps {
   isOpen: boolean;
   currentCamId: number;
+  myCamId?: number | null;
   campionati: ChampionshipItem[];
   isLoadingCampionati?: boolean;
   onClose: () => void;
@@ -27,6 +28,7 @@ interface ChampionshipModalProps {
 export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
   isOpen,
   currentCamId,
+  myCamId,
   campionati,
   isLoadingCampionati = false,
   onClose,
@@ -226,13 +228,17 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
 
         <div className="championship-card-footer">
           <span className="cam-id-hint">ID FITeT: #{champ.id}</span>
-          {isSelected ? (
-            <span className="selected-indicator">
-              <i className="bi bi-check-circle-fill"></i> Attivo
+          {myCamId && champ.id === myCamId ? (
+            <span className="selected-indicator my-champ-pill" title="Il tuo campionato (fissato)">
+              <i className="bi bi-shield-check"></i> Il tuo campionato
+            </span>
+          ) : isSelected ? (
+            <span className="selected-indicator" title="Attualmente in consultazione">
+              <i className="bi bi-eye-fill"></i> In consultazione
             </span>
           ) : (
             <span className="select-action">
-              Seleziona <i className="bi bi-arrow-right-short"></i>
+              Consulta <i className="bi bi-arrow-right-short"></i>
             </span>
           )}
         </div>
@@ -256,13 +262,13 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
         {/* Modal Header */}
         <div className="championship-modal-header">
           <div className="header-icon-box">
-            <i className="bi bi-trophy-fill"></i>
+            <i className="bi bi-search"></i>
           </div>
           <div className="header-titles">
-            <h2 id="championship-modal-title">Seleziona Campionato</h2>
+            <h2 id="championship-modal-title">Consultazione Campionati</h2>
             <p>
               {campionati.length > 0
-                ? `${campionati.length} campionati disponibili (Nazionali e tutte le Regioni)`
+                ? `Sfoglia ${campionati.length} campionati FITeT senza cambiare il tuo campionato personale`
                 : 'Connessione al catalogo campionati FITeT...'}
             </p>
           </div>
@@ -275,6 +281,14 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
           >
             <i className="bi bi-x-lg"></i>
           </button>
+        </div>
+
+        {/* Modalità Consultazione Info Callout */}
+        <div className="championship-consultation-callout">
+          <i className="bi bi-info-circle-fill callout-icon"></i>
+          <span className="callout-text">
+            <strong>Modalità Consultazione:</strong> qualsiasi campionato aperto da qui può essere consultato liberamente senza perdere il campionato collegato al tuo profilo.
+          </span>
         </div>
 
         {/* Search Bar */}

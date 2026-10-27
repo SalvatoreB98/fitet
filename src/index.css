@@ -7983,3 +7983,195 @@ body.modal-open {
     justify-content: flex-end;
   }
 }
+
+/* ==========================================================================
+   Consultazione Campionati & Consultation Mode Styles
+   ========================================================================== */
+
+/* Callout inside ChampionshipModal */
+.championship-consultation-callout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 20px 4px;
+  padding: 10px 14px;
+  background: var(--color-info-bg, #f0f9ff);
+  border: 1px solid var(--color-info-border, #bae6fd);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--color-info-text, #0369a1);
+  line-height: 1.4;
+}
+
+.championship-consultation-callout .callout-icon {
+  font-size: 16px;
+  color: #0284c7;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .championship-consultation-callout {
+  background: rgba(3, 105, 161, 0.15);
+  border-color: rgba(56, 189, 248, 0.25);
+  color: #7dd3fc;
+}
+
+.my-champ-pill {
+  color: #047857 !important;
+  background: #ecfdf5 !important;
+  border: 1px solid #a7f3d0 !important;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+[data-theme="dark"] .my-champ-pill {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(52, 211, 153, 0.3) !important;
+  color: #6ee7b7 !important;
+}
+
+/* Consultation mode badge in header */
+.header-consulting-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #d97706;
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  padding: 2px 7px;
+  border-radius: 6px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+}
+
+[data-theme="dark"] .header-consulting-badge {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+}
+
+/* Sticky/Top Banner in Championship View */
+.consultation-mode-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 18px;
+  margin: 0 0 16px 0;
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.8) 0%, rgba(255, 251, 235, 0.95) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.08);
+  animation: slideDownFade 0.25s ease-out;
+}
+
+.consultation-mode-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.consultation-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #92400e;
+  background: rgba(245, 158, 11, 0.22);
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.consultation-mode-text {
+  font-size: 13.5px;
+  color: #78350f;
+}
+
+.consultation-mode-text strong {
+  font-weight: 700;
+}
+
+.consultation-mode-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.consultation-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 13px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  border: none;
+}
+
+.consultation-btn-primary {
+  background: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.consultation-btn-primary:hover {
+  background: #0369a1;
+  transform: translateY(-1px);
+}
+
+.consultation-btn-ghost {
+  background: rgba(245, 158, 11, 0.16);
+  color: #92400e;
+  border: 1px solid rgba(245, 158, 11, 0.32);
+}
+
+.consultation-btn-ghost:hover {
+  background: rgba(245, 158, 11, 0.26);
+}
+
+[data-theme="dark"] .consultation-mode-bar {
+  background: linear-gradient(135deg, rgba(30, 27, 20, 0.95) 0%, rgba(26, 24, 18, 0.95) 100%);
+  border-color: rgba(245, 158, 11, 0.35);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .consultation-mode-badge {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .consultation-mode-text {
+  color: #fde68a;
+}
+
+[data-theme="dark"] .consultation-btn-ghost {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+@media (max-width: 640px) {
+  .consultation-mode-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
+  }
+  .consultation-mode-actions {
+    justify-content: flex-end;
+  }
+  .consultation-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}

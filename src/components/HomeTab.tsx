@@ -15,7 +15,12 @@ import { HeadToHeadPickerModal } from './HeadToHeadPickerModal';
 import type { HeadToHeadPlayer } from './HeadToHeadPickerModal';
 import { MyProfileHero } from './MyProfileHero';
 import type { PlayerChampionshipStatus } from './MyProfileHero';
-import { getMyPlayerId, getMyProfileSnapshot } from '../utils/myProfile';
+import {
+  getMyPlayerId,
+  getMyProfileSnapshot,
+  getMyPlayedChampionships,
+  getMyChampionshipId,
+} from '../utils/myProfile';
 import { MarqueeText } from './MarqueeText';
 import {
   SERIE_CONFIGS,
@@ -26,6 +31,14 @@ import './HomeTab.css';
 
 interface HomeTabProps {
   currentCamId: number | null;
+  myCamId?: number | null;
+  isConsulting?: boolean;
+  consultingChampionship?: {
+    id: number;
+    nome: string;
+    regione?: string;
+    categoria?: string;
+  } | null;
   annoId: number;
   currentChampionship?: {
     nome: string;
@@ -36,6 +49,7 @@ interface HomeTabProps {
   isLoadingCampionati?: boolean;
   onSelectChampionship: (camId: number, annoId?: number) => void;
   onAutoSelectProfileChampionship: (camId: number) => void;
+  onReturnToMyChampionship?: () => void;
   onNavigateTab: (tab: 'home' | 'classifica' | 'calendario' | 'statistiche' | 'cercaAtleta') => void;
   onOpenChampionshipModal: () => void;
   onOpenInstallAppModal: () => void;
@@ -45,11 +59,15 @@ interface HomeTabProps {
 
 export const HomeTab: React.FC<HomeTabProps> = ({
   currentCamId,
+  myCamId,
+  isConsulting = false,
+  consultingChampionship = null,
   annoId,
   currentChampionship,
   campionati,
   onSelectChampionship,
   onAutoSelectProfileChampionship,
+  onReturnToMyChampionship,
   onNavigateTab,
   onOpenChampionshipModal,
   onOpenInstallAppModal,
@@ -168,8 +186,50 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       .filter((c): c is ChampionshipItem => c !== null);
   }, [favoriteChampIds, campionati, cachedMeta]);
 
-  // Campionato attualmente attivo (selezionato)
+  // Campionati effettivamente giocati dall'atleta del profilo
+  const myPlayedChampionships = useMemo(() => {
+    const fromProfile = getMyPlayedChampionships();
+    if (fromProfile && fromProfile.length > 0) {
+      return fromProfile.map((p) => {
+        const found = campionati.find((c) => c.id === p.camId);
+        return {
+          id: p.camId,
+          nome: found?.nome || p.nome,
+          regione: found?.regione || p.regione || 'Nazionale',
+          categoria: found?.categoria || p.categoria,
+          anno: found?.anno || annoId,
+          squadra: p.squadra,
+        } as ChampionshipItem & { squadra?: string };
+      });
+    }
+
+    const primaryId = myCamId || currentCamId;
+    if (primaryId) {
+      const found = campionati.find((c) => c.id === primaryId);
+      if (found) return [found];
+      if (currentChampionship && primaryId === currentCamId) {
+        return [
+          {
+            id: primaryId,
+            nome: currentChampionship.nome,
+            regione: currentChampionship.regione,
+            categoria: currentChampionship.categoria,
+            anno: annoId,
+          } as ChampionshipItem,
+        ];
+      }
+    }
+    return [];
+  }, [myCamId, currentCamId, campionati, currentChampionship, annoId, profileStatus]);
+
+  const [selectedPlayedIndex, setSelectedPlayedIndex] = useState(0);
+
+  // Campionato attivo mostrato nella Home (priorità assoluta ai campionati giocati dall'atleta!)
   const activeChampionship = useMemo(() => {
+    if (myPlayedChampionships.length > 0) {
+      const idx = Math.min(selectedPlayedIndex, myPlayedChampionships.length - 1);
+      return myPlayedChampionships[idx] || myPlayedChampionships[0];
+    }
     if (currentChampionship && currentCamId) {
       return {
         id: currentCamId,
@@ -184,7 +244,12 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       if (found) return found;
     }
     return null;
-  }, [currentChampionship, currentCamId, campionati, annoId]);
+  }, [myPlayedChampionships, selectedPlayedIndex, currentChampionship, currentCamId, campionati, annoId]);
+
+  const isPlayedChampionship = useMemo(() => {
+    if (!activeChampionship) return false;
+    return myPlayedChampionships.some((c) => c.id === activeChampionship.id);
+  }, [myPlayedChampionships, activeChampionship]);
 
   const activeSerieConfig = useMemo(() => {
     if (!activeChampionship) return null;
@@ -289,16 +354,95 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       )}
 
       {/* ───────────────────────────────────────────────────────────
-          HERO MINIMAL SENZA BORDI (Campionato Corrente o Navigazione Rapida)
+          BANNER CONSULTAZIONE ATTIVA (se l'utente sta consultando un altro campionato)
+         ─────────────────────────────────────────────────────────── */}
+      {isConsulting && consultingChampionship && (
+        <div className="home-consultation-banner" role="status">
+          <div className="home-consultation-icon-box">
+            <i className="bi bi-eye-fill"></i>
+          </div>
+          <div className="home-consultation-info">
+            <div className="home-consultation-tag-row">
+              <span className="home-consultation-tag">Stai consultando</span>
+              <span className="home-consultation-tag-chip">Modalità Consultazione</span>
+            </div>
+            <h3 className="home-consultation-title" title={consultingChampionship.nome}>
+              {cleanChampionshipCardName(consultingChampionship.nome, consultingChampionship.categoria)}
+            </h3>
+            <div className="home-consultation-sub">
+              <i className="bi bi-geo-alt me-1"></i> {consultingChampionship.regione || 'Nazionale'}
+              {consultingChampionship.categoria && ` • ${consultingChampionship.categoria}`}
+            </div>
+          </div>
+          <div className="home-consultation-actions">
+            <button
+              type="button"
+              className="home-consultation-btn home-consultation-btn-primary"
+              onClick={() => {
+                onSelectChampionship(consultingChampionship.id, annoId);
+                onNavigateTab('classifica');
+              }}
+              title="Continua la consultazione di questo campionato"
+            >
+              <i className="bi bi-arrow-right-circle"></i>
+              <span>Continua</span>
+            </button>
+            {onReturnToMyChampionship && (
+              <button
+                type="button"
+                className="home-consultation-btn home-consultation-btn-ghost"
+                onClick={onReturnToMyChampionship}
+                title="Chiudi la consultazione e torna al tuo campionato"
+              >
+                <i className="bi bi-x-lg"></i>
+                <span>Chiudi</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────
+          HERO CAMPIONATO PERSONALE (I campionati effettivamente giocati)
          ─────────────────────────────────────────────────────────── */}
       <section className="home-hero" aria-label="Panoramica Campionato">
+        {/* Selettore multi-campionato se l'atleta gioca in più gironi/serie */}
+        {myPlayedChampionships.length > 1 && (
+          <div className="home-played-selector-bar">
+            <div className="home-played-selector-header">
+              <i className="bi bi-person-lines-fill me-1"></i>
+              <span>I tuoi campionati giocati ({myPlayedChampionships.length}):</span>
+            </div>
+            <div className="home-played-pills">
+              {myPlayedChampionships.map((champ, idx) => (
+                <button
+                  key={champ.id}
+                  type="button"
+                  className={`home-played-pill ${idx === selectedPlayedIndex ? 'active' : ''}`}
+                  onClick={() => setSelectedPlayedIndex(idx)}
+                >
+                  <i className="bi bi-trophy-fill me-1"></i>
+                  <span>{champ.categoria || cleanChampionshipCardName(champ.nome)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {activeChampionship ? (
           <>
             <div className="home-hero-content">
               <div className="home-hero-badge-row">
-                <span className="home-hero-pill" style={{ color: '#047857', backgroundColor: '#ecfdf5' }}>
+                <span
+                  className="home-hero-pill"
+                  style={{
+                    color: isPlayedChampionship ? '#047857' : '#0284c7',
+                    backgroundColor: isPlayedChampionship ? '#ecfdf5' : '#f0f9ff',
+                  }}
+                >
                   <span className="home-hero-pulse-dot"></span>
-                  <span>In corso</span>
+                  <i className={`bi ${isPlayedChampionship ? 'bi-shield-check' : 'bi-trophy'} me-1`}></i>
+                  <span>{isPlayedChampionship ? 'Il tuo campionato' : 'In corso'}</span>
                 </span>
                 {activeSerieConfig && (
                   <span
@@ -361,11 +505,11 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 type="button"
                 className="home-hero-btn home-hero-btn-secondary"
                 onClick={onOpenChampionshipModal}
-                title="Sfoglia altri campionati"
-                style={{ minWidth: '166px' }}
+                title="Sfoglia e consulta altri campionati FITeT senza cambiare il tuo"
+                style={{ minWidth: '185px' }}
               >
-                <i className="bi bi-grid-fill"></i>
-                <span>Cambia campionato</span>
+                <i className="bi bi-search"></i>
+                <span>Consulta campionati</span>
               </button>
             </div>
           </>

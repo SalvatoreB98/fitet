@@ -261,6 +261,7 @@ export interface DettaglioAtleta {
   storicoClassifica: StoricoRankingSnapshot[];
   partiteRanking?: PartiteRankingAtleta;
   campionatoAttuale?: CampionatoAttualeInfo;
+  campionatiGiocati?: CampionatoAttualeInfo[];
 }
 
 export interface ChampionshipInfo {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import { DashboardData, ChampionshipItem } from './types/fitet';
 import { fetchDashboard, fetchCampionati } from './services/api';
@@ -22,6 +22,12 @@ import { registerTeamLogos } from './utils/teamLogos';
 import { addRecentAthlete, addRecentChampionship } from './utils/history';
 import { VenueConnectionBanner } from './components/VenueConnectionBanner';
 import { preCacheChampionshipForVenue } from './services/api';
+import {
+  getMyChampionshipId,
+  setMyChampionshipId,
+  getMyPlayedChampionships,
+  subscribeToMyProfile,
+} from './utils/myProfile';
 
 const getAthleteFromUrl = (): { id: string; name: string } | null => {
   if (typeof window === 'undefined') return null;
@@ -45,7 +51,12 @@ export const App: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Championship selection state
+  // Il campionato personale / giocato dell'atleta
+  const [myCamId, setMyCamId] = useState<number | null>(() => {
+    return getMyChampionshipId();
+  });
+
+  // Campionato attualmente visualizzato (in consultazione o personale)
   const [camId, setCamId] = useState<number | null>(() => {
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
@@ -53,6 +64,8 @@ export const App: React.FC = () => {
       if (urlCam && /^\d+$/.test(urlCam)) return parseInt(urlCam, 10);
       const savedCam = localStorage.getItem('fitet_selected_cam');
       if (savedCam && /^\d+$/.test(savedCam)) return parseInt(savedCam, 10);
+      const myId = getMyChampionshipId();
+      if (myId) return myId;
     }
     return null;
   });
@@ -432,13 +445,51 @@ export const App: React.FC = () => {
     }
   }, [camId, annoId, showIntro]);
 
-  // Se viene impostato "Il mio profilo" senza un campionato attivo,
-  // allinea la Home al campionato dell'atleta senza cambiare vista.
+  // Ascolta aggiornamenti del profilo per sincronizzare il campionato personale
+  useEffect(() => {
+    return subscribeToMyProfile(() => {
+      const updatedMyCam = getMyChampionshipId();
+      setMyCamId(updatedMyCam);
+      if (updatedMyCam && !camId) {
+        setCamId(updatedMyCam);
+      }
+    });
+  }, [camId]);
+
+  const myPlayedChampionships = useMemo(() => {
+    return getMyPlayedChampionships();
+  }, [myCamId]);
+
+  const isConsulting = useMemo(() => {
+    if (!camId || !myCamId) return false;
+    if (camId === myCamId) return false;
+    const isOneOfPlayed = myPlayedChampionships.some((pc) => pc.camId === camId);
+    return !isOneOfPlayed;
+  }, [camId, myCamId, myPlayedChampionships]);
+
+  // Se viene rilevato il campionato dell'atleta nel profilo, allinea il campionato personale
   const handleAutoSelectProfileChampionship = (newCam: number) => {
     if (!newCam) return;
-    const match = campionati.find((c) => c.id === newCam);
-    setCamId(newCam);
-    if (match?.anno) setAnnoId(match.anno);
+    setMyCamId(newCam);
+    setMyChampionshipId(newCam);
+    if (!camId) {
+      const match = campionati.find((c) => c.id === newCam);
+      setCamId(newCam);
+      if (match?.anno) setAnnoId(match.anno);
+    }
+  };
+
+  const handleReturnToMyChampionship = () => {
+    if (!myCamId) return;
+    const match = campionati.find((c) => c.id === myCamId);
+    handleSelectChampionship(myCamId, match?.anno || 41);
+  };
+
+  const handleSetAsMyChampionship = (newCam: number) => {
+    setMyCamId(newCam);
+    setMyChampionshipId(newCam);
+    setPrecacheStatus('Campionato impostato come tuo campionato principale!');
+    setTimeout(() => setPrecacheStatus(null), 3500);
   };
 
   const handleSelectChampionship = (newCam: number, newAnno = 41) => {
@@ -623,6 +674,8 @@ export const App: React.FC = () => {
         onSelectAthleteById={(id, name) => setSelectedAthlete({ id, name })}
         championshipName={headerChampionshipName}
         championshipRegion={headerChampionshipRegion}
+        isConsulting={isConsulting}
+        onReturnToMyChampionship={handleReturnToMyChampionship}
         onOpenChampionshipModal={() => setIsChampionshipModalOpen(true)}
         onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
         onOpenSearchModal={() => setIsSearchModalOpen(true)}
@@ -660,6 +713,17 @@ export const App: React.FC = () => {
         >
           <HomeTab
             currentCamId={camId}
+            myCamId={myCamId}
+            isConsulting={isConsulting}
+            consultingChampionship={
+              isConsulting && camId
+                ? campionati.find((c) => c.id === camId) ||
+                  (data?.championship?.id === camId
+                    ? data.championship
+                    : { id: camId, nome: `Campionato #${camId}` })
+                : null
+            }
+            onReturnToMyChampionship={handleReturnToMyChampionship}
             annoId={annoId}
             currentChampionship={data?.championship}
             campionati={campionati}
@@ -701,6 +765,40 @@ export const App: React.FC = () => {
           id="tabpanel-campionato"
           style={{ display: mainView === 'campionato' ? 'block' : 'none' }}
         >
+          {/* Banner Modalità Consultazione Campionato */}
+          {isConsulting && (
+            <div className="consultation-mode-bar" role="status">
+              <div className="consultation-mode-info">
+                <span className="consultation-mode-badge">
+                  <i className="bi bi-eye-fill me-1"></i> MODALITÀ CONSULTAZIONE
+                </span>
+                <span className="consultation-mode-text">
+                  Stai consultando: <strong>{data?.championship?.nome || activeChampionshipInfo?.nome || `Campionato #${camId}`}</strong>
+                </span>
+              </div>
+              <div className="consultation-mode-actions">
+                <button
+                  type="button"
+                  className="consultation-btn consultation-btn-primary"
+                  onClick={handleReturnToMyChampionship}
+                  title="Torna al tuo campionato personale"
+                >
+                  <i className="bi bi-arrow-return-left me-1"></i>
+                  <span>Torna al mio campionato</span>
+                </button>
+                <button
+                  type="button"
+                  className="consultation-btn consultation-btn-ghost"
+                  onClick={() => camId && handleSetAsMyChampionship(camId)}
+                  title="Fissa questo campionato come tuo campionato personale"
+                >
+                  <i className="bi bi-pin-angle-fill me-1"></i>
+                  <span>Imposta come mio</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Se un campionato è selezionato ma i dati stanno caricando o appartengono al vecchio campionato, mostra il PingPongLoader con le palline */}
           {camId && (loading || !data || (data.championship && data.championship.id !== camId)) ? (
             <PingPongLoader
@@ -818,6 +916,7 @@ export const App: React.FC = () => {
       <ChampionshipModal
         isOpen={isChampionshipModalOpen}
         currentCamId={camId || 0}
+        myCamId={myCamId}
         campionati={campionati}
         isLoadingCampionati={loadingCampionati}
         onClose={() => setIsChampionshipModalOpen(false)}

@@ -358,28 +358,47 @@ app.get('/api/atleta/:id', async (req, res) => {
 
         const atleta = parseDettaglioAtleta(html, id, partiteRanking);
 
-        // Risoluzione campionato attuale dell'atleta
-        let foundCamp: (ChampionshipItem & { squadra?: string }) | undefined = undefined;
-        const campRanking = partiteRanking?.campionato;
-        const campName = campRanking && campRanking.length > 0 ? campRanking[0].campionato : undefined;
-        if (campName) {
-            foundCamp = championshipCatalog.resolveChampionship(campName, atleta.anagrafica?.regione);
+        // Risoluzione campionati effettivamente giocati dall'atleta
+        const campRanking = partiteRanking?.campionato || [];
+        const uniqueCampNames: string[] = [];
+        for (const m of campRanking) {
+            const trimmed = m.campionato?.trim();
+            if (trimmed && !uniqueCampNames.includes(trimmed)) {
+                uniqueCampNames.push(trimmed);
+            }
+        }
+
+        const playedCamps: Array<{ camId: number; nome: string; categoria?: string; regione?: string; squadra?: string }> = [];
+        for (const cName of uniqueCampNames) {
+            const resolved = championshipCatalog.resolveChampionship(cName, atleta.anagrafica?.regione);
+            if (resolved && !playedCamps.some(pc => pc.camId === resolved.id)) {
+                playedCamps.push({
+                    camId: resolved.id,
+                    nome: resolved.nome,
+                    categoria: resolved.categoria,
+                    regione: resolved.regione,
+                });
+            }
         }
 
         // Se non trovato tramite stringa ranking (es. atleta non classificato o privo di dettaglio ranking),
         // cerchiamo il suo campionato attivo della stagione nei campionati regionali/nazionali
-        if (!foundCamp) {
-            foundCamp = await championshipCatalog.findAthleteChampionship(id, atleta.anagrafica?.nome, atleta.anagrafica?.regione);
+        if (playedCamps.length === 0) {
+            const fallback = await championshipCatalog.findAthleteChampionship(id, atleta.anagrafica?.nome, atleta.anagrafica?.regione);
+            if (fallback && !playedCamps.some(pc => pc.camId === fallback.id)) {
+                playedCamps.push({
+                    camId: fallback.id,
+                    nome: fallback.nome,
+                    categoria: fallback.categoria,
+                    regione: fallback.regione,
+                    squadra: fallback.squadra,
+                });
+            }
         }
 
-        if (foundCamp) {
-            atleta.campionatoAttuale = {
-                camId: foundCamp.id,
-                nome: foundCamp.nome,
-                categoria: foundCamp.categoria,
-                regione: foundCamp.regione,
-                squadra: foundCamp.squadra,
-            };
+        if (playedCamps.length > 0) {
+            atleta.campionatoAttuale = playedCamps[0];
+            atleta.campionatiGiocati = playedCamps;
         }
 
         const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith('Atleta ') || (atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0));

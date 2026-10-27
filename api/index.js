@@ -3139,23 +3139,41 @@ app.get("/api/atleta/:id", async (req, res) => {
       }
     }
     const atleta = parseDettaglioAtleta(html, id, partiteRanking);
-    let foundCamp = void 0;
-    const campRanking = partiteRanking?.campionato;
-    const campName = campRanking && campRanking.length > 0 ? campRanking[0].campionato : void 0;
-    if (campName) {
-      foundCamp = championshipCatalog.resolveChampionship(campName, atleta.anagrafica?.regione);
+    const campRanking = partiteRanking?.campionato || [];
+    const uniqueCampNames = [];
+    for (const m of campRanking) {
+      const trimmed = m.campionato?.trim();
+      if (trimmed && !uniqueCampNames.includes(trimmed)) {
+        uniqueCampNames.push(trimmed);
+      }
     }
-    if (!foundCamp) {
-      foundCamp = await championshipCatalog.findAthleteChampionship(id, atleta.anagrafica?.nome, atleta.anagrafica?.regione);
+    const playedCamps = [];
+    for (const cName of uniqueCampNames) {
+      const resolved = championshipCatalog.resolveChampionship(cName, atleta.anagrafica?.regione);
+      if (resolved && !playedCamps.some((pc) => pc.camId === resolved.id)) {
+        playedCamps.push({
+          camId: resolved.id,
+          nome: resolved.nome,
+          categoria: resolved.categoria,
+          regione: resolved.regione
+        });
+      }
     }
-    if (foundCamp) {
-      atleta.campionatoAttuale = {
-        camId: foundCamp.id,
-        nome: foundCamp.nome,
-        categoria: foundCamp.categoria,
-        regione: foundCamp.regione,
-        squadra: foundCamp.squadra
-      };
+    if (playedCamps.length === 0) {
+      const fallback = await championshipCatalog.findAthleteChampionship(id, atleta.anagrafica?.nome, atleta.anagrafica?.regione);
+      if (fallback && !playedCamps.some((pc) => pc.camId === fallback.id)) {
+        playedCamps.push({
+          camId: fallback.id,
+          nome: fallback.nome,
+          categoria: fallback.categoria,
+          regione: fallback.regione,
+          squadra: fallback.squadra
+        });
+      }
+    }
+    if (playedCamps.length > 0) {
+      atleta.campionatoAttuale = playedCamps[0];
+      atleta.campionatiGiocati = playedCamps;
     }
     const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith("Atleta ") || atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0);
     if (!isHollow) {
