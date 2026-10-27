@@ -26,8 +26,8 @@ html {
   --color-primary-900: #0a192f;
   --color-primary-800: #0e2744;
   --color-primary-700: #163d6b;
-  --color-primary-600: #1d538e;
-  --color-primary-500: #2563eb;
+  --color-primary-600: #26699c;
+  --color-primary-500: #4e7a9c;
   --color-primary-light: #eff6ff;
 
   /* Accent & Status Colors */
@@ -103,9 +103,9 @@ html {
   /* Dark Federal Blues */
   --color-primary-900: #030712;
   --color-primary-800: #071224;
-  --color-primary-700: #2563eb;
-  --color-primary-600: #3b82f6;
-  --color-primary-500: #60a5fa;
+  --color-primary-700: #01579b;
+  --color-primary-600: #26699c;
+  --color-primary-500: #4e7a9c;
   --color-primary-light: #122244;
 
   /* Status Colors in Dark Mode */
@@ -196,7 +196,7 @@ nav {
 .portal-header {
   position: relative;
   z-index: 200;
-  background: #0f1e36;
+  background: #01579b;
   color: #ffffff;
   padding: 14px 20px;
   display: flex;
@@ -623,7 +623,7 @@ nav {
 
 .burger-item-icon-box.icon-search {
   background: rgba(37, 99, 235, 0.12);
-  color: #2563eb;
+  color: #01579b;
 }
 
 [data-theme="dark"] .burger-item-icon-box.icon-search {
@@ -729,13 +729,13 @@ nav {
 .burger-menu-item:hover .burger-item-arrow {
   opacity: 1;
   transform: translateX(2px);
-  color: var(--color-primary-500, #2563eb);
+  color: var(--color-primary-500, #01579b);
 }
 
 .burger-item-badge-active {
   font-size: 10.5px;
   font-weight: 600;
-  background: #2563eb;
+  background: #01579b;
   color: #ffffff;
   padding: 2px 7px;
   border-radius: 999px;
@@ -1487,7 +1487,7 @@ nav {
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  background: #0f1e36;
+  background: #01579b;
   color: #ffffff;
   padding: 3px 10px;
   border-radius: 6px;
@@ -1851,7 +1851,7 @@ nav {
 
 /* Official Header (Solid Federal Header) */
 .ranking-section-header.official-header {
-  background: #0f1e36;
+  background: #01579b;
   color: #ffffff;
   padding: 7px 10px;
   border-bottom: 2px solid #f59e0b;
@@ -1921,7 +1921,7 @@ nav {
 
 /* Points Badge in Primary Official Standings */
 .badge-points-official {
-  background: #0f1e36;
+  background: #01579b;
   color: #ffffff;
   border: 1px solid #3b82f6;
   font-size: 13px;
@@ -2579,7 +2579,7 @@ body.modal-open {
   top: 0;
   z-index: 100;
   flex-shrink: 0;
-  background: #0f1e36;
+  background: #01579b;
   color: #ffffff;
   padding: 14px 20px;
   display: flex;
@@ -2767,7 +2767,7 @@ body.modal-open {
 
 .favorite-card-tag.ranking-tag {
   background: rgba(37, 99, 235, 0.08);
-  color: #2563eb;
+  color: #01579b;
   border-color: rgba(37, 99, 235, 0.22);
 }
 
@@ -2946,7 +2946,7 @@ body.modal-open {
 }
 
 [data-theme="dark"] .filter-btn.active {
-  background: #2563eb;
+  background: #01579b;
   color: #ffffff;
 }
 
@@ -3023,7 +3023,7 @@ body.modal-open {
 }
 
 [data-theme="dark"] .sub-pill-btn.active {
-  background: #2563eb;
+  background: #01579b;
   color: #ffffff;
   border-color: #3b82f6;
 }
@@ -3037,7 +3037,7 @@ body.modal-open {
 [data-theme="dark"] .score-box.played {
   background: #132448;
   color: #60a5fa;
-  border-color: #2563eb;
+  border-color: #01579b;
 }
 
 [data-theme="dark"] .btn-action {
@@ -3858,7 +3858,7 @@ body.modal-open {
 }
 
 [data-theme="dark"] .btn-athlete-link:hover {
-  background: #2563eb;
+  background: #01579b;
   color: #ffffff;
   border-color: #3b82f6;
 }
@@ -3999,7 +3999,7 @@ body.modal-open {
 }
 
 [data-theme="dark"] .match-expand-btn:hover {
-  background: #2563eb;
+  background: #01579b;
   color: #ffffff;
   border-color: #3b82f6;
 }
@@ -4487,7 +4487,7 @@ body.modal-open {
 /* Dark Mode Additions for Referto Mobile */
 @media (max-width: 768px) {
   [data-theme="dark"] .referto-match-row.is-expanded .match-expand-btn {
-    background: #2563eb;
+    background: #01579b;
     color: #ffffff;
     border-color: #3b82f6;
   }
@@ -4577,7 +4577,7 @@ body.modal-open {
   width: 44px;
   height: 44px;
   border-radius: 10px;
-  background: #0f1e36;
+  background: #01579b;
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -4643,7 +4643,7 @@ body.modal-open {
 }
 
 .championship-search-input:focus {
-  border-color: #2563eb;
+  border-color: #01579b;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
@@ -4704,9 +4704,9 @@ body.modal-open {
 }
 
 .gender-pill.active {
-  background: #2563eb;
+  background: #01579b;
   color: #ffffff;
-  border-color: #2563eb;
+  border-color: #01579b;
   box-shadow: 0 2px 6px rgba(37, 99, 235, 0.22);
 }
 
@@ -4764,9 +4764,9 @@ body.modal-open {
 }
 
 .region-pill.active {
-  background: #2563eb;
+  background: #01579b;
   color: #ffffff;
-  border-color: #2563eb;
+  border-color: #01579b;
   box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
 }
 
@@ -4804,7 +4804,7 @@ body.modal-open {
 }
 
 .region-select-dropdown:focus {
-  border-color: #2563eb;
+  border-color: #01579b;
 }
 
 /* Championship List Area */
@@ -4844,7 +4844,7 @@ body.modal-open {
 }
 
 .championship-card.is-selected {
-  border-color: #2563eb;
+  border-color: #01579b;
   background: rgba(37, 99, 235, 0.04);
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
@@ -4936,7 +4936,7 @@ body.modal-open {
 }
 
 .select-action {
-  color: #2563eb;
+  color: #01579b;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -5001,12 +5001,12 @@ body.modal-open {
 }
 
 .custom-cam-input:focus {
-  border-color: #2563eb;
+  border-color: #01579b;
 }
 
 .custom-cam-btn {
   padding: 8px 18px;
-  background: #2563eb;
+  background: #01579b;
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -5068,7 +5068,7 @@ body.modal-open {
 }
 
 [data-theme="dark"] .gender-pill.active {
-  background: #2563eb;
+  background: #01579b;
   color: #ffffff;
   border-color: #3b82f6;
 }
@@ -5117,7 +5117,7 @@ body.modal-open {
 }
 
 [data-theme="dark"] .region-pill.active {
-  background: #2563eb;
+  background: #01579b;
   color: #ffffff;
   border-color: #3b82f6;
 }
@@ -5879,7 +5879,7 @@ body.modal-open {
   align-items: center;
   justify-content: center;
   margin-bottom: 18px;
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   font-size: 28px;
 }
 
@@ -6069,7 +6069,7 @@ body.modal-open {
 .modal-footer-add-btn {
   background: none;
   border: none;
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   font-weight: 600;
   cursor: pointer;
   padding: 0;
@@ -6128,7 +6128,7 @@ body.modal-open {
   height: 30px;
   border-radius: 8px;
   background: rgba(59, 130, 246, 0.12);
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6178,7 +6178,7 @@ body.modal-open {
 }
 
 .h2h-player-avatar-circle.is-p1 {
-  border-color: var(--color-primary-600, #2563eb);
+  border-color: var(--color-primary-600, #01579b);
 }
 
 .h2h-player-name-text {
@@ -6393,7 +6393,7 @@ body.modal-open {
   font-size: 10px;
   font-weight: 700;
   background: rgba(59, 130, 246, 0.1);
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   border: 1px solid rgba(59, 130, 246, 0.25);
   cursor: pointer;
   flex-shrink: 0;
@@ -6986,7 +6986,7 @@ body.modal-open {
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
-  background: var(--color-primary-600, #2563eb);
+  background: var(--color-primary-600, #01579b);
   color: #ffffff;
   border: none;
   cursor: pointer;
@@ -7115,7 +7115,7 @@ body.modal-open {
 }
 
 [data-theme="dark"] .ping-pong-table-surface {
-  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(180deg, #01579b 0%, #1d4ed8 100%);
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
 }
 
@@ -7304,7 +7304,7 @@ body.modal-open {
   border-radius: 999px;
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   margin-bottom: 12px;
 }
 
@@ -7358,7 +7358,7 @@ body.modal-open {
   font-family: monospace;
   font-size: 11px;
   background: rgba(59, 130, 246, 0.08);
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
 }
 
 [data-theme="dark"] .ping-pong-meta-item.badge-id {
@@ -7841,7 +7841,7 @@ body.modal-open {
 }
 
 .venue-btn-retry:hover {
-  background: #2563eb;
+  background: #01579b;
   transform: translateY(-1px);
 }
 
@@ -7956,7 +7956,7 @@ body.modal-open {
 .venue-stat-num {
   font-size: 24px;
   font-weight: 800;
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
 }
 
 [data-theme="dark"] .venue-stat-num {

@@ -20,6 +20,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -44,6 +45,7 @@
     opacity: 0;
     transform: translateY(12px) scale(0.98);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -194,7 +196,7 @@
 }
 
 .install-direct-btn:hover {
-  background: var(--color-primary-500, #2563eb);
+  background: var(--color-primary-500, #01579b);
 }
 
 /* Footer note */
@@ -211,7 +213,7 @@
 
 /* Dark theme overrides */
 [data-theme="dark"] .install-modal-box {
-  background: var(--bg-card, #0f1e36);
+  background: var(--bg-card, #01579b);
   border-color: var(--border-color, #1e3a5f);
 }
 

@@ -18,7 +18,7 @@ export const SERIE_CONFIGS: Record<SerieGroupKey, SerieGroupConfig> = {
     title: 'Serie A',
     sub: 'Massima Divisione Nazionale (A1, A2)',
     icon: 'bi-trophy-fill',
-    accent: '#2563eb',
+    accent: '#01579b',
     accentBg: 'rgba(37, 99, 235, 0.12)',
     order: 1,
   },

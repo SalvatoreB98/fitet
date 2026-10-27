@@ -118,7 +118,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #2563eb;
+  background: #01579b;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
@@ -202,7 +202,7 @@
   transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   font-size: 12px;
 }
 
@@ -241,7 +241,7 @@
   flex-shrink: 0;
   border-radius: 8px;
   background: rgba(37, 99, 235, 0.14);
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   font-size: 13px;
 }
 
@@ -257,7 +257,7 @@
   font-weight: 800;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
 }
 
 .h2h-picker-self-name {
@@ -276,7 +276,7 @@
   font-weight: 700;
   line-height: 1.2;
   text-align: right;
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
 }
 
 .h2h-picker-results-wrap {
@@ -359,7 +359,7 @@
 }
 
 .h2h-picker-result:hover .h2h-picker-result-add {
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   opacity: 1;
 }
 
@@ -388,7 +388,7 @@
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   font-family: var(--font-sans);
   font-size: 10px;
   font-weight: 700;
@@ -467,7 +467,7 @@
   border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 50%;
   background: var(--bg-card, #ffffff);
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   font-size: 12px;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
@@ -572,7 +572,7 @@
 }
 
 .h2h-picker-btn.is-primary:hover:not(:disabled) {
-  background: #2563eb;
+  background: #01579b;
 }
 
 .h2h-picker-btn.is-primary:disabled {

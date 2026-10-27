@@ -376,7 +376,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 <span
                   className="home-hero-pill"
                   style={{
-                    color: 'var(--color-primary-600, #2563eb)',
+                    color: 'var(--color-primary-600, #01579b)',
                     backgroundColor: 'var(--color-primary-light, #eff6ff)',
                   }}
                 >

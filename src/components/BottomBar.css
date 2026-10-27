@@ -141,7 +141,7 @@
 
 [data-theme="dark"] .bottom-bar-item.is-active {
   color: #ffffff;
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-500) 100%);
   box-shadow: 0 4px 16px rgba(2, 132, 199, 0.5);
 }
 

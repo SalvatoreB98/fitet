@@ -42,6 +42,7 @@
     opacity: 0;
     transform: translateY(-4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -142,6 +143,7 @@
     align-items: flex-start;
     padding: 12px 14px;
   }
+
   .warning-banner-btn {
     align-self: flex-start;
     margin-top: 4px;
@@ -263,7 +265,7 @@
 }
 
 .home-hero-btn-primary:hover {
-  background: var(--color-primary-500, #2563eb);
+  background: var(--color-primary-500, #01579b);
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
   color: #ffffff;
@@ -286,7 +288,7 @@
 
 .home-hero-btn-minimal {
   background: transparent;
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   border: none;
   padding: 8px 12px;
 }
@@ -428,9 +430,9 @@
 }
 
 .home-shortcut-btn-primary:hover {
-  background: #2563eb;
+  background: #01579b;
   color: #ffffff;
-  border-color: #2563eb;
+  border-color: #01579b;
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
   transform: translateY(-1px);
 }
@@ -508,7 +510,7 @@
   gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   background: var(--bg-card, #ffffff);
   border: 1px solid rgba(37, 99, 235, 0.25);
   border-radius: 10px;
@@ -520,7 +522,7 @@
 
 .home-section-btn:hover {
   background: var(--color-primary-light, #eff6ff);
-  border-color: var(--color-primary-500, #2563eb);
+  border-color: var(--color-primary-500, #01579b);
   transform: translateY(-1px);
   box-shadow: 0 3px 8px rgba(37, 99, 235, 0.15);
 }
@@ -702,8 +704,8 @@
 }
 
 .home-champ-btn.btn-main:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: #01579b;
+  border-color: #01579b;
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
   transform: translateY(-1px);
@@ -817,7 +819,7 @@
 }
 
 .home-athlete-stat-val.rank {
-  color: #2563eb;
+  color: #01579b;
 }
 
 .home-athlete-stat-val.points {
@@ -832,7 +834,7 @@
   border-top: 1px solid var(--border-light, #f1f5f9);
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
 }
 
 .home-athlete-card:hover .home-athlete-footer {
@@ -1090,8 +1092,8 @@
 }
 
 .home-action-btn.btn-main:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: #01579b;
+  border-color: #01579b;
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
   transform: translateY(-1px);
@@ -1109,7 +1111,7 @@
   gap: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-primary-500, #2563eb);
+  color: var(--color-primary-500, #01579b);
   cursor: pointer;
   padding-top: 6px;
   border-top: 1px solid var(--border-light, #f1f5f9);
@@ -1401,7 +1403,7 @@
   border-radius: 50%;
   font-size: 15px;
   background: var(--bg-card, #ffffff);
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   transition: all 0.18s ease;
 }

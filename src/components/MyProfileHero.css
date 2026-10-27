@@ -670,7 +670,7 @@
   align-items: center;
   gap: 5px;
   margin-bottom: 3px;
-  color: var(--color-primary-600, #2563eb);
+  color: var(--color-primary-600, #01579b);
   font-family: var(--font-sans, sans-serif);
   font-size: 9.5px;
   font-weight: 700;
@@ -734,12 +734,12 @@
 }
 
 [data-theme="dark"] .my-profile-empty-btn {
-  background: #2563eb;
+  background: #01579b;
   box-shadow: 0 8px 20px -12px rgba(37, 99, 235, 0.9);
 }
 
 .my-profile-empty-btn:hover {
-  background: #2563eb;
+  background: #01579b;
   transform: translateY(-1px);
   box-shadow: 0 12px 24px -12px rgba(37, 99, 235, 0.8);
 }
@@ -869,8 +869,8 @@
 }
 
 .my-profile-state-btn.is-primary:hover {
-  border-color: #2563eb;
-  background: #2563eb;
+  border-color: #01579b;
+  background: #01579b;
   color: #ffffff;
 }
 
@@ -1007,7 +1007,7 @@
 }
 
 [data-theme="light"] .my-profile-hero-menu-item i {
-  color: #2563eb;
+  color: #01579b;
 }
 
 [data-theme="light"] .my-profile-hero-menu-item:hover {
