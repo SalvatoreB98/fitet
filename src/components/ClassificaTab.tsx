@@ -377,10 +377,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
 
             {/* Explanatory Footer Note on Promotion Rules */}
             <div className="official-card-footer">
-              <i className="bi bi-info-circle-fill" style={{ color: 'var(--color-primary-600)' }}></i>
-              <span>
-                <strong>Regolamento Federale:</strong> 1° Classificata = Promozione Diretta in Serie C/2 • 2° e 3° Classificata = Accesso ai Playoff Promozione.
-              </span>
+              {/* <i className="bi bi-info-circle-fill" style={{ color: 'var(--color-primary-600)' }}></i> */}
             </div>
           </div>
 
