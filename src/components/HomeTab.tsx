@@ -457,10 +457,10 @@ export const HomeTab: React.FC<HomeTabProps> = ({
       >
         <div className="home-hero-content w-100">
           <div className="my-profile-empty-eyebrow">
-            Prova la versione app del sito web da aggiungere in home per un accesso rapido
+            Aggiungi in home per un accesso rapido
           </div>
           <h3 className="home-hero-title" style={{ margin: 0 }}>
-            Versione app
+            Versione senza installazione
           </h3>
         </div>
 
