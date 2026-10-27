@@ -2,7 +2,12 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChampionshipItem } from '../types/fitet';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
-import { detectUserRegion, getCachedUserRegion } from '../utils/geolocation';
+import {
+  getCachedUserRegion,
+  setUserRegion as saveUserRegion,
+  subscribeToUserRegion,
+  ITALIAN_REGIONS,
+} from '../utils/geolocation';
 import { searchCampionati } from '../utils/searchCampionati';
 
 import { useFavoriteChampionships } from '../utils/favorites';
@@ -38,13 +43,10 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGender, setSelectedGender] = useState<'all' | 'M' | 'F'>('all');
-  const [userRegion, setUserRegion] = useState<string>(getCachedUserRegion);
-  const [selectedRegion, setSelectedRegion] = useState<string>('Tutti');
-  const [hasGeoLocation, setHasGeoLocation] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return !!localStorage.getItem('fitet_detected_region');
-    }
-    return false;
+  const [userRegion, setUserRegionState] = useState<string>(getCachedUserRegion);
+  const [selectedRegion, setSelectedRegion] = useState<string>(() => {
+    const saved = getCachedUserRegion();
+    return saved || 'Tutti';
   });
   const { favoriteIds, toggleFavorite: toggleFavChampionship } = useFavoriteChampionships();
   const [customCamInput, setCustomCamInput] = useState('');
@@ -60,18 +62,21 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Detect user region via geolocation
+  // Subscribe to user region changes
   useEffect(() => {
-    let isCancelled = false;
-    detectUserRegion().then((detected) => {
-      if (!isCancelled && detected) {
-        setHasGeoLocation(true);
-      }
+    return subscribeToUserRegion((nextRegion) => {
+      setUserRegionState(nextRegion);
     });
-    return () => {
-      isCancelled = true;
-    };
   }, []);
+
+  const handleSelectRegion = (regionName: string) => {
+    setSelectedRegion(regionName);
+    setSearchQuery('');
+    if (regionName && regionName !== 'Tutti' && regionName !== 'Nazionale') {
+      saveUserRegion(regionName);
+      setUserRegionState(regionName);
+    }
+  };
 
   // Toggle favorite status
   const toggleFavorite = (id: number, e: React.MouseEvent) => {
@@ -346,10 +351,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
           <button
             type="button"
             className={`region-pill ${selectedRegion === 'Tutti' && !searchQuery ? 'active' : ''}`}
-            onClick={() => {
-              setSelectedRegion('Tutti');
-              setSearchQuery('');
-            }}
+            onClick={() => handleSelectRegion('Tutti')}
           >
             Tutti ({campionati.length})
           </button>
@@ -357,13 +359,10 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
             <button
               type="button"
               className={`region-pill ${selectedRegion === userRegion && !searchQuery ? 'active' : ''}`}
-              onClick={() => {
-                setSelectedRegion(userRegion);
-                setSearchQuery('');
-              }}
-              title={hasGeoLocation ? `Regione rilevata dalla posizione: ${userRegion}` : `Regione: ${userRegion}`}
+              onClick={() => handleSelectRegion(userRegion)}
+              title={`Regione preferita salvata: ${userRegion}`}
             >
-              <i className={hasGeoLocation ? 'bi bi-geo-alt-fill me-1 text-danger' : 'bi bi-star-fill me-1 text-warning'}></i>
+              <i className="bi bi-geo-alt-fill me-1 text-primary"></i>
               {userRegion}
               {countUserRegion > 0 && <span className="pill-badge">{countUserRegion}</span>}
             </button>
@@ -372,40 +371,32 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
           <button
             type="button"
             className={`region-pill ${selectedRegion === 'Nazionale' && !searchQuery ? 'active' : ''}`}
-            onClick={() => {
-              setSelectedRegion('Nazionale');
-              setSearchQuery('');
-            }}
+            onClick={() => handleSelectRegion('Nazionale')}
           >
             <i className="bi bi-flag-fill me-1" style={{ color: '#5c8af9' }}></i> Nazionali
             {countNazionale > 0 && <span className="pill-badge">{countNazionale}</span>}
           </button>
 
-
-
-          {/* Other Regions Dropdown */}
+          {/* Manual Region Dropdown (Privacy-First, Zero GPS) */}
           <div className="region-select-wrapper">
             <select
               className="region-select-dropdown"
-              value={[userRegion, 'Nazionale', 'Tutti'].filter(Boolean).includes(selectedRegion) ? '' : selectedRegion}
+              value={ITALIAN_REGIONS.includes(selectedRegion) ? selectedRegion : ''}
               onChange={(e) => {
                 if (e.target.value) {
-                  setSelectedRegion(e.target.value);
-                  setSearchQuery('');
+                  handleSelectRegion(e.target.value);
                 }
               }}
-              aria-label="Altre regioni"
+              aria-label="Scegli regione"
             >
               <option value="" disabled>
-                Altre regioni...
+                {userRegion ? `Cambia regione (${userRegion})...` : 'Scegli regione...'}
               </option>
-              {regionsList
-                .filter((r) => (userRegion ? r !== userRegion : true) && r !== 'Nazionale' && r !== 'Tutti')
-                .map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
+              {ITALIAN_REGIONS.map((r) => (
+                <option key={r} value={r}>
+                  {r} {r === userRegion ? '★ (Preferita)' : ''}
+                </option>
+              ))}
             </select>
           </div>
         </div>

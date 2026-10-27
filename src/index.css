@@ -757,6 +757,58 @@ nav {
   align-items: center;
 }
 
+.burger-menu-item-region {
+  cursor: default;
+}
+
+.burger-menu-item-region:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="dark"] .burger-menu-item-region:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+@media screen and (max-height: 780px) {
+  .portal-burger-dropdown {
+    max-height: 75vh;
+    overflow-y: scroll;
+  }
+}
+
+.burger-region-select {
+  padding: 5px 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-container, #ffffff);
+  color: var(--text-dark, #0f172a);
+  cursor: pointer;
+  outline: none;
+  max-width: 120px;
+  text-overflow: ellipsis;
+  transition: all 0.18s ease;
+}
+
+.burger-region-select:hover,
+.burger-region-select:focus {
+  border-color: #01579b;
+  box-shadow: 0 0 0 2px rgba(1, 87, 155, 0.15);
+}
+
+[data-theme="dark"] .burger-region-select {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .burger-region-select:hover,
+[data-theme="dark"] .burger-region-select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+
 @keyframes burgerFadeIn {
   from {
     opacity: 0;

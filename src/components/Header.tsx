@@ -1,5 +1,10 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { getCachedUserRegion } from '../utils/geolocation';
+import {
+  getCachedUserRegion,
+  setUserRegion,
+  subscribeToUserRegion,
+  ITALIAN_REGIONS,
+} from '../utils/geolocation';
 import { useFavoriteAthletes } from '../utils/favorites';
 
 export type MainViewType = 'home' | 'campionato' | 'classifiche';
@@ -56,8 +61,15 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { favoritesCount } = useFavoriteAthletes();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [userRegion, setUserRegionState] = useState<string>(getCachedUserRegion);
   const navRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    return subscribeToUserRegion((nextRegion) => {
+      setUserRegionState(nextRegion);
+    });
+  }, []);
 
   // Close menu on Escape key
   useEffect(() => {
@@ -454,6 +466,38 @@ export const Header: React.FC<HeaderProps> = ({
                         </div>
                       </div>
                     )}
+
+                    {/* 9. Selezione Regione Manuale (Privacy GDPR, Zero GPS) */}
+                    <div className="burger-menu-item burger-menu-item-region" onClick={(e) => e.stopPropagation()}>
+                      <div className="burger-item-icon-box" style={{ background: 'rgba(2, 132, 199, 0.12)', color: '#0284c7' }}>
+                        <i className="bi bi-geo-alt-fill"></i>
+                      </div>
+                      <div className="burger-item-content">
+                        <span className="burger-item-title">Regione Preferita</span>
+                        <span className="burger-item-desc">
+                          {userRegion ? `Attiva: ${userRegion}` : 'Nessuna (Tutte)'}
+                        </span>
+                      </div>
+                      <div className="burger-item-action" onClick={(e) => e.stopPropagation()}>
+                        <select
+                          className="burger-region-select"
+                          value={userRegion}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setUserRegion(val);
+                            setUserRegionState(val);
+                          }}
+                          aria-label="Imposta regione preferita"
+                        >
+                          <option value="">Nessuna</option>
+                          {ITALIAN_REGIONS.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </>
