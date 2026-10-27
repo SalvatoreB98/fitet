@@ -14,7 +14,7 @@ import './CoffeeNudge.css';
  */
 
 const STORAGE_KEY = 'fitet_coffee_nudge_v1';
-const MIN_ENGAGED_SECONDS = 2 * 60;
+const MIN_ENGAGED_SECONDS = 1 * 60;
 const COFFEE_URL = 'https://buymeacoffee.com/salvatore.butera';
 
 /**
