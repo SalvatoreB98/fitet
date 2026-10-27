@@ -24,7 +24,7 @@ html {
 
   /* Modern Federal Navy Palette */
   --color-primary-900: #0a192f;
-  --color-primary-800: #0e2744;
+  --color-primary-800: #0e3e65;
   --color-primary-700: #163d6b;
   --color-primary-600: #26699c;
   --color-primary-500: #4e7a9c;
@@ -991,7 +991,7 @@ nav {
 
 /* Sub-Navigation Tabs */
 .portal-nav {
-  background: #0b1f36;
+  background: var(--color-primary-800, #0e3e65);
   display: flex;
   gap: 6px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
