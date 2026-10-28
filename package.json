@@ -14,7 +14,8 @@
     "generate:sitemap": "node server/scripts/generateSitemap.js",
     "update:catalog": "tsx server/scripts/buildCatalog.ts",
     "preview": "vite preview",
-    "start": "tsx server/index.ts"
+    "start": "tsx server/index.ts",
+    "test": "tsx test.ts"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
