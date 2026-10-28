@@ -385,7 +385,7 @@ export const Header: React.FC<HeaderProps> = ({
                     )}
 
                     {/* 7b. Salva per la Palestra (Offline Pre-cache) */}
-                    {onPrecacheChampionship && (
+                    {/* {onPrecacheChampionship && (
                       <button
                         type="button"
                         role="menuitem"
@@ -404,7 +404,7 @@ export const Header: React.FC<HeaderProps> = ({
                         </div>
                         <i className="bi bi-chevron-right burger-item-arrow"></i>
                       </button>
-                    )}
+                    )} */}
 
                     {/* 8. Toggle Dark / Light Mode */}
                     {onToggleTheme && (
