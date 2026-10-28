@@ -5485,7 +5485,7 @@ app.post("/api/push/subscribe", async (req, res) => {
     );
     const welcome = await pushService.sendToSubscription(saved, {
       title: "Notifiche attivate!",
-      body: "Grazie di aver scaricato l'app, torna quando vuoi!",
+      body: "Grazie di aver scaricato l'app, da questo momento in poi ricevereai le notifiche all'aggiornamento delle classifiche!",
       url: "/",
       icon: "/icon.png",
       badge: "/icon.png",
