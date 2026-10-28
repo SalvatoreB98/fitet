@@ -1110,7 +1110,6 @@ nav {
    ========================================================================== */
 
 .portal-main {
-  min-height: calc(100vh - 245px);
   position: relative;
   background: var(--bg-container);
   margin-top: 140px;
