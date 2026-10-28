@@ -255,8 +255,8 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   const headerTitle = activeCategoryDef
     ? activeCategoryDef.label
     : categoryKey === 'reg_all'
-    ? `Tornei Regionali (${selectedRegionName})`
-    : 'Tornei e Manifestazioni FITeT';
+      ? `Tornei Regionali (${selectedRegionName})`
+      : 'Tornei e Manifestazioni FITeT';
 
   const headerSubtitle = activeCategoryDef
     ? `${activeCategoryDef.description} • ${selectedRegionName}`
@@ -273,23 +273,18 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
         i.statusLabel.toLowerCase().includes(q)
     );
   }, [garaData?.iscritti, garaSearchQuery]);
-
+  const workInProgress = true;
+  if (workInProgress) return <div className='work-in-progress'>
+    <div>
+      <img src="/wip.png" alt="Lavori in corso" className="wip mb-3 w-25" />
+    </div>
+  </div>;
   return (
     <div className="ranking-tab-container">
       {/* Top Filter Card reusing ClassificheRankingTab classes */}
       <div className="ranking-filter-card">
         {/* Row 1: Header with Title, Status Switcher and Refresh */}
         <div className="ranking-filter-header">
-          <div className="ranking-filter-title-group">
-            <div className="ranking-icon-badge">
-              <i className={activeCategoryDef?.icon || 'bi-trophy-fill'}></i>
-            </div>
-            <div>
-              <h2 className="ranking-title">{headerTitle}</h2>
-              <p className="ranking-subtitle">{headerSubtitle}</p>
-            </div>
-          </div>
-
           <div className="ranking-header-actions">
             {/* Status Filter Buttons */}
             <div className="ranking-gender-group" role="group" aria-label="Stato tornei">
@@ -317,18 +312,6 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
                 In Programma
               </button>
             </div>
-
-            {/* Refresh Button */}
-            <button
-              type="button"
-              className="ranking-refresh-btn"
-              onClick={() => loadTornei(categoryKey, comitId, regFilterId, true)}
-              disabled={refreshing || loading}
-              title="Aggiorna tornei dal portale FITeT"
-            >
-              <i className={`bi bi-arrow-clockwise ${refreshing ? 'ranking-spin' : ''}`}></i>
-              <span className="hide-xs">{refreshing ? 'Aggiornamento...' : 'Aggiorna'}</span>
-            </button>
           </div>
         </div>
 
@@ -977,10 +960,10 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
                             const statusCls = iscr.statusClass.includes('diritto')
                               ? 'is-diritto'
                               : iscr.statusClass.includes('no_ammessi')
-                              ? 'is-no-ammesso'
-                              : iscr.statusClass.includes('wd')
-                              ? 'is-wd'
-                              : '';
+                                ? 'is-no-ammesso'
+                                : iscr.statusClass.includes('wd')
+                                  ? 'is-wd'
+                                  : '';
                             return (
                               <tr
                                 key={`${iscr.posizione}-${iscr.nome}`}
@@ -1097,9 +1080,8 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
                   {sec.tornei.map((torneo) => (
                     <div
                       key={`${torneo.com}-${torneo.idt}-${torneo.tipo}`}
-                      className={`match-card torneo-item-card ${
-                        torneo.status === 'disputato' ? 'is-disputato' : 'is-in-programma'
-                      }`}
+                      className={`match-card torneo-item-card ${torneo.status === 'disputato' ? 'is-disputato' : 'is-in-programma'
+                        }`}
                       onClick={() => handleSelectTorneo(torneo)}
                       role="button"
                       tabIndex={0}
@@ -1116,14 +1098,12 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
                           {torneo.data}
                         </span>
                         <span
-                          className={`torneo-status-pill ${
-                            torneo.status === 'disputato' ? 'status-disputato' : 'status-programma'
-                          }`}
+                          className={`torneo-status-pill ${torneo.status === 'disputato' ? 'status-disputato' : 'status-programma'
+                            }`}
                         >
                           <i
-                            className={`bi ${
-                              torneo.status === 'disputato' ? 'bi-check-circle-fill' : 'bi-clock-fill'
-                            }`}
+                            className={`bi ${torneo.status === 'disputato' ? 'bi-check-circle-fill' : 'bi-clock-fill'
+                              }`}
                           ></i>
                           {torneo.status === 'disputato' ? 'Risultati' : 'In Programma'}
                         </span>

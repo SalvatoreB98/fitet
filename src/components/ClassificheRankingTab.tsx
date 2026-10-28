@@ -81,8 +81,8 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  const [isControlsOpen, setIsControlsOpen] = useState<boolean>(true);
-  const [isQuickFiltersOpen, setIsQuickFiltersOpen] = useState<boolean>(true);
+  const [isControlsOpen, setIsControlsOpen] = useState<boolean>(false);
+  const [isQuickFiltersOpen, setIsQuickFiltersOpen] = useState<boolean>(false);
 
   const activeCategoryDef = getRankingCategoryByKey(category);
   const activeGroup = activeCategoryDef.group;
@@ -212,17 +212,6 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
       <div className="ranking-filter-card">
         {/* Row 1: Header with Title, Gender Switcher and Actions */}
         <div className="ranking-filter-header">
-          <div className="ranking-filter-title-group">
-            <div className="ranking-icon-badge">
-              <i className={activeCategoryDef.icon || 'bi-trophy-fill'}></i>
-            </div>
-            <div>
-              <h2 className="ranking-title">{activeCategoryDef.label}</h2>
-              <p className="ranking-subtitle">
-                {activeCategoryDef.description} • {selectedRegionName}
-              </p>
-            </div>
-          </div>
 
           <div className="ranking-header-actions">
             {/* Gender Selector Buttons */}
@@ -262,7 +251,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                 <div className="d-flex align-items-center gap-2 flex-wrap flex-grow-1 me-2">
                   <span className="fw-semibold text-main d-inline-flex align-items-center">
                     <i className="bi bi-sliders2 text-primary me-2"></i>
-                    Filtri Classifica
+                    Scegli Classifica
                   </span>
                   <span className="ranking-pill-badge">
                     <i className="bi bi-geo-alt-fill text-primary me-1"></i>
@@ -288,7 +277,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                       <span>Ambito / Regione</span>
                     </label>
                     <div className="input-group input-group-sm">
-                      <span className="input-group-text bg-body-secondary text-primary border-end-0">
+                      <span className="input-group-text text-primary border-end-0">
                         <i className="bi bi-map"></i>
                       </span>
                       <select
@@ -313,7 +302,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                       <span>Categoria Ufficiale</span>
                     </label>
                     <div className="input-group input-group-sm">
-                      <span className="input-group-text bg-body-secondary text-primary border-end-0">
+                      <span className="input-group-text text-primary border-end-0">
                         <i className="bi bi-trophy"></i>
                       </span>
                       <select
@@ -355,37 +344,6 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                       </select>
                     </div>
                   </div>
-
-                  {/* Search on loaded page */}
-                  <div className="col-12 col-md-3">
-                    <label htmlFor="ranking-search-input" className="form-label mb-1 fw-semibold small text-secondary d-flex align-items-center gap-1">
-                      <i className="bi bi-search text-primary"></i>
-                      <span>Filtra in Pagina</span>
-                    </label>
-                    <div className="input-group input-group-sm">
-                      <span className="input-group-text bg-body-secondary text-primary border-end-0">
-                        <i className="bi bi-person"></i>
-                      </span>
-                      <input
-                        id="ranking-search-input"
-                        type="text"
-                        className="form-control border-start-0 ps-1"
-                        placeholder="Nome, club, prov..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                      {searchQuery && (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-secondary border-start-0"
-                          onClick={() => setSearchQuery('')}
-                          title="Cancella filtro"
-                        >
-                          <i className="bi bi-x"></i>
-                        </button>
-                      )}
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -404,7 +362,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                 <div className="d-flex align-items-center gap-2 flex-wrap flex-grow-1 me-2">
                   <span className="fw-semibold text-main d-inline-flex align-items-center">
                     <i className="bi bi-lightning-charge-fill text-warning me-2"></i>
-                    Filtri Rapidi
+                    Clasifica Rapida
                   </span>
                   <span className="ranking-pill-badge active">
                     {category === 'stranieri' && <span className="pill-highlight-dot me-1"></span>}
