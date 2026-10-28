@@ -955,7 +955,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               className={`pill-switcher-btn ${activeTabResolved === 'girone' ? 'active' : ''}`}
                             >
                               <i className="bi bi-calendar-event me-1"></i>
-                              {campionatoNome || atleta.campionatoAttuale?.nome || (squadraCampionato ? `Campionato (${squadraCampionato})` : 'Campionato')} {campionatoPartite && campionatoPartite.length > 0 ? `(${campionatoPartite.length})` : ''}
+                              Campionato
                             </button>
                             <button
                               type="button"
