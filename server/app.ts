@@ -499,7 +499,7 @@ app.get('/api/tornei', async (req, res) => {
                             c.tor,
                             targetRegion,
                             c.id,
-                            targetRegion, 248248
+                            targetRegion,
                             forceRefresh
                         )
                     )

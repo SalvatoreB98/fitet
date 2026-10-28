@@ -1930,25 +1930,38 @@ function parseItalianNumber(val) {
   const clean = val.trim();
   if (!clean) return 0;
   if (clean.includes(".") && clean.includes(",")) {
-    return parseFloat(clean.replace(/\./g, "").replace(",", ".")) || 0;
+    const parsed = parseFloat(clean.replace(/\./g, "").replace(",", ".")) || 0;
+    return parsed;
   }
   if (clean.includes(",")) {
-    return parseFloat(clean.replace(",", ".")) || 0;
+    const parsed = parseFloat(clean.replace(",", ".")) || 0;
+    return parsed;
   }
   if (/^\s*[+-]?\d{1,3}(?:\.\d{3})+\s*$/.test(clean)) {
-    return parseFloat(clean.replace(/\./g, "")) || 0;
+    const parsed = parseFloat(clean.replace(/\./g, "")) || 0;
+    return parsed;
   }
   return parseFloat(clean) || 0;
 }
 function extractRankingIframeUrl(html) {
+  console.log("[extractRankingIframeUrl] Inizio estrazione iframe URL");
   const $ = cheerio7.load(html);
   const rawSrc = $("#fragment-3 iframe").attr("src");
-  if (!rawSrc) return null;
+  if (!rawSrc) {
+    console.warn("[extractRankingIframeUrl] Nessun iframe trovato in #fragment-3");
+    return null;
+  }
   const cleanSrc = rawSrc.replace(/\s+/g, "");
-  if (!cleanSrc) return null;
+  if (!cleanSrc) {
+    console.warn("[extractRankingIframeUrl] src iframe vuoto o non valido");
+    return null;
+  }
   try {
-    return new URL(cleanSrc, "https://portale.fitet.org/risultati/new_rank/dettaglioatleta_unica.php").href;
-  } catch {
+    const resolvedUrl = new URL(cleanSrc, "https://portale.fitet.org/risultati/new_rank/dettaglioatleta_unica.php").href;
+    console.log("[extractRankingIframeUrl] URL iframe estratto con successo:", resolvedUrl);
+    return resolvedUrl;
+  } catch (err) {
+    console.error("[extractRankingIframeUrl] Errore risoluzione URL iframe:", cleanSrc, err);
     return null;
   }
 }
@@ -1975,17 +1988,25 @@ function isCurrentSeasonDate(dateStr) {
   return true;
 }
 function parsePartiteRanking(html, atletaId) {
+  console.log(`[parsePartiteRanking] Inizio parsing partite ranking per atletaId: ${atletaId}`);
   const $ = cheerio7.load(html);
   let $p = $(`#player_${atletaId}`);
-  if (!$p.length) $p = $(".player").first();
+  if (!$p.length) {
+    console.warn(`[parsePartiteRanking] Selettore #player_${atletaId} non trovato, fallback su prima classe .player`);
+    $p = $(".player").first();
+  }
   const result = {
     campionato: [],
     tornei: []
   };
-  if (!$p.length) return result;
+  if (!$p.length) {
+    console.error(`[parsePartiteRanking] Nessun elemento atleta trovato nell'HTML per atletaId: ${atletaId}`);
+    return result;
+  }
   const subtleText = $p.find(".subtle").text().trim();
   result.rawSubtle = subtleText;
   if (subtleText) {
+    console.debug("[parsePartiteRanking] Testo .subtle trovato:", subtleText);
     const parseSubVal = (regex) => {
       const m = subtleText.match(regex);
       return m ? parseItalianNumber(m[1]) : void 0;
@@ -1998,6 +2019,7 @@ function parsePartiteRanking(html, atletaId) {
       protezione: parseSubVal(/protezione\s*<b>?([\d\.,]+)/i),
       finali: parseSubVal(/finali\s*<b>?([\d\.,]+)/i)
     };
+    console.log("[parsePartiteRanking] Dettaglio punti parsato:", result.dettaglioPunti);
   }
   $p.find("h3").each((_, h3) => {
     const text = $(h3).text().replace(/\s+/g, " ").toLowerCase();
@@ -2006,6 +2028,7 @@ function parsePartiteRanking(html, atletaId) {
     const headerText = table.find("th, tr:first-child td").text().toLowerCase();
     if (!headerText.includes("avversario")) return;
     if (text.includes("campionato") && !text.includes("punti") && !text.includes("posizionamento")) {
+      console.log("[parsePartiteRanking] Parsing tabella campionato");
       table.find("tbody tr").each((_2, tr) => {
         const cells = $(tr).find("td");
         if (cells.length < 4) return;
@@ -2014,7 +2037,10 @@ function parsePartiteRanking(html, atletaId) {
         const rawData = $(cells[0]).text().trim();
         if (!rawData || !rawData.includes("/") && !rawData.includes("-")) return;
         const data = formatDateItalian(rawData);
-        if (!isCurrentSeasonDate(data)) return;
+        if (!isCurrentSeasonDate(data)) {
+          console.debug(`[parsePartiteRanking] Partita campionato scartata fuori stagione: ${data}`);
+          return;
+        }
         let campionato = "";
         let punti = 0;
         let ris = "";
@@ -2058,7 +2084,9 @@ function parsePartiteRanking(html, atletaId) {
           stato
         });
       });
+      console.log(`[parsePartiteRanking] Partite campionato estratte: ${result.campionato.length}`);
     } else if (text.includes("torne") && !text.includes("punti") && !text.includes("posizionamento") && !text.includes("vinti nei gironi")) {
+      console.log("[parsePartiteRanking] Parsing tabella tornei");
       table.find("tbody tr").each((_2, tr) => {
         const cells = $(tr).find("td");
         if (cells.length < 5) return;
@@ -2067,7 +2095,10 @@ function parsePartiteRanking(html, atletaId) {
         const rawData = $(cells[0]).text().trim();
         if (!rawData || !rawData.includes("/") && !rawData.includes("-")) return;
         const data = formatDateItalian(rawData);
-        if (!isCurrentSeasonDate(data)) return;
+        if (!isCurrentSeasonDate(data)) {
+          console.debug(`[parsePartiteRanking] Partita torneo scartata fuori stagione: ${data}`);
+          return;
+        }
         const torneo = $(cells[1]).text().trim();
         const gara = $(cells[2]).text().trim();
         const stato = $(cells[3]).text().trim();
@@ -2095,14 +2126,17 @@ function parsePartiteRanking(html, atletaId) {
           isDiscarded
         });
       });
+      console.log(`[parsePartiteRanking] Partite tornei estratte: ${result.tornei.length}`);
     }
   });
   return result;
 }
 function parseDettaglioAtleta(html, atletaId, partiteRanking) {
+  console.log(`[parseDettaglioAtleta] Inizio parsing scheda atleta ${atletaId}`);
   const $ = cheerio7.load(html);
   const $titolo = $("p.titolo").first();
   const nomeRaw = $titolo.text().replace(/\s+/g, " ").trim();
+  console.debug(`[parseDettaglioAtleta] Nome rilevato: "${nomeRaw}"`);
   const flagImg = $titolo.find("img.immagine").first();
   const flagSrc = flagImg.attr("src") || "";
   const flagMatch = flagSrc.match(/bandiere\/([A-Za-z0-9_]+)\.png/i);
@@ -2164,6 +2198,7 @@ function parseDettaglioAtleta(html, atletaId, partiteRanking) {
       const headerCells = $(rows[0]).find("td, th");
       const dataCells = $(rows[1]).find("td");
       const headers = headerCells.map((_, c) => $(c).text().replace(/\s+/g, " ").trim().toUpperCase()).get();
+      console.debug("[parseDettaglioAtleta] Intestazioni tabella riepilogo:", headers);
       const findCol = (re, fallback) => {
         const i = headers.findIndex((h) => re.test(h));
         return i >= 0 ? i : fallback;
@@ -2190,8 +2225,20 @@ function parseDettaglioAtleta(html, atletaId, partiteRanking) {
         partiteVinte = parseInt($(dataCells[colVinte]).text().trim(), 10) || 0;
         partitePerse = parseInt($(dataCells[colPerse]).text().trim(), 10) || 0;
         percentualePositiva = parseItalianNumber($(dataCells[colPerc]).text().trim().replace("%", ""));
+        console.log("[parseDettaglioAtleta] Riepilogo estratto:", {
+          puntiIniziali,
+          puntiTotali,
+          punteggioFinale,
+          giocate: partiteGiocate,
+          vinte: partiteVinte,
+          perse: partitePerse
+        });
+      } else {
+        console.warn(`[parseDettaglioAtleta] Celle insufficienti nel riepilogo (${dataCells.length})`);
       }
     }
+  } else {
+    console.warn("[parseDettaglioAtleta] Tabella #fragment-1 non trovata");
   }
   const storicoClassifica = [];
   $("#fragment-4 table tr").each((idx, tr) => {
@@ -2212,8 +2259,11 @@ function parseDettaglioAtleta(html, atletaId, partiteRanking) {
     });
   });
   storicoClassifica.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+  console.log(`[parseDettaglioAtleta] Rilevazioni storico classifica trovate: ${storicoClassifica.length}`);
   const ultimoSnapshot = storicoClassifica.length > 0 ? storicoClassifica[storicoClassifica.length - 1] : null;
-  const puntiEffettivi = punteggioFinale || partiteRanking?.dettaglioPunti?.finali || (ultimoSnapshot ? ultimoSnapshot.punti : 0) || punti; return {
+  const puntiEffettivi = punteggioFinale || punti || (ultimoSnapshot ? ultimoSnapshot.punti : 0);
+  console.log(`[parseDettaglioAtleta] Completato parsing per ${nomeRaw || atletaId}. Punti finali: ${puntiEffettivi}`);
+  return {
     id: atletaId,
     anagrafica: {
       nome: nomeRaw || `Atleta ${atletaId}`,
@@ -4003,7 +4053,7 @@ var DEFAULT_ANNO_ID = 41;
 var TTL_CLASSIFICA = 30 * 60 * 1e3;
 var TTL_CALENDARIO = 30 * 60 * 1e3;
 var TTL_STATISTICHE = 60 * 60 * 1e3;
-var TTL_ATLETA = 30 * 60 * 1e3;
+var TTL_ATLETA = 24 * 60 * 60 * 1e3;
 var TTL_REFERTO = 12 * 60 * 60 * 1e3;
 var TTL_RICERCA_ATLETA = 10 * 60 * 1e3;
 function computeTeamForm(classifica, calendario) {
@@ -4175,8 +4225,10 @@ app.get("/api/statistiche", async (req, res) => {
 app.get("/api/ranking", async (req, res) => {
   const sesso = req.query.sesso === "F" ? "F" : "M";
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  248;
   const comit = req.query.comit ? String(req.query.comit).trim() : "";
   const forceRefresh = req.query.refresh === "true";
+  248;
   const categoryKey = req.query.category || "";
   const catDef = categoryKey ? getRankingCategoryByKey(categoryKey) : void 0;
   const tipo = req.query.tipo !== void 0 ? String(req.query.tipo) : catDef ? String(catDef.tipo) : "1";
@@ -4217,7 +4269,7 @@ async function getDynamicMenuManifestazioni(forceRefresh = false) {
     if (cached) return cached;
   }
   try {
-    const html = await FitetClient.fetchHtml("https://portale.fitet.org/menu.php");
+    const html = await Fit248lient.fetchHtml("https://portale.fitet.org/menu.php");
     const parsed = parseMenuManifestazioni(html);
     if (parsed.length > 0) {
       cacheService.set(cacheKey, parsed, 6 * 60 * 60 * 1e3);
@@ -4280,6 +4332,7 @@ async function fetchSingleTorneoSection(key, shortLabel, fallbackTitle, tor, com
     cacheService.set(cacheKey, sectionResult2, 30 * 60 * 1e3);
     return sectionResult2;
   }
+  248;
   if (tor === 0 && parsed.tornei.length === 0 && parsed.regions.length === 0) {
     const dynamicMenu = await getDynamicMenuManifestazioni(forceRefresh);
     const dynamicOpen = dynamicMenu.find((m) => m.tor === 0 && m.id > 0 && /open/i.test(m.label));
