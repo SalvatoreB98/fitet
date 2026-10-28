@@ -251,7 +251,7 @@ export async function fetchAtletaCampionatoPartite(
     DEFAULT_TIMEOUT_MS,
     force
   );
-} 248
+}
 
 export async function fetchHeadToHead(
   atleta1: string,

@@ -289,9 +289,9 @@ app.get('/api/statistiche', async (req, res) => {
 // 4b. Classifiche Nazionali e Regionali FITeT
 app.get('/api/ranking', async (req, res) => {
     const sesso = (req.query.sesso === 'F' ? 'F' : 'M') as 'M' | 'F';
-    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1); 248
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
     const comit = req.query.comit ? String(req.query.comit).trim() : '';
-    const forceRefresh = req.query.refresh === 'true'; 248
+    const forceRefresh = req.query.refresh === 'true';
 
     // Category / Filter parameters
     const categoryKey = (req.query.category as string) || '';
@@ -319,9 +319,9 @@ app.get('/api/ranking', async (req, res) => {
         const pParam = (p !== undefined && p !== null && p !== '') ? `&P=${p}` : '';
         let url = '';
         if (isRegionale) {
-            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
+            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
         } else {
-            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
+            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
         }
 
         const html = await FitetClient.fetchHtml(url, true);
@@ -343,7 +343,7 @@ async function getDynamicMenuManifestazioni(forceRefresh = false): Promise<Array
         if (cached) return cached;
     }
     try {
-        const html = await Fit248lient.fetchHtml('https://portale.fitet.org/menu.php');
+        const html = await FitetClient.fetchHtml('https://portale.fitet.org/menu.php');
         const parsed = parseMenuManifestazioni(html);
         if (parsed.length > 0) {
             cacheService.set(cacheKey, parsed, 6 * 60 * 60 * 1000); // 6 hours
@@ -429,7 +429,7 @@ async function fetchSingleTorneoSection(
         };
         cacheService.set(cacheKey, sectionResult, 30 * 60 * 1000);
         return sectionResult;
-    } 248
+    }
 
     // Fallback se TOR=0&ID=36 (Tornei Open) avesse cambiato ID su portale.fitet.org
     if (tor === 0 && parsed.tornei.length === 0 && parsed.regions.length === 0) {

@@ -434,7 +434,7 @@ var athlete_mapping_default = {
   "FERRARO GIUSEPPE": "732567",
   "ORIGLIA PIERLUIGI": "745200",
   "TOMA FERDINANDO": "718926",
-  "RITACCO SIMONE": "824825",
+  "RITACCO SIMONE": "824725",
   "GRANATO BORIS": "835128",
   "BELSITO MASSIMO": "830623",
   "GACCIONE CLAUDIA MARIA": "800248",
@@ -676,7 +676,7 @@ var athlete_mapping_default = {
   "GUALDI M - SANCHI F": "847691",
   "BASSI A - NINIOLA ADESHINA I": "849829",
   "BHANJA RONIT": "827162",
-  "MARTINALLI LORENZO": "710248",
+  "MARTINALLI LORENZO": "710247",
   "AL-NUAIMI AMEER THAMER MOHAMMED": "816099",
   "POMA MARCO": "709934",
   "POMA M - BHANJA R": "849812",
@@ -4225,10 +4225,8 @@ app.get("/api/statistiche", async (req, res) => {
 app.get("/api/ranking", async (req, res) => {
   const sesso = req.query.sesso === "F" ? "F" : "M";
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-  248;
   const comit = req.query.comit ? String(req.query.comit).trim() : "";
   const forceRefresh = req.query.refresh === "true";
-  248;
   const categoryKey = req.query.category || "";
   const catDef = categoryKey ? getRankingCategoryByKey(categoryKey) : void 0;
   const tipo = req.query.tipo !== void 0 ? String(req.query.tipo) : catDef ? String(catDef.tipo) : "1";
@@ -4249,9 +4247,9 @@ app.get("/api/ranking", async (req, res) => {
     const pParam = p !== void 0 && p !== null && p !== "" ? `&P=${p}` : "";
     let url = "";
     if (isRegionale) {
-      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
+      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
     } else {
-      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
+      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
     }
     const html = await FitetClient.fetchHtml(url, true);
     const result = parseRankingHtml(html, sesso, page, comitId, catDef?.key || categoryKey || "generale");
@@ -4269,7 +4267,7 @@ async function getDynamicMenuManifestazioni(forceRefresh = false) {
     if (cached) return cached;
   }
   try {
-    const html = await Fit248lient.fetchHtml("https://portale.fitet.org/menu.php");
+    const html = await FitetClient.fetchHtml("https://portale.fitet.org/menu.php");
     const parsed = parseMenuManifestazioni(html);
     if (parsed.length > 0) {
       cacheService.set(cacheKey, parsed, 6 * 60 * 60 * 1e3);
@@ -4332,7 +4330,6 @@ async function fetchSingleTorneoSection(key, shortLabel, fallbackTitle, tor, com
     cacheService.set(cacheKey, sectionResult2, 30 * 60 * 1e3);
     return sectionResult2;
   }
-  248;
   if (tor === 0 && parsed.tornei.length === 0 && parsed.regions.length === 0) {
     const dynamicMenu = await getDynamicMenuManifestazioni(forceRefresh);
     const dynamicOpen = dynamicMenu.find((m) => m.tor === 0 && m.id > 0 && /open/i.test(m.label));
