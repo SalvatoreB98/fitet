@@ -82,6 +82,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const [isControlsOpen, setIsControlsOpen] = useState<boolean>(true);
+  const [isQuickFiltersOpen, setIsQuickFiltersOpen] = useState<boolean>(true);
 
   const activeCategoryDef = getRankingCategoryByKey(category);
   const activeGroup = activeCategoryDef.group;
@@ -246,260 +247,299 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
           </div>
         </div>
 
-        {/* Expansion Panel Trigger Header */}
-        <button
-          type="button"
-          className="ranking-expansion-toggle"
-          onClick={() => setIsControlsOpen((prev) => !prev)}
-          aria-expanded={isControlsOpen}
-          aria-controls="ranking-controls-expansion"
-        >
-          <div className="ranking-expansion-toggle-left">
-            <span className="ranking-expansion-title">
-              <i className="bi bi-sliders2 me-2 text-primary"></i>
-              Filtri e Ricerca
-            </span>
-            <span className="ranking-expansion-badge">{selectedRegionName}</span>
-            <span className="ranking-expansion-badge">{activeCategoryDef.shortLabel}</span>
-            {searchQuery && (
-              <span className="ranking-expansion-badge">
-                <i className="bi bi-search me-1"></i>&quot;{searchQuery}&quot;
-              </span>
-            )}
-          </div>
-          <div className="ranking-expansion-toggle-right">
-            <span className="hide-xs">{isControlsOpen ? 'Comprimi' : 'Espandi'}</span>
-            <i className={`bi bi-chevron-down ranking-expansion-chevron ${isControlsOpen ? 'is-open' : ''}`}></i>
-          </div>
-        </button>
-
-        {/* Expansion Panel Content Body wrapping ranking-controls-row */}
-        <div
-          id="ranking-controls-expansion"
-          className={`ranking-expansion-body ${isControlsOpen ? 'is-open' : 'is-collapsed'}`}
-        >
-          <div className="ranking-controls-row">
-            {/* Region Dropdown */}
-            <div className="ranking-region-select-wrap">
-              <label htmlFor="ranking-region-select" className="ranking-select-label">
-                <i className="bi bi-geo-alt-fill me-1 text-primary"></i>
-                Regione:
-              </label>
-              <div className="ranking-select-inner">
-                <select
-                  id="ranking-region-select"
-                  className="ranking-select-input"
-                  value={comitId}
-                  onChange={(e) => handleComitChange(Number(e.target.value))}
-                >
-                  {REGIONS_COMIT.map((reg) => (
-                    <option key={reg.id} value={reg.id}>
-                      {reg.name}
-                    </option>
-                  ))}
-                </select>
-                <i className="bi bi-chevron-down ranking-select-chevron"></i>
-              </div>
-            </div>
-
-            {/* Full Category Dropdown (Mobile-friendly direct select) */}
-            <div className="ranking-category-select-wrap">
-              <label htmlFor="ranking-category-select" className="ranking-select-label">
-                <i className="bi bi-list-check me-1 text-primary"></i>
-                Categoria:
-              </label>
-              <div className="ranking-select-inner">
-                <select
-                  id="ranking-category-select"
-                  className="ranking-select-input ranking-cat-select"
-                  value={category}
-                  onChange={(e) => handleCategoryChange(e.target.value as RankingCategoryKey)}
-                >
-                  <optgroup label="Classifica Generale">
-                    <option value="generale">Generale</option>
-                  </optgroup>
-                  <optgroup label="Altre Categorie (Speciali)">
-                    <option value="stranieri">🌍 Stranieri</option>
-                    <option value="fuori_quadro">Fuori Quadro (FQ)</option>
-                    <option value="provvisori">Provvisori</option>
-                  </optgroup>
-                  <optgroup label="Settore Giovanile">
-                    <option value="u11">Under 11 (Giovanissimi)</option>
-                    <option value="u13">Under 13 (Ragazzi)</option>
-                    <option value="u15">Under 15 (Allievi)</option>
-                    <option value="u17">Under 17 (Cadetti)</option>
-                    <option value="u19">Under 19 (Juniores)</option>
-                    <option value="u21">Under 21</option>
-                  </optgroup>
-                  <optgroup label="Master / Veterani">
-                    <option value="master_1">Master Cat. 1 (40-49)</option>
-                    <option value="master_2">Master Cat. 2 (50-59)</option>
-                    <option value="master_3">Master Cat. 3 (60-64)</option>
-                    <option value="master_4">Master Cat. 4 (65-69)</option>
-                    <option value="master_5">Master Cat. 5 (70-74)</option>
-                    <option value="master_6">Master Cat. 6 (75-79)</option>
-                    <option value="master_7">Master Cat. 7 (80+)</option>
-                  </optgroup>
-                  <optgroup label="Paralimpici">
-                    <option value="para_1_5">Paralimpica Classe 1-5 (Carrozzina)</option>
-                    <option value="para_6_10">Paralimpica Classe 6-10 (In piedi)</option>
-                    <option value="para_11">Paralimpica Classe 11 (DIR)</option>
-                  </optgroup>
-                </select>
-                <i className="bi bi-chevron-down ranking-select-chevron"></i>
-              </div>
-            </div>
-
-            {/* Page Athlete Search / Filter Bar */}
-            {/* <div className="ranking-inline-search-wrap">
-              <div className="ranking-search-inner">
-                <i className="bi bi-search ranking-search-icon"></i>
-                <input
-                  type="text"
-                  className="ranking-search-input"
-                  placeholder="Filtra atleti su questa pagina..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    className="ranking-search-clear"
-                    onClick={() => setSearchQuery('')}
-                    aria-label="Cancella filtro"
-                  >
-                    <i className="bi bi-x-circle-fill"></i>
-                  </button>
-                )}
-              </div>
-            </div> */}
-
-            {/* Filtri Rapidi (Scrollabili orizzontalmente) */}
-            <div className="filtri-rapidi">
-              <div className="filtri-rapidi-header">
-                <span className="filtri-rapidi-title">
-                  <i className="bi bi-filter-square-fill text-primary me-1"></i> Filtri rapidi:
-                </span>
-                <span className="filtri-scroll-hint">
-                  <i className="bi bi-arrows-expand-vertical me-1"></i>(scorri in orizzontale)
-                </span>
-              </div>
-
-              {/* Row 2: Category Macro Navigation Bar */}
-              <div className="ranking-macro-nav mt-2" role="tablist" aria-label="Categorie Classifica">
-                {/* 1. Generale */}
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeGroup === 'generale'}
-                  className={`ranking-macro-pill ${activeGroup === 'generale' ? 'is-active' : ''}`}
-                  onClick={() => handleCategoryChange('generale')}
-                >
-                  <i className="bi bi-trophy-fill me-1"></i>
-                  Generale
-                </button>
-
-                {/* 2. Stranieri (Direct 1-tap shortcut) */}
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={category === 'stranieri'}
-                  className={`ranking-macro-pill pill-stranieri ${category === 'stranieri' ? 'is-active' : ''}`}
-                  onClick={() => handleCategoryChange('stranieri')}
-                >
-                  <i className="bi bi-globe2 me-1"></i>
-                  <span>Stranieri</span>
-                  <span className="pill-highlight-dot"></span>
-                </button>
-
-                {/* 3. Fuori Quadro (Direct 1-tap shortcut) */}
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={category === 'fuori_quadro'}
-                  className={`ranking-macro-pill ${category === 'fuori_quadro' ? 'is-active' : ''}`}
-                  onClick={() => handleCategoryChange('fuori_quadro')}
-                >
-                  <i className="bi bi-slash-circle me-1"></i>
-                  <span>Fuori Quadro</span>
-                </button>
-
-                {/* 4. Provvisori (Direct 1-tap shortcut) */}
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={category === 'provvisori'}
-                  className={`ranking-macro-pill ${category === 'provvisori' ? 'is-active' : ''}`}
-                  onClick={() => handleCategoryChange('provvisori')}
-                >
-                  <i className="bi bi-hourglass-split me-1"></i>
-                  <span>Provvisori</span>
-                </button>
-
-                {/* 5. Giovanili Group */}
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeGroup === 'giovanili'}
-                  className={`ranking-macro-pill ${activeGroup === 'giovanili' ? 'is-active' : ''}`}
-                  onClick={() => handleGroupTabClick('giovanili')}
-                >
-                  <i className="bi bi-backpack-fill me-1"></i>
-                  <span>Giovanili</span>
-                  <span className="macro-badge">U11-U21</span>
-                </button>
-
-                {/* 6. Master Group */}
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeGroup === 'master'}
-                  className={`ranking-macro-pill ${activeGroup === 'master' ? 'is-active' : ''}`}
-                  onClick={() => handleGroupTabClick('master')}
-                >
-                  <i className="bi bi-award-fill me-1"></i>
-                  <span>Master</span>
-                  <span className="macro-badge">Cat. 1-7</span>
-                </button>
-
-                {/* 7. Paralimpici Group */}
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeGroup === 'paralimpici'}
-                  className={`ranking-macro-pill ${activeGroup === 'paralimpici' ? 'is-active' : ''}`}
-                  onClick={() => handleGroupTabClick('paralimpici')}
-                >
-                  <i className="bi bi-universal-access-circle me-1"></i>
-                  <span>Paralimpici</span>
-                  <span className="macro-badge">Cl. 1-11</span>
-                </button>
-              </div>
-
-              {/* Sub-category chips when Giovanili, Master or Paralimpici is active */}
-              {currentGroupCategories.length > 1 && (
-                <div className="ranking-subchips-container mt-2" role="group" aria-label="Sotto-categorie">
-                  <span className="subchips-label">
-                    <i className="bi bi-funnel-fill me-1"></i>
-                    Sottocategoria:
+        {/* Bootstrap Accordion Container with 2 Distinct Panels */}
+        <div className="accordion ranking-accordion mt-3" id="rankingFiltersAccordion">
+          {/* Panel 1: Filtri Classifica (Regione, Categoria, Ricerca) */}
+          <div className="accordion-item ranking-accordion-item" id="ranking-controls-expansion">
+            <h3 className="accordion-header" id="headingControls">
+              <button
+                className={`accordion-button ${!isControlsOpen ? 'collapsed' : ''}`}
+                type="button"
+                onClick={() => setIsControlsOpen((prev) => !prev)}
+                aria-expanded={isControlsOpen}
+                aria-controls="collapseControls"
+              >
+                <div className="d-flex align-items-center gap-2 flex-wrap flex-grow-1 me-2">
+                  <span className="fw-semibold text-main d-inline-flex align-items-center">
+                    <i className="bi bi-sliders2 text-primary me-2"></i>
+                    Filtri Classifica
                   </span>
-                  <div className="ranking-subchips-list">
-                    {currentGroupCategories.map((catDef) => {
-                      const isSelected = category === catDef.key;
-                      return (
+                  <span className="ranking-pill-badge">
+                    <i className="bi bi-geo-alt-fill text-primary me-1"></i>
+                    {selectedRegionName}
+                  </span>
+                  <span className="ranking-pill-badge">
+                    {activeCategoryDef.shortLabel}
+                  </span>
+                </div>
+              </button>
+            </h3>
+            <div
+              id="collapseControls"
+              className={`accordion-collapse collapse ${isControlsOpen ? 'show' : ''}`}
+              aria-labelledby="headingControls"
+            >
+              <div className="accordion-body ranking-accordion-body p-3">
+                <div className="row g-3 align-items-end">
+                  {/* Region Select */}
+                  <div className="col-12 col-md-4">
+                    <label htmlFor="ranking-region-select" className="form-label mb-1 fw-semibold small text-secondary d-flex align-items-center gap-1">
+                      <i className="bi bi-geo-alt-fill text-primary"></i>
+                      <span>Ambito / Regione</span>
+                    </label>
+                    <div className="input-group input-group-sm">
+                      <span className="input-group-text bg-body-secondary text-primary border-end-0">
+                        <i className="bi bi-map"></i>
+                      </span>
+                      <select
+                        id="ranking-region-select"
+                        className="form-select border-start-0 ps-1"
+                        value={comitId}
+                        onChange={(e) => handleComitChange(Number(e.target.value))}
+                      >
+                        {REGIONS_COMIT.map((reg) => (
+                          <option key={reg.id} value={reg.id}>
+                            {reg.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Category Select */}
+                  <div className="col-12 col-md-5">
+                    <label htmlFor="ranking-category-select" className="form-label mb-1 fw-semibold small text-secondary d-flex align-items-center gap-1">
+                      <i className="bi bi-list-check text-primary"></i>
+                      <span>Categoria Ufficiale</span>
+                    </label>
+                    <div className="input-group input-group-sm">
+                      <span className="input-group-text bg-body-secondary text-primary border-end-0">
+                        <i className="bi bi-trophy"></i>
+                      </span>
+                      <select
+                        id="ranking-category-select"
+                        className="form-select border-start-0 ps-1"
+                        value={category}
+                        onChange={(e) => handleCategoryChange(e.target.value as RankingCategoryKey)}
+                      >
+                        <optgroup label="Classifica Generale">
+                          <option value="generale">Generale</option>
+                        </optgroup>
+                        <optgroup label="Altre Categorie (Speciali)">
+                          <option value="stranieri">🌍 Stranieri</option>
+                          <option value="fuori_quadro">Fuori Quadro (FQ)</option>
+                          <option value="provvisori">Provvisori</option>
+                        </optgroup>
+                        <optgroup label="Settore Giovanile">
+                          <option value="u11">Under 11 (Giovanissimi)</option>
+                          <option value="u13">Under 13 (Ragazzi)</option>
+                          <option value="u15">Under 15 (Allievi)</option>
+                          <option value="u17">Under 17 (Cadetti)</option>
+                          <option value="u19">Under 19 (Juniores)</option>
+                          <option value="u21">Under 21</option>
+                        </optgroup>
+                        <optgroup label="Master / Veterani">
+                          <option value="master_1">Master Cat. 1 (40-49)</option>
+                          <option value="master_2">Master Cat. 2 (50-59)</option>
+                          <option value="master_3">Master Cat. 3 (60-64)</option>
+                          <option value="master_4">Master Cat. 4 (65-69)</option>
+                          <option value="master_5">Master Cat. 5 (70-74)</option>
+                          <option value="master_6">Master Cat. 6 (75-79)</option>
+                          <option value="master_7">Master Cat. 7 (80+)</option>
+                        </optgroup>
+                        <optgroup label="Paralimpici">
+                          <option value="para_1_5">Paralimpica Classe 1-5 (Carrozzina)</option>
+                          <option value="para_6_10">Paralimpica Classe 6-10 (In piedi)</option>
+                          <option value="para_11">Paralimpica Classe 11 (DIR)</option>
+                        </optgroup>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Search on loaded page */}
+                  <div className="col-12 col-md-3">
+                    <label htmlFor="ranking-search-input" className="form-label mb-1 fw-semibold small text-secondary d-flex align-items-center gap-1">
+                      <i className="bi bi-search text-primary"></i>
+                      <span>Filtra in Pagina</span>
+                    </label>
+                    <div className="input-group input-group-sm">
+                      <span className="input-group-text bg-body-secondary text-primary border-end-0">
+                        <i className="bi bi-person"></i>
+                      </span>
+                      <input
+                        id="ranking-search-input"
+                        type="text"
+                        className="form-control border-start-0 ps-1"
+                        placeholder="Nome, club, prov..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                      {searchQuery && (
                         <button
-                          key={catDef.key}
                           type="button"
-                          className={`ranking-subchip-btn ${isSelected ? 'is-active' : ''}`}
-                          onClick={() => handleCategoryChange(catDef.key)}
+                          className="btn btn-sm btn-outline-secondary border-start-0"
+                          onClick={() => setSearchQuery('')}
+                          title="Cancella filtro"
                         >
-                          {catDef.shortLabel}
+                          <i className="bi bi-x"></i>
                         </button>
-                      );
-                    })}
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
+            </div>
+          </div>
+
+          {/* Panel 2: Filtri Rapidi */}
+          <div className="accordion-item ranking-accordion-item" id="ranking-quick-filters-expansion">
+            <h3 className="accordion-header" id="headingQuickFilters">
+              <button
+                className={`accordion-button ${!isQuickFiltersOpen ? 'collapsed' : ''}`}
+                type="button"
+                onClick={() => setIsQuickFiltersOpen((prev) => !prev)}
+                aria-expanded={isQuickFiltersOpen}
+                aria-controls="collapseQuickFilters"
+              >
+                <div className="d-flex align-items-center gap-2 flex-wrap flex-grow-1 me-2">
+                  <span className="fw-semibold text-main d-inline-flex align-items-center">
+                    <i className="bi bi-lightning-charge-fill text-warning me-2"></i>
+                    Filtri Rapidi
+                  </span>
+                  <span className="ranking-pill-badge active">
+                    {category === 'stranieri' && <span className="pill-highlight-dot me-1"></span>}
+                    {activeCategoryDef.shortLabel}
+                  </span>
+                  <span className="filtri-scroll-hint ms-auto me-3 d-none d-sm-inline-flex align-items-center">
+                    (scorri in orizzontale <i className="bi bi-arrow-right ms-1"></i>)
+                  </span>
+                </div>
+              </button>
+            </h3>
+            <div
+              id="collapseQuickFilters"
+              className={`accordion-collapse collapse ${isQuickFiltersOpen ? 'show' : ''}`}
+              aria-labelledby="headingQuickFilters"
+            >
+              <div className="accordion-body ranking-accordion-body p-2 p-sm-3">
+                <div className="filtri-rapidi">
+                  {/* Category Macro Navigation Bar (Scrollabile) */}
+                  <div className="ranking-macro-nav" role="tablist" aria-label="Categorie Classifica">
+                    {/* 1. Generale */}
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activeGroup === 'generale'}
+                      className={`ranking-macro-pill ${activeGroup === 'generale' ? 'is-active' : ''}`}
+                      onClick={() => handleCategoryChange('generale')}
+                    >
+                      <i className="bi bi-trophy-fill me-1"></i>
+                      Generale
+                    </button>
+
+                    {/* 2. Stranieri (Direct 1-tap shortcut) */}
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={category === 'stranieri'}
+                      className={`ranking-macro-pill pill-stranieri ${category === 'stranieri' ? 'is-active' : ''}`}
+                      onClick={() => handleCategoryChange('stranieri')}
+                    >
+                      <i className="bi bi-globe2 me-1"></i>
+                      <span>Stranieri</span>
+                      <span className="pill-highlight-dot"></span>
+                    </button>
+
+                    {/* 3. Fuori Quadro (Direct 1-tap shortcut) */}
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={category === 'fuori_quadro'}
+                      className={`ranking-macro-pill ${category === 'fuori_quadro' ? 'is-active' : ''}`}
+                      onClick={() => handleCategoryChange('fuori_quadro')}
+                    >
+                      <i className="bi bi-slash-circle me-1"></i>
+                      <span>Fuori Quadro</span>
+                    </button>
+
+                    {/* 4. Provvisori (Direct 1-tap shortcut) */}
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={category === 'provvisori'}
+                      className={`ranking-macro-pill ${category === 'provvisori' ? 'is-active' : ''}`}
+                      onClick={() => handleCategoryChange('provvisori')}
+                    >
+                      <i className="bi bi-hourglass-split me-1"></i>
+                      <span>Provvisori</span>
+                    </button>
+
+                    {/* 5. Giovanili Group */}
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activeGroup === 'giovanili'}
+                      className={`ranking-macro-pill ${activeGroup === 'giovanili' ? 'is-active' : ''}`}
+                      onClick={() => handleGroupTabClick('giovanili')}
+                    >
+                      <i className="bi bi-backpack-fill me-1"></i>
+                      <span>Giovanili</span>
+                      <span className="macro-badge">U11-U21</span>
+                    </button>
+
+                    {/* 6. Master Group */}
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activeGroup === 'master'}
+                      className={`ranking-macro-pill ${activeGroup === 'master' ? 'is-active' : ''}`}
+                      onClick={() => handleGroupTabClick('master')}
+                    >
+                      <i className="bi bi-award-fill me-1"></i>
+                      <span>Master</span>
+                      <span className="macro-badge">Cat. 1-7</span>
+                    </button>
+
+                    {/* 7. Paralimpici Group */}
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={activeGroup === 'paralimpici'}
+                      className={`ranking-macro-pill ${activeGroup === 'paralimpici' ? 'is-active' : ''}`}
+                      onClick={() => handleGroupTabClick('paralimpici')}
+                    >
+                      <i className="bi bi-universal-access-circle me-1"></i>
+                      <span>Paralimpici</span>
+                      <span className="macro-badge">Cl. 1-11</span>
+                    </button>
+                  </div>
+
+                  {/* Sub-category chips when Giovanili, Master or Paralimpici is active */}
+                  {currentGroupCategories.length > 1 && (
+                    <div className="ranking-subchips-container mt-2" role="group" aria-label="Sotto-categorie">
+                      <span className="subchips-label">
+                        <i className="bi bi-funnel-fill me-1"></i>
+                        Sottocategoria:
+                      </span>
+                      <div className="ranking-subchips-list">
+                        {currentGroupCategories.map((catDef) => {
+                          const isSelected = category === catDef.key;
+                          return (
+                            <button
+                              key={catDef.key}
+                              type="button"
+                              className={`ranking-subchip-btn ${isSelected ? 'is-active' : ''}`}
+                              onClick={() => handleCategoryChange(catDef.key)}
+                            >
+                              {catDef.shortLabel}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
