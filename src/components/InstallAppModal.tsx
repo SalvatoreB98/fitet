@@ -7,17 +7,19 @@ interface InstallAppModalProps {
   onClose: () => void;
 }
 
-const detectPlatform = (): 'android' | 'ios' => {
-  if (typeof window === 'undefined') return 'android';
+const detectPlatform = (): 'android' | 'ios' | 'desktop' => {
+  if (typeof window === 'undefined') return 'desktop';
   const ua = window.navigator.userAgent.toLowerCase();
   const isIOS =
     /iphone|ipad|ipod/.test(ua) ||
     (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
-  return isIOS ? 'ios' : 'android';
+  if (isIOS) return 'ios';
+  if (/android/.test(ua)) return 'android';
+  return 'desktop';
 };
 
 export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClose }) => {
-  const [platform, setPlatform] = useState<'android' | 'ios'>(detectPlatform);
+  const [platform, setPlatform] = useState<'android' | 'ios' | 'desktop'>(detectPlatform);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   // Aggiorna la piattaforma rilevata ogni volta che la modale si apre
@@ -77,7 +79,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
               Scarica App
             </h3>
             <p className="install-modal-subtitle">
-              Installa il portale sul tuo smartphone per aprirlo a schermo intero come una vera app.
+              Installa il portale sul tuo dispositivo per aprirlo a schermo intero come una vera app.
             </p>
           </div>
           <button
@@ -99,6 +101,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
             aria-selected={platform === 'android'}
             className={`install-os-btn ${platform === 'android' ? 'is-active' : ''}`}
             onClick={() => setPlatform('android')}
+            title="Android"
           >
             <i className="bi bi-android2"></i>
             <span>Android</span>
@@ -109,17 +112,33 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
             aria-selected={platform === 'ios'}
             className={`install-os-btn ${platform === 'ios' ? 'is-active' : ''}`}
             onClick={() => setPlatform('ios')}
+            title="iPhone e iPad"
           >
             <i className="bi bi-apple"></i>
-            <span>iOS (iPhone / iPad)</span>
+            <span>iOS</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={platform === 'desktop'}
+            className={`install-os-btn ${platform === 'desktop' ? 'is-active' : ''}`}
+            onClick={() => setPlatform('desktop')}
+            title="Computer desktop"
+          >
+            <i className="bi bi-display"></i>
+            <span>Desktop</span>
           </button>
         </div>
 
-        {/* 1-Tap Direct Install (se disponibile su Chromium/Android) */}
-        {platform === 'android' && deferredPrompt && (
+        {/* Installazione diretta (se disponibile su Chromium/Android/desktop) */}
+        {(platform === 'android' || platform === 'desktop') && deferredPrompt && (
           <button type="button" className="install-direct-btn" onClick={handleDirectInstall}>
             <i className="bi bi-download"></i>
-            <span>Installa subito con un tocco</span>
+            <span>
+              {platform === 'desktop'
+                ? 'Installa subito con un clic'
+                : 'Installa subito con un tocco'}
+            </span>
           </button>
         )}
 
@@ -146,7 +165,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
                 </div>
               </div>
             </>
-          ) : (
+          ) : platform === 'ios' ? (
             <>
               <div className="install-step-item">
                 <div className="install-step-num">1</div>
@@ -181,13 +200,44 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
                 </div>
               </div>
             </>
+          ) : (
+            <>
+              <div className="install-step-item">
+                <div className="install-step-num">1</div>
+                <div className="install-step-text">
+                  Apri <strong>Chrome</strong> o <strong>Edge</strong> e clicca
+                  l&apos;icona di installazione nella barra degli indirizzi (il
+                  monitor con la freccia), oppure apri il menu{' '}
+                  <strong>⋮</strong>.
+                </div>
+              </div>
+              <div className="install-step-item">
+                <div className="install-step-num">2</div>
+                <div className="install-step-text">
+                  Seleziona <strong>&quot;Installa app&quot;</strong> oppure{' '}
+                  <strong>&quot;App&quot;</strong> →{' '}
+                  <strong>&quot;Installa questa app&quot;</strong>.
+                </div>
+              </div>
+              <div className="install-step-item">
+                <div className="install-step-num">3</div>
+                <div className="install-step-text">
+                  Conferma: l&apos;app si aprirà in una finestra dedicata e sarà
+                  disponibile nel menu Start (Windows) o nel Launchpad (macOS).
+                </div>
+              </div>
+            </>
           )}
         </div>
 
         {/* Footer Note */}
         <p className="install-footer-note">
           <i className="bi bi-lightning-charge-fill text-warning"></i>
-          <span>Accesso istantaneo senza barre del browser e caricamento fulmineo.</span>
+          <span>
+            {platform === 'desktop'
+              ? 'Su Safari (macOS) usa File → Aggiungi al Dock. Accesso istantaneo senza barre del browser.'
+              : 'Accesso istantaneo senza barre del browser e caricamento fulmineo.'}
+          </span>
         </p>
       </div>
     </div>,

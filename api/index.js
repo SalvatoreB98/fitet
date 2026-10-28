@@ -2513,7 +2513,7 @@ var HeadToHeadService = class {
 var headToHeadService = new HeadToHeadService();
 
 // server/services/pushService.ts
-import * as webpush from "web-push";
+import webpush from "web-push";
 import { createClient as createClient2 } from "@supabase/supabase-js";
 import dotenv2 from "dotenv";
 dotenv2.config();

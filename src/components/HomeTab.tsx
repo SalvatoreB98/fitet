@@ -32,6 +32,7 @@ import {
   getPushNotificationStatus,
   isStandaloneMode,
   isAndroid,
+  isDesktop,
   canEnablePushInBrowser,
   subscribeToPush,
   unsubscribeFromPush,
@@ -725,6 +726,17 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                   <>
                     Aggiungi l&apos;app alla schermata Home per un accesso
                     rapido.
+                  </>
+                )
+              ) : isDesktop() ? (
+                canEnablePushInBrowser() && pushStatus.supported ? (
+                  <>
+                    Installa l&apos;app sul tuo computer per un accesso rapido.
+                    Le notifiche push sono già disponibili qui sotto.
+                  </>
+                ) : (
+                  <>
+                    Installa l&apos;app sul tuo computer per un accesso rapido.
                   </>
                 )
               ) : (

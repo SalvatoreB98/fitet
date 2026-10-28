@@ -89,7 +89,9 @@ Accedi su: [http://localhost:3001](http://localhost:3001)
 
 ## Web Push Notifications (PWA)
 
-Le notifiche push funzionano su **Android** (Chrome, Edge, Samsung Internet, Firefox) anche senza installare la PWA, e su **iOS 16.4+** solo se l'app è stata aggiunta alla schermata Home. Su iOS 15 e precedenti Web Push non è supportato.
+Le notifiche push funzionano su **Android** (Chrome, Edge, Samsung Internet, Firefox) e su **desktop** (Chrome, Edge, Firefox) anche senza installare la PWA, e su **iOS 16.4+** solo se l'app è stata aggiunta alla schermata Home. Su iOS 15 e precedenti Web Push non è supportato; su Safari desktop le push richiedono l'app aggiunta al Dock.
+
+La PWA desktop si installa da Chrome/Edge tramite l'icona di installazione nella barra degli indirizzi o il menu **⋮ → Installa app**. Su Safari macOS si usa **File → Aggiungi al Dock**.
 
 ### 1. Configurazione Supabase
 

@@ -38,6 +38,21 @@ export function isStandaloneMode(): boolean {
 }
 
 /**
+ * Rileva se il dispositivo è iOS/iPadOS.
+ * Su iPadOS 13+ il user agent può essere "MacIntel": in quel caso
+ * `maxTouchPoints > 1` identifica un iPad.
+ */
+export function isIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+
+  const ua = navigator.userAgent || '';
+  const platform = (navigator as Navigator & { platform?: string }).platform || '';
+  const isIPadOS = platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+
+  return /iPad|iPhone|iPod/i.test(ua) || isIPadOS;
+}
+
+/**
  * Rileva se il dispositivo è Android.
  */
 export function isAndroid(): boolean {
@@ -46,12 +61,31 @@ export function isAndroid(): boolean {
 }
 
 /**
+ * Rileva se si tratta di un browser desktop (Windows, macOS, Linux).
+ */
+export function isDesktop(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return !isAndroid() && !isIOS();
+}
+
+/**
+ * Safari desktop supporta Web Push solo per le web app aggiunte al Dock,
+ * non per le normali schede del browser.
+ */
+function isSafariDesktop(): boolean {
+  if (!isDesktop()) return false;
+  const ua = navigator.userAgent || '';
+  return /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|OPiOS/i.test(ua);
+}
+
+/**
  * Indica se le notifiche push possono essere attivate anche senza installare
- * la PWA. Su Android i browser supportano Web Push anche nelle schede normali;
- * su iOS è sempre necessario aggiungere l'app alla schermata Home.
+ * la PWA. Su Android e sui browser desktop (Chrome, Edge, Firefox) Web Push
+ * funziona anche nelle schede normali; su iOS e su Safari desktop serve
+ * l'app installata.
  */
 export function canEnablePushInBrowser(): boolean {
-  return isAndroid();
+  return isAndroid() || (isDesktop() && !isSafariDesktop());
 }
 
 /**

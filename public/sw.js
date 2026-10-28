@@ -12,6 +12,15 @@ self.addEventListener('activate', (event) => {
 });
 
 /**
+ * Handler `fetch` minimo: Chrome/Edge lo richiedono per considerare la PWA
+ * installabile. Non chiamiamo `respondWith`, quindi le richieste proseguono
+ * normalmente sulla rete senza cache aggiuntiva.
+ */
+self.addEventListener('fetch', () => {
+  // Passthrough: nessuna intercettazione.
+});
+
+/**
  * Payload atteso dal backend:
  * {
  *   title: string,

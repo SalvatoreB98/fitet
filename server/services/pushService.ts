@@ -1,4 +1,5 @@
-import * as webpush from 'web-push';
+import webpush from 'web-push';
+import type { PushSubscription } from 'web-push';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 
@@ -217,7 +218,7 @@ class PushService {
             return { sent: false, error: 'VAPID non configurato.' };
         }
 
-        const pushSubscription: webpush.PushSubscription = {
+        const pushSubscription: PushSubscription = {
             endpoint: subscription.endpoint,
             keys: {
                 p256dh: subscription.p256dh,

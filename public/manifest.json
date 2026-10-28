@@ -1,9 +1,12 @@
 {
+  "id": "/",
   "name": "Portale Risultati FITeT",
   "short_name": "Portale Risultati",
   "description": "Portale Risultati FITeT: calendari, classifiche campionati e schede ranking atleti tennistavolo.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "lang": "it",
   "background_color": "#ffffff",
   "theme_color": "#1d538e",
   "icons": [
