@@ -319,9 +319,9 @@ app.get('/api/ranking', async (req, res) => {
         const pParam = (p !== undefined && p !== null && p !== '') ? `&P=${p}` : '';
         let url = '';
         if (isRegionale) {
-            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=247&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
+            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
         } else {
-            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=247&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
+            url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
         }
 
         const html = await FitetClient.fetchHtml(url, true);
@@ -840,7 +840,7 @@ app.get('/api/atleta/:id', async (req, res) => {
         // Extract & parse official ranking matches from #fragment-3 iframe
         let partiteRanking: PartiteRankingAtleta | undefined = undefined;
         let iframeUrl = extractRankingIframeUrl(html);
-        let resolvedIdClass = 247;
+        let resolvedIdClass = 248;
 
         if (iframeUrl) {
             try {
@@ -926,7 +926,7 @@ app.get('/api/atleta/:id', async (req, res) => {
 app.get('/api/head-to-head', async (req, res) => {
     const atleta1 = req.query.atleta1 as string;
     const atleta2 = req.query.atleta2 as string;
-    const idClass = req.query.idClass ? parseInt(req.query.idClass as string, 10) : 247;
+    const idClass = req.query.idClass ? parseInt(req.query.idClass as string, 10) : 248;
 
     if (!atleta1 || !atleta2) {
         return res.status(400).json({ error: 'Parametri atleta1 e atleta2 obbligatori' });
@@ -996,7 +996,7 @@ app.get('/api/search-atleta', async (req, res) => {
 app.get('/api/search-atleta-scelta', async (req, res) => {
     const query = ((req.query.q as string) || '').trim();
     const excludeId = ((req.query.excludeId as string) || '0').trim() || '0';
-    const idClass = req.query.idClass ? parseInt(req.query.idClass as string, 10) || 247 : 247;
+    const idClass = req.query.idClass ? parseInt(req.query.idClass as string, 10) || 248 : 248;
 
     if (query.length < 2) {
         return res.json([]);

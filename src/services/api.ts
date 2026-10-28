@@ -256,7 +256,7 @@ export async function fetchAtletaCampionatoPartite(
 export async function fetchHeadToHead(
   atleta1: string,
   atleta2: string,
-  idClass = 247
+  idClass = 248
 ): Promise<HeadToHeadData> {
   const params = new URLSearchParams({
     atleta1,
