@@ -34,7 +34,7 @@
     0 4px 12px -2px rgba(15, 23, 42, 0.08),
     0 0 0 1px rgba(255, 255, 255, 0.6) inset;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  max-width: 520px;
+  max-width: 560px;
   position: absolute;
   bottom: 0;
 }
@@ -46,8 +46,8 @@
   align-items: center;
   justify-content: center;
   gap: 3px;
-  min-width: 72px;
-  padding: 7px 14px;
+  min-width: 68px;
+  padding: 7px 12px;
   border: none;
   background: transparent;
   color: var(--text-muted, #64748b);
@@ -161,15 +161,16 @@
   }
 
   .portal-bottom-bar {
-    gap: 4px;
-    padding: 5px 8px;
-    max-width: 400px;
+    gap: 2px;
+    padding: 5px 6px;
+    max-width: 420px;
+    width: calc(100vw - 16px);
     justify-content: space-between;
   }
 
   .bottom-bar-item {
-    min-width: 60px;
-    padding: 6px 10px;
+    min-width: 52px;
+    padding: 6px 6px;
     flex: 1;
   }
 

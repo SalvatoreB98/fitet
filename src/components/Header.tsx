@@ -7,7 +7,7 @@ import {
 } from '../utils/geolocation';
 import { useFavoriteAthletes } from '../utils/favorites';
 
-export type MainViewType = 'home' | 'campionato' | 'classifiche';
+export type MainViewType = 'home' | 'campionato' | 'tornei' | 'classifiche';
 export type ChampionshipTabType = 'classifica' | 'calendario' | 'statistiche';
 
 interface HeaderProps {
@@ -162,9 +162,21 @@ export const Header: React.FC<HeaderProps> = ({
           ) : (
             <div className="portal-title-block portal-title-static" style={{ cursor: 'default' }}>
               <div className="portal-title-heading-row">
-                <h1>{mainView === 'home' ? 'PORTALE FITET' : 'CLASSIFICHE'}</h1>
+                <h1>
+                  {mainView === 'home'
+                    ? 'PORTALE FITET'
+                    : mainView === 'tornei'
+                      ? 'TORNEI FITET'
+                      : 'CLASSIFICHE'}
+                </h1>
               </div>
-              <small>{mainView === 'home' ? 'HOME & PREFERITI' : 'RANKING UFFICIALE FITET'}</small>
+              <small>
+                {mainView === 'home'
+                  ? 'HOME & PREFERITI'
+                  : mainView === 'tornei'
+                    ? 'MANIFESTAZIONI NAZIONALI E REGIONALI'
+                    : 'RANKING UFFICIALE FITET'}
+              </small>
             </div>
           )}
 
@@ -239,7 +251,7 @@ export const Header: React.FC<HeaderProps> = ({
                       }}
                     >
                       <div className="burger-item-icon-box icon-trophy">
-                        <i className="bi bi-trophy-fill"></i>
+                        <i className="bi bi-shield-fill"></i>
                       </div>
                       <div className="burger-item-content">
                         <span className="burger-item-title">Campionato</span>
@@ -254,48 +266,24 @@ export const Header: React.FC<HeaderProps> = ({
                       )}
                     </button>
 
-                    {/* 2b. Azione Rapida: Torna al mio campionato (se in consultazione) */}
-                    {isConsulting && onReturnToMyChampionship && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="burger-menu-item is-consulting-return"
-                        onClick={() => {
-                          setIsMenuOpen(false);
-                          onReturnToMyChampionship();
-                        }}
-                      >
-                        <div className="burger-item-icon-box" style={{ background: '#ecfdf5', color: '#047857' }}>
-                          <i className="bi bi-arrow-return-left"></i>
-                        </div>
-                        <div className="burger-item-content">
-                          <span className="burger-item-title" style={{ color: '#047857', fontWeight: 600 }}>
-                            Torna al mio campionato
-                          </span>
-                          <span className="burger-item-desc">Chiudi la consultazione attiva</span>
-                        </div>
-                        <i className="bi bi-chevron-right burger-item-arrow"></i>
-                      </button>
-                    )}
-
-                    {/* 3. Classifiche Nazionali / Regionali */}
+                    {/* 2a. Tornei */}
                     <button
                       type="button"
                       role="menuitem"
-                      className={`burger-menu-item ${mainView === 'classifiche' ? 'is-active' : ''}`}
+                      className={`burger-menu-item ${mainView === 'tornei' ? 'is-active' : ''}`}
                       onClick={() => {
                         setIsMenuOpen(false);
-                        onChangeMainView('classifiche');
+                        onChangeMainView('tornei');
                       }}
                     >
-                      <div className="burger-item-icon-box icon-star">
-                        <i className="bi bi-bar-chart-fill"></i>
+                      <div className="burger-item-icon-box icon-trophy">
+                        <i className="bi bi-trophy-fill"></i>
                       </div>
                       <div className="burger-item-content">
-                        <span className="burger-item-title">Classifiche Ufficiali</span>
-                        <span className="burger-item-desc">Ranking nazionale e comitati regionali</span>
+                        <span className="burger-item-title">Tornei</span>
+                        <span className="burger-item-desc">Tornei Top, Open, Nazionali e Regionali</span>
                       </div>
-                      {mainView === 'classifiche' ? (
+                      {mainView === 'tornei' ? (
                         <span className="burger-item-badge-active">Attivo</span>
                       ) : (
                         <i className="bi bi-chevron-right burger-item-arrow"></i>
@@ -514,7 +502,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`portal-nav-tab ${activeTab === 'classifica' ? 'active' : ''}`}
               onClick={(e) => handleTabClick('classifica', e)}
             >
-              <i className="bi bi-trophy"></i>
+              <i className="bi bi-shield-fill"></i>
               <span>Classifica Squadre</span>
               <span className="tab-badge">{counts.classifica}</span>
             </button>

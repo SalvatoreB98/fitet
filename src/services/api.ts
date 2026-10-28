@@ -9,7 +9,12 @@ import {
   AtletaCampionatoPartiteResponse,
   HeadToHeadData,
   RankingPageResult,
+  RankingCategoryKey,
+  TorneiResponse,
+  TorneoDettaglioResponse,
+  TorneoGaraDettaglioResponse,
 } from '../types/fitet';
+import { getRankingCategoryByKey } from '../constants/rankingCategories';
 import { saveVenueCache, getVenueCache, VenueCacheEntry } from '../utils/venueCache';
 import { notifyVenueFallback, notifyVenueSyncSuccess } from '../utils/useNetworkStatus';
 
@@ -246,7 +251,7 @@ export async function fetchAtletaCampionatoPartite(
     DEFAULT_TIMEOUT_MS,
     force
   );
-}
+} 248
 
 export async function fetchHeadToHead(
   atleta1: string,
@@ -274,12 +279,24 @@ export async function fetchRanking(
   page = 1,
   sesso: 'M' | 'F' = 'M',
   comit?: string | number,
+  category: RankingCategoryKey = 'generale',
   refresh = false
 ): Promise<RankingPageResult> {
+  const catDef = getRankingCategoryByKey(category);
   const params = new URLSearchParams({
     page: String(page),
     sesso,
+    category: catDef.key,
+    tipo: String(catDef.tipo),
+    sett: String(catDef.sett),
+    s: String(catDef.s),
+    fq: String(catDef.fq),
+    g: String(catDef.g),
+    v: String(catDef.v),
   });
+  if (catDef.p !== undefined) {
+    params.set('p', String(catDef.p));
+  }
   if (comit && String(comit) !== '0' && String(comit) !== 'all') {
     params.set('comit', String(comit));
   }
@@ -290,10 +307,98 @@ export async function fetchRanking(
 
   return fetchWithVenueFallback<RankingPageResult>(
     url,
-    `ranking_${sesso}_${comit || 'naz'}_p${page}`,
+    `ranking_${sesso}_${comit || 'naz'}_${catDef.key}_p${page}`,
     'ranking',
-    `Classifica ${sesso} p.${page}`,
+    `Classifica ${catDef.shortLabel} ${sesso} p.${page}`,
     DEFAULT_TIMEOUT_MS,
+    refresh
+  );
+}
+
+export async function fetchTornei(
+  category = 'all',
+  comit = 0,
+  reg = 0,
+  refresh = false
+): Promise<TorneiResponse> {
+  const params = new URLSearchParams({ category });
+  if (comit > 0) params.set('comit', String(comit));
+  if (reg > 0) params.set('reg', String(reg));
+  if (refresh) params.set('refresh', 'true');
+  const url = `${API_BASE}/tornei?${params.toString()}`;
+
+  return fetchWithVenueFallback<TorneiResponse>(
+    url,
+    `tornei_${category}_c${comit}_r${reg}`,
+    'tornei',
+    `Tornei FITeT (${category})`,
+    12000,
+    refresh
+  );
+}
+
+export async function fetchTorneoDettaglio(
+  idt: number,
+  com: number,
+  anno = 41,
+  refresh = false
+): Promise<TorneoDettaglioResponse> {
+  const params = new URLSearchParams({
+    idt: String(idt),
+    com: String(com),
+    anno: String(anno),
+  });
+  if (refresh) params.set('refresh', 'true');
+  const url = `${API_BASE}/tornei/dettaglio?${params.toString()}`;
+
+  return fetchWithVenueFallback<TorneoDettaglioResponse>(
+    url,
+    `torneo_dettaglio_${idt}_${com}_${anno}`,
+    'tornei',
+    `Torneo #${idt}`,
+    DEFAULT_TIMEOUT_MS,
+    refresh
+  );
+}
+
+export async function fetchTorneoGara(
+  options: {
+    idt: number;
+    com: number;
+    gara: string;
+    anno?: number;
+    isDoppio?: boolean;
+    mode?: 'risultati' | 'iscrizioni';
+    cod1?: number;
+    cod2?: number;
+    tab?: number;
+    turno?: number;
+  },
+  refresh = false
+): Promise<TorneoGaraDettaglioResponse> {
+  const params = new URLSearchParams({
+    idt: String(options.idt),
+    com: String(options.com),
+    gara: options.gara,
+    anno: String(options.anno || 41),
+    isDoppio: String(Boolean(options.isDoppio)),
+    mode: options.mode || 'risultati',
+  });
+  if (options.cod1 !== undefined) params.set('cod1', String(options.cod1));
+  if (options.cod2 !== undefined) params.set('cod2', String(options.cod2));
+  if (options.tab !== undefined) params.set('tab', String(options.tab));
+  if (options.turno !== undefined) params.set('turno', String(options.turno));
+  if (refresh) params.set('refresh', 'true');
+
+  const url = `${API_BASE}/tornei/gara?${params.toString()}`;
+  const cacheKey = `torneo_gara_${options.idt}_${options.com}_${options.gara}_${options.mode || 'ris'}_c${options.cod1 || 0}_t${options.turno || 0}`;
+
+  return fetchWithVenueFallback<TorneoGaraDettaglioResponse>(
+    url,
+    cacheKey,
+    'tornei',
+    `Gara ${options.gara} Torneo #${options.idt}`,
+    10000,
     refresh
   );
 }

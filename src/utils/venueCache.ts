@@ -13,7 +13,7 @@ export interface VenueCacheEntry<T> {
   cachedAt: string; // ISO string
   cachedTimeFormatted: string;
   label?: string;
-  type: 'dashboard' | 'atleta' | 'referto' | 'squadra' | 'campionati' | 'ranking';
+  type: 'dashboard' | 'atleta' | 'referto' | 'squadra' | 'campionati' | 'ranking' | 'tornei';
 }
 
 interface CacheManifestItem {

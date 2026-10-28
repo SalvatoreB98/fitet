@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 
 export interface RankingAthleteItem {
   rank: number;
+  hasOfficialRank?: boolean;
   atletaId: string;
   nome: string;
   dataNascita: string;
@@ -21,13 +22,15 @@ export interface RankingPageResult {
   totalPages: number;
   currentPage: number;
   athletes: RankingAthleteItem[];
+  category?: string;
 }
 
 export function parseRankingHtml(
   html: string,
   sesso: 'M' | 'F' = 'M',
   currentPage = 1,
-  comitId?: number
+  comitId?: number,
+  category?: string
 ): RankingPageResult {
   const $ = cheerio.load(html);
 
@@ -76,7 +79,12 @@ export function parseRankingHtml(
     });
 
     if (cells.length >= 7) {
-      const rankNum = parseInt(cells[0].replace(/\D/g, ''), 10) || (athletes.length + 1);
+      const rawRank = cells[0].replace(/\D/g, '');
+      const parsedRank = rawRank ? parseInt(rawRank, 10) : undefined;
+      const fallbackRank = (currentPage - 1) * 100 + athletes.length + 1;
+      const rankNum = parsedRank !== undefined ? parsedRank : fallbackRank;
+      const hasOfficialRank = parsedRank !== undefined;
+
       const dataNascita = cells[2] || '';
       const settore = cells[3] || '';
       const punti = parseFloat(cells[4].replace(',', '.')) || 0;
@@ -86,6 +94,7 @@ export function parseRankingHtml(
 
       athletes.push({
         rank: rankNum,
+        hasOfficialRank,
         atletaId,
         nome: athleteName,
         dataNascita,
@@ -111,5 +120,6 @@ export function parseRankingHtml(
     totalPages: Math.max(totalPages, 1),
     currentPage,
     athletes,
+    category,
   };
 }

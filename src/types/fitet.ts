@@ -339,6 +339,7 @@ export interface HeadToHeadData {
 
 export interface RankingAthleteItem {
   rank: number;
+  hasOfficialRank?: boolean;
   atletaId: string;
   nome: string;
   dataNascita: string;
@@ -358,5 +359,144 @@ export interface RankingPageResult {
   totalPages: number;
   currentPage: number;
   athletes: RankingAthleteItem[];
+  category?: string;
 }
+
+export * from '../constants/rankingCategories';
+
+export interface TorneoCategoryOption {
+  key: string;
+  label: string;
+  shortLabel: string;
+  group: 'top' | 'open' | 'nazionali' | 'regionali';
+  tor: number;
+  comit: number;
+  id: number;
+  icon: string;
+  description: string;
+}
+
+export interface TorneoItem {
+  idt: number;
+  anno: number;
+  com: number;
+  tipo: number;
+  data: string;
+  luogo: string;
+  regione?: string;
+  regioneId?: number;
+  status: 'disputato' | 'in_programma';
+  href: string;
+  categoriaKey?: string;
+  categoriaLabel?: string;
+}
+
+export interface TorneoSectionResult {
+  key: string;
+  title: string;
+  shortLabel: string;
+  tor: number;
+  comit: number;
+  id: number;
+  reg?: number;
+  regioneNome?: string;
+  tornei: TorneoItem[];
+  availableRegions?: Array<{ regId: number; name: string; tor: number; id: number; comit: number }>;
+}
+
+export interface TorneiResponse {
+  title: string;
+  categoryKey: string;
+  comitId: number;
+  regId?: number;
+  sections: TorneoSectionResult[];
+  totalTornei: number;
+  lastUpdated: string;
+}
+
+export interface TorneoGaraLink {
+  garaId: string;
+  nome: string;
+  anno: number;
+  idt: number;
+  com: number;
+  isDoppio: boolean;
+  mode: 'risultati' | 'iscrizioni';
+}
+
+export interface TorneoDettaglioResponse {
+  idt: number;
+  com: number;
+  anno: number;
+  titolo: string;
+  sottotitolo: string;
+  status: 'disputato' | 'in_programma';
+  pdfSinteticoUrl: string | null;
+  tabelloniHomeUrl: string | null;
+  gare: TorneoGaraLink[];
+}
+
+export interface TorneoIscrittoItem {
+  posizione: number;
+  nome: string;
+  atletaId?: string | null;
+  punti: string;
+  societa: string;
+  statusClass: string;
+  statusLabel: string;
+}
+
+export interface TorneoMatchItem {
+  atleta1: string;
+  atleta1Id?: string | null;
+  societa1: string;
+  atleta2: string;
+  atleta2Id?: string | null;
+  societa2: string;
+  set1: number;
+  set2: number;
+  sets: Array<{ p1: number; p2: number }>;
+  vincitore: 1 | 2 | null;
+}
+
+export interface TorneoGironeItem {
+  numero: string;
+  partite: TorneoMatchItem[];
+  classifica: Array<{
+    posizione: number;
+    nome: string;
+    atletaId?: string | null;
+    societa: string;
+    punti: number;
+    giocate: number;
+    vinte: number;
+    perse: number;
+    setVinti: number;
+    setPersi: number;
+  }>;
+}
+
+export interface TorneoGaraDettaglioResponse {
+  idt: number;
+  com: number;
+  garaId: string;
+  anno: number;
+  titoloGara: string;
+  mode: 'risultati' | 'iscrizioni';
+  isDoppio: boolean;
+  vincitore?: string | null;
+  vincitoreId?: string | null;
+  vincitoreFotoUrl?: string | null;
+  valoreRanking?: string | null;
+  maxIscritti?: string | null;
+  iscritti: TorneoIscrittoItem[];
+  gironiRanges: Array<{ cod1: number; cod2: number; label: string }>;
+  activeGironiRange?: { cod1: number; cod2: number } | null;
+  gironi: TorneoGironeItem[];
+  turniTabellone: Array<{ tab: number; turno: number; label: string }>;
+  activeTurno?: { tab: number; turno: number; label: string } | null;
+  partiteTabellone: TorneoMatchItem[];
+}
+
+
 

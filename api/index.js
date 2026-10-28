@@ -2844,7 +2844,7 @@ function parseDettaglioPartita(html, partitaId) {
 
 // server/parsers/rankingParser.ts
 import * as cheerio11 from "cheerio";
-function parseRankingHtml(html, sesso = "M", currentPage = 1, comitId) {
+function parseRankingHtml(html, sesso = "M", currentPage = 1, comitId, category) {
   const $ = cheerio11.load(html);
   const titleText = $("td.style2 p.titoli, p.titoli").first().text().replace(/\s+/g, " ").trim();
   const titleClean = titleText.replace(/\(Atleti:.*?\)/i, "").trim();
@@ -2877,7 +2877,11 @@ function parseRankingHtml(html, sesso = "M", currentPage = 1, comitId) {
       cells.push($(td).text().replace(/\s+/g, " ").trim());
     });
     if (cells.length >= 7) {
-      const rankNum = parseInt(cells[0].replace(/\D/g, ""), 10) || athletes.length + 1;
+      const rawRank = cells[0].replace(/\D/g, "");
+      const parsedRank = rawRank ? parseInt(rawRank, 10) : void 0;
+      const fallbackRank = (currentPage - 1) * 100 + athletes.length + 1;
+      const rankNum = parsedRank !== void 0 ? parsedRank : fallbackRank;
+      const hasOfficialRank = parsedRank !== void 0;
       const dataNascita = cells[2] || "";
       const settore = cells[3] || "";
       const punti = parseFloat(cells[4].replace(",", ".")) || 0;
@@ -2886,6 +2890,7 @@ function parseRankingHtml(html, sesso = "M", currentPage = 1, comitId) {
       const categoria = cells[7] || "";
       athletes.push({
         rank: rankNum,
+        hasOfficialRank,
         atletaId,
         nome: athleteName,
         dataNascita,
@@ -2908,7 +2913,8 @@ function parseRankingHtml(html, sesso = "M", currentPage = 1, comitId) {
     totalAthletes,
     totalPages: Math.max(totalPages, 1),
     currentPage,
-    athletes
+    athletes,
+    category
   };
 }
 
@@ -2939,8 +2945,1106 @@ function parseSceltaAtleta(html) {
   return results;
 }
 
-// server/app.ts
+// server/parsers/torneiParser.ts
 import * as cheerio13 from "cheerio";
+var COMIT_NAMES = {
+  1: "Valle d'Aosta",
+  2: "Piemonte",
+  3: "Liguria",
+  4: "Lombardia",
+  5: "Veneto",
+  6: "Trentino",
+  7: "Alto Adige",
+  8: "Friuli Venezia Giulia",
+  9: "Emilia Romagna",
+  10: "Toscana",
+  11: "Marche",
+  12: "Umbria",
+  13: "Lazio",
+  14: "Abruzzo",
+  15: "Molise",
+  16: "Campania",
+  17: "Basilicata",
+  18: "Puglia",
+  19: "Calabria",
+  20: "Sicilia",
+  21: "Sardegna",
+  30: "Nazionale"
+};
+function cleanText(raw) {
+  return (raw || "").replace(/\u00a0/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
+}
+function lookupAthleteId(name, mapping) {
+  if (!name || !mapping) return null;
+  const upper = name.toUpperCase().replace(/\s+/g, " ").trim();
+  if (mapping[upper]) return mapping[upper];
+  const noSpecial = upper.replace(/[^A-Z0-9 ]/g, "");
+  if (mapping[noSpecial]) return mapping[noSpecial];
+  return null;
+}
+function parseTestaTornei(html, fallbackTitle = "TORNEI FITeT") {
+  if (!html || !html.trim()) return fallbackTitle;
+  const $ = cheerio13.load(html);
+  const stileText = cleanText($("p.stile, p, h1, h2, td").first().text());
+  if (stileText && stileText.length > 2) {
+    return stileText;
+  }
+  const bodyText = cleanText($("body").text());
+  return bodyText.length > 2 ? bodyText : fallbackTitle;
+}
+function parseElencoTornei(html, defaultComit = 30, defaultTor = 0, defaultReg, categoriaKey, categoriaLabel) {
+  const result = {
+    regions: [],
+    tornei: []
+  };
+  if (!html || !html.trim()) return result;
+  const $ = cheerio13.load(html);
+  $("a[href]").each((_, el) => {
+    const rawHref = ($(el).attr("href") || "").trim();
+    if (!rawHref) return;
+    const innerHtml = $(el).html() || "";
+    const rawText = cleanText($(el).text());
+    const regMatch = rawHref.match(/[?&]REG=(\d+)/i);
+    if (/elenco_tornei\.php/i.test(rawHref) && regMatch) {
+      const regId = parseInt(regMatch[1], 10);
+      const torMatch = rawHref.match(/[?&]TOR=(\d+)/i);
+      const idMatch = rawHref.match(/[?&]ID=(\d+)/i);
+      const comitMatch = rawHref.match(/[?&]COMIT=(\d+)/i);
+      if (regId > 0 && !result.regions.some((r) => r.regId === regId)) {
+        result.regions.push({
+          regId,
+          name: COMIT_NAMES[regId] || rawText.replace(/-/g, " ") || `Regione ${regId}`,
+          tor: torMatch ? parseInt(torMatch[1], 10) : defaultTor,
+          id: idMatch ? parseInt(idMatch[1], 10) : 0,
+          comit: comitMatch ? parseInt(comitMatch[1], 10) : defaultComit,
+          href: rawHref
+        });
+      }
+      return;
+    }
+    const idtMatch = rawHref.match(/[?&]IDT=(\d+)/i);
+    if (!idtMatch) return;
+    const idt = parseInt(idtMatch[1], 10);
+    const annoMatch = rawHref.match(/[?&]ANNO=(\d+)/i);
+    const comMatch = rawHref.match(/[?&]COM(?:IT)?=(\d+)/i);
+    const tipoMatch = rawHref.match(/[?&]TIPO=(\d+)/i);
+    const anno = annoMatch ? parseInt(annoMatch[1], 10) : 41;
+    const com = comMatch ? parseInt(comMatch[1], 10) : defaultReg || defaultComit;
+    const tipo = tipoMatch ? parseInt(tipoMatch[1], 10) : defaultTor;
+    const isDisputato = /visualizza_risultati\.php/i.test(rawHref);
+    const status = isDisputato ? "disputato" : "in_programma";
+    let data = "";
+    let luogo = "";
+    const parts = innerHtml.split(/<br\s*\/?>/i).map((p) => cleanText(cheerio13.load(p).text())).filter(Boolean);
+    if (parts.length >= 2) {
+      data = parts[0];
+      luogo = parts.slice(1).join(" - ");
+    } else {
+      const dateRegex = rawText.match(/^(\d{1,2}\/\d{1,2}\/\d{2,4})\s*(.*)$/);
+      if (dateRegex) {
+        data = dateRegex[1];
+        luogo = dateRegex[2].replace(/^[-–•\s]+/, "").trim() || "Sede da definire";
+      } else {
+        luogo = rawText || `Torneo #${idt}`;
+      }
+    }
+    const regIdResolved = defaultReg || (com >= 1 && com <= 21 ? com : void 0);
+    const regioneResolved = regIdResolved ? COMIT_NAMES[regIdResolved] : COMIT_NAMES[com] || void 0;
+    if (!result.tornei.some((t) => t.idt === idt && t.com === com)) {
+      result.tornei.push({
+        idt,
+        anno,
+        com,
+        tipo,
+        data,
+        luogo,
+        regione: regioneResolved,
+        regioneId: regIdResolved,
+        status,
+        href: rawHref.startsWith("http") ? rawHref : `https://portale.fitet.org/risultati/tornei/${rawHref.replace(/^\/+/, "")}`,
+        categoriaKey,
+        categoriaLabel
+      });
+    }
+  });
+  return result;
+}
+function parseMenuManifestazioni(html) {
+  const discovered = [];
+  if (!html) return discovered;
+  const $ = cheerio13.load(html);
+  $('a[href*="risultati_tornei.php"]').each((_, el) => {
+    const href = $(el).attr("href") || "";
+    const label = cleanText($(el).text());
+    if (!label) return;
+    const torMatch = href.match(/[?&]TOR=(\d+)/i);
+    const comitMatch = href.match(/[?&]COMIT=(\d+)/i);
+    const idMatch = href.match(/[?&]ID=(\d+)/i);
+    const tor = torMatch ? parseInt(torMatch[1], 10) : 0;
+    const comit = comitMatch ? parseInt(comitMatch[1], 10) : 30;
+    const id = idMatch ? parseInt(idMatch[1], 10) : 0;
+    if (!discovered.some((d) => d.tor === tor && d.comit === comit && d.id === id)) {
+      discovered.push({ label, tor, comit, id });
+    }
+  });
+  return discovered;
+}
+function parseDettaglioTorneo(elencoGareHtml, iscrizioniHtml, idt, com, anno = 41) {
+  const gare = [];
+  let titolo = "";
+  let sottotitolo = "";
+  let pdfSinteticoUrl = null;
+  let tabelloniHomeUrl = null;
+  let status = "in_programma";
+  const extractFromHtml = (html, sourceMode) => {
+    if (!html || !html.trim()) return;
+    const $ = cheerio13.load(html);
+    const headerParagraphs = [];
+    $("body > p.dettagli, body > p").each((_, p) => {
+      const txt = cleanText($(p).text());
+      if (txt && !/^risultati delle gare disputate$/i.test(txt) && !/^gare in programma al torneo$/i.test(txt)) {
+        headerParagraphs.push(txt);
+      }
+    });
+    if (!titolo && headerParagraphs.length >= 1) {
+      titolo = headerParagraphs[0];
+    }
+    if (!sottotitolo && headerParagraphs.length >= 2) {
+      sottotitolo = headerParagraphs[1];
+    }
+    $("a[href]").each((_, a) => {
+      const href = ($(a).attr("href") || "").trim();
+      const text = cleanText($(a).text());
+      if (!href) return;
+      if (/\.pdf$/i.test(href) || /dati sintetici/i.test(text)) {
+        if (!pdfSinteticoUrl) {
+          pdfSinteticoUrl = href.startsWith("http") ? href : `https://portale.fitet.org/risultati/tornei/${href.replace(/^\/+/, "")}`;
+        }
+        return;
+      }
+      if (/_home\.html$/i.test(href) || /tabelloni finali/i.test(text)) {
+        if (!tabelloniHomeUrl) {
+          tabelloniHomeUrl = href.startsWith("http") ? href : `https://portale.fitet.org/risultati/tornei/${href.replace(/^\/+/, "")}`;
+        }
+        return;
+      }
+      const garaMatch = href.match(/[?&]GARA=([^&#\s]+)/i);
+      if (garaMatch && text) {
+        const garaId = garaMatch[1];
+        const annoMatch = href.match(/[?&]ANNO=(\d+)/i);
+        const isDoppio = /doppio/i.test(href) || /doppio/i.test(text);
+        const linkMode = /iscrizioni_gara\.php/i.test(href) ? "iscrizioni" : sourceMode;
+        if (linkMode === "risultati") {
+          status = "disputato";
+        }
+        const existingIdx = gare.findIndex((g) => g.garaId === garaId);
+        const item = {
+          garaId,
+          nome: text,
+          anno: annoMatch ? parseInt(annoMatch[1], 10) : anno,
+          idt,
+          com,
+          isDoppio,
+          mode: linkMode
+        };
+        if (existingIdx === -1) {
+          gare.push(item);
+        } else if (gare[existingIdx].mode === "iscrizioni" && linkMode === "risultati") {
+          gare[existingIdx] = item;
+        }
+      }
+    });
+  };
+  extractFromHtml(elencoGareHtml, "risultati");
+  extractFromHtml(iscrizioniHtml, "iscrizioni");
+  return {
+    idt,
+    com,
+    anno,
+    titolo: titolo || `Torneo FITeT #${idt}`,
+    sottotitolo: sottotitolo || COMIT_NAMES[com] || "",
+    status,
+    pdfSinteticoUrl,
+    tabelloniHomeUrl,
+    gare
+  };
+}
+var STATUS_LABELS = {
+  dettagli_diritto: "Ammesso di diritto",
+  dettagli_ammessi: "Ammesso",
+  dettagli_naz: "Ammesso (Naz.)",
+  dettagli_reg: "Ammesso (Reg.)",
+  dettagli_no_ammessi: "Riserva / Non ammesso",
+  dettagli_wd: "Cancellato (WD)",
+  dettagli_m: "Maschile",
+  dettagli_f: "Femminile",
+  dettagli: "Iscritto"
+};
+function parseIscrizioniGara(html, athleteMapping) {
+  if (!html || !html.trim()) {
+    return { titoloGara: "", maxIscritti: null, iscritti: [] };
+  }
+  const $ = cheerio13.load(html);
+  const rawHeader = cleanText($("p.dettagli b").first().text());
+  const maxMatch = rawHeader.match(/\[max\.\s*(\d+)\]/i);
+  const maxIscritti = maxMatch ? maxMatch[1] : null;
+  const titoloGara = rawHeader.replace(/^Elenco atleti iscritti della gara\s*/i, "").replace(/\[max\.\s*\d+\]/i, "").trim();
+  const iscritti = [];
+  $("table tr").each((idx, tr) => {
+    const tds = $(tr).find("td");
+    if (tds.length < 5) return;
+    const posText = cleanText($(tds[0]).text());
+    const nameP = $(tds[1]).find("p").first();
+    const nome = cleanText(nameP.length ? nameP.text() : $(tds[1]).text());
+    if (!nome || /^nome atleta$/i.test(nome)) return;
+    const statusClass = (nameP.attr("class") || "dettagli").trim();
+    const punti = cleanText($(tds[3]).text());
+    const societa = cleanText($(tds[4]).text());
+    const posizione = parseInt(posText, 10) || iscritti.length + 1;
+    iscritti.push({
+      posizione,
+      nome,
+      atletaId: lookupAthleteId(nome, athleteMapping),
+      punti,
+      societa,
+      statusClass,
+      statusLabel: STATUS_LABELS[statusClass] || "Iscritto"
+    });
+  });
+  return { titoloGara, maxIscritti, iscritti };
+}
+function parseGestioneGara(html, athleteMapping) {
+  if (!html || !html.trim()) {
+    return {
+      titoloGara: "",
+      vincitore: null,
+      vincitoreId: null,
+      vincitoreFotoUrl: null,
+      valoreRanking: null,
+      gironiRanges: [],
+      turniTabellone: []
+    };
+  }
+  const $ = cheerio13.load(html);
+  let titoloGara = cleanText($("h5.card-title").first().text());
+  if (!titoloGara) {
+    titoloGara = cleanText($('font[color="#0000FF"]').first().text());
+  }
+  let vincitore = null;
+  $("h5").each((_, h5) => {
+    const txt = cleanText($(h5).text());
+    const winMatch = txt.match(/1\^\s*classificato:\s*(.+)$/i);
+    if (winMatch && winMatch[1].trim()) {
+      vincitore = winMatch[1].trim();
+    }
+  });
+  let vincitoreFotoUrl = null;
+  let vincitoreId = null;
+  const imgSrc = $('img[src*="images/atleti/"]').attr("src") || "";
+  if (imgSrc) {
+    const idMatch = imgSrc.match(/atleti\/(\d+)\.jpg/i);
+    if (idMatch) {
+      vincitoreId = idMatch[1];
+      vincitoreFotoUrl = `https://portale.fitet.org/images/atleti/${vincitoreId}.jpg`;
+    }
+  }
+  if (!vincitoreId && vincitore) {
+    vincitoreId = lookupAthleteId(vincitore, athleteMapping);
+  }
+  let valoreRanking = null;
+  const bodyText = cleanText($("body").text());
+  const valMatch = bodyText.match(/valore della gara per ranking:\s*([^\)\s]+)/i);
+  if (valMatch) {
+    valoreRanking = valMatch[1].trim();
+  }
+  const gironiRanges = [];
+  $('a[href*="risultati.php"]').each((_, a) => {
+    const href = $(a).attr("href") || "";
+    const label = cleanText($(a).text());
+    const c1 = href.match(/[?&]COD_1=(\d+)/i);
+    const c2 = href.match(/[?&]COD_2=(\d+)/i);
+    if (c1 && c2) {
+      const cod1 = parseInt(c1[1], 10);
+      const cod2 = parseInt(c2[1], 10);
+      if (!gironiRanges.some((g) => g.cod1 === cod1 && g.cod2 === cod2)) {
+        gironiRanges.push({ cod1, cod2, label: label || `${cod1} - ${cod2}` });
+      }
+    }
+  });
+  const turniTabellone = [];
+  const TURNO_NAMES = {
+    9: "Finale",
+    8: "Semifinali",
+    7: "Quarti di Finale",
+    6: "Ottavi di Finale",
+    5: "Sedicesimi",
+    4: "32esimi",
+    3: "64esimi",
+    2: "128esimi"
+  };
+  $('area[href*="risultati_tabellone"], a[href*="risultati_tabellone"]').each((_, area) => {
+    const href = $(area).attr("href") || "";
+    const alt = cleanText($(area).attr("alt") || $(area).text() || "");
+    const tabMatch = href.match(/[?&]TAB=(\d+)/i);
+    const turnoMatch = href.match(/[?&]TURNO=(\d+)/i);
+    if (turnoMatch) {
+      const tab = tabMatch ? parseInt(tabMatch[1], 10) : 1;
+      const turno = parseInt(turnoMatch[1], 10);
+      const label = TURNO_NAMES[turno] || alt.replace(/\uFFFD/g, "\xB0") || `Turno ${turno}`;
+      if (!turniTabellone.some((t) => t.tab === tab && t.turno === turno)) {
+        turniTabellone.push({ tab, turno, label });
+      }
+    }
+  });
+  turniTabellone.sort((a, b) => b.turno - a.turno);
+  return {
+    titoloGara,
+    vincitore,
+    vincitoreId,
+    vincitoreFotoUrl,
+    valoreRanking,
+    gironiRanges,
+    turniTabellone
+  };
+}
+function parseMatchTable($, table, athleteMapping) {
+  const rows = $(table).find("tr");
+  if (rows.length < 2) return null;
+  const r1Tds = $(rows[0]).find("td");
+  const r2Tds = $(rows[1]).find("td");
+  if (r1Tds.length < 3 || r2Tds.length < 3) return null;
+  const atleta1 = cleanText($(r1Tds[0]).find("p.dettagli").first().text());
+  const societa1 = cleanText($(r1Tds[0]).find("p.soc").first().text());
+  const atleta2 = cleanText($(r2Tds[0]).find("p.dettagli").first().text());
+  const societa2 = cleanText($(r2Tds[0]).find("p.soc").first().text());
+  if (!atleta1 && !atleta2) return null;
+  const p1Points = [];
+  $(rows[0]).find("p.punti").each((_, p) => {
+    p1Points.push(parseInt(cleanText($(p).text()), 10) || 0);
+  });
+  const p2Points = [];
+  $(rows[1]).find("p.punti").each((_, p) => {
+    p2Points.push(parseInt(cleanText($(p).text()), 10) || 0);
+  });
+  const set1 = parseInt(cleanText($(rows[0]).find("p.set").first().text()), 10) || 0;
+  const set2 = parseInt(cleanText($(rows[1]).find("p.set").first().text()), 10) || 0;
+  const sets = [];
+  const maxLen = Math.min(p1Points.length, p2Points.length);
+  for (let i = 0; i < maxLen; i++) {
+    if (p1Points[i] > 0 || p2Points[i] > 0) {
+      sets.push({ p1: p1Points[i], p2: p2Points[i] });
+    }
+  }
+  let vincitore = null;
+  if (set1 > set2) vincitore = 1;
+  else if (set2 > set1) vincitore = 2;
+  else {
+    const rowspanCell = $(rows[0]).find('td[rowspan="2"]');
+    if (rowspanCell.length) {
+      const winText = cleanText(rowspanCell.text()).toUpperCase();
+      if (winText && atleta1 && winText === atleta1.toUpperCase()) vincitore = 1;
+      else if (winText && atleta2 && winText === atleta2.toUpperCase()) vincitore = 2;
+    }
+  }
+  return {
+    atleta1,
+    atleta1Id: lookupAthleteId(atleta1, athleteMapping),
+    societa1,
+    atleta2,
+    atleta2Id: lookupAthleteId(atleta2, athleteMapping),
+    societa2,
+    set1,
+    set2,
+    sets,
+    vincitore
+  };
+}
+function parseRisultatiGironi(html, athleteMapping) {
+  if (!html || !html.trim()) return [];
+  const $ = cheerio13.load(html);
+  const gironiMap = /* @__PURE__ */ new Map();
+  let currentGirone = "1";
+  const container = $('div[align="left"]').first();
+  const root = container.length ? container : $("body");
+  root.children().each((_, el) => {
+    const tag = (el.tagName || "").toLowerCase();
+    if (tag === "p") {
+      const txt = cleanText($(el).text());
+      const gMatch = txt.match(/Girone:\s*(\S+)/i);
+      if (gMatch) {
+        currentGirone = gMatch[1];
+        if (!gironiMap.has(currentGirone)) {
+          gironiMap.set(currentGirone, []);
+        }
+      }
+    } else if (tag === "table") {
+      const match = parseMatchTable($, el, athleteMapping);
+      if (match) {
+        if (!gironiMap.has(currentGirone)) {
+          gironiMap.set(currentGirone, []);
+        }
+        gironiMap.get(currentGirone).push(match);
+      }
+    }
+  });
+  const result = [];
+  for (const [numero, partite] of gironiMap.entries()) {
+    if (partite.length === 0) continue;
+    const statsMap = /* @__PURE__ */ new Map();
+    const ensurePlayer = (nome, societa, atletaId) => {
+      if (!nome) return null;
+      if (!statsMap.has(nome)) {
+        statsMap.set(nome, {
+          nome,
+          atletaId,
+          societa,
+          punti: 0,
+          giocate: 0,
+          vinte: 0,
+          perse: 0,
+          setVinti: 0,
+          setPersi: 0
+        });
+      }
+      return statsMap.get(nome);
+    };
+    for (const m of partite) {
+      const p1 = ensurePlayer(m.atleta1, m.societa1, m.atleta1Id);
+      const p2 = ensurePlayer(m.atleta2, m.societa2, m.atleta2Id);
+      if (p1 && p2 && (m.set1 > 0 || m.set2 > 0 || m.vincitore !== null)) {
+        p1.giocate += 1;
+        p2.giocate += 1;
+        p1.setVinti += m.set1;
+        p1.setPersi += m.set2;
+        p2.setVinti += m.set2;
+        p2.setPersi += m.set1;
+        if (m.vincitore === 1) {
+          p1.vinte += 1;
+          p1.punti += 2;
+          p2.perse += 1;
+          p2.punti += 1;
+        } else if (m.vincitore === 2) {
+          p2.vinte += 1;
+          p2.punti += 2;
+          p1.perse += 1;
+          p1.punti += 1;
+        }
+      }
+    }
+    const classifica = Array.from(statsMap.values()).sort((a, b) => {
+      if (b.punti !== a.punti) return b.punti - a.punti;
+      const diffA = a.setVinti - a.setPersi;
+      const diffB = b.setVinti - b.setPersi;
+      if (diffB !== diffA) return diffB - diffA;
+      return b.setVinti - a.setVinti;
+    }).map((item, idx) => ({
+      posizione: idx + 1,
+      ...item
+    }));
+    result.push({
+      numero,
+      partite,
+      classifica
+    });
+  }
+  return result;
+}
+function parseRisultatiTabellone(html, athleteMapping) {
+  if (!html || !html.trim()) return [];
+  const $ = cheerio13.load(html);
+  const matches = [];
+  $('table[bgcolor="#EFEBCF"]').each((_, table) => {
+    const m = parseMatchTable($, table, athleteMapping);
+    if (m) matches.push(m);
+  });
+  return matches;
+}
+
+// src/constants/rankingCategories.ts
+var RANKING_CATEGORIES = [
+  // 1. Generale
+  {
+    key: "generale",
+    label: "Classifica Generale",
+    shortLabel: "Generale",
+    group: "generale",
+    tipo: 1,
+    sett: "0",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 0,
+    description: "Classifica unica atleti tesserati FITeT",
+    icon: "bi-trophy-fill"
+  },
+  // 2. Altre categorie (Speciali)
+  {
+    key: "stranieri",
+    label: "Stranieri",
+    shortLabel: "Stranieri",
+    group: "speciali",
+    tipo: 0,
+    sett: "0",
+    s: 1,
+    fq: 0,
+    g: 0,
+    v: 0,
+    description: "Classifica atleti con cittadinanza straniera tesserati in Italia",
+    icon: "bi-globe2"
+  },
+  {
+    key: "fuori_quadro",
+    label: "Fuori Quadro (FQ)",
+    shortLabel: "Fuori Quadro",
+    group: "speciali",
+    tipo: 0,
+    sett: "0",
+    s: 0,
+    fq: 1,
+    g: 0,
+    v: 0,
+    description: "Atleti momentaneamente fuori quadro per attivit\xE0 o punteggio",
+    icon: "bi-slash-circle"
+  },
+  {
+    key: "provvisori",
+    label: "Provvisori",
+    shortLabel: "Provvisori",
+    group: "speciali",
+    tipo: 9,
+    sett: "0",
+    s: 0,
+    fq: 1,
+    g: 0,
+    v: 0,
+    description: "Atleti con posizione o punteggio provvisorio FITeT",
+    icon: "bi-hourglass-split"
+  },
+  // 3. Giovanili (G=1)
+  {
+    key: "u11",
+    label: "Under 11 (Giovanissimi)",
+    shortLabel: "U11",
+    group: "giovanili",
+    tipo: 0,
+    sett: "G",
+    s: 0,
+    fq: 0,
+    g: 1,
+    v: 0,
+    description: "Settore giovanile Under 11",
+    icon: "bi-person-badge"
+  },
+  {
+    key: "u13",
+    label: "Under 13 (Ragazzi)",
+    shortLabel: "U13",
+    group: "giovanili",
+    tipo: 0,
+    sett: "R",
+    s: 0,
+    fq: 0,
+    g: 1,
+    v: 0,
+    description: "Settore giovanile Under 13",
+    icon: "bi-person-badge"
+  },
+  {
+    key: "u15",
+    label: "Under 15 (Allievi)",
+    shortLabel: "U15",
+    group: "giovanili",
+    tipo: 0,
+    sett: "D",
+    s: 0,
+    fq: 0,
+    g: 1,
+    v: 0,
+    description: "Settore giovanile Under 15",
+    icon: "bi-person-badge"
+  },
+  {
+    key: "u17",
+    label: "Under 17 (Cadetti)",
+    shortLabel: "U17",
+    group: "giovanili",
+    tipo: 0,
+    sett: "A",
+    s: 0,
+    fq: 0,
+    g: 1,
+    v: 0,
+    description: "Settore giovanile Under 17",
+    icon: "bi-person-badge"
+  },
+  {
+    key: "u19",
+    label: "Under 19 (Juniores)",
+    shortLabel: "U19",
+    group: "giovanili",
+    tipo: 0,
+    sett: "J",
+    s: 0,
+    fq: 0,
+    g: 1,
+    v: 0,
+    description: "Settore giovanile Under 19",
+    icon: "bi-person-badge"
+  },
+  {
+    key: "u21",
+    label: "Under 21",
+    shortLabel: "U21",
+    group: "giovanili",
+    tipo: 0,
+    sett: "U",
+    s: 0,
+    fq: 0,
+    g: 1,
+    v: 0,
+    description: "Settore giovanile Under 21",
+    icon: "bi-person-badge"
+  },
+  // 4. Master (V=1)
+  {
+    key: "master_1",
+    label: "Master Categoria 1 (40-49 anni)",
+    shortLabel: "Cat. 1 (40-49)",
+    group: "master",
+    tipo: 0,
+    sett: "1",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master 40-49 anni",
+    icon: "bi-award"
+  },
+  {
+    key: "master_2",
+    label: "Master Categoria 2 (50-59 anni)",
+    shortLabel: "Cat. 2 (50-59)",
+    group: "master",
+    tipo: 0,
+    sett: "2",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master 50-59 anni",
+    icon: "bi-award"
+  },
+  {
+    key: "master_3",
+    label: "Master Categoria 3 (60-64 anni)",
+    shortLabel: "Cat. 3 (60-64)",
+    group: "master",
+    tipo: 0,
+    sett: "3",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master 60-64 anni",
+    icon: "bi-award"
+  },
+  {
+    key: "master_4",
+    label: "Master Categoria 4 (65-69 anni)",
+    shortLabel: "Cat. 4 (65-69)",
+    group: "master",
+    tipo: 0,
+    sett: "4",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master 65-69 anni",
+    icon: "bi-award"
+  },
+  {
+    key: "master_5",
+    label: "Master Categoria 5 (70-74 anni)",
+    shortLabel: "Cat. 5 (70-74)",
+    group: "master",
+    tipo: 0,
+    sett: "5",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master 70-74 anni",
+    icon: "bi-award"
+  },
+  {
+    key: "master_6",
+    label: "Master Categoria 6 (75-79 anni)",
+    shortLabel: "Cat. 6 (75-79)",
+    group: "master",
+    tipo: 0,
+    sett: "6",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master 75-79 anni",
+    icon: "bi-award"
+  },
+  {
+    key: "master_7",
+    label: "Master Categoria 7 (80+ anni)",
+    shortLabel: "Cat. 7 (80+)",
+    group: "master",
+    tipo: 0,
+    sett: "7",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master oltre 80 anni",
+    icon: "bi-award"
+  },
+  // 5. Paralimpici (TIPO=2)
+  {
+    key: "para_1_5",
+    label: "Paralimpica Classe 1-5 (Carrozzina)",
+    shortLabel: "Classe 1-5 (Carrozzina)",
+    group: "paralimpici",
+    tipo: 2,
+    p: 1,
+    sett: "0",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 0,
+    description: "Atleti paralimpici in carrozzina (Classi 1-5)",
+    icon: "bi-universal-access"
+  },
+  {
+    key: "para_6_10",
+    label: "Paralimpica Classe 6-10 (In piedi)",
+    shortLabel: "Classe 6-10 (In piedi)",
+    group: "paralimpici",
+    tipo: 2,
+    p: 6,
+    sett: "0",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 0,
+    description: "Atleti paralimpici deambulanti (Classi 6-10)",
+    icon: "bi-universal-access"
+  },
+  {
+    key: "para_11",
+    label: "Paralimpica Classe 11 (DIR)",
+    shortLabel: "Classe 11 (DIR)",
+    group: "paralimpici",
+    tipo: 2,
+    p: 11,
+    sett: "0",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 0,
+    description: "Atleti con disabilit\xE0 intellettivo-relazionale (Classe 11)",
+    icon: "bi-universal-access"
+  }
+];
+function getRankingCategoryByKey(key) {
+  if (!key) return RANKING_CATEGORIES[0];
+  const found = RANKING_CATEGORIES.find((c) => c.key === key);
+  return found || RANKING_CATEGORIES[0];
+}
+
+// src/constants/torneiCategories.ts
+var TORNEI_CATEGORIES = [
+  // 1. TOP (TOR=21..26, COMIT=30, ID=0)
+  {
+    key: "top1",
+    label: "Tornei Nazionali Top 1",
+    shortLabel: "Top 1",
+    group: "top",
+    tor: 21,
+    comit: 30,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Tornei Nazionali Top 1 Assoluti"
+  },
+  {
+    key: "top2",
+    label: "Tornei Nazionali Top 2",
+    shortLabel: "Top 2",
+    group: "top",
+    tor: 22,
+    comit: 30,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Tornei Nazionali Top 2"
+  },
+  {
+    key: "top3",
+    label: "Tornei Nazionali Top 3",
+    shortLabel: "Top 3",
+    group: "top",
+    tor: 23,
+    comit: 30,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Tornei Nazionali Top 3"
+  },
+  {
+    key: "top4",
+    label: "Tornei Nazionali Top 4",
+    shortLabel: "Top 4",
+    group: "top",
+    tor: 24,
+    comit: 30,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Tornei Nazionali Top 4"
+  },
+  {
+    key: "top5",
+    label: "Tornei Nazionali Top 5",
+    shortLabel: "Top 5",
+    group: "top",
+    tor: 25,
+    comit: 30,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Tornei Nazionali Top 5"
+  },
+  {
+    key: "top6",
+    label: "Tornei Nazionali Top 6",
+    shortLabel: "Top 6",
+    group: "top",
+    tor: 26,
+    comit: 30,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Tornei Nazionali Top 6"
+  },
+  // 2. OPEN (TOR=0, COMIT=30, ID=36 + fallback regionale TOR=100)
+  {
+    key: "open",
+    label: "Tornei Open (Over)",
+    shortLabel: "Tornei Open",
+    group: "open",
+    tor: 0,
+    comit: 30,
+    id: 36,
+    icon: "bi-globe-europe-africa",
+    description: "Tornei Open / Over interregionali su tutto il territorio"
+  },
+  // 3. NAZIONALI (Giovanili, Master, Paralimpici, Giornate Rosa, ecc.)
+  {
+    key: "giovanili",
+    label: "Tornei Nazionali Giovanili",
+    shortLabel: "Giovanili",
+    group: "nazionali",
+    tor: 2,
+    comit: 30,
+    id: 0,
+    icon: "bi-backpack-fill",
+    description: "Tornei Nazionali Giovanili Under 11 - Under 21"
+  },
+  {
+    key: "master",
+    label: "Tornei Nazionali Master",
+    shortLabel: "Master",
+    group: "nazionali",
+    tor: 5,
+    comit: 30,
+    id: 0,
+    icon: "bi-award-fill",
+    description: "Tornei Nazionali Master Over 40 - Over 80"
+  },
+  {
+    key: "paralimpici",
+    label: "Tornei Nazionali Paralimpici",
+    shortLabel: "Paralimpici",
+    group: "nazionali",
+    tor: 8,
+    comit: 30,
+    id: 0,
+    icon: "bi-universal-access-circle",
+    description: "Tornei Nazionali Paralimpici Classi 1-11"
+  },
+  {
+    key: "giornate_rosa",
+    label: "Giornate Rosa Nazionali",
+    shortLabel: "Giornate Rosa",
+    group: "nazionali",
+    tor: 12,
+    comit: 30,
+    id: 0,
+    icon: "bi-heart-fill",
+    description: "Manifestazioni Nazionali Giornate Rosa Femminili"
+  },
+  {
+    key: "trofeo_transalpino",
+    label: "Trofeo Transalpino",
+    shortLabel: "Transalpino",
+    group: "nazionali",
+    tor: 9,
+    comit: 30,
+    id: 0,
+    icon: "bi-compass-fill",
+    description: "Trofeo Transalpino giovanile e internazionale"
+  },
+  {
+    key: "campionati_italiani",
+    label: "Campionati Italiani",
+    shortLabel: "Camp. Italiani",
+    group: "nazionali",
+    tor: 10,
+    comit: 30,
+    id: 0,
+    icon: "bi-patch-check-fill",
+    description: "Campionati Italiani Individuali e di Categoria"
+  },
+  {
+    key: "coppa_italia",
+    label: "Coppa Italia CC.RR.",
+    shortLabel: "Coppa Italia",
+    group: "nazionali",
+    tor: 14,
+    comit: 30,
+    id: 0,
+    icon: "bi-shield-check",
+    description: "Coppa Italia Comitati Regionali"
+  },
+  {
+    key: "promozionali_naz",
+    label: "Tornei Promozionali",
+    shortLabel: "Promozionali",
+    group: "nazionali",
+    tor: 7,
+    comit: 30,
+    id: 0,
+    icon: "bi-lightning-charge-fill",
+    description: "Tornei Promozionali Nazionali"
+  },
+  // 4. REGIONALI (TOR=100..112, COMIT=1..21, ID=0)
+  {
+    key: "reg_categoria",
+    label: "Tornei Regionali di Categoria",
+    shortLabel: "Categoria Reg.",
+    group: "regionali",
+    tor: 101,
+    comit: 4,
+    id: 0,
+    icon: "bi-layers-fill",
+    description: "Tornei Regionali di Categoria (3\xAA, 4\xAA, 5\xAA, 6\xAA cat.)"
+  },
+  {
+    key: "reg_open",
+    label: "Tornei Open Regionali",
+    shortLabel: "Open Reg.",
+    group: "regionali",
+    tor: 100,
+    comit: 4,
+    id: 0,
+    icon: "bi-globe2",
+    description: "Tornei Open organizzati dal Comitato Regionale"
+  },
+  {
+    key: "reg_giovanili",
+    label: "Tornei Regionali Giovanili",
+    shortLabel: "Giovanili Reg.",
+    group: "regionali",
+    tor: 102,
+    comit: 4,
+    id: 0,
+    icon: "bi-backpack-fill",
+    description: "Tornei Regionali di qualificazione Giovanili"
+  },
+  {
+    key: "reg_ordinari",
+    label: "Tornei Regionali Ordinari",
+    shortLabel: "Ordinari Reg.",
+    group: "regionali",
+    tor: 103,
+    comit: 4,
+    id: 0,
+    icon: "bi-calendar2-check-fill",
+    description: "Tornei Regionali Ordinari e Predeterminati"
+  },
+  {
+    key: "reg_master",
+    label: "Tornei Regionali Master",
+    shortLabel: "Master Reg.",
+    group: "regionali",
+    tor: 105,
+    comit: 4,
+    id: 0,
+    icon: "bi-award-fill",
+    description: "Tornei Regionali Master / Veterani"
+  },
+  {
+    key: "reg_paralimpici",
+    label: "Tornei Regionali Paralimpici",
+    shortLabel: "Paralimpici Reg.",
+    group: "regionali",
+    tor: 108,
+    comit: 4,
+    id: 0,
+    icon: "bi-universal-access-circle",
+    description: "Tornei Regionali Paralimpici"
+  },
+  {
+    key: "reg_campionati",
+    label: "Campionati Regionali",
+    shortLabel: "Camp. Regionali",
+    group: "regionali",
+    tor: 110,
+    comit: 4,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Campionati Regionali Individuali Assoluti e di Categoria"
+  },
+  {
+    key: "reg_provinciali",
+    label: "Tornei Provinciali",
+    shortLabel: "Provinciali",
+    group: "regionali",
+    tor: 111,
+    comit: 4,
+    id: 0,
+    icon: "bi-pin-map-fill",
+    description: "Tornei e Campionati Provinciali"
+  },
+  {
+    key: "reg_promozionali",
+    label: "Tornei Regionali Promozionali",
+    shortLabel: "Promozionali Reg.",
+    group: "regionali",
+    tor: 107,
+    comit: 4,
+    id: 0,
+    icon: "bi-lightning-charge-fill",
+    description: "Tornei Promozionali Regionali"
+  },
+  {
+    key: "reg_giornata_rosa",
+    label: "Giornata Rosa Regionale",
+    shortLabel: "Giornata Rosa Reg.",
+    group: "regionali",
+    tor: 112,
+    comit: 4,
+    id: 0,
+    icon: "bi-heart-fill",
+    description: "Giornate Rosa Regionali"
+  }
+];
+function getTorneoCategoryByKey(key) {
+  return TORNEI_CATEGORIES.find((c) => c.key === key);
+}
+
+// server/app.ts
+import * as cheerio14 from "cheerio";
 var app = express();
 app.use(cors());
 app.use(express.json());
@@ -3121,16 +4225,28 @@ app.get("/api/statistiche", async (req, res) => {
 app.get("/api/ranking", async (req, res) => {
   const sesso = req.query.sesso === "F" ? "F" : "M";
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  248;
   const comit = req.query.comit ? String(req.query.comit).trim() : "";
   const forceRefresh = req.query.refresh === "true";
+  248;
+  const categoryKey = req.query.category || "";
+  const catDef = categoryKey ? getRankingCategoryByKey(categoryKey) : void 0;
+  const tipo = req.query.tipo !== void 0 ? String(req.query.tipo) : catDef ? String(catDef.tipo) : "1";
+  const sett = req.query.sett !== void 0 ? String(req.query.sett) : catDef ? catDef.sett : "0";
+  const s = req.query.s !== void 0 ? String(req.query.s) : catDef ? String(catDef.s) : "0";
+  const fq = req.query.fq !== void 0 ? String(req.query.fq) : catDef ? String(catDef.fq) : "0";
+  const g = req.query.g !== void 0 ? String(req.query.g) : catDef ? String(catDef.g) : "0";
+  const v = req.query.v !== void 0 ? String(req.query.v) : catDef ? String(catDef.v) : "0";
+  const p = req.query.p !== void 0 ? String(req.query.p) : catDef?.p !== void 0 ? String(catDef.p) : void 0;
   const isRegionale = !!comit && comit !== "0" && comit !== "all";
   const comitId = isRegionale ? parseInt(comit, 10) : void 0;
-  const cacheKey = `ranking_${sesso}_${isRegionale ? `comit_${comitId}` : "naz"}_p${page}`;
+  const cacheKey = `ranking_${sesso}_${isRegionale ? `comit_${comitId}` : "naz"}_t${tipo}_s${sett}_S${s}_FQ${fq}_G${g}_V${v}${p ? `_P${p}` : ""}_p${page}`;
   try {
     if (!forceRefresh) {
       const cached = cacheService.get(cacheKey);
       if (cached) return res.json(cached);
     }
+    const pParam = p !== void 0 && p !== null && p !== "" ? `&P=${p}` : "";
     let url = "";
     if (isRegionale) {
       url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
@@ -3138,12 +4254,377 @@ app.get("/api/ranking", async (req, res) => {
       url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
     }
     const html = await FitetClient.fetchHtml(url, true);
-    const result = parseRankingHtml(html, sesso, page, comitId);
+    const result = parseRankingHtml(html, sesso, page, comitId, catDef?.key || categoryKey || "generale");
     cacheService.set(cacheKey, result, 60 * 60 * 1e3);
     res.json(result);
   } catch (error) {
     console.error("Error fetching ranking:", error);
     res.status(500).json({ error: "Errore nel recupero della classifica", details: error.message });
+  }
+});
+async function getDynamicMenuManifestazioni(forceRefresh = false) {
+  const cacheKey = "tornei_menu_manifestazioni";
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+  }
+  try {
+    const html = await Fit248lient.fetchHtml("https://portale.fitet.org/menu.php");
+    const parsed = parseMenuManifestazioni(html);
+    if (parsed.length > 0) {
+      cacheService.set(cacheKey, parsed, 6 * 60 * 60 * 1e3);
+    }
+    return parsed;
+  } catch {
+    return [];
+  }
+}
+async function fetchSingleTorneoSection(key, shortLabel, fallbackTitle, tor, comit, id, regFilter, forceRefresh = false) {
+  const cacheKey = `tornei_sec_${key}_t${tor}_c${comit}_id${id}_r${regFilter || 0}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+  }
+  const baseUrl = "https://portale.fitet.org/risultati/tornei";
+  const testaUrl = `${baseUrl}/testa_tornei.php?TOR=${tor}&COMIT=${comit}&ID=${id}`;
+  const elencoUrl = regFilter && tor === 0 ? `${baseUrl}/elenco_tornei.php?REG=${regFilter}&TOR=${tor}&ID=${id}&COMIT=${comit}` : `${baseUrl}/elenco_tornei.php?TOR=${tor}&COMIT=${comit}&ID=${id}`;
+  const [testaHtml, elencoHtml] = await Promise.all([
+    FitetClient.fetchHtml(testaUrl).catch(() => ""),
+    FitetClient.fetchHtml(elencoUrl).catch(() => "")
+  ]);
+  const title = parseTestaTornei(testaHtml, fallbackTitle);
+  const parsed = parseElencoTornei(elencoHtml, comit, tor, regFilter, key, shortLabel);
+  if (parsed.regions.length > 0 && parsed.tornei.length === 0) {
+    const targetRegions = regFilter ? parsed.regions.filter((r) => r.regId === regFilter) : parsed.regions;
+    const regResults = await Promise.all(
+      targetRegions.map(async (r) => {
+        const regUrl = `${baseUrl}/elenco_tornei.php?REG=${r.regId}&TOR=${r.tor}&ID=${r.id}&COMIT=${r.comit}`;
+        const regHtml = await FitetClient.fetchHtml(regUrl).catch(() => "");
+        const subParsed = parseElencoTornei(regHtml, r.comit, r.tor, r.regId, key, shortLabel);
+        if (subParsed.tornei.length === 0) {
+          const fallbackHtml = await FitetClient.fetchHtml(
+            `${baseUrl}/elenco_tornei.php?TOR=100&COMIT=${r.regId}&ID=0`
+          ).catch(() => "");
+          return parseElencoTornei(fallbackHtml, r.regId, 100, r.regId, key, shortLabel).tornei;
+        }
+        return subParsed.tornei;
+      })
+    );
+    const mergedTornei = regResults.flat();
+    const sectionResult2 = {
+      key,
+      title,
+      shortLabel,
+      tor,
+      comit,
+      id,
+      reg: regFilter,
+      regioneNome: regFilter ? COMIT_NAMES[regFilter] : void 0,
+      tornei: mergedTornei,
+      availableRegions: parsed.regions.map((r) => ({
+        regId: r.regId,
+        name: r.name,
+        tor: r.tor,
+        id: r.id,
+        comit: r.comit
+      }))
+    };
+    cacheService.set(cacheKey, sectionResult2, 30 * 60 * 1e3);
+    return sectionResult2;
+  }
+  248;
+  if (tor === 0 && parsed.tornei.length === 0 && parsed.regions.length === 0) {
+    const dynamicMenu = await getDynamicMenuManifestazioni(forceRefresh);
+    const dynamicOpen = dynamicMenu.find((m) => m.tor === 0 && m.id > 0 && /open/i.test(m.label));
+    if (dynamicOpen && dynamicOpen.id !== id) {
+      return fetchSingleTorneoSection(
+        key,
+        shortLabel,
+        fallbackTitle,
+        dynamicOpen.tor,
+        dynamicOpen.comit,
+        dynamicOpen.id,
+        regFilter,
+        forceRefresh
+      );
+    }
+    if (regFilter && regFilter >= 1 && regFilter <= 21) {
+      const fbHtml = await FitetClient.fetchHtml(
+        `${baseUrl}/elenco_tornei.php?TOR=100&COMIT=${regFilter}&ID=0`
+      ).catch(() => "");
+      const fbParsed = parseElencoTornei(fbHtml, regFilter, 100, regFilter, key, shortLabel);
+      parsed.tornei = fbParsed.tornei;
+    }
+  }
+  const sectionResult = {
+    key,
+    title,
+    shortLabel,
+    tor,
+    comit,
+    id,
+    reg: regFilter,
+    regioneNome: regFilter ? COMIT_NAMES[regFilter] : comit <= 21 ? COMIT_NAMES[comit] : void 0,
+    tornei: parsed.tornei
+  };
+  cacheService.set(cacheKey, sectionResult, 30 * 60 * 1e3);
+  return sectionResult;
+}
+app.get("/api/tornei", async (req, res) => {
+  const categoryKey = (req.query.category || "all").trim();
+  const comitParam = req.query.comit ? parseInt(req.query.comit, 10) : 0;
+  const regParam = req.query.reg ? parseInt(req.query.reg, 10) : 0;
+  const customTor = req.query.tor !== void 0 ? parseInt(req.query.tor, 10) : void 0;
+  const customId = req.query.id !== void 0 ? parseInt(req.query.id, 10) : void 0;
+  const forceRefresh = req.query.refresh === "true";
+  try {
+    if (categoryKey === "all" || categoryKey === "reg_all") {
+      const isRegionSelected = comitParam >= 1 && comitParam <= 21;
+      if (isRegionSelected || categoryKey === "reg_all") {
+        const targetRegion = isRegionSelected ? comitParam : regParam >= 1 && regParam <= 21 ? regParam : 4;
+        const regCategories = TORNEI_CATEGORIES.filter((c) => c.group === "regionali");
+        const sections2 = await Promise.all(
+          regCategories.map(
+            (c) => fetchSingleTorneoSection(
+              c.key,
+              c.shortLabel,
+              c.label,
+              c.tor,
+              targetRegion,
+              c.id,
+              targetRegion,
+              forceRefresh
+            )
+          )
+        );
+        const populated2 = sections2.filter((s) => s.tornei.length > 0);
+        const payload3 = {
+          title: `TORNEI REGIONALI ${COMIT_NAMES[targetRegion]?.toUpperCase() || ""} - STAGIONE 2026/27`,
+          categoryKey,
+          comitId: targetRegion,
+          regId: targetRegion,
+          sections: populated2.length > 0 ? populated2 : sections2.slice(0, 1),
+          totalTornei: populated2.reduce((acc, s) => acc + s.tornei.length, 0),
+          lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        return res.json(payload3);
+      }
+      const nationalAndOpenCats = TORNEI_CATEGORIES.filter((c) => c.group !== "regionali");
+      const sections = await Promise.all(
+        nationalAndOpenCats.map(
+          (c) => fetchSingleTorneoSection(
+            c.key,
+            c.shortLabel,
+            c.label,
+            c.tor,
+            c.comit,
+            c.id,
+            regParam > 0 ? regParam : void 0,
+            forceRefresh
+          )
+        )
+      );
+      const populated = sections.filter((s) => s.tornei.length > 0);
+      const payload2 = {
+        title: "MANIFESTAZIONI E TORNEI UFFICIALI FITeT - STAGIONE 2026/27",
+        categoryKey: "all",
+        comitId: 30,
+        regId: regParam > 0 ? regParam : void 0,
+        sections: populated,
+        totalTornei: populated.reduce((acc, s) => acc + s.tornei.length, 0),
+        lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      return res.json(payload2);
+    }
+    const catDef = getTorneoCategoryByKey(categoryKey);
+    const tor = customTor !== void 0 ? customTor : catDef ? catDef.tor : 21;
+    const id = customId !== void 0 ? customId : catDef ? catDef.id : 0;
+    const isRegCat = catDef?.group === "regionali" || tor >= 100;
+    const comit = isRegCat ? comitParam >= 1 && comitParam <= 21 ? comitParam : regParam >= 1 && regParam <= 21 ? regParam : 4 : comitParam > 0 && customTor !== void 0 ? comitParam : catDef?.comit || 30;
+    const activeRegFilter = tor === 0 ? regParam >= 1 && regParam <= 21 ? regParam : comitParam >= 1 && comitParam <= 21 ? comitParam : void 0 : isRegCat ? comit : void 0;
+    const section = await fetchSingleTorneoSection(
+      catDef?.key || categoryKey,
+      catDef?.shortLabel || "Tornei",
+      catDef?.label || "TORNEI FITeT",
+      tor,
+      comit,
+      id,
+      activeRegFilter,
+      forceRefresh
+    );
+    const payload = {
+      title: section.title,
+      categoryKey: catDef?.key || categoryKey,
+      comitId: comit,
+      regId: activeRegFilter,
+      sections: [section],
+      totalTornei: section.tornei.length,
+      lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    return res.json(payload);
+  } catch (error) {
+    console.error("Error fetching tornei:", error);
+    res.status(500).json({ error: "Errore nel recupero dei tornei FITeT", details: error.message });
+  }
+});
+app.get("/api/tornei/dettaglio", async (req, res) => {
+  const idt = parseInt(req.query.idt, 10);
+  const com = parseInt(req.query.com, 10) || 30;
+  const anno = parseInt(req.query.anno, 10) || 41;
+  const forceRefresh = req.query.refresh === "true";
+  if (!idt || isNaN(idt)) {
+    return res.status(400).json({ error: "Parametro IDT mancante o non valido" });
+  }
+  const cacheKey = `torneo_dettaglio_${idt}_${com}_${anno}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return res.json(cached);
+  }
+  try {
+    const baseUrl = "https://portale.fitet.org/risultati/tornei";
+    const [elencoGareHtml, iscrizioniHtml] = await Promise.all([
+      FitetClient.fetchHtml(`${baseUrl}/elenco_gare.php?IDT=${idt}&COM=${com}`).catch(() => ""),
+      FitetClient.fetchHtml(`${baseUrl}/iscrizioni.php?IDT=${idt}&COM=${com}`).catch(() => "")
+    ]);
+    const parsed = parseDettaglioTorneo(elencoGareHtml, iscrizioniHtml, idt, com, anno);
+    cacheService.set(cacheKey, parsed, 30 * 60 * 1e3);
+    res.json(parsed);
+  } catch (error) {
+    console.error(`Error fetching torneo dettaglio IDT=${idt}:`, error);
+    res.status(500).json({ error: "Errore nel recupero dei dettagli del torneo", details: error.message });
+  }
+});
+app.get("/api/tornei/gara", async (req, res) => {
+  const idt = parseInt(req.query.idt, 10);
+  const com = parseInt(req.query.com, 10) || 30;
+  const garaId = (req.query.gara || "").trim();
+  const anno = parseInt(req.query.anno, 10) || 41;
+  const isDoppio = req.query.isDoppio === "true";
+  const mode = req.query.mode === "iscrizioni" ? "iscrizioni" : "risultati";
+  const reqCod1 = req.query.cod1 ? parseInt(req.query.cod1, 10) : void 0;
+  const reqCod2 = req.query.cod2 ? parseInt(req.query.cod2, 10) : void 0;
+  const reqTab = req.query.tab ? parseInt(req.query.tab, 10) : void 0;
+  const reqTurno = req.query.turno ? parseInt(req.query.turno, 10) : void 0;
+  const forceRefresh = req.query.refresh === "true";
+  if (!idt || !garaId) {
+    return res.status(400).json({ error: "Parametri idt e gara obbligatori" });
+  }
+  const cacheKey = `torneo_gara_${idt}_${com}_${garaId}_${mode}_c${reqCod1 || 0}_${reqCod2 || 0}_t${reqTab || 0}_${reqTurno || 0}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return res.json(cached);
+  }
+  try {
+    const baseUrl = "https://portale.fitet.org/risultati/tornei";
+    const mapping = athleteResolver.getMapping();
+    if (mode === "iscrizioni") {
+      const iscrHtml = await FitetClient.fetchHtml(
+        `${baseUrl}/iscrizioni_gara.php?GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}`
+      ).catch(() => "");
+      const parsedIscr = parseIscrizioniGara(iscrHtml, mapping);
+      const payload2 = {
+        idt,
+        com,
+        garaId,
+        anno,
+        titoloGara: parsedIscr.titoloGara || `Gara ${garaId}`,
+        mode: "iscrizioni",
+        isDoppio,
+        maxIscritti: parsedIscr.maxIscritti,
+        iscritti: parsedIscr.iscritti,
+        gironiRanges: [],
+        gironi: [],
+        turniTabellone: [],
+        partiteTabellone: []
+      };
+      cacheService.set(cacheKey, payload2, 15 * 60 * 1e3);
+      return res.json(payload2);
+    }
+    const gestioneUrl = isDoppio ? `${baseUrl}/gestione_gare_doppio.php?ANNO=${anno}&GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}` : `${baseUrl}/gestione_gare_n.php?ANNO=${anno}&GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}&TAB=0`;
+    const gestioneHtml = await FitetClient.fetchHtml(gestioneUrl).catch(() => "");
+    const meta = parseGestioneGara(gestioneHtml, mapping);
+    if (meta.gironiRanges.length === 0 && meta.turniTabellone.length === 0) {
+      const iscrHtml = await FitetClient.fetchHtml(
+        `${baseUrl}/iscrizioni_gara.php?GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}`
+      ).catch(() => "");
+      const parsedIscr = parseIscrizioniGara(iscrHtml, mapping);
+      if (parsedIscr.iscritti.length > 0) {
+        const fallbackPayload = {
+          idt,
+          com,
+          garaId,
+          anno,
+          titoloGara: parsedIscr.titoloGara || meta.titoloGara || `Gara ${garaId}`,
+          mode: "iscrizioni",
+          isDoppio,
+          maxIscritti: parsedIscr.maxIscritti,
+          iscritti: parsedIscr.iscritti,
+          gironiRanges: [],
+          gironi: [],
+          turniTabellone: [],
+          partiteTabellone: []
+        };
+        cacheService.set(cacheKey, fallbackPayload, 15 * 60 * 1e3);
+        return res.json(fallbackPayload);
+      }
+    }
+    const activeGironiRange = reqCod1 !== void 0 && reqCod2 !== void 0 ? { cod1: reqCod1, cod2: reqCod2 } : meta.gironiRanges.length > 0 ? { cod1: meta.gironiRanges[0].cod1, cod2: meta.gironiRanges[0].cod2 } : null;
+    let activeTurno = reqTurno !== void 0 ? meta.turniTabellone.find((t) => t.turno === reqTurno && (!reqTab || t.tab === reqTab)) || {
+      tab: reqTab || 1,
+      turno: reqTurno,
+      label: `Turno ${reqTurno}`
+    } : meta.turniTabellone.length > 0 ? meta.turniTabellone[0] : null;
+    const [gironiHtml, tabelloneHtml] = await Promise.all([
+      activeGironiRange ? FitetClient.fetchHtml(
+        `${baseUrl}/risultati.php?COD_1=${activeGironiRange.cod1}&COD_2=${activeGironiRange.cod2}&IDT=${idt}&ANNO=${anno}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+      ).catch(() => "") : Promise.resolve(""),
+      activeTurno ? FitetClient.fetchHtml(
+        isDoppio ? `${baseUrl}/risultati_tabellone_doppio.php?ANNO=${anno}&TURNO=${activeTurno.turno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}` : `${baseUrl}/risultati_tabellone.php?TAB=${activeTurno.tab}&TURNO=${activeTurno.turno}&ANNO=${anno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+      ).catch(() => "") : Promise.resolve("")
+    ]);
+    const gironi = parseRisultatiGironi(gironiHtml, mapping);
+    let partiteTabellone = parseRisultatiTabellone(tabelloneHtml, mapping);
+    if (partiteTabellone.length === 0 && reqTurno === void 0 && meta.turniTabellone.length > 1) {
+      const candidateTurni = meta.turniTabellone.slice(1);
+      const fallbackTurniResults = await Promise.all(
+        candidateTurni.map(async (t) => {
+          const html = await FitetClient.fetchHtml(
+            isDoppio ? `${baseUrl}/risultati_tabellone_doppio.php?ANNO=${anno}&TURNO=${t.turno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}` : `${baseUrl}/risultati_tabellone.php?TAB=${t.tab}&TURNO=${t.turno}&ANNO=${anno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+          ).catch(() => "");
+          return { turnoObj: t, matches: parseRisultatiTabellone(html, mapping) };
+        })
+      );
+      const firstPopulated = fallbackTurniResults.find((r) => r.matches.length > 0);
+      if (firstPopulated) {
+        activeTurno = firstPopulated.turnoObj;
+        partiteTabellone = firstPopulated.matches;
+      }
+    }
+    const payload = {
+      idt,
+      com,
+      garaId,
+      anno,
+      titoloGara: meta.titoloGara || `Gara ${garaId}`,
+      mode: "risultati",
+      isDoppio,
+      vincitore: meta.vincitore,
+      vincitoreId: meta.vincitoreId,
+      vincitoreFotoUrl: meta.vincitoreFotoUrl,
+      valoreRanking: meta.valoreRanking,
+      iscritti: [],
+      gironiRanges: meta.gironiRanges,
+      activeGironiRange,
+      gironi,
+      turniTabellone: meta.turniTabellone,
+      activeTurno,
+      partiteTabellone
+    };
+    cacheService.set(cacheKey, payload, 30 * 60 * 1e3);
+    return res.json(payload);
+  } catch (error) {
+    console.error(`Error fetching gara ${garaId} for IDT=${idt}:`, error);
+    res.status(500).json({ error: "Errore nel recupero dei risultati della gara", details: error.message });
   }
 });
 app.get("/api/atleta/:id", async (req, res) => {
@@ -3505,7 +4986,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
         if (found) {
           squadraNome = found.squadra;
           const classHtml = await FitetClient.fetchClassifica(cam);
-          const $c = cheerio13.load(classHtml);
+          const $c = cheerio14.load(classHtml);
           const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
           const foundNorm = norm(found.squadra);
           $c('a[href*="SQUADRA="]').each((_, el) => {
@@ -3527,7 +5008,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
       if (!squadraId) {
         try {
           const classHtml = await FitetClient.fetchClassifica(cam);
-          const $c = cheerio13.load(classHtml);
+          const $c = cheerio14.load(classHtml);
           const candidateTeams = [];
           $c('a[href*="SQUADRA="]').each((_, el) => {
             const href = $c(el).attr("href") || "";
@@ -3566,7 +5047,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
     }
     const url = `https://portale.fitet.org/risultati/campionati/dettaglio_percentuali.php?IDA=${atletaId}&CAM=${cam}&SQUADRA=${squadraId}`;
     const html = await FitetClient.fetchHtml(url);
-    const $p = cheerio13.load(html);
+    const $p = cheerio14.load(html);
     const matches = [];
     const headerText = $p("table tr").first().text();
     if (!squadraNome) {
