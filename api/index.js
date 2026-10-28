@@ -2213,8 +2213,7 @@ function parseDettaglioAtleta(html, atletaId, partiteRanking) {
   });
   storicoClassifica.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
   const ultimoSnapshot = storicoClassifica.length > 0 ? storicoClassifica[storicoClassifica.length - 1] : null;
-  const puntiEffettivi = punteggioFinale || punti || (ultimoSnapshot ? ultimoSnapshot.punti : 0);
-  return {
+  const puntiEffettivi = punteggioFinale || partiteRanking?.dettaglioPunti?.finali || (ultimoSnapshot ? ultimoSnapshot.punti : 0) || punti; return {
     id: atletaId,
     anagrafica: {
       nome: nomeRaw || `Atleta ${atletaId}`,
@@ -2900,7 +2899,7 @@ var DEFAULT_ANNO_ID = 41;
 var TTL_CLASSIFICA = 30 * 60 * 1e3;
 var TTL_CALENDARIO = 30 * 60 * 1e3;
 var TTL_STATISTICHE = 60 * 60 * 1e3;
-var TTL_ATLETA = 24 * 60 * 60 * 1e3;
+var TTL_ATLETA = 30 * 60 * 1e3;
 var TTL_REFERTO = 12 * 60 * 60 * 1e3;
 var TTL_RICERCA_ATLETA = 10 * 60 * 1e3;
 function computeTeamForm(classifica, calendario) {
