@@ -746,9 +746,9 @@ export const App: React.FC = () => {
             consultingChampionship={
               isConsulting && camId
                 ? campionati.find((c) => c.id === camId) ||
-                  (data?.championship?.id === camId
-                    ? data.championship
-                    : { id: camId, nome: `Campionato #${camId}` })
+                (data?.championship?.id === camId
+                  ? data.championship
+                  : { id: camId, nome: `Campionato #${camId}` })
                 : null
             }
             onReturnToMyChampionship={handleReturnToMyChampionship}
@@ -923,10 +923,7 @@ export const App: React.FC = () => {
       {/* Footer */}
       <footer className="portal-footer mt-5 text-center" style={{ paddingBottom: '90px' }}>
         <div>
-          <strong>Federazione Italiana Tennistavolo (FITeT)</strong>
-          {data?.championship?.nome && ` • ${data.championship.nome}`}
-          {data?.championship?.regione && ` (${data.championship.regione})`}
-          <div>Progetto non ufficiale della community, dati sincronizzati da portale.fitet.org</div>
+          <div>Progetto non ufficiale della community, dati sincronizzati automaticamente da portale.fitet.org</div>
           <div className="portal-footer-coffee">
             Se ti è utile, puoi{' '}
             <a href="https://buymeacoffee.com/salvatore.butera" target="_blank" rel="noopener noreferrer">
