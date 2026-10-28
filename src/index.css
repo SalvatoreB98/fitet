@@ -212,6 +212,7 @@ nav {
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  flex-grow: 1;
 }
 
 .portal-header-sponsor {
@@ -1131,6 +1132,9 @@ nav {
 }
 
 .portal-title-static {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   margin: 0 auto;
   padding: 6px 14px;
 }
