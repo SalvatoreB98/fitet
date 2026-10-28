@@ -2512,6 +2512,285 @@ var HeadToHeadService = class {
 };
 var headToHeadService = new HeadToHeadService();
 
+// server/services/pushService.ts
+import * as webpush from "web-push";
+import { createClient as createClient2 } from "@supabase/supabase-js";
+import dotenv2 from "dotenv";
+dotenv2.config();
+var PushService = class {
+  supabase = null;
+  vapidConfigured = false;
+  publicKey = null;
+  privateKey = null;
+  subject = "mailto:noreply@fitet-20.vercel.app";
+  constructor() {
+    this.initSupabase();
+    this.initVapid();
+  }
+  initSupabase() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      console.warn(
+        "\u26A0\uFE0F [PushService] SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY non configurate: le notifiche push non saranno salvate."
+      );
+      return;
+    }
+    try {
+      this.supabase = createClient2(url, key, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      });
+      console.log("\u2705 [PushService] Supabase connesso.");
+    } catch (err) {
+      console.error("\u274C [PushService] Errore inizializzazione Supabase:", err);
+      this.supabase = null;
+    }
+  }
+  initVapid() {
+    const publicKey = process.env.VAPID_PUBLIC_KEY;
+    const privateKey = process.env.VAPID_PRIVATE_KEY;
+    const subject = process.env.VAPID_SUBJECT || this.subject;
+    if (!publicKey || !privateKey) {
+      console.warn(
+        "\u26A0\uFE0F [PushService] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY non configurate: impossibile inviare push."
+      );
+      return;
+    }
+    try {
+      webpush.setVapidDetails(subject, publicKey, privateKey);
+      this.publicKey = publicKey;
+      this.privateKey = privateKey;
+      this.subject = subject;
+      this.vapidConfigured = true;
+      console.log("\u2705 [PushService] VAPID configurato.");
+    } catch (err) {
+      console.error("\u274C [PushService] Errore configurazione VAPID:", err);
+    }
+  }
+  isVapidConfigured() {
+    return this.vapidConfigured;
+  }
+  isSupabaseConfigured() {
+    return this.supabase !== null;
+  }
+  isReady() {
+    return this.vapidConfigured && this.supabase !== null;
+  }
+  getPublicKey() {
+    return this.publicKey;
+  }
+  isValidEndpoint(endpoint) {
+    try {
+      const parsed = new URL(endpoint);
+      return parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+  /**
+   * Salva (o aggiorna) una subscription. L'endpoint è la chiave naturale del dispositivo.
+   */
+  async saveSubscription(payload, userAgent) {
+    if (!this.supabase) {
+      throw new Error("Database push non configurato (SUPABASE_SERVICE_ROLE_KEY mancante).");
+    }
+    if (!payload?.endpoint || !this.isValidEndpoint(payload.endpoint)) {
+      throw new Error("Endpoint push non valido.");
+    }
+    if (!payload.keys?.p256dh || !payload.keys?.auth) {
+      throw new Error("Chiavi push (p256dh/auth) mancanti.");
+    }
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const { data, error } = await this.supabase.from("push_subscriptions").upsert(
+      {
+        endpoint: payload.endpoint,
+        p256dh: payload.keys.p256dh,
+        auth: payload.keys.auth,
+        user_agent: userAgent || null,
+        is_active: true,
+        last_seen_at: now,
+        updated_at: now
+      },
+      { onConflict: "endpoint" }
+    ).select("*").single();
+    if (error) {
+      throw new Error(`Salvataggio subscription fallito: ${error.message}`);
+    }
+    return data;
+  }
+  async removeSubscription(endpoint) {
+    if (!this.supabase) return;
+    if (!endpoint) return;
+    const { error } = await this.supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
+    if (error) {
+      console.error("[PushService] Errore rimozione subscription:", error.message);
+    }
+  }
+  /**
+   * Invia una notifica a una singola subscription.
+   * Se il push service risponde 404/410 la subscription viene rimossa dal database.
+   */
+  async sendToSubscription(subscription, payload) {
+    if (!this.vapidConfigured) {
+      return { sent: false, error: "VAPID non configurato." };
+    }
+    const pushSubscription = {
+      endpoint: subscription.endpoint,
+      keys: {
+        p256dh: subscription.p256dh,
+        auth: subscription.auth
+      }
+    };
+    try {
+      const result = await webpush.sendNotification(
+        pushSubscription,
+        JSON.stringify(payload),
+        {
+          TTL: 60 * 60 * 24,
+          // 24 ore
+          urgency: "normal",
+          timeout: 1e4
+        }
+      );
+      return { sent: true, statusCode: result.statusCode };
+    } catch (err) {
+      const statusCode = typeof err?.statusCode === "number" ? err.statusCode : void 0;
+      const message = err?.body || err?.message || "Errore sconosciuto durante l'invio push.";
+      if (statusCode === 404 || statusCode === 410) {
+        await this.removeSubscription(subscription.endpoint);
+        return { sent: false, statusCode, error: message, removed: true };
+      }
+      console.warn(
+        `[PushService] Invio push fallito (${statusCode ?? "no-status"}) per ${subscription.endpoint.slice(0, 60)}...:`,
+        message
+      );
+      return { sent: false, statusCode, error: message };
+    }
+  }
+  /**
+   * Invia la notifica a tutti i dispositivi attivi, con concorrenza limitata
+   * per non sovraccaricare il runtime serverless.
+   */
+  async sendToAll(payload) {
+    if (!this.supabase || !this.vapidConfigured) {
+      return { total: 0, sent: 0, failed: 0, removed: 0 };
+    }
+    const { data, error } = await this.supabase.from("push_subscriptions").select("*").eq("is_active", true);
+    if (error) {
+      throw new Error(`Lettura subscription fallita: ${error.message}`);
+    }
+    const subscriptions = data || [];
+    if (subscriptions.length === 0) {
+      return { total: 0, sent: 0, failed: 0, removed: 0 };
+    }
+    const result = {
+      total: subscriptions.length,
+      sent: 0,
+      failed: 0,
+      removed: 0
+    };
+    const concurrency = 20;
+    for (let i = 0; i < subscriptions.length; i += concurrency) {
+      const batch = subscriptions.slice(i, i + concurrency);
+      const batchResults = await Promise.all(
+        batch.map((sub) => this.sendToSubscription(sub, payload))
+      );
+      for (const r of batchResults) {
+        if (r.sent) result.sent += 1;
+        else result.failed += 1;
+        if (r.removed) result.removed += 1;
+      }
+    }
+    return result;
+  }
+  // ---------------------------------------------------------------------
+  // Stato persistente (ultimo ID_CLASS notificato)
+  // ---------------------------------------------------------------------
+  async getState(key) {
+    if (!this.supabase) return null;
+    const { data, error } = await this.supabase.from("push_state").select("value").eq("key", key).maybeSingle();
+    if (error) {
+      console.error(`[PushService] Lettura stato "${key}" fallita:`, error.message);
+      return null;
+    }
+    return data?.value ?? null;
+  }
+  async setState(key, value) {
+    if (!this.supabase) return;
+    const { error } = await this.supabase.from("push_state").upsert(
+      { key, value, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
+      { onConflict: "key" }
+    );
+    if (error) {
+      console.error(`[PushService] Scrittura stato "${key}" fallita:`, error.message);
+    }
+  }
+  /**
+   * Aggiorna lo stato solo se il valore atteso è ancora quello salvato.
+   * Funge da lock distribuito: in caso di più istanze serverless solo una
+   * riesce ad aggiornare e quindi a inviare la notifica.
+   */
+  async compareAndSetState(key, expected, next) {
+    if (!this.supabase) return false;
+    const { data, error } = await this.supabase.from("push_state").update({ value: next, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("key", key).eq("value", expected).select("key");
+    if (error) {
+      console.error(`[PushService] Aggiornamento atomico stato "${key}" fallito:`, error.message);
+      return false;
+    }
+    return Array.isArray(data) && data.length > 0;
+  }
+};
+var pushService = new PushService();
+var RANKING_ID_CLASS_STATE_KEY = "latest_ranking_id_class";
+async function notifyRankingChangeIfNeeded(idClass) {
+  if (!Number.isFinite(idClass) || idClass <= 0) {
+    return { changed: false, idClass };
+  }
+  if (!pushService.isReady()) {
+    return { changed: false, idClass };
+  }
+  const previous = await pushService.getState(RANKING_ID_CLASS_STATE_KEY);
+  if (previous === null) {
+    await pushService.setState(RANKING_ID_CLASS_STATE_KEY, String(idClass));
+    return { changed: false, initialized: true, idClass };
+  }
+  const previousIdClass = parseInt(previous, 10);
+  if (!Number.isFinite(previousIdClass) || idClass <= previousIdClass) {
+    return { changed: false, idClass, previousIdClass };
+  }
+  const claimed = await pushService.compareAndSetState(
+    RANKING_ID_CLASS_STATE_KEY,
+    previous,
+    String(idClass)
+  );
+  if (!claimed) {
+    return { changed: false, idClass, previousIdClass };
+  }
+  console.log(
+    `[PushService] Nuovo ID_CLASS rilevato: ${previousIdClass} -> ${idClass}. Invio notifiche...`
+  );
+  const broadcast = await pushService.sendToAll({
+    title: "Nuova classifica FITeT disponibile",
+    body: "\xC8 stata pubblicata la classifica aggiornata. Scopri la tua nuova posizione!",
+    url: "/?view=classifiche",
+    icon: "/icon.png",
+    badge: "/icon.png",
+    tag: `ranking-id-class-${idClass}`
+  });
+  console.log(
+    `[PushService] Notifiche ranking inviate: ${broadcast.sent}/${broadcast.total} (rimosse: ${broadcast.removed}).`
+  );
+  return {
+    changed: true,
+    idClass,
+    previousIdClass,
+    ...broadcast
+  };
+}
+
 // server/parsers/squadraParser.ts
 import * as cheerio9 from "cheerio";
 function parseDettaglioSquadra(html, squadraId, camId, logoUrl) {
@@ -4223,7 +4502,7 @@ app.get("/api/statistiche", async (req, res) => {
   }
 });
 var DEFAULT_ID_CLASS2 = 248;
-async function getLatestIdClass(forceRefresh = false) {
+async function getLatestIdClass(forceRefresh = false, notifyOnChange = true) {
   const cacheKey = "latest_ranking_id_class";
   if (!forceRefresh) {
     const cached = cacheService.get(cacheKey);
@@ -4238,6 +4517,11 @@ async function getLatestIdClass(forceRefresh = false) {
       const detected = parseInt(match[1], 10);
       if (detected >= DEFAULT_ID_CLASS2) {
         cacheService.set(cacheKey, detected, 4 * 60 * 60 * 1e3);
+        if (notifyOnChange) {
+          notifyRankingChangeIfNeeded(detected).catch((pushErr) => {
+            console.warn("[PushService] Errore notifica cambio ID_CLASS:", pushErr);
+          });
+        }
         return detected;
       }
     }
@@ -5157,6 +5441,99 @@ app.post("/api/refresh", async (req, res) => {
     res.json({ success: true, timestamp: (/* @__PURE__ */ new Date()).toISOString(), classifica, calendario, statisticheAtleti });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+function isPushCronAuthorized(req) {
+  const secret = process.env.CRON_SECRET || process.env.PUSH_CRON_SECRET;
+  if (!secret) return true;
+  const authHeader = req.headers.authorization || "";
+  const querySecret = typeof req.query.secret === "string" ? req.query.secret : "";
+  return authHeader === `Bearer ${secret}` || querySecret === secret;
+}
+app.get("/api/push/public-key", (_req, res) => {
+  const publicKey = pushService.getPublicKey();
+  if (!publicKey) {
+    return res.status(503).json({ error: "Notifiche push non configurate sul server." });
+  }
+  res.setHeader("Cache-Control", "public, max-age=300");
+  res.json({ publicKey });
+});
+app.post("/api/push/subscribe", async (req, res) => {
+  const body = req.body?.subscription || req.body || {};
+  const subscription = {
+    endpoint: body.endpoint,
+    expirationTime: body.expirationTime ?? null,
+    keys: {
+      p256dh: body?.keys?.p256dh,
+      auth: body?.keys?.auth
+    }
+  };
+  if (!pushService.isSupabaseConfigured()) {
+    return res.status(503).json({
+      error: "Database push non configurato (SUPABASE_SERVICE_ROLE_KEY mancante)."
+    });
+  }
+  if (!pushService.isVapidConfigured()) {
+    return res.status(503).json({
+      error: "Notifiche push non configurate (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY mancanti)."
+    });
+  }
+  try {
+    const saved = await pushService.saveSubscription(
+      subscription,
+      req.headers["user-agent"] || null
+    );
+    const welcome = await pushService.sendToSubscription(saved, {
+      title: "Notifiche attivate!",
+      body: "Grazie di aver scaricato l'app, torna quando vuoi!",
+      url: "/",
+      icon: "/icon.png",
+      badge: "/icon.png",
+      tag: "fitet-welcome"
+    });
+    if (!welcome.sent && welcome.removed) {
+      return res.status(410).json({ error: "Subscription non pi\xF9 valida." });
+    }
+    return res.status(201).json({
+      success: true,
+      welcomeSent: welcome.sent,
+      subscriptionId: saved.id ?? null,
+      warning: welcome.sent ? void 0 : welcome.error
+    });
+  } catch (error) {
+    console.error("[PushService] Errore salvataggio subscription:", error);
+    return res.status(400).json({
+      error: error.message || "Errore durante il salvataggio della subscription."
+    });
+  }
+});
+app.delete("/api/push/subscribe", async (req, res) => {
+  const endpoint = req.body?.endpoint || req.query.endpoint;
+  if (!endpoint || typeof endpoint !== "string") {
+    return res.status(400).json({ error: "Endpoint subscription mancante." });
+  }
+  try {
+    await pushService.removeSubscription(endpoint);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("[PushService] Errore rimozione subscription:", error);
+    return res.status(500).json({ error: "Errore durante la rimozione della subscription." });
+  }
+});
+app.get("/api/push/check-ranking", async (req, res) => {
+  if (!isPushCronAuthorized(req)) {
+    return res.status(401).json({ error: "Non autorizzato." });
+  }
+  try {
+    const idClass = await getLatestIdClass(true, false);
+    const result = await notifyRankingChangeIfNeeded(idClass);
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error("[PushService] Errore controllo cambio ranking:", error);
+    return res.status(500).json({
+      error: "Errore durante il controllo del cambio classifica.",
+      details: error.message
+    });
   }
 });
 if (!process.env.VERCEL) {

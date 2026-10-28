@@ -16,6 +16,11 @@ import '@fontsource/playfair-display/600.css';
 import '@fontsource/playfair-display/700.css';
 import './index.css';
 import { App } from './App';
+import { registerServiceWorker } from './services/pushNotifications';
+
+// Registra il service worker per le Web Push Notifications (PWA).
+// È idempotente e non blocca il rendering dell'app.
+registerServiceWorker().catch(() => undefined);
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

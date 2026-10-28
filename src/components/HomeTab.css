@@ -1660,3 +1660,90 @@
   color: #ffffff;
   border-color: #0284c7;
 }
+
+/* ==========================================================================
+   Web Push Notifications (PWA)
+   ========================================================================== */
+
+.home-push-section {
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.07) 0%, rgba(16, 185, 129, 0.07) 100%);
+  border: 1px solid rgba(2, 132, 199, 0.18);
+}
+
+.home-push-feedback {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.home-push-feedback.is-success {
+  color: #047857;
+}
+
+.home-push-feedback.is-error {
+  color: #b91c1c;
+}
+
+.home-push-feedback.is-info {
+  color: #0369a1;
+}
+
+.home-push-btn {
+  min-width: 160px;
+  justify-content: center;
+}
+
+.home-push-btn.is-active {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.16);
+}
+
+.home-push-btn.is-active:hover {
+  background: #d1fae5;
+  color: #065f46;
+  border-color: #6ee7b7;
+}
+
+.home-push-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .home-push-section {
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.14) 0%, rgba(16, 185, 129, 0.12) 100%);
+  border-color: rgba(56, 189, 248, 0.22);
+}
+
+[data-theme="dark"] .home-push-feedback.is-success {
+  color: #6ee7b7;
+}
+
+[data-theme="dark"] .home-push-feedback.is-error {
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .home-push-feedback.is-info {
+  color: #7dd3fc;
+}
+
+[data-theme="dark"] .home-push-btn.is-active {
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+[data-theme="dark"] .home-push-btn.is-active:hover {
+  background: rgba(16, 185, 129, 0.25);
+  color: #a7f3d0;
+}
+
+@media screen and (max-width: 768px) {
+  .home-push-btn {
+    width: 100%;
+  }
+}

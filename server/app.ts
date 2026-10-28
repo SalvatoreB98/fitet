@@ -13,6 +13,11 @@ import { parseCalendario } from './parsers/calendarioParser';
 import { parseStatisticheAtleti } from './parsers/statisticheParser';
 import { parseDettaglioAtleta, extractRankingIframeUrl, parsePartiteRanking } from './parsers/atletaParser';
 import { headToHeadService } from './services/headToHeadService';
+import {
+    pushService,
+    notifyRankingChangeIfNeeded,
+} from './services/pushService';
+import type { PushSubscriptionPayload } from './services/pushService';
 import { parseDettaglioSquadra } from './parsers/squadraParser';
 import { parseRefertoIncontro, parseDettaglioPartita } from './parsers/refertoParser';
 import { parseRankingHtml } from './parsers/rankingParser';
@@ -293,7 +298,10 @@ export const DEFAULT_ID_CLASS = 248;
  * Quando esce il mese nuovo (es. 249, 250...), viene rilevato automaticamente senza modifiche al codice.
  * Se non disponibile o in caso di errore, fa fallback sicuro su DEFAULT_ID_CLASS.
  */
-export async function getLatestIdClass(forceRefresh = false): Promise<number> {
+export async function getLatestIdClass(
+    forceRefresh = false,
+    notifyOnChange = true
+): Promise<number> {
     const cacheKey = 'latest_ranking_id_class';
     if (!forceRefresh) {
         const cached = cacheService.get<number>(cacheKey);
@@ -308,6 +316,16 @@ export async function getLatestIdClass(forceRefresh = false): Promise<number> {
             const detected = parseInt(match[1], 10);
             if (detected >= DEFAULT_ID_CLASS) {
                 cacheService.set(cacheKey, detected, 4 * 60 * 60 * 1000); // 4 ore di cache
+
+                // Trigger automatico: se l'ID_CLASS è cambiato rispetto all'ultima
+                // notifica salvata su Supabase, invia la push a tutti i dispositivi.
+                // Fire-and-forget: non blocca la risposta API.
+                if (notifyOnChange) {
+                    notifyRankingChangeIfNeeded(detected).catch((pushErr) => {
+                        console.warn('[PushService] Errore notifica cambio ID_CLASS:', pushErr);
+                    });
+                }
+
                 return detected;
             }
         }
@@ -1466,6 +1484,120 @@ app.post('/api/refresh', async (req, res) => {
         res.json({ success: true, timestamp: new Date().toISOString(), classifica, calendario, statisticheAtleti });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// ======================== WEB PUSH NOTIFICATIONS ========================
+
+function isPushCronAuthorized(req: express.Request): boolean {
+    const secret = process.env.CRON_SECRET || process.env.PUSH_CRON_SECRET;
+    if (!secret) return true;
+
+    const authHeader = req.headers.authorization || '';
+    const querySecret = typeof req.query.secret === 'string' ? req.query.secret : '';
+    return authHeader === `Bearer ${secret}` || querySecret === secret;
+}
+
+// Restituisce la chiave pubblica VAPID necessaria al frontend per pushManager.subscribe().
+app.get('/api/push/public-key', (_req, res) => {
+    const publicKey = pushService.getPublicKey();
+    if (!publicKey) {
+        return res.status(503).json({ error: 'Notifiche push non configurate sul server.' });
+    }
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.json({ publicKey });
+});
+
+// Salva la subscription del dispositivo e invia subito la notifica di benvenuto.
+app.post('/api/push/subscribe', async (req, res) => {
+    const body = req.body?.subscription || req.body || {};
+    const subscription: PushSubscriptionPayload = {
+        endpoint: body.endpoint,
+        expirationTime: body.expirationTime ?? null,
+        keys: {
+            p256dh: body?.keys?.p256dh,
+            auth: body?.keys?.auth,
+        },
+    };
+
+    if (!pushService.isSupabaseConfigured()) {
+        return res.status(503).json({
+            error: 'Database push non configurato (SUPABASE_SERVICE_ROLE_KEY mancante).',
+        });
+    }
+    if (!pushService.isVapidConfigured()) {
+        return res.status(503).json({
+            error: 'Notifiche push non configurate (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY mancanti).',
+        });
+    }
+
+    try {
+        const saved = await pushService.saveSubscription(
+            subscription,
+            req.headers['user-agent'] || null
+        );
+
+        const welcome = await pushService.sendToSubscription(saved, {
+            title: 'Notifiche attivate!',
+            body: 'Grazie di aver scaricato l\'app, torna quando vuoi!',
+            url: '/',
+            icon: '/icon.png',
+            badge: '/icon.png',
+            tag: 'fitet-welcome',
+        });
+
+        if (!welcome.sent && welcome.removed) {
+            return res.status(410).json({ error: 'Subscription non più valida.' });
+        }
+
+        return res.status(201).json({
+            success: true,
+            welcomeSent: welcome.sent,
+            subscriptionId: saved.id ?? null,
+            warning: welcome.sent ? undefined : welcome.error,
+        });
+    } catch (error: any) {
+        console.error('[PushService] Errore salvataggio subscription:', error);
+        return res.status(400).json({
+            error: error.message || 'Errore durante il salvataggio della subscription.',
+        });
+    }
+});
+
+// Rimuove la subscription (disattivazione notifiche dal dispositivo).
+app.delete('/api/push/subscribe', async (req, res) => {
+    const endpoint = req.body?.endpoint || req.query.endpoint;
+
+    if (!endpoint || typeof endpoint !== 'string') {
+        return res.status(400).json({ error: 'Endpoint subscription mancante.' });
+    }
+
+    try {
+        await pushService.removeSubscription(endpoint);
+        return res.json({ success: true });
+    } catch (error: any) {
+        console.error('[PushService] Errore rimozione subscription:', error);
+        return res.status(500).json({ error: 'Errore durante la rimozione della subscription.' });
+    }
+});
+
+// Endpoint per cron esterno / Vercel Cron: forza il controllo dell'ID_CLASS
+// e invia la notifica a tutti i dispositivi se è cambiato.
+app.get('/api/push/check-ranking', async (req, res) => {
+    if (!isPushCronAuthorized(req)) {
+        return res.status(401).json({ error: 'Non autorizzato.' });
+    }
+
+    try {
+        const idClass = await getLatestIdClass(true, false);
+        const result = await notifyRankingChangeIfNeeded(idClass);
+        return res.json({ success: true, ...result });
+    } catch (error: any) {
+        console.error('[PushService] Errore controllo cambio ranking:', error);
+        return res.status(500).json({
+            error: 'Errore durante il controllo del cambio classifica.',
+            details: error.message,
+        });
     }
 });
 

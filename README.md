@@ -84,3 +84,60 @@ npm run build
 npm start
 ```
 Accedi su: [http://localhost:3001](http://localhost:3001)
+
+---
+
+## Web Push Notifications (PWA)
+
+Le notifiche push funzionano su **Android** (Chrome, Edge, Samsung Internet, Firefox) anche senza installare la PWA, e su **iOS 16.4+** solo se l'app è stata aggiunta alla schermata Home. Su iOS 15 e precedenti Web Push non è supportato.
+
+### 1. Configurazione Supabase
+
+Esegui lo script [`supabase/push_notifications.sql`](supabase/push_notifications.sql) nell'SQL Editor di Supabase. Crea:
+
+- `push_subscriptions`: una riga per ogni dispositivo iscritto;
+- `push_state`: stato persistente del trigger sull'`ID_CLASS` delle classifiche.
+
+Le tabelle hanno RLS attivo e nessuna policy pubblica: il backend usa la `SUPABASE_SERVICE_ROLE_KEY`.
+
+### 2. Chiavi VAPID
+
+Genera una coppia di chiavi (una sola volta per progetto):
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Aggiungi su Vercel (e nel `.env` locale) le variabili:
+
+```env
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+VAPID_SUBJECT=mailto:tua-email@dominio.it
+CRON_SECRET=una-stringa-casuale-lunga
+```
+
+### 3. Trigger automatico cambio classifica
+
+Il backend confronta l'`ID_CLASS` rilevato da `portale.fitet.org/menu.php` con l'ultimo valore salvato in `push_state`:
+
+- primo avvio: salva il baseline senza notificare;
+- `ID_CLASS` aumentato: invia la push a tutti i dispositivi e aggiorna lo stato.
+
+Il controllo avviene automaticamente quando la cache dell'`ID_CLASS` scade (ogni 4 ore) e tramite l'endpoint protetto:
+
+```text
+GET /api/push/check-ranking
+Authorization: Bearer <CRON_SECRET>
+```
+
+Su Vercel è configurato un cron giornaliero in `vercel.json`. Per controlli più frequenti puoi usare un cron esterno (es. cron-job.org o GitHub Actions) che chiami lo stesso endpoint con il token.
+
+### 4. Endpoint Web Push
+
+| Metodo | Endpoint | Descrizione |
+| :--- | :--- | :--- |
+| `GET` | `/api/push/public-key` | Restituisce la chiave pubblica VAPID al frontend |
+| `POST` | `/api/push/subscribe` | Salva la subscription e invia la push di benvenuto |
+| `DELETE` | `/api/push/subscribe` | Rimuove la subscription (disattivazione) |
+| `GET` | `/api/push/check-ranking` | Forza il controllo dell'`ID_CLASS` e notifica se cambiato |

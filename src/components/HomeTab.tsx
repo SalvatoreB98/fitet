@@ -27,6 +27,16 @@ import {
   getChampionshipSerieKey,
   cleanChampionshipCardName,
 } from '../utils/championshipUtils';
+import {
+  preparePushNotifications,
+  getPushNotificationStatus,
+  isStandaloneMode,
+  isAndroid,
+  canEnablePushInBrowser,
+  subscribeToPush,
+  unsubscribeFromPush,
+  type PushNotificationStatus,
+} from '../services/pushNotifications';
 import './HomeTab.css';
 
 interface HomeTabProps {
@@ -127,6 +137,95 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   const handleOpenH2hPicker = () => {
     setH2hPlayers(null);
     setIsH2hPickerOpen(true);
+  };
+
+  // ── Web Push Notifications (PWA) ──────────────────────────────────────
+  const [pushStatus, setPushStatus] = useState<PushNotificationStatus>(() => ({
+    supported: false,
+    permission: 'default',
+    subscribed: false,
+    standalone: isStandaloneMode(),
+  }));
+  const [isPushLoading, setIsPushLoading] = useState(false);
+  const [pushFeedback, setPushFeedback] = useState<{
+    type: 'success' | 'error' | 'info';
+    text: string;
+  } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    const refreshPushStatus = async () => {
+      // Precarica service worker e chiave VAPID senza chiedere permessi.
+      await preparePushNotifications();
+      const status = await getPushNotificationStatus();
+      if (active) setPushStatus(status);
+    };
+
+    refreshPushStatus();
+
+    const displayModeQuery =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia('(display-mode: standalone)')
+        : null;
+
+    const handleDisplayModeChange = () => {
+      if (active) {
+        setPushStatus((prev) => ({ ...prev, standalone: isStandaloneMode() }));
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshPushStatus();
+      }
+    };
+
+    displayModeQuery?.addEventListener?.('change', handleDisplayModeChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      active = false;
+      displayModeQuery?.removeEventListener?.('change', handleDisplayModeChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  const handleTogglePush = async () => {
+    if (isPushLoading) return;
+
+    setIsPushLoading(true);
+    setPushFeedback(null);
+
+    try {
+      if (pushStatus.subscribed) {
+        await unsubscribeFromPush();
+        setPushStatus((prev) => ({ ...prev, subscribed: false }));
+        setPushFeedback({
+          type: 'info',
+          text: 'Notifiche disattivate. Puoi riattivarle quando vuoi.',
+        });
+      } else {
+        const result = await subscribeToPush();
+        setPushStatus((prev) => ({ ...prev, subscribed: true, permission: 'granted' }));
+        setPushFeedback({
+          type: 'success',
+          text: result.welcomeSent
+            ? 'Notifiche attivate! Ti abbiamo inviato una notifica di benvenuto.'
+            : 'Notifiche attivate!',
+        });
+      }
+    } catch (err: any) {
+      setPushFeedback({
+        type: 'error',
+        text: err?.message || 'Operazione non riuscita. Riprova.',
+      });
+    } finally {
+      setIsPushLoading(false);
+      getPushNotificationStatus()
+        .then((status) => setPushStatus(status))
+        .catch(() => undefined);
+    }
   };
 
   // Sincronizza in background i dati dei preferiti con l'ultimo snapshot ufficiale
@@ -312,6 +411,12 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     onSelectChampionship(champId, champAnno);
     onNavigateTab(targetTab);
   };
+
+  // Su Android il toggle è disponibile anche nel browser, senza installazione.
+  // Su iOS e sulle altre piattaforme resta visibile solo nella PWA installata.
+  const canShowPushSection =
+    pushStatus.standalone ||
+    (canEnablePushInBrowser() && pushStatus.supported);
 
   return (
     <div className="home-container">
@@ -591,37 +696,142 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           </button>
         </div>
       </section>
-      <section
-        className="home-hero home-hero-sub"
-        aria-label="Versione app"
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '1rem',
-        }}
-      >
-        <div className="home-hero-content w-100">
-          <div className="my-profile-empty-eyebrow">
-            Aggiungi in home per un accesso rapido
+      {!pushStatus.standalone && (
+        <section
+          className="home-hero home-hero-sub"
+          aria-label="Versione app"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '1rem',
+          }}
+        >
+          <div className="home-hero-content w-100">
+            <div className="my-profile-empty-eyebrow">
+              Aggiungi in home per un accesso rapido
+            </div>
+            <h3 className="home-hero-title" style={{ margin: 0 }}>
+              Versione senza installazione
+            </h3>
+            <p className="home-hero-subtitle">
+              {isAndroid() ? (
+                pushStatus.supported ? (
+                  <>
+                    Aggiungi l&apos;app alla schermata Home per un accesso
+                    rapido. Le notifiche push sono già disponibili qui sotto.
+                  </>
+                ) : (
+                  <>
+                    Aggiungi l&apos;app alla schermata Home per un accesso
+                    rapido.
+                  </>
+                )
+              ) : (
+                <>
+                  Aggiungendo l&apos;app alla schermata Home potrai anche
+                  attivare le notifiche push e ricevere gli avvisi sulle nuove
+                  classifiche FITeT.
+                </>
+              )}
+            </p>
           </div>
-          <h3 className="home-hero-title" style={{ margin: 0 }}>
-            Versione senza installazione
-          </h3>
-        </div>
 
-        <div className="home-hero-actions">
-          <button
-            type="button"
-            className="home-hero-btn home-hero-btn-secondary"
-            onClick={onOpenInstallAppModal}
-            title="Scarica la versione app del portale"
-          >
-            <i className="bi bi-download"></i>
-            <span>Scarica App</span>
-          </button>
-        </div>
-      </section>
+          <div className="home-hero-actions">
+            <button
+              type="button"
+              className="home-hero-btn home-hero-btn-secondary"
+              onClick={onOpenInstallAppModal}
+              title="Scarica la versione app del portale"
+            >
+              <i className="bi bi-download"></i>
+              <span>Scarica App</span>
+            </button>
+          </div>
+        </section>
+      )}
+
+      {canShowPushSection && (
+        <section
+          className="home-hero home-hero-sub home-push-section"
+          aria-label="Notifiche push"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '1rem',
+          }}
+        >
+          <div className="home-hero-content w-100">
+            <div className="my-profile-empty-eyebrow">
+              Resta sempre aggiornato
+            </div>
+            <h3 className="home-hero-title" style={{ margin: 0 }}>
+              Notifiche push
+            </h3>
+            <p className="home-hero-subtitle">
+              Ricevi un avviso quando viene pubblicata una nuova classifica FITeT.
+            </p>
+
+            {!pushStatus.supported && (
+              <p className="home-push-feedback is-error">
+                Il tuo dispositivo o browser non supporta le notifiche push.
+              </p>
+            )}
+
+            {pushStatus.supported && pushStatus.permission === 'denied' && (
+              <p className="home-push-feedback is-error">
+                Notifiche bloccate. Abilitale dalle impostazioni del dispositivo.
+              </p>
+            )}
+
+            {pushFeedback && (
+              <p
+                className={`home-push-feedback is-${pushFeedback.type}`}
+                role="status"
+              >
+                {pushFeedback.text}
+              </p>
+            )}
+          </div>
+
+          <div className="home-hero-actions">
+            <button
+              type="button"
+              className={`home-hero-btn home-push-btn ${
+                pushStatus.subscribed ? 'is-active' : 'home-hero-btn-primary'
+              }`}
+              onClick={handleTogglePush}
+              disabled={
+                !pushStatus.supported ||
+                isPushLoading ||
+                pushStatus.permission === 'denied'
+              }
+              aria-pressed={pushStatus.subscribed}
+              title={
+                pushStatus.subscribed
+                  ? 'Disattiva le notifiche push'
+                  : 'Attiva le notifiche push'
+              }
+            >
+              <i
+                className={
+                  pushStatus.subscribed ? 'bi bi-bell-fill' : 'bi bi-bell'
+                }
+              ></i>
+              <span>
+                {isPushLoading
+                  ? 'Attendere...'
+                  : pushStatus.subscribed
+                    ? 'Notifiche attive'
+                    : pushStatus.supported
+                      ? 'Attiva notifiche'
+                      : 'Notifiche non disponibili'}
+              </span>
+            </button>
+          </div>
+        </section>
+      )}
       {/* ───────────────────────────────────────────────────────────
           SEZIONE 1: CAMPIONATI PREFERITI (mostrata solo se presenti)
          ─────────────────────────────────────────────────────────── */}
