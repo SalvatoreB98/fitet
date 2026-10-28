@@ -362,7 +362,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                 <div className="d-flex align-items-center gap-2 flex-wrap flex-grow-1 me-2">
                   <span className="fw-semibold text-main d-inline-flex align-items-center">
                     <i className="bi bi-lightning-charge-fill text-warning me-2"></i>
-                    Clasifica Rapida
+                    Selezione Rapida
                   </span>
                   <span className="ranking-pill-badge active">
                     {category === 'stranieri' && <span className="pill-highlight-dot me-1"></span>}
