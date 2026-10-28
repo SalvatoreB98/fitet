@@ -171,7 +171,7 @@ var FitetClient = class {
    * Ricerca atleti tramite il form ufficiale "scelta_atleta.php".
    * ATLETA viene usato da FITeT per escludere l'atleta già selezionato.
    */
-  static async fetchSceltaAtleta(query, excludeId = "0", idClass = 247) {
+  static async fetchSceltaAtleta(query, excludeId = "0", idClass = 248) {
     const url = `${BASE_URL}/risultati/new_rank/scelta_atleta.php`;
     return this.postForm(
       url,

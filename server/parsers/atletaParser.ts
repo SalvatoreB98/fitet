@@ -17,25 +17,24 @@ export function parseItalianNumber(val: string | null | undefined): number {
   const clean = val.trim();
   if (!clean) return 0;
 
-  // Se contiene sia punto che virgola (es. "2.510,40" o "10.250,50"):
-  // il punto separa le migliaia, la virgola i decimali
+  // Se contiene sia punto che virgola (es. "2.510,40" o "10.250,50")
   if (clean.includes('.') && clean.includes(',')) {
-    return parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0;
+    const parsed = parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0;
+    return parsed;
   }
 
-  // Se contiene solo la virgola (es. "166,00" o "248,36"):
-  // la virgola separa i decimali
+  // Se contiene solo la virgola (es. "166,00" o "248,36")
   if (clean.includes(',')) {
-    return parseFloat(clean.replace(',', '.')) || 0;
+    const parsed = parseFloat(clean.replace(',', '.')) || 0;
+    return parsed;
   }
 
-  // Se contiene solo il punto (es. "3.050" o "2.510"):
-  // Se dopo il punto ci sono 3 cifre, è un separatore di migliaia (3050 pt)
+  // Se contiene solo il punto (es. "3.050" o "2.510")
   if (/^\s*[+-]?\d{1,3}(?:\.\d{3})+\s*$/.test(clean)) {
-    return parseFloat(clean.replace(/\./g, '')) || 0;
+    const parsed = parseFloat(clean.replace(/\./g, '')) || 0;
+    return parsed;
   }
 
-  // Altrimenti parsalo normalmente come float
   return parseFloat(clean) || 0;
 }
 
@@ -43,16 +42,26 @@ export function parseItalianNumber(val: string | null | undefined): number {
  * Estrae l'URL della pagina iframe da #fragment-3 (Dettaglio Punti)
  */
 export function extractRankingIframeUrl(html: string): string | null {
+  console.log('[extractRankingIframeUrl] Inizio estrazione iframe URL');
   const $ = cheerio.load(html);
   const rawSrc = $('#fragment-3 iframe').attr('src');
-  if (!rawSrc) return null;
+  if (!rawSrc) {
+    console.warn('[extractRankingIframeUrl] Nessun iframe trovato in #fragment-3');
+    return null;
+  }
 
   const cleanSrc = rawSrc.replace(/\s+/g, '');
-  if (!cleanSrc) return null;
+  if (!cleanSrc) {
+    console.warn('[extractRankingIframeUrl] src iframe vuoto o non valido');
+    return null;
+  }
 
   try {
-    return new URL(cleanSrc, 'https://portale.fitet.org/risultati/new_rank/dettaglioatleta_unica.php').href;
-  } catch {
+    const resolvedUrl = new URL(cleanSrc, 'https://portale.fitet.org/risultati/new_rank/dettaglioatleta_unica.php').href;
+    console.log('[extractRankingIframeUrl] URL iframe estratto con successo:', resolvedUrl);
+    return resolvedUrl;
+  } catch (err) {
+    console.error('[extractRankingIframeUrl] Errore risoluzione URL iframe:', cleanSrc, err);
     return null;
   }
 }
@@ -75,7 +84,7 @@ export function isCurrentSeasonDate(dateStr: string): boolean {
   if (m) {
     const year = parseInt(m[3] && m[3].length === 4 ? m[3] : m[1], 10);
     const month = parseInt(m[3] && m[3].length === 4 ? m[2] : m[2], 10);
-    // Stagione sportiva corrente 2026/2027: da Luglio 2026 a Giugno 2027
+
     if (year < 2026) return false;
     if (year === 2026 && month < 7) return false;
     if (year > 2027) return false;
@@ -86,24 +95,32 @@ export function isCurrentSeasonDate(dateStr: string): boolean {
 }
 
 /**
- * Parsa la pagina HTML caricata dall'iframe di ranking (contenente gli incontri di campionato e torneo)
+ * Parsa la pagina HTML caricata dall'iframe di ranking
  */
 export function parsePartiteRanking(html: string, atletaId: string): PartiteRankingAtleta {
+  console.log(`[parsePartiteRanking] Inizio parsing partite ranking per atletaId: ${atletaId}`);
   const $ = cheerio.load(html);
   let $p = $(`#player_${atletaId}`);
-  if (!$p.length) $p = $('.player').first();
+  if (!$p.length) {
+    console.warn(`[parsePartiteRanking] Selettore #player_${atletaId} non trovato, fallback su prima classe .player`);
+    $p = $('.player').first();
+  }
 
   const result: PartiteRankingAtleta = {
     campionato: [],
     tornei: [],
   };
 
-  if (!$p.length) return result;
+  if (!$p.length) {
+    console.error(`[parsePartiteRanking] Nessun elemento atleta trovato nell'HTML per atletaId: ${atletaId}`);
+    return result;
+  }
 
   const subtleText = $p.find('.subtle').text().trim();
   result.rawSubtle = subtleText;
 
   if (subtleText) {
+    console.debug('[parsePartiteRanking] Testo .subtle trovato:', subtleText);
     const parseSubVal = (regex: RegExp) => {
       const m = subtleText.match(regex);
       return m ? parseItalianNumber(m[1]) : undefined;
@@ -116,6 +133,7 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
       protezione: parseSubVal(/protezione\s*<b>?([\d\.,]+)/i),
       finali: parseSubVal(/finali\s*<b>?([\d\.,]+)/i),
     };
+    console.log('[parsePartiteRanking] Dettaglio punti parsato:', result.dettaglioPunti);
   }
 
   $p.find('h3').each((_, h3) => {
@@ -123,11 +141,11 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
     const table = $(h3).nextAll('table').first();
     if (!table.length) return;
 
-    // Verifica che sia effettivamente una tabella di incontri (deve contenere 'avversario' nell'intestazione)
     const headerText = table.find('th, tr:first-child td').text().toLowerCase();
     if (!headerText.includes('avversario')) return;
 
     if (text.includes('campionato') && !text.includes('punti') && !text.includes('posizionamento')) {
+      console.log('[parsePartiteRanking] Parsing tabella campionato');
       table.find('tbody tr').each((_, tr) => {
         const cells = $(tr).find('td');
         if (cells.length < 4) return;
@@ -137,7 +155,10 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
         const rawData = $(cells[0]).text().trim();
         if (!rawData || (!rawData.includes('/') && !rawData.includes('-'))) return;
         const data = formatDateItalian(rawData);
-        if (!isCurrentSeasonDate(data)) return;
+        if (!isCurrentSeasonDate(data)) {
+          console.debug(`[parsePartiteRanking] Partita campionato scartata fuori stagione: ${data}`);
+          return;
+        }
 
         let campionato = '';
         let punti = 0;
@@ -148,7 +169,6 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
         let avversarioId: string | undefined = undefined;
 
         if (cells.length === 5) {
-          // Formato provvisori (Data, Campionato, Status, Avversario, Risultato)
           campionato = $(cells[1]).text().trim();
           stato = $(cells[2]).text().trim();
           const $avvCell = $(cells[3]);
@@ -159,7 +179,6 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
           avversarioId = idMatch ? idMatch[1] : undefined;
           ris = $(cells[4]).text().trim();
         } else {
-          // Formato standard 7 colonne (Data, Campionato, Punti, Ris, Sesso, Stato, Avversario)
           campionato = $(cells[1]).text().trim();
           punti = parseItalianNumber($(cells[2]).text().trim());
           ris = $(cells[3]).text().trim();
@@ -187,7 +206,9 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
           stato,
         });
       });
+      console.log(`[parsePartiteRanking] Partite campionato estratte: ${result.campionato.length}`);
     } else if (text.includes('torne') && !text.includes('punti') && !text.includes('posizionamento') && !text.includes('vinti nei gironi')) {
+      console.log('[parsePartiteRanking] Parsing tabella tornei');
       table.find('tbody tr').each((_, tr) => {
         const cells = $(tr).find('td');
         if (cells.length < 5) return;
@@ -197,7 +218,10 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
         const rawData = $(cells[0]).text().trim();
         if (!rawData || (!rawData.includes('/') && !rawData.includes('-'))) return;
         const data = formatDateItalian(rawData);
-        if (!isCurrentSeasonDate(data)) return;
+        if (!isCurrentSeasonDate(data)) {
+          console.debug(`[parsePartiteRanking] Partita torneo scartata fuori stagione: ${data}`);
+          return;
+        }
 
         const torneo = $(cells[1]).text().trim();
         const gara = $(cells[2]).text().trim();
@@ -210,8 +234,7 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
         const avversarioId = idMatch ? idMatch[1] : undefined;
         const fase = cells.length >= 6 ? $(cells[5]).text().trim() : undefined;
         const ris = cells.length >= 7 ? $(cells[6]).text().trim() : $(cells[cells.length - 1]).text().trim();
-        
-        // Risultato dell'incontro deve essere V (vinto) o S (perso)
+
         if (ris.toUpperCase() !== 'V' && ris.toUpperCase() !== 'S' && ris.toLowerCase() !== 'win' && ris.toLowerCase() !== 'loss') return;
         const isVittoria = ris.toUpperCase() === 'V' || ris.toLowerCase() === 'win';
         const isDiscarded = $(tr).hasClass('discarded') || ris.toUpperCase() === 'S';
@@ -229,6 +252,7 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
           isDiscarded,
         });
       });
+      console.log(`[parsePartiteRanking] Partite tornei estratte: ${result.tornei.length}`);
     }
   });
 
@@ -240,11 +264,13 @@ export function parseDettaglioAtleta(
   atletaId: string,
   partiteRanking?: PartiteRankingAtleta
 ): DettaglioAtleta {
+  console.log(`[parseDettaglioAtleta] Inizio parsing scheda atleta ${atletaId}`);
   const $ = cheerio.load(html);
 
   // 1. Anagrafica
   const $titolo = $('p.titolo').first();
   const nomeRaw = $titolo.text().replace(/\s+/g, ' ').trim();
+  console.debug(`[parseDettaglioAtleta] Nome rilevato: "${nomeRaw}"`);
 
   // Flag & nationality
   const flagImg = $titolo.find('img.immagine').first();
@@ -262,7 +288,6 @@ export function parseDettaglioAtleta(
   const fotoId = photoMatch ? photoMatch[1] : (atletaId || '');
   const fotoUrl = fotoId && /^\d+$/.test(fotoId) ? `https://portale.fitet.org/images/atleti/${fotoId}.jpg` : '';
 
-  // Helper to extract value by field label
   const getFieldValue = (label: string): string => {
     let result = '';
     $('td').each((_, td) => {
@@ -272,7 +297,7 @@ export function parseDettaglioAtleta(
         const nextTd = $td.next('td');
         if (nextTd.length > 0) {
           result = nextTd.text().replace(/\s+/g, ' ').trim();
-          return false; // break
+          return false;
         }
       }
     });
@@ -289,7 +314,6 @@ export function parseDettaglioAtleta(
   const regione = getFieldValue('Regione') || '';
 
   const catRaw = getFieldValue('Categoria');
-  // Example catRaw: "6^ (*)    punti 166,00" o "6^    punti 2.510,40"
   let categoria = catRaw;
   let punti = 0;
   const puntiMatch = catRaw.match(/punti\s*([\d\.,]+)/i);
@@ -298,7 +322,6 @@ export function parseDettaglioAtleta(
     categoria = catRaw.replace(/punti\s*[\d\.,]+/i, '').trim();
   }
 
-  // State (e.g. "Fuori Quadro" or rank position)
   let stato = $('.style5').text().trim();
   if (!stato) {
     const classNum = $('p.classifica').text().trim();
@@ -324,9 +347,9 @@ export function parseDettaglioAtleta(
       const headerCells = $(rows[0]).find('td, th');
       const dataCells = $(rows[1]).find('td');
 
-      // FITeT inserted a "PROTEZIONE CLASSIFICA" column (between TOTALI and FINALE),
-      // so map columns by header text instead of fixed positions.
       const headers = headerCells.map((_, c) => $(c).text().replace(/\s+/g, ' ').trim().toUpperCase()).get();
+      console.debug('[parseDettaglioAtleta] Intestazioni tabella riepilogo:', headers);
+
       const findCol = (re: RegExp, fallback: number) => {
         const i = headers.findIndex((h) => re.test(h));
         return i >= 0 ? i : fallback;
@@ -355,14 +378,27 @@ export function parseDettaglioAtleta(
         partiteVinte = parseInt($(dataCells[colVinte]).text().trim(), 10) || 0;
         partitePerse = parseInt($(dataCells[colPerse]).text().trim(), 10) || 0;
         percentualePositiva = parseItalianNumber($(dataCells[colPerc]).text().trim().replace('%', ''));
+
+        console.log('[parseDettaglioAtleta] Riepilogo estratto:', {
+          puntiIniziali,
+          puntiTotali,
+          punteggioFinale,
+          giocate: partiteGiocate,
+          vinte: partiteVinte,
+          perse: partitePerse,
+        });
+      } else {
+        console.warn(`[parseDettaglioAtleta] Celle insufficienti nel riepilogo (${dataCells.length})`);
       }
     }
+  } else {
+    console.warn('[parseDettaglioAtleta] Tabella #fragment-1 non trovata');
   }
 
   // 3. Storico Classifica (#fragment-4)
   const storicoClassifica: StoricoRankingSnapshot[] = [];
   $('#fragment-4 table tr').each((idx, tr) => {
-    if (idx === 0) return; // header row
+    if (idx === 0) return;
     const cells = $(tr).find('td');
     if (cells.length < 4) return;
 
@@ -383,12 +419,13 @@ export function parseDettaglioAtleta(
     });
   });
 
-  // Sort storico chronologically ascending (oldest first) for charting
   storicoClassifica.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+  console.log(`[parseDettaglioAtleta] Rilevazioni storico classifica trovate: ${storicoClassifica.length}`);
 
-  // Coerenza punti anagrafica: prediligi punteggio finale, poi punti categoria, poi ultimo rilevamento storico
   const ultimoSnapshot = storicoClassifica.length > 0 ? storicoClassifica[storicoClassifica.length - 1] : null;
   const puntiEffettivi = punteggioFinale || punti || (ultimoSnapshot ? ultimoSnapshot.punti : 0);
+
+  console.log(`[parseDettaglioAtleta] Completato parsing per ${nomeRaw || atletaId}. Punti finali: ${puntiEffettivi}`);
 
   return {
     id: atletaId,
