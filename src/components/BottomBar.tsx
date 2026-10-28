@@ -31,20 +31,6 @@ export const BottomBar: React.FC<BottomBarProps> = ({
           <span className="bottom-bar-label">Home</span>
         </button>
 
-        {/* 2. Campionato */}
-        <button
-          type="button"
-          className={`bottom-bar-item ${activeView === 'campionato' ? 'is-active' : ''}`}
-          onClick={() => onChangeView('campionato')}
-          aria-label="Campionato FITeT"
-          aria-current={activeView === 'campionato' ? 'page' : undefined}
-        >
-          <div className="bottom-bar-icon-wrap">
-            <i className="bi bi-shield-fill"></i>
-          </div>
-          <span className="bottom-bar-label">Campionato</span>
-        </button>
-
         {/* 3. Tornei */}
         <button
           type="button"
@@ -57,6 +43,20 @@ export const BottomBar: React.FC<BottomBarProps> = ({
             <i className="bi bi-trophy-fill"></i>
           </div>
           <span className="bottom-bar-label">Tornei</span>
+        </button>
+
+        {/* 2. Campionato */}
+        <button
+          type="button"
+          className={`bottom-bar-item ${activeView === 'campionato' ? 'is-active' : ''}`}
+          onClick={() => onChangeView('campionato')}
+          aria-label="Campionato FITeT"
+          aria-current={activeView === 'campionato' ? 'page' : undefined}
+        >
+          <div className="bottom-bar-icon-wrap">
+            <i className="bi bi-shield-fill"></i>
+          </div>
+          <span className="bottom-bar-label">Campionato</span>
         </button>
 
         {/* 4. Classifiche */}
