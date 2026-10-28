@@ -21,7 +21,7 @@ var FitetClient = class {
     };
     if (isAjax) {
       headers["X-Requested-With"] = "XMLHttpRequest";
-      headers["Referer"] = customReferer || "https://portale.fitet.org/risultati/new_rank/testaclassifica_auto.php?ID_CLASS=247&ID=1&PASS=20";
+      headers["Referer"] = customReferer || "https://portale.fitet.org/risultati/new_rank/testaclassifica_auto.php?ID_CLASS=248&ID=1&PASS=20";
     }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12e3);
@@ -92,7 +92,7 @@ var FitetClient = class {
   /**
    * Endpoint 4: Scheda Singolo Atleta (Ranking & Storico Punti)
    */
-  static async fetchSchedaAtleta(atletaId, idClass = 247) {
+  static async fetchSchedaAtleta(atletaId, idClass = 248) {
     const url = `${BASE_URL}/risultati/new_rank/dettaglioatleta_unica.php?ATLETA=${atletaId}&ID_CLASS=${idClass}&ZU=1&AVVERSARIO=0`;
     return this.fetchHtml(url, true);
   }
@@ -434,7 +434,7 @@ var athlete_mapping_default = {
   "FERRARO GIUSEPPE": "732567",
   "ORIGLIA PIERLUIGI": "745200",
   "TOMA FERDINANDO": "718926",
-  "RITACCO SIMONE": "824725",
+  "RITACCO SIMONE": "824825",
   "GRANATO BORIS": "835128",
   "BELSITO MASSIMO": "830623",
   "GACCIONE CLAUDIA MARIA": "800248",
@@ -676,7 +676,7 @@ var athlete_mapping_default = {
   "GUALDI M - SANCHI F": "847691",
   "BASSI A - NINIOLA ADESHINA I": "849829",
   "BHANJA RONIT": "827162",
-  "MARTINALLI LORENZO": "710247",
+  "MARTINALLI LORENZO": "710248",
   "AL-NUAIMI AMEER THAMER MOHAMMED": "816099",
   "POMA MARCO": "709934",
   "POMA M - BHANJA R": "849812",
@@ -2317,7 +2317,7 @@ function parseHeadToHead(html, atleta1Id, atleta2Id, fallbackAtleta1Nome, fallba
 
 // server/services/headToHeadService.ts
 var TTL_HEAD_TO_HEAD = 24 * 60 * 60 * 1e3;
-var DEFAULT_ID_CLASS = 247;
+var DEFAULT_ID_CLASS = 248;
 var HeadToHeadService = class {
   /**
    * Recupera il confronto diretto (Testa a Testa) tra due atleti
@@ -3084,9 +3084,9 @@ app.get("/api/ranking", async (req, res) => {
     }
     let url = "";
     if (isRegionale) {
-      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=247&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
+      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
     } else {
-      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=247&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
+      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=1&SETT=0&page=${page}&S=0&FQ=0&G=0&V=0`;
     }
     const html = await FitetClient.fetchHtml(url, true);
     const result = parseRankingHtml(html, sesso, page, comitId);
@@ -3127,7 +3127,7 @@ app.get("/api/atleta/:id", async (req, res) => {
     const html = await FitetClient.fetchSchedaAtleta(id);
     let partiteRanking = void 0;
     let iframeUrl = extractRankingIframeUrl(html);
-    let resolvedIdClass = 247;
+    let resolvedIdClass = 248;
     if (iframeUrl) {
       try {
         const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);
@@ -3197,7 +3197,7 @@ app.get("/api/atleta/:id", async (req, res) => {
 app.get("/api/head-to-head", async (req, res) => {
   const atleta1 = req.query.atleta1;
   const atleta2 = req.query.atleta2;
-  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) : 247;
+  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) : 248;
   if (!atleta1 || !atleta2) {
     return res.status(400).json({ error: "Parametri atleta1 e atleta2 obbligatori" });
   }
@@ -3250,7 +3250,7 @@ app.get("/api/search-atleta", async (req, res) => {
 app.get("/api/search-atleta-scelta", async (req, res) => {
   const query = (req.query.q || "").trim();
   const excludeId = (req.query.excludeId || "0").trim() || "0";
-  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) || 247 : 247;
+  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) || 248 : 248;
   if (query.length < 2) {
     return res.json([]);
   }

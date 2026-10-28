@@ -48,7 +48,7 @@ Applicazione web full-stack, reattiva e mobile-first per la consultazione e il m
 | **Classifica** | `https://portale.fitet.org/risultati/campionati/classifica_squadre.php?CAM=1902` | [`server/parsers/classificaParser.ts`](file:///d:/Coding/FITET/CAMPIONATO/server/parsers/classificaParser.ts) |
 | **Calendario** | `https://portale.fitet.org/risultati/campionati/Calendario.asp?CAM=1902&ANNO=41` | [`server/parsers/calendarioParser.ts`](file:///d:/Coding/FITET/CAMPIONATO/server/parsers/calendarioParser.ts) |
 | **Statistiche** | `https://portale.fitet.org/risultati/campionati/statistiche_atleti.php?CAM=1902` | [`server/parsers/statisticheParser.ts`](file:///d:/Coding/FITET/CAMPIONATO/server/parsers/statisticheParser.ts) |
-| **Scheda Atleta** | `https://portale.fitet.org/risultati/new_rank/dettaglioatleta_unica.php?ATLETA={ID}&ID_CLASS=247&ZU=1&AVVERSARIO=0` | [`server/parsers/atletaParser.ts`](file:///d:/Coding/FITET/CAMPIONATO/server/parsers/atletaParser.ts) |
+| **Scheda Atleta** | `https://portale.fitet.org/risultati/new_rank/dettaglioatleta_unica.php?ATLETA={ID}&ID_CLASS=248&ZU=1&AVVERSARIO=0` | [`server/parsers/atletaParser.ts`](file:///d:/Coding/FITET/CAMPIONATO/server/parsers/atletaParser.ts) |
 | **Autocomplete** | `https://portale.fitet.org/risultati/new_rank/ajax.php?term={QUERY}` | [`server/services/athleteResolver.ts`](file:///d:/Coding/FITET/CAMPIONATO/server/services/athleteResolver.ts) |
 
 ---
