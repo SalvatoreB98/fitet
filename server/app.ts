@@ -289,9 +289,9 @@ app.get('/api/statistiche', async (req, res) => {
 // 4b. Classifiche Nazionali e Regionali FITeT
 app.get('/api/ranking', async (req, res) => {
     const sesso = (req.query.sesso === 'F' ? 'F' : 'M') as 'M' | 'F';
-    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1); 248
     const comit = req.query.comit ? String(req.query.comit).trim() : '';
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = req.query.refresh === 'true'; 248
 
     // Category / Filter parameters
     const categoryKey = (req.query.category as string) || '';
@@ -343,7 +343,7 @@ async function getDynamicMenuManifestazioni(forceRefresh = false): Promise<Array
         if (cached) return cached;
     }
     try {
-        const html = await FitetClient.fetchHtml('https://portale.fitet.org/menu.php');
+        const html = await Fit248lient.fetchHtml('https://portale.fitet.org/menu.php');
         const parsed = parseMenuManifestazioni(html);
         if (parsed.length > 0) {
             cacheService.set(cacheKey, parsed, 6 * 60 * 60 * 1000); // 6 hours
@@ -429,7 +429,7 @@ async function fetchSingleTorneoSection(
         };
         cacheService.set(cacheKey, sectionResult, 30 * 60 * 1000);
         return sectionResult;
-    }
+    } 248
 
     // Fallback se TOR=0&ID=36 (Tornei Open) avesse cambiato ID su portale.fitet.org
     if (tor === 0 && parsed.tornei.length === 0 && parsed.regions.length === 0) {
@@ -499,7 +499,7 @@ app.get('/api/tornei', async (req, res) => {
                             c.tor,
                             targetRegion,
                             c.id,
-                            targetRegion,
+                            targetRegion, 248248
                             forceRefresh
                         )
                     )
@@ -561,8 +561,8 @@ app.get('/api/tornei', async (req, res) => {
             tor === 0
                 ? (regParam >= 1 && regParam <= 21 ? regParam : (comitParam >= 1 && comitParam <= 21 ? comitParam : undefined))
                 : isRegCat
-                ? comit
-                : undefined;
+                    ? comit
+                    : undefined;
 
         const section = await fetchSingleTorneoSection(
             catDef?.key || categoryKey,
@@ -719,32 +719,32 @@ app.get('/api/tornei/gara', async (req, res) => {
             reqCod1 !== undefined && reqCod2 !== undefined
                 ? { cod1: reqCod1, cod2: reqCod2 }
                 : meta.gironiRanges.length > 0
-                ? { cod1: meta.gironiRanges[0].cod1, cod2: meta.gironiRanges[0].cod2 }
-                : null;
+                    ? { cod1: meta.gironiRanges[0].cod1, cod2: meta.gironiRanges[0].cod2 }
+                    : null;
 
         let activeTurno =
             reqTurno !== undefined
                 ? meta.turniTabellone.find((t) => t.turno === reqTurno && (!reqTab || t.tab === reqTab)) || {
-                      tab: reqTab || 1,
-                      turno: reqTurno,
-                      label: `Turno ${reqTurno}`,
-                  }
+                    tab: reqTab || 1,
+                    turno: reqTurno,
+                    label: `Turno ${reqTurno}`,
+                }
                 : meta.turniTabellone.length > 0
-                ? meta.turniTabellone[0]
-                : null;
+                    ? meta.turniTabellone[0]
+                    : null;
 
         const [gironiHtml, tabelloneHtml] = await Promise.all([
             activeGironiRange
                 ? FitetClient.fetchHtml(
-                      `${baseUrl}/risultati.php?COD_1=${activeGironiRange.cod1}&COD_2=${activeGironiRange.cod2}&IDT=${idt}&ANNO=${anno}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
-                  ).catch(() => '')
+                    `${baseUrl}/risultati.php?COD_1=${activeGironiRange.cod1}&COD_2=${activeGironiRange.cod2}&IDT=${idt}&ANNO=${anno}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+                ).catch(() => '')
                 : Promise.resolve(''),
             activeTurno
                 ? FitetClient.fetchHtml(
-                      isDoppio
-                          ? `${baseUrl}/risultati_tabellone_doppio.php?ANNO=${anno}&TURNO=${activeTurno.turno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
-                          : `${baseUrl}/risultati_tabellone.php?TAB=${activeTurno.tab}&TURNO=${activeTurno.turno}&ANNO=${anno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
-                  ).catch(() => '')
+                    isDoppio
+                        ? `${baseUrl}/risultati_tabellone_doppio.php?ANNO=${anno}&TURNO=${activeTurno.turno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+                        : `${baseUrl}/risultati_tabellone.php?TAB=${activeTurno.tab}&TURNO=${activeTurno.turno}&ANNO=${anno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+                ).catch(() => '')
                 : Promise.resolve(''),
         ]);
 
@@ -816,7 +816,7 @@ app.get('/api/atleta/:id', async (req, res) => {
         let cleanName = id;
         try {
             cleanName = decodeURIComponent(id);
-        } catch {}
+        } catch { }
         cleanName = cleanName.trim();
         const resolvedId = await athleteResolver.resolveAthleteId(cleanName);
         if (resolvedId) {
@@ -912,7 +912,7 @@ app.get('/api/atleta/:id', async (req, res) => {
                         cacheService.set(cacheKey, atleta, TTL_ATLETA);
                     }
                 })
-                .catch(() => {});
+                .catch(() => { });
         }
 
         res.json(atleta);
@@ -943,19 +943,19 @@ app.get('/api/head-to-head', async (req, res) => {
 
 // 5c. Athlete Real Views tracking
 app.post("/api/atleta/:id/view", async (req, res) => {
-  const { id } = req.params;
-  if (!id) return res.status(400).json({ error: "ID atleta mancante" });
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: "ID atleta mancante" });
 
-  // Estrae l'IP reale (utile sia in locale che dietro reverse proxy/Vercel)
-  const clientIp =
-    (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ||
-    req.socket.remoteAddress ||
-    "127.0.0.1";
+    // Estrae l'IP reale (utile sia in locale che dietro reverse proxy/Vercel)
+    const clientIp =
+        (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ||
+        req.socket.remoteAddress ||
+        "127.0.0.1";
 
-  console.log(`[VIEW HIT] ID Atleta: ${id} | Client IP: ${clientIp}`);
+    console.log(`[VIEW HIT] ID Atleta: ${id} | Client IP: ${clientIp}`);
 
-  const count = await viewsService.incrementViews(id, clientIp);
-  res.json({ id, views: count });
+    const count = await viewsService.incrementViews(id, clientIp);
+    res.json({ id, views: count });
 });
 
 app.get('/api/atleta/:id/views', async (req, res) => {
@@ -1205,7 +1205,7 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
     // Se l'atletaId non è puramente numerico (es. passato il nome), prova a risolverlo
     if (!/^\d+$/.test(atletaId)) {
         let cleanName = atletaId;
-        try { cleanName = decodeURIComponent(atletaId); } catch {}
+        try { cleanName = decodeURIComponent(atletaId); } catch { }
         cleanName = cleanName.trim();
         if (!atletaNome) atletaNome = cleanName;
         const resolved = await athleteResolver.resolveAthleteId(cleanName);
@@ -1304,9 +1304,9 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
                                 squadraNome = team.name || squadraNome;
                                 break;
                             }
-                        } catch {}
+                        } catch { }
                     }
-                } catch {}
+                } catch { }
             }
         }
 

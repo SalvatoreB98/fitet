@@ -22,7 +22,7 @@ export class FitetClient {
 
     if (isAjax) {
       headers['X-Requested-With'] = 'XMLHttpRequest';
-      headers['Referer'] = customReferer || 'https://portale.fitet.org/risultati/new_rank/testaclassifica_auto.php?ID_CLASS=247&ID=1&PASS=20';
+      headers['Referer'] = customReferer || 'https://portale.fitet.org/risultati/new_rank/testaclassifica_auto.php?ID_CLASS=248&ID=1&PASS=20';
     }
 
     const controller = new AbortController();
@@ -111,7 +111,7 @@ export class FitetClient {
   /**
    * Endpoint 4: Scheda Singolo Atleta (Ranking & Storico Punti)
    */
-  static async fetchSchedaAtleta(atletaId: string | number, idClass = 247): Promise<string> {
+  static async fetchSchedaAtleta(atletaId: string | number, idClass = 248): Promise<string> {
     const url = `${BASE_URL}/risultati/new_rank/dettaglioatleta_unica.php?ATLETA=${atletaId}&ID_CLASS=${idClass}&ZU=1&AVVERSARIO=0`;
     return this.fetchHtml(url, true);
   }
@@ -221,7 +221,7 @@ export class FitetClient {
   static async fetchSceltaAtleta(
     query: string,
     excludeId = '0',
-    idClass = 247
+    idClass = 248
   ): Promise<string> {
     const url = `${BASE_URL}/risultati/new_rank/scelta_atleta.php`;
     return this.postForm(

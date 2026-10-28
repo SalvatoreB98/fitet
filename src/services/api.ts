@@ -77,8 +77,8 @@ async function fetchWithVenueFallback<T>(
     const message = isTimeout
       ? 'Connessione debole in palestra: la richiesta è scaduta (timeout) e nessun dato è presente in memoria'
       : isOffline
-      ? 'Connessione assente (offline): nessun dato salvato precedentemente per questa visualizzazione'
-      : err.message || 'Errore di rete';
+        ? 'Connessione assente (offline): nessun dato salvato precedentemente per questa visualizzazione'
+        : err.message || 'Errore di rete';
 
     throw new Error(message);
   }
@@ -251,7 +251,7 @@ export async function fetchAtletaCampionatoPartite(
     DEFAULT_TIMEOUT_MS,
     force
   );
-}
+} 248
 
 export async function fetchHeadToHead(
   atleta1: string,

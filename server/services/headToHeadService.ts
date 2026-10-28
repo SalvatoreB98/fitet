@@ -5,7 +5,7 @@ import { parseHeadToHead } from '../parsers/headToHeadParser';
 import { HeadToHeadData, PartiteRankingAtleta } from '../../src/types/fitet';
 
 const TTL_HEAD_TO_HEAD = 24 * 60 * 60 * 1000; // 24 hours
-const DEFAULT_ID_CLASS = 247;
+const DEFAULT_ID_CLASS = 248;
 
 export class HeadToHeadService {
   /**
