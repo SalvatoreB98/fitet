@@ -256,13 +256,15 @@ export async function fetchAtletaCampionatoPartite(
 export async function fetchHeadToHead(
   atleta1: string,
   atleta2: string,
-  idClass = 248
+  idClass?: number
 ): Promise<HeadToHeadData> {
   const params = new URLSearchParams({
     atleta1,
     atleta2,
-    idClass: String(idClass),
   });
+  if (idClass) {
+    params.set('idClass', String(idClass));
+  }
   const url = `${API_BASE}/head-to-head?${params.toString()}`;
 
   return fetchWithVenueFallback<HeadToHeadData>(

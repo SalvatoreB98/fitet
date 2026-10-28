@@ -4222,11 +4222,36 @@ app.get("/api/statistiche", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+var DEFAULT_ID_CLASS2 = 248;
+async function getLatestIdClass(forceRefresh = false) {
+  const cacheKey = "latest_ranking_id_class";
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached && typeof cached === "number" && cached >= DEFAULT_ID_CLASS2) {
+      return cached;
+    }
+  }
+  try {
+    const html = await FitetClient.fetchHtml("https://portale.fitet.org/menu.php");
+    const match = html.match(/testaclassifica_auto\.php\?ID_CLASS=(\d+)/i);
+    if (match && match[1]) {
+      const detected = parseInt(match[1], 10);
+      if (detected >= DEFAULT_ID_CLASS2) {
+        cacheService.set(cacheKey, detected, 4 * 60 * 60 * 1e3);
+        return detected;
+      }
+    }
+  } catch (err) {
+    console.warn("[Ranking] Impossibile rilevare automaticamente ID_CLASS da menu.php, uso fallback:", err);
+  }
+  return DEFAULT_ID_CLASS2;
+}
 app.get("/api/ranking", async (req, res) => {
   const sesso = req.query.sesso === "F" ? "F" : "M";
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const comit = req.query.comit ? String(req.query.comit).trim() : "";
   const forceRefresh = req.query.refresh === "true";
+  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) : await getLatestIdClass(forceRefresh);
   const categoryKey = req.query.category || "";
   const catDef = categoryKey ? getRankingCategoryByKey(categoryKey) : void 0;
   const tipo = req.query.tipo !== void 0 ? String(req.query.tipo) : catDef ? String(catDef.tipo) : "1";
@@ -4238,7 +4263,7 @@ app.get("/api/ranking", async (req, res) => {
   const p = req.query.p !== void 0 ? String(req.query.p) : catDef?.p !== void 0 ? String(catDef.p) : void 0;
   const isRegionale = !!comit && comit !== "0" && comit !== "all";
   const comitId = isRegionale ? parseInt(comit, 10) : void 0;
-  const cacheKey = `ranking_${sesso}_${isRegionale ? `comit_${comitId}` : "naz"}_t${tipo}_s${sett}_S${s}_FQ${fq}_G${g}_V${v}${p ? `_P${p}` : ""}_p${page}`;
+  const cacheKey = `ranking_${idClass}_${sesso}_${isRegionale ? `comit_${comitId}` : "naz"}_t${tipo}_s${sett}_S${s}_FQ${fq}_G${g}_V${v}${p ? `_P${p}` : ""}_p${page}`;
   try {
     if (!forceRefresh) {
       const cached = cacheService.get(cacheKey);
@@ -4247,9 +4272,9 @@ app.get("/api/ranking", async (req, res) => {
     const pParam = p !== void 0 && p !== null && p !== "" ? `&P=${p}` : "";
     let url = "";
     if (isRegionale) {
-      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
+      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=${idClass}&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
     } else {
-      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=248&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
+      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=${idClass}&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
     }
     const html = await FitetClient.fetchHtml(url, true);
     const result = parseRankingHtml(html, sesso, page, comitId, catDef?.key || categoryKey || "generale");
@@ -4654,7 +4679,7 @@ app.get("/api/atleta/:id", async (req, res) => {
     const html = await FitetClient.fetchSchedaAtleta(id);
     let partiteRanking = void 0;
     let iframeUrl = extractRankingIframeUrl(html);
-    let resolvedIdClass = 248;
+    let resolvedIdClass = await getLatestIdClass();
     if (iframeUrl) {
       try {
         const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);
@@ -4724,7 +4749,7 @@ app.get("/api/atleta/:id", async (req, res) => {
 app.get("/api/head-to-head", async (req, res) => {
   const atleta1 = req.query.atleta1;
   const atleta2 = req.query.atleta2;
-  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) : 248;
+  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) : await getLatestIdClass();
   if (!atleta1 || !atleta2) {
     return res.status(400).json({ error: "Parametri atleta1 e atleta2 obbligatori" });
   }
@@ -4777,7 +4802,7 @@ app.get("/api/search-atleta", async (req, res) => {
 app.get("/api/search-atleta-scelta", async (req, res) => {
   const query = (req.query.q || "").trim();
   const excludeId = (req.query.excludeId || "0").trim() || "0";
-  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) || 248 : 248;
+  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) || await getLatestIdClass() : await getLatestIdClass();
   if (query.length < 2) {
     return res.json([]);
   }
@@ -5236,6 +5261,8 @@ if (!process.env.VERCEL) {
 }
 var app_default = app;
 export {
+  DEFAULT_ID_CLASS2 as DEFAULT_ID_CLASS,
   app,
-  app_default as default
+  app_default as default,
+  getLatestIdClass
 };
