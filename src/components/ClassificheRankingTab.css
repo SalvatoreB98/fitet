@@ -625,7 +625,7 @@
 }
 
 [data-theme="dark"] .ranking-gender-btn.active {
-  background: var(--color-primary-700);
+  background: var(--color-secondary);
   color: #ffffff;
 }
 
@@ -901,6 +901,10 @@
   color: var(--color-primary-600);
   font-size: 0.84rem;
   border-radius: 8px 0 0 8px;
+}
+
+#rankingFiltersAccordion .input-group-text i {
+  color: var(--color-secondary);
 }
 
 #rankingFiltersAccordion .form-select,

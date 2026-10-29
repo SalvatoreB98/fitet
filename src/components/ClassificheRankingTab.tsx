@@ -252,7 +252,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                       <span> Regione</span>
                     </label>
                     <div className="input-group input-group-sm">
-                      <span className="input-group-text text-primary border-end-0">
+                      <span className="input-group-text border-end-0">
                         <i className="bi bi-map"></i>
                       </span>
                       <select
@@ -276,7 +276,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                       <span>Categoria</span>
                     </label>
                     <div className="input-group input-group-sm">
-                      <span className="input-group-text text-primary border-end-0">
+                      <span className="input-group-text border-end-0">
                         <i className="bi bi-trophy"></i>
                       </span>
                       <select
