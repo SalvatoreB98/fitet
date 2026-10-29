@@ -222,6 +222,9 @@ nav {
 }
 
 .portal-title-btn {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   background: none;
   border: none;
   padding: 6px 14px;
