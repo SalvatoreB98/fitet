@@ -1539,7 +1539,7 @@ app.post('/api/push/subscribe', async (req, res) => {
 
         const welcome = await pushService.sendToSubscription(saved, {
             title: 'Notifiche attivate!',
-            body: 'Grazie per aver scaricato l\'app! Ora potrai ricevere le notifiche dal portale! Ad esempio, ti avviseremo quando le classifiche verranno aggiornate.',            url: '/',
+            body: "Da questo momento in poi riceverai delle notifiche, ad esempio all'aggiornamento delle classifiche!",
             icon: '/icon.png',
             badge: '/icon.png',
             tag: 'fitet-welcome',
