@@ -390,14 +390,6 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                 </div>
               </div>
             </div>
-            <div className="official-badge-group">
-              <span className={`section-badge badge-cat-${category}`}>
-                {activeCategoryDef.shortLabel}
-              </span>
-              <span className="section-badge">
-                {selectedRegionName} • {sesso === 'M' ? 'Maschile' : 'Femminile'}
-              </span>
-            </div>
           </div>
 
           {/* Athletes Table */}

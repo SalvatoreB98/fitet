@@ -273,7 +273,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
         i.statusLabel.toLowerCase().includes(q)
     );
   }, [garaData?.iscritti, garaSearchQuery]);
-  const workInProgress = true;
+  const workInProgress = false;
   if (workInProgress) return <div className='work-in-progress'>
     <div>
       <img src="/wip.png" alt="Lavori in corso" className="wip mb-3 w-25" />
@@ -543,7 +543,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
 
       {/* Selected Tournament Interactive Detail View */}
       {selectedTorneo ? (
-        <div className="ranking-card-block primary-official ranking-table-card">
+        <div className="ranking-card-block ranking-table-card">
           <div className="ranking-section-header official-header">
             <div className="official-title-group">
               <span className="official-crown">
@@ -1056,7 +1056,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
       ) : filteredSections.length > 0 ? (
         <div className="tornei-sections-stack">
           {filteredSections.map((sec) => (
-            <div key={`${sec.key}-${sec.comit}-${sec.reg || 0}`} className="ranking-card-block primary-official ranking-table-card">
+            <div key={`${sec.key}-${sec.comit}-${sec.reg || 0}`} className="ranking-card-block ranking-table-card">
               <div className="ranking-section-header official-header">
                 <div className="official-title-group">
                   <span className="official-crown">
