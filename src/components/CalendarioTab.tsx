@@ -214,6 +214,21 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
     }
   }, [closestKey]);
 
+  const goToCurrent = () => {
+    if (closestKey && sectionRefs.current[closestKey]) {
+      const element = sectionRefs.current[closestKey];
+      if (element) {
+        const offset = 120; // altezza navbar in px (o document.querySelector('nav').offsetHeight)
+        const elementPosition = element.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - offset;
+
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
+      }
+    }
+  };
   let totalDisplayedMatches = 0;
 
   return (
@@ -290,7 +305,9 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
           Risultati ufficiali e referti federali FITeT
         </div>
       </div>
-
+      <div className='p-1 m-1 mt-3 text-right'>
+        <button onClick={() => goToCurrent()} className='btn btn-primary rounded-pill'>Vai alla giornata corrente ↓ </button>
+      </div>
       {/* Calendario Match Cards Container */}
       <div className="calendario-cards-container">
         {displayedBlocchi.map((blocco) => {
