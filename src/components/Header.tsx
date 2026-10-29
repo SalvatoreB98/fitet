@@ -164,9 +164,9 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="portal-title-heading-row">
                 <h1>
                   {mainView === 'home'
-                    ? 'PORTALE FITET'
+                    ? 'HOME'
                     : mainView === 'tornei'
-                      ? 'TORNEI FITET'
+                      ? 'TORNEI'
                       : 'CLASSIFICHE'}
                 </h1>
               </div>
@@ -175,7 +175,7 @@ export const Header: React.FC<HeaderProps> = ({
                   ? 'HOME & PREFERITI'
                   : mainView === 'tornei'
                     ? 'MANIFESTAZIONI NAZIONALI E REGIONALI'
-                    : 'RANKING UFFICIALE FITET'}
+                    : 'RANKING UFFICIALE'}
               </small>
             </div>
           )}

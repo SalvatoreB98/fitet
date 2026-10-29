@@ -8263,3 +8263,15 @@ body.modal-open {
     justify-content: center;
   }
 }
+
+.giornata-section.giornata-prossima {
+  border: 2px solid var(--color-primary-500);
+  border-radius: 20px;
+  margin: 10px;
+
+}
+
+.giornata-section.giornata-prossima .actual-giornata-badge-pill {
+  background-color: var(--color-primary-600);
+  color: #ffffff;
+}
