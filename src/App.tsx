@@ -734,11 +734,10 @@ export const App: React.FC = () => {
       <main className={`portal-main ${mainView !== 'campionato' ? 'without-portal-nav' : ''}`}>
         {/* VIEW 1: Home Dashboard */}
         <div
-          className="tab-panel"
+          className={`tab-pane ${mainView === 'home' ? 'active' : ''}`}
           role="tabpanel"
           id="tabpanel-home"
-          aria-labelledby="tab-home"
-          hidden={mainView !== 'home'}
+          style={{ display: mainView === 'home' ? 'block' : 'none' }}
         >
           <HomeTab
             currentCamId={camId}
@@ -777,11 +776,10 @@ export const App: React.FC = () => {
 
         {/* VIEW 2: Classifiche FITeT (Nazionali e Regionali) */}
         <div
-          className="tab-panel"
+          className={`tab-pane ${mainView === 'classifiche' ? 'active' : ''}`}
           role="tabpanel"
           id="tabpanel-classifiche"
-          aria-labelledby="tab-classifiche"
-          hidden={mainView !== 'classifiche'}
+          style={{ display: mainView === 'classifiche' ? 'block' : 'none' }}
         >
           <ClassificheRankingTab
             onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
@@ -791,11 +789,10 @@ export const App: React.FC = () => {
 
         {/* VIEW 2b: Tornei & Manifestazioni FITeT */}
         <div
-          className="tab-panel"
+          className={`tab-pane ${mainView === 'tornei' ? 'active' : ''}`}
           role="tabpanel"
           id="tabpanel-tornei"
-          aria-labelledby="tab-tornei"
-          hidden={mainView !== 'tornei'}
+          style={{ display: mainView === 'tornei' ? 'block' : 'none' }}
         >
           <TorneiTab
             onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
@@ -804,11 +801,10 @@ export const App: React.FC = () => {
 
         {/* VIEW 3: Campionato (Classifica, Calendario, Statistiche) */}
         <div
-          className="tab-panel"
+          className={`tab-pane ${mainView === 'campionato' ? 'active' : ''}`}
           role="tabpanel"
           id="tabpanel-campionato"
-          aria-labelledby="tab-campionato"
-          hidden={mainView !== 'campionato'}
+          style={{ display: mainView === 'campionato' ? 'block' : 'none' }}
         >
           {/* Banner Modalità Consultazione Campionato */}
           {isConsulting && (
@@ -876,11 +872,10 @@ export const App: React.FC = () => {
             <>
               {/* SubTab: Classifica */}
               <div
-                className="tab-panel"
+                className={`tab-pane ${championshipTab === 'classifica' ? 'active' : ''}`}
                 role="tabpanel"
                 id="tabpanel-classifica"
-                aria-labelledby="tab-classifica"
-                hidden={championshipTab !== 'classifica'}
+                style={{ display: championshipTab === 'classifica' ? 'block' : 'none' }}
               >
                 <ClassificaTab
                   classifica={data.classifica}
@@ -890,11 +885,10 @@ export const App: React.FC = () => {
 
               {/* SubTab: Calendario */}
               <div
-                className="tab-panel"
+                className={`tab-pane ${championshipTab === 'calendario' ? 'active' : ''}`}
                 role="tabpanel"
                 id="tabpanel-calendario"
-                aria-labelledby="tab-calendario"
-                hidden={championshipTab !== 'calendario'}
+                style={{ display: championshipTab === 'calendario' ? 'block' : 'none' }}
               >
                 <CalendarioTab
                   calendario={data.calendario}
@@ -911,11 +905,10 @@ export const App: React.FC = () => {
 
               {/* SubTab: Statistiche */}
               <div
-                className="tab-panel"
+                className={`tab-pane ${championshipTab === 'statistiche' ? 'active' : ''}`}
                 role="tabpanel"
                 id="tabpanel-statistiche"
-                aria-labelledby="tab-statistiche"
-                hidden={championshipTab !== 'statistiche'}
+                style={{ display: championshipTab === 'statistiche' ? 'block' : 'none' }}
               >
                 <StatisticheTab
                   statistiche={data.statisticheAtleti}

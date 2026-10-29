@@ -1137,16 +1137,13 @@ nav {
   padding: 6px 14px;
 }
 
-.tab-panel {
+.tab-pane {
+  display: none;
   max-width: 1050px;
   margin: auto;
 }
 
-.tab-panel[hidden] {
-  display: none !important;
-}
-
-.tab-panel:not([hidden]) {
+.tab-pane.active {
   display: block;
   animation: tabFadeIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
