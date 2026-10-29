@@ -326,6 +326,10 @@ nav {
   color: var(--text-dark);
 }
 
+[data-theme="light"] .portal-title-block small {
+  font-size: 0.5rem;
+  color: var(--text-light);
+}
 
 /* ==========================================================================
    PORTAL BURGER MENU (In alto a destra)
