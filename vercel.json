@@ -1,11 +1,27 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "regions": ["fra1"],
+  "regions": [
+    "fra1"
+  ],
   "functions": {
     "api/index.js": {
       "maxDuration": 60
     }
   },
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "fitet-20.vercel.app"
+        }
+      ],
+      "destination": "https://portale-risultati-tt.it/$1",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/sw.js",
