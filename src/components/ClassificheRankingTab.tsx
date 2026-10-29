@@ -211,33 +211,9 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
       {/* Top Filter Card */}
       <div className="ranking-filter-card">
         {/* Row 1: Header with Title, Gender Switcher and Actions */}
-        <div className="ranking-filter-header">
-
-          <div className="ranking-header-actions">
-            {/* Gender Selector Buttons */}
-            <div className="ranking-gender-group" role="group" aria-label="Sesso">
-              <button
-                type="button"
-                className={`ranking-gender-btn ${sesso === 'M' ? 'active' : ''}`}
-                onClick={() => handleSessoChange('M')}
-              >
-                <i className="bi bi-gender-male me-1"></i>
-                Maschile
-              </button>
-              <button
-                type="button"
-                className={`ranking-gender-btn ${sesso === 'F' ? 'active' : ''}`}
-                onClick={() => handleSessoChange('F')}
-              >
-                <i className="bi bi-gender-female me-1"></i>
-                Femminile
-              </button>
-            </div>
-          </div>
-        </div>
 
         {/* Bootstrap Accordion Container with 2 Distinct Panels */}
-        <div className="accordion ranking-accordion mt-3" id="rankingFiltersAccordion">
+        <div className="accordion ranking-accordion" id="rankingFiltersAccordion">
           {/* Panel 1: Filtri Classifica (Regione, Categoria, Ricerca) */}
           <div className="accordion-item ranking-accordion-item" id="ranking-controls-expansion">
             <h3 className="accordion-header" id="headingControls">
@@ -250,11 +226,11 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
               >
                 <div className="d-flex align-items-center gap-2 flex-wrap flex-grow-1 me-2">
                   <span className="fw-semibold text-main d-inline-flex align-items-center">
-                    <i className="bi bi-sliders2 text-primary me-2"></i>
-                    Scegli Classifica
+                    <i className="bi bi-list me-2"></i>
+                    <span className="text-muted">Scegli Classifica</span>
                   </span>
                   <span className="ranking-pill-badge">
-                    <i className="bi bi-geo-alt-fill text-primary me-1"></i>
+                    <i className="bi bi-geo-alt-fill me-1"></i>
                     {selectedRegionName}
                   </span>
                   <span className="ranking-pill-badge">
@@ -273,8 +249,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                   {/* Region Select */}
                   <div className="col-12 col-md-4">
                     <label htmlFor="ranking-region-select" className="form-label mb-1 fw-semibold small text-secondary d-flex align-items-center gap-1">
-                      <i className="bi bi-geo-alt-fill text-primary"></i>
-                      <span>Ambito / Regione</span>
+                      <span> Regione</span>
                     </label>
                     <div className="input-group input-group-sm">
                       <span className="input-group-text text-primary border-end-0">
@@ -298,8 +273,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                   {/* Category Select */}
                   <div className="col-12 col-md-5">
                     <label htmlFor="ranking-category-select" className="form-label mb-1 fw-semibold small text-secondary d-flex align-items-center gap-1">
-                      <i className="bi bi-list-check text-primary"></i>
-                      <span>Categoria Ufficiale</span>
+                      <span>Categoria</span>
                     </label>
                     <div className="input-group input-group-sm">
                       <span className="input-group-text text-primary border-end-0">
@@ -346,6 +320,29 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
                   </div>
                 </div>
               </div>
+              <div className="ranking-filter-header mb-4">
+                <div className="ranking-header-actions">
+                  {/* Gender Selector Buttons */}
+                  <div className="ranking-gender-group" role="group" aria-label="Sesso">
+                    <button
+                      type="button"
+                      className={`ranking-gender-btn ${sesso === 'M' ? 'active' : ''}`}
+                      onClick={() => handleSessoChange('M')}
+                    >
+                      <i className="bi bi-gender-male me-1"></i>
+                      Maschile
+                    </button>
+                    <button
+                      type="button"
+                      className={`ranking-gender-btn ${sesso === 'F' ? 'active' : ''}`}
+                      onClick={() => handleSessoChange('F')}
+                    >
+                      <i className="bi bi-gender-female me-1"></i>
+                      Femminile
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -378,7 +375,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
           </button>
         </div>
       ) : data && data.athletes.length > 0 ? (
-        <div className="ranking-card-block primary-official ranking-table-card">
+        <div className="ranking-card-block ranking-table-card">
           {/* Section Header */}
           <div className="ranking-section-header official-header">
             <div className="official-title-group">

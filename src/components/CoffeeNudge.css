@@ -46,6 +46,9 @@
   font-size: 12px;
   line-height: 1.45;
   color: var(--text-muted, #64748b);
+  text-align: center;
+  justify-content: center;
+  align-items: center;
 }
 
 .coffee-nudge-text strong {
