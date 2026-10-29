@@ -5905,7 +5905,7 @@ body.modal-open {
 .no-championship-screen {
   text-align: center;
   padding: 50px 20px;
-  min-height: calc(100vh - 245px);
+  min-height: 60vh;
 }
 
 .no-championship-icon-badge {
