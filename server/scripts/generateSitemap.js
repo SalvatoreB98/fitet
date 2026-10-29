@@ -7,7 +7,7 @@ const sitemapPath = path.resolve('public', 'sitemap.xml');
 const raw = fs.readFileSync(campionatiPath, 'utf8');
 const campionati = JSON.parse(raw);
 
-const BASE_URL = (process.env.SITE_URL || 'https://fitet-20.vercel.app').replace(/\/$/, '');
+const BASE_URL = (process.env.SITE_URL || 'https://portale-risultati-tt.it').replace(/\/$/, '');
 const today = new Date().toISOString().split('T')[0];
 
 let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
