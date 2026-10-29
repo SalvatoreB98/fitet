@@ -15,7 +15,8 @@
     "update:catalog": "tsx server/scripts/buildCatalog.ts",
     "preview": "vite preview",
     "start": "tsx server/index.ts",
-    "test": "tsx test.ts"
+    "test": "tsx test.ts",
+    "test:watch": "tsx test.ts --watch"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",

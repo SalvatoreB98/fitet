@@ -242,9 +242,18 @@ class PushService {
             const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : undefined;
             const message = err?.body || err?.message || 'Errore sconosciuto durante l\'invio push.';
 
-            // 404/410: il dispositivo ha revocato la subscription o l'endpoint non esiste più.
-            if (statusCode === 404 || statusCode === 410) {
+            // 404/410 (dispositivo revocato) oppure 400/403 con chiave VAPID mismatch (chiavi cambiate nel server):
+            // La subscription è irrecuperabile con queste chiavi VAPID e va rimossa.
+            const isVapidMismatch =
+                (statusCode === 403 && message.includes('VAPID credentials')) ||
+                (statusCode === 400 && message.includes('VapidPkHashMismatch'));
+
+            if (statusCode === 404 || statusCode === 410 || isVapidMismatch) {
                 await this.removeSubscription(subscription.endpoint);
+                console.warn(
+                    `[PushService] Subscription obsoleta/invalida (${statusCode}) rimossa dal database:`,
+                    message
+                );
                 return { sent: false, statusCode, error: message, removed: true };
             }
 

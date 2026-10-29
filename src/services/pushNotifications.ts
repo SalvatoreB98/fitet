@@ -304,26 +304,47 @@ export async function subscribeToPush(): Promise<{
     throw new Error('Service worker non disponibile. Ricarica la pagina e riprova.');
   }
 
+  const publicKey = await getVapidPublicKey();
+  const targetKeyBytes = urlBase64ToUint8Array(publicKey);
+
   let subscription = await registration.pushManager.getSubscription();
-  let createdNow = false;
+
+  // Se esiste già una subscription nel browser, verifichiamo che utilizzi la stessa chiave VAPID attuale.
+  // Se la chiave del server è cambiata rispetto a prima, la annulliamo per rigenerarne una nuova.
+  if (subscription) {
+    let keyMatches = false;
+    try {
+      const currentAppServerKey = subscription.options?.applicationServerKey;
+      if (currentAppServerKey) {
+        const currentBytes = new Uint8Array(currentAppServerKey);
+        keyMatches =
+          currentBytes.length === targetKeyBytes.length &&
+          currentBytes.every((val, i) => val === targetKeyBytes[i]);
+      }
+    } catch {
+      keyMatches = false;
+    }
+
+    if (!keyMatches) {
+      console.warn('[Push] La chiave VAPID del server è cambiata rispetto alla subscription locale. Rinnovo...');
+      await subscription.unsubscribe().catch(() => undefined);
+      subscription = null;
+    }
+  }
 
   if (!subscription) {
-    const publicKey = await getVapidPublicKey();
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
+      applicationServerKey: targetKeyBytes,
     });
-    createdNow = true;
   }
 
   const backendResult = await sendSubscriptionToBackend(subscription);
 
   if (!backendResult.ok) {
-    // Se la subscription è stata creata ora e il backend non la salva,
-    // annullala per evitare uno stato inconsistente.
-    if (createdNow) {
-      await subscription.unsubscribe().catch(() => undefined);
-    }
+    // Se la subscription non è valida o il server la rifiuta,
+    // annulliamola localmente in modo da non riprovare con una subscription non valida.
+    await subscription.unsubscribe().catch(() => undefined);
     throw new Error(
       backendResult.error || 'Salvataggio della subscription non riuscito.'
     );
