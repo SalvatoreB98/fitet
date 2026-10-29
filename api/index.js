@@ -2522,7 +2522,7 @@ var PushService = class {
   vapidConfigured = false;
   publicKey = null;
   privateKey = null;
-  subject = "mailto:noreply@fitet-20.vercel.app";
+  subject = "mailto:noreply@portale-risultati-tt.it";
   constructor() {
     this.initSupabase();
     this.initVapid();

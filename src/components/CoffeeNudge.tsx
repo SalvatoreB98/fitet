@@ -114,7 +114,7 @@ export const CoffeeNudge: React.FC<CoffeeNudgeProps> = ({ isSuppressed = false }
       </span>
 
       <div className="coffee-nudge-text">
-        <strong>FITeT-20 è gratuito e senza pubblicità.</strong>
+        <strong>portale-risultati-tt è gratuito e senza pubblicità.</strong>
         <span>Se ti è utile, puoi offrirmi un caffè. Nessun obbligo, davvero.</span>
         <a
           className="coffee-nudge-link"

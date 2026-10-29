@@ -68,7 +68,7 @@ class PushService {
     private vapidConfigured = false;
     private publicKey: string | null = null;
     private privateKey: string | null = null;
-    private subject = 'mailto:noreply@fitet-20.vercel.app';
+    private subject = 'mailto:noreply@portale-risultati-tt.it';
 
     constructor() {
         this.initSupabase();
