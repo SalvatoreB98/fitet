@@ -273,7 +273,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
         i.statusLabel.toLowerCase().includes(q)
     );
   }, [garaData?.iscritti, garaSearchQuery]);
-  const workInProgress = false;
+  const workInProgress = true;
   if (workInProgress) return <div className='work-in-progress'>
     <div>
       <img src="/wip.png" alt="Lavori in corso" className="wip mb-3 w-25" />
