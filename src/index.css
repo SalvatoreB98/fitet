@@ -244,11 +244,6 @@ nav {
 .portal-title-btn:hover {
   background: rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.25);
-  transform: translateY(-1px);
-}
-
-.portal-title-btn:active {
-  transform: translateY(0);
 }
 
 .portal-title-block {
@@ -313,7 +308,6 @@ nav {
 
 .portal-title-btn:hover .championship-switcher-badge {
   background: rgba(255, 255, 255, 0.28);
-  transform: translateY(1px);
 }
 
 .portal-title-block h1 {
@@ -4143,10 +4137,6 @@ body.modal-open {
   .portal-title-btn:hover {
     background: rgba(255, 255, 255, 0.14);
     border-color: rgba(255, 255, 255, 0.28);
-  }
-
-  .portal-title-btn:active {
-    transform: scale(0.98);
   }
 
   .portal-title-block {
