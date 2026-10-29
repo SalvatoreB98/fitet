@@ -100,18 +100,9 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
 
   useEffect(() => {
     if (!autoFocus || !inputRef.current) return;
-    // Don't auto-focus on mobile/touch screens: it forces the virtual keyboard to pop up
-    // immediately covering the modal, background and results before the user chooses to type
-    const isTouchOrMobile =
-      typeof window !== 'undefined' &&
-      (window.matchMedia('(pointer: coarse)').matches ||
-        'ontouchstart' in window ||
-        navigator.maxTouchPoints > 0 ||
-        window.innerWidth <= 768);
 
-    if (!isTouchOrMobile) {
-      inputRef.current.focus();
-    }
+    inputRef.current.focus();
+
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
