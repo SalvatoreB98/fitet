@@ -195,13 +195,20 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
   // 4. Scroll automatico alla giornata più vicina al mount
   useEffect(() => {
     if (!hasScrolledRef.current && closestKey && sectionRefs.current[closestKey]) {
-      // Breve ritardo per garantire il rendering completo nel DOM
       const timer = setTimeout(() => {
-        sectionRefs.current[closestKey]?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        });
-        hasScrolledRef.current = true;
+        const element = sectionRefs.current[closestKey];
+        if (element) {
+          const navHeight = 90; // altezza navbar in px (o document.querySelector('nav').offsetHeight)
+          const elementPosition = element.getBoundingClientRect().top;
+          const offsetPosition = elementPosition + window.pageYOffset - navHeight;
+
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+          });
+
+          hasScrolledRef.current = true;
+        }
       }, 250);
       return () => clearTimeout(timer);
     }
@@ -310,11 +317,11 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
               {/* Header Giornata con etichetta Andata/Ritorno separata */}
               <div className="giornata-header-banner">
                 <div className="giornata-title-group">
-                  <span className="giornata-badge-pill">
+                  <span className={`giornata-badge-pill ${isClosest ? 'actual-giornata-badge-pill' : ''}`}>
                     {blocco.numero}ª GIORNATA
                   </span>
                   <span className='actual-giornata'>
-                    {blocco.fase.charAt(0).toUpperCase() + blocco.fase.slice(1)} {isClosest && <span className="badge-in-corso ms-2"> • </span>} 
+                    {isClosest && <span className="badge-in-corso"> • </span>}
                   </span>
                 </div>
                 <div className="giornata-meta-count">
