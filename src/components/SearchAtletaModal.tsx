@@ -71,7 +71,7 @@ export const SearchAtletaModal: React.FC<SearchAtletaModalProps> = ({
         <div className="modal-body-simple search-atleta-modal-body">
           <CercaAtletaTab
             compactMode
-            autoFocus={false}
+            autoFocus={true}
             hideHeader
             hideFavorites
             onOpenAtletaModal={(id, name) => {
