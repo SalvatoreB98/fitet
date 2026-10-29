@@ -932,7 +932,7 @@ export const App: React.FC = () => {
         <div>
           <div>Progetto non ufficiale della community, dati sincronizzati automaticamente da portale.fitet.org</div>
           <div className="portal-footer-coffee">
-            Se ti è utile, puoi{' '}
+            Se ti sta tornando utile, puoi{' '}
             <a href="https://buymeacoffee.com/salvatore.butera" target="_blank" rel="noopener noreferrer">
               offrirmi un caffè
             </a>
