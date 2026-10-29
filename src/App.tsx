@@ -734,10 +734,11 @@ export const App: React.FC = () => {
       <main className={`portal-main ${mainView !== 'campionato' ? 'without-portal-nav' : ''}`}>
         {/* VIEW 1: Home Dashboard */}
         <div
-          className={`tab-pane ${mainView === 'home' ? 'active' : ''}`}
+          className="tab-panel"
           role="tabpanel"
           id="tabpanel-home"
-          style={{ display: mainView === 'home' ? 'block' : 'none' }}
+          aria-labelledby="tab-home"
+          hidden={mainView !== 'home'}
         >
           <HomeTab
             currentCamId={camId}
@@ -776,10 +777,11 @@ export const App: React.FC = () => {
 
         {/* VIEW 2: Classifiche FITeT (Nazionali e Regionali) */}
         <div
-          className={`tab-pane ${mainView === 'classifiche' ? 'active' : ''}`}
+          className="tab-panel"
           role="tabpanel"
           id="tabpanel-classifiche"
-          style={{ display: mainView === 'classifiche' ? 'block' : 'none' }}
+          aria-labelledby="tab-classifiche"
+          hidden={mainView !== 'classifiche'}
         >
           <ClassificheRankingTab
             onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
@@ -789,10 +791,11 @@ export const App: React.FC = () => {
 
         {/* VIEW 2b: Tornei & Manifestazioni FITeT */}
         <div
-          className={`tab-pane ${mainView === 'tornei' ? 'active' : ''}`}
+          className="tab-panel"
           role="tabpanel"
           id="tabpanel-tornei"
-          style={{ display: mainView === 'tornei' ? 'block' : 'none' }}
+          aria-labelledby="tab-tornei"
+          hidden={mainView !== 'tornei'}
         >
           <TorneiTab
             onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
@@ -801,10 +804,11 @@ export const App: React.FC = () => {
 
         {/* VIEW 3: Campionato (Classifica, Calendario, Statistiche) */}
         <div
-          className={`tab-pane ${mainView === 'campionato' ? 'active' : ''}`}
+          className="tab-panel"
           role="tabpanel"
           id="tabpanel-campionato"
-          style={{ display: mainView === 'campionato' ? 'block' : 'none' }}
+          aria-labelledby="tab-campionato"
+          hidden={mainView !== 'campionato'}
         >
           {/* Banner Modalità Consultazione Campionato */}
           {isConsulting && (
@@ -872,10 +876,11 @@ export const App: React.FC = () => {
             <>
               {/* SubTab: Classifica */}
               <div
-                className={`tab-pane ${championshipTab === 'classifica' ? 'active' : ''}`}
+                className="tab-panel"
                 role="tabpanel"
                 id="tabpanel-classifica"
-                style={{ display: championshipTab === 'classifica' ? 'block' : 'none' }}
+                aria-labelledby="tab-classifica"
+                hidden={championshipTab !== 'classifica'}
               >
                 <ClassificaTab
                   classifica={data.classifica}
@@ -885,10 +890,11 @@ export const App: React.FC = () => {
 
               {/* SubTab: Calendario */}
               <div
-                className={`tab-pane ${championshipTab === 'calendario' ? 'active' : ''}`}
+                className="tab-panel"
                 role="tabpanel"
                 id="tabpanel-calendario"
-                style={{ display: championshipTab === 'calendario' ? 'block' : 'none' }}
+                aria-labelledby="tab-calendario"
+                hidden={championshipTab !== 'calendario'}
               >
                 <CalendarioTab
                   calendario={data.calendario}
@@ -905,10 +911,11 @@ export const App: React.FC = () => {
 
               {/* SubTab: Statistiche */}
               <div
-                className={`tab-pane ${championshipTab === 'statistiche' ? 'active' : ''}`}
+                className="tab-panel"
                 role="tabpanel"
                 id="tabpanel-statistiche"
-                style={{ display: championshipTab === 'statistiche' ? 'block' : 'none' }}
+                aria-labelledby="tab-statistiche"
+                hidden={championshipTab !== 'statistiche'}
               >
                 <StatisticheTab
                   statistiche={data.statisticheAtleti}
