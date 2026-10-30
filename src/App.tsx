@@ -831,15 +831,6 @@ export const App: React.FC = () => {
                   <i className="bi bi-arrow-return-left me-1"></i>
                   <span>Torna al mio campionato</span>
                 </button>
-                <button
-                  type="button"
-                  className="consultation-btn consultation-btn-ghost"
-                  onClick={() => camId && handleSetAsMyChampionship(camId)}
-                  title="Fissa questo campionato come tuo campionato personale"
-                >
-                  <i className="bi bi-pin-angle-fill me-1"></i>
-                  <span>Imposta come mio</span>
-                </button>
               </div>
             </div>
           )}
