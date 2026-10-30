@@ -496,6 +496,7 @@ export interface TorneoGaraDettaglioResponse {
   turniTabellone: Array<{ tab: number; turno: number; label: string }>;
   activeTurno?: { tab: number; turno: number; label: string } | null;
   partiteTabellone: TorneoMatchItem[];
+  allTurniTabellone?: Array<{ tab: number; turno: number; label: string; matches: TorneoMatchItem[] }>;
 }
 
 

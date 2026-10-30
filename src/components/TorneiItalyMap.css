@@ -1,0 +1,403 @@
+/* ==========================================================================
+   TorneiItalyMap - Interactive Italy map for FITeT tournaments
+   ========================================================================== */
+
+.tornei-map-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow-container);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tornei-map-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tornei-map-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-primary-600);
+}
+
+.tornei-map-title {
+  margin: 2px 0 0;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  line-height: 1.2;
+}
+
+.tornei-map-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.tornei-map-reset:hover {
+  background: var(--bg-hover);
+  color: var(--color-primary-700);
+  border-color: var(--color-primary-600);
+}
+
+.tornei-map-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.tornei-map-stats strong {
+  color: var(--text-dark);
+  font-weight: 700;
+}
+
+.tornei-map-stats-sep {
+  color: var(--border-input);
+}
+
+.tornei-map-canvas {
+  position: relative;
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(78, 122, 156, 0.12), transparent 62%),
+    linear-gradient(160deg, rgba(239, 246, 255, 0.9), rgba(248, 250, 252, 0.95));
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+[data-theme='dark'] .tornei-map-canvas {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(38, 105, 156, 0.24), transparent 62%),
+    linear-gradient(160deg, rgba(13, 26, 51, 0.95), rgba(11, 20, 38, 0.98));
+}
+
+.tornei-map-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 560px;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+/* Regioni */
+.tornei-map-region {
+  fill: rgba(148, 163, 184, 0.22);
+  stroke: var(--bg-card);
+  stroke-width: 1.1;
+  stroke-linejoin: round;
+  cursor: pointer;
+  transition: fill 0.15s ease, stroke 0.15s ease, filter 0.15s ease;
+}
+
+[data-theme='dark'] .tornei-map-region {
+  fill: rgba(71, 85, 105, 0.32);
+  stroke: var(--bg-container);
+}
+
+.tornei-map-region.has-tornei {
+  fill: rgba(38, 105, 156, 0.42);
+}
+
+[data-theme='dark'] .tornei-map-region.has-tornei {
+  fill: rgba(38, 105, 156, 0.52);
+}
+
+.tornei-map-region:hover,
+.tornei-map-region:focus-visible {
+  fill: rgba(38, 105, 156, 0.68);
+  outline: none;
+}
+
+.tornei-map-region.is-selected {
+  fill: rgba(245, 158, 11, 0.62);
+  stroke: #b45309;
+  stroke-width: 1.6;
+  filter: drop-shadow(0 1px 3px rgba(180, 83, 9, 0.35));
+}
+
+/* Marker */
+.tornei-map-marker {
+  cursor: pointer;
+  outline: none;
+}
+
+.tornei-map-marker-hit {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 8;
+  pointer-events: all;
+}
+
+.tornei-map-marker-dot {
+  stroke: #ffffff;
+  stroke-width: 1.8;
+  transition: r 0.15s ease, filter 0.15s ease;
+  filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.35));
+}
+
+.tornei-map-marker.is-disputed .tornei-map-marker-dot {
+  fill: #059669;
+}
+
+.tornei-map-marker.is-upcoming .tornei-map-marker-dot {
+  fill: #f59e0b;
+}
+
+.tornei-map-marker.is-mixed .tornei-map-marker-dot {
+  fill: #2563eb;
+}
+
+.tornei-map-marker:hover .tornei-map-marker-dot,
+.tornei-map-marker:focus-visible .tornei-map-marker-dot {
+  filter: drop-shadow(0 2px 5px rgba(15, 23, 42, 0.55));
+}
+
+.tornei-map-marker.is-selected .tornei-map-marker-dot {
+  stroke: #0a192f;
+  stroke-width: 2.4;
+}
+
+.tornei-map-marker-pulse {
+  fill: rgba(245, 158, 11, 0.28);
+  stroke: rgba(245, 158, 11, 0.75);
+  stroke-width: 1.4;
+  animation: torneiMapPulse 1.8s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes torneiMapPulse {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.85);
+    transform-origin: center;
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.35);
+    transform-origin: center;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+    transform-origin: center;
+  }
+}
+
+.tornei-map-marker-count {
+  fill: #ffffff;
+  font-family: var(--font-sans);
+  font-size: 8.5px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* Empty overlay */
+.tornei-map-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: rgba(248, 250, 252, 0.72);
+  backdrop-filter: blur(1px);
+}
+
+[data-theme='dark'] .tornei-map-empty {
+  background: rgba(11, 20, 38, 0.72);
+}
+
+.tornei-map-empty i {
+  font-size: 1.4rem;
+  color: var(--color-primary-500);
+}
+
+/* Legend */
+.tornei-map-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.tornei-map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tornei-map-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.tornei-map-legend-dot.is-disputed {
+  background: #059669;
+}
+
+.tornei-map-legend-dot.is-upcoming {
+  background: #f59e0b;
+}
+
+.tornei-map-legend-dot.is-mixed {
+  background: #2563eb;
+}
+
+/* Selected place / region card */
+.tornei-map-selection-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  background: var(--color-info-bg);
+  border: 1px solid var(--color-info-border);
+  color: var(--color-info-text);
+}
+
+[data-theme='dark'] .tornei-map-selection-card {
+  background: rgba(2, 132, 199, 0.12);
+  border-color: rgba(56, 189, 248, 0.28);
+  color: #7dd3fc;
+}
+
+.tornei-map-selection-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--color-primary-600);
+  flex-shrink: 0;
+}
+
+.tornei-map-selection-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.tornei-map-selection-text strong {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tornei-map-selection-text span {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.tornei-map-show-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--color-info-border);
+  background: var(--bg-card);
+  color: var(--color-info-text);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.tornei-map-show-list:hover {
+  background: var(--bg-hover);
+  border-color: var(--color-primary-600);
+}
+
+.tornei-map-show-list i {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.tornei-map-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.tornei-map-hint i {
+  color: var(--color-primary-500);
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+/* Mobile */
+@media screen and (max-width: 900px) {
+  .tornei-map-card {
+    padding: 12px;
+  }
+
+  .tornei-map-svg {
+    max-height: none;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .tornei-map-title {
+    font-size: 0.98rem;
+  }
+
+  .tornei-map-legend {
+    gap: 9px;
+    font-size: 0.66rem;
+  }
+
+  .tornei-map-selection-card {
+    flex-wrap: wrap;
+  }
+
+  .tornei-map-show-list {
+    margin-left: auto;
+  }
+}

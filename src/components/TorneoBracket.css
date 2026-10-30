@@ -1,0 +1,364 @@
+/* ==========================================================================
+   TorneoBracket.css - Elimination Bracket Visualizer (Zoom & Pan)
+   ========================================================================== */
+
+.bracket-container {
+  position: relative;
+  width: 100%;
+  height: 640px;
+  min-height: 480px;
+  background: var(--bg-container, #0b1329);
+  border: 1px solid var(--border-color, #1e355f);
+  border-radius: 10px;
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+  cursor: grab;
+}
+
+.bracket-container.dragging {
+  cursor: grabbing;
+}
+
+.bracket-container.is-modal-fullscreen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  border-radius: 0;
+  border: none;
+  top: 70px;
+}
+
+/* Controls Bar (Zoom, Center, Fullscreen) */
+.bracket-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-card, #122244);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #1e355f);
+  z-index: 20;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.bracket-controls button {
+  background: var(--bg-soft, rgba(255, 255, 255, 0.08));
+  border: none;
+  color: var(--text-main, #fff);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.bracket-controls button:hover {
+  background: var(--color-primary-700, #01579b);
+  color: #fff;
+}
+
+.bracket-controls .zoom-indicator {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #94a3b8);
+  min-width: 42px;
+  text-align: center;
+}
+
+/* Bracket Header Title */
+.bracket-header-info {
+  position: absolute;
+  top: 10px;
+  left: 5px;
+  z-index: 20;
+  pointer-events: none;
+  background: var(--bg-card);
+  padding: 1em;
+  border-radius: 10px;
+  filter: drop-shadow(0px 10px 10px #0000004d);
+}
+
+@media screen and (max-width: 700px) {
+  .bracket-header-info {
+    max-width: 250px;
+  }
+}
+
+@media screen and (max-width: 400px) {
+  .bracket-header-info {
+    display: none;
+  }
+}
+
+.bracket-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main, #fff);
+  margin: 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.bracket-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 2px;
+}
+
+/* Scale & Grid Translation Layer */
+.bracket-scale {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  transition: transform 0.08s ease-out;
+}
+
+.bracket-grid-wrapper {
+  position: relative;
+  display: inline-block;
+  padding: 60px 40px;
+  will-change: transform;
+}
+
+/* Two Sides Layout */
+.two-sides {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+}
+
+.side.left .bracket-grid {
+  display: grid;
+  column-gap: 40px;
+  row-gap: 12px;
+}
+
+.side.right .bracket-grid {
+  display: grid;
+  column-gap: 40px;
+  row-gap: 12px;
+}
+
+/* Single Side Layout */
+.single-side-grid {
+  display: grid;
+  column-gap: 40px;
+  row-gap: 12px;
+}
+
+/* Center Gap (Final Match) */
+.center-gap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0 16px;
+}
+
+.final-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.final-crown {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.1rem;
+  color: #f59e0b;
+}
+
+/* Match Card */
+.bracket-match {
+  position: relative;
+  z-index: 2;
+  width: 190px;
+  background: var(--bg-card, #122244);
+  border: 1px solid var(--border-color, #1e355f);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bracket-match:hover {
+  border-color: var(--color-primary-600, #0288d1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.bracket-round-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  background: var(--bg-th, rgba(255, 255, 255, 0.05));
+  color: var(--text-muted, #94a3b8);
+  border-bottom: 1px solid var(--border-color, #1e355f);
+  border-top-left-radius: 7px;
+  border-top-right-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bracket-player {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 5px 8px;
+  font-size: 0.82rem;
+  color: var(--text-main, #f8fafc);
+  border-bottom: 1px solid var(--border-color, #1e355f);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.bracket-player:last-child {
+  border-bottom: none;
+  border-bottom-left-radius: 7px;
+  border-bottom-right-radius: 7px;
+}
+
+.bracket-player:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
+}
+
+.bracket-player.is-winner {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  font-weight: 700;
+}
+
+.bracket-player-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.bracket-player-score {
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-soft, rgba(255, 255, 255, 0.08));
+  color: var(--text-main, #fff);
+  min-width: 20px;
+  text-align: center;
+}
+
+.bracket-player.is-winner .bracket-player-score {
+  background: #10b981;
+  color: #fff;
+}
+
+/* ==========================================================================
+   SVG Connector Lines
+   ========================================================================== */
+.bracket-svg-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  overflow: visible;
+}
+
+.bracket-line-path {
+  fill: none;
+  stroke: var(--bracket-line-color, #385170);
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+}
+
+.bracket-line-path.is-active {
+  stroke: var(--color-primary-500, #0288d1);
+  stroke-width: 2.5px;
+  filter: drop-shadow(0 0 3px rgba(2, 136, 209, 0.5));
+}
+
+:root {
+  --bracket-line-color: #385170;
+}
+
+[data-theme='light'] {
+  --bracket-line-color: #cbd5e1;
+}
+
+/* Sets tooltip / sub-badge */
+.bracket-sets-strip {
+  display: flex;
+  gap: 3px;
+  padding: 2px 8px 3px;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 0.68rem;
+  color: var(--text-muted, #94a3b8);
+  border-top: 1px dashed var(--border-color, #1e355f);
+}
+
+.bracket-sets-strip span {
+  background: var(--bg-card);
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+/* Empty State inside Bracket */
+.bracket-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.bracket-empty-state i {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  color: var(--color-primary-600);
+}
+
+.bracket-loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 40px 20px;
+  text-align: center;
+}

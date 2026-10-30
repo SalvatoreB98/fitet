@@ -181,6 +181,9 @@ body {
   background: var(--bg-container);
   box-shadow: var(--shadow-container);
   overflow: hidden;
+  /* clip non crea uno scroll container: permette alla mappa dei tornei
+     di restare sticky accanto all'elenco. Fallback: hidden. */
+  overflow: clip;
   transition: box-shadow 0.25s ease;
 }
 
@@ -1194,17 +1197,20 @@ nav {
 @media screen and (max-width: 768px) {
 
   .controls-left.calendario,
-  .controls-left.classifiche {
+  .controls-left.classifiche,
+  .controls-left.tornei {
     display: grid;
     width: 100%;
   }
 
   .select-clearable-wrapper select,
-  .controls-left.classifiche select {
+  .controls-left.classifiche select,
+  .controls-left.tornei select {
     width: 100%;
   }
 
-  .calendario .filter-btn-group {
+  .calendario .filter-btn-group,
+  .tornei .filter-btn-group {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
   }

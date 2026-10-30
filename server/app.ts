@@ -50,6 +50,7 @@ import {
     TorneiResponse,
     TorneoDettaglioResponse,
     TorneoGaraDettaglioResponse,
+    TorneoMatchItem,
 } from '../src/types/fitet';
 
 export const app = express();
@@ -825,6 +826,25 @@ app.get('/api/tornei/gara', async (req, res) => {
             }
         }
 
+        // Carica tutti i turni del tabellone per costruire il bracket grafico completo
+        let allTurniTabellone: Array<{ tab: number; turno: number; label: string; matches: TorneoMatchItem[] }> = [];
+        if (meta.turniTabellone.length > 0) {
+            const allTurniRaw = await Promise.all(
+                meta.turniTabellone.map(async (t) => {
+                    if (activeTurno && activeTurno.turno === t.turno && (!activeTurno.tab || activeTurno.tab === t.tab) && partiteTabellone.length > 0) {
+                        return { tab: t.tab, turno: t.turno, label: t.label, matches: partiteTabellone };
+                    }
+                    const html = await FitetClient.fetchHtml(
+                        isDoppio
+                            ? `${baseUrl}/risultati_tabellone_doppio.php?ANNO=${anno}&TURNO=${t.turno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+                            : `${baseUrl}/risultati_tabellone.php?TAB=${t.tab}&TURNO=${t.turno}&ANNO=${anno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+                    ).catch(() => '');
+                    return { tab: t.tab, turno: t.turno, label: t.label, matches: parseRisultatiTabellone(html, mapping) };
+                })
+            );
+            allTurniTabellone = allTurniRaw.filter((tr) => tr.matches.length > 0);
+        }
+
         const payload: TorneoGaraDettaglioResponse = {
             idt,
             com,
@@ -844,6 +864,7 @@ app.get('/api/tornei/gara', async (req, res) => {
             turniTabellone: meta.turniTabellone,
             activeTurno,
             partiteTabellone,
+            allTurniTabellone,
         };
 
         cacheService.set(cacheKey, payload, 30 * 60 * 1000);

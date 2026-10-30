@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   TorneiResponse,
   TorneoItem,
@@ -17,6 +17,13 @@ import { REGIONS_COMIT } from './ClassificheRankingTab';
 import { fetchTornei, fetchTorneoDettaglio, fetchTorneoGara } from '../services/api';
 import { AthleteAvatar } from './AthleteAvatar';
 import { MarqueeText } from './MarqueeText';
+import { TorneoBracket, BracketRoundData } from './TorneoBracket';
+import {
+  EMPTY_MAP_SELECTION,
+  TorneiItalyMap,
+  TorneiMapSelection,
+} from './TorneiItalyMap';
+import { getTorneoPlace, regionMatches } from '../utils/torneoMap';
 import './ClassificheRankingTab.css';
 import './TorneiTab.css';
 
@@ -44,6 +51,8 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   const [regFilterId, setRegFilterId] = useState<number>(0);
   const [statusFilter, setStatusFilter] = useState<'all' | 'disputato' | 'in_programma'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [mapSelection, setMapSelection] = useState<TorneiMapSelection>(EMPTY_MAP_SELECTION);
+  const torneiListRef = useRef<HTMLDivElement | null>(null);
 
   const [data, setData] = useState<TorneiResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -61,6 +70,9 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   const [loadingGara, setLoadingGara] = useState<boolean>(false);
   const [garaPhaseTab, setGaraPhaseTab] = useState<'tabellone' | 'gironi' | 'iscritti'>('tabellone');
   const [garaSearchQuery, setGaraSearchQuery] = useState<string>('');
+  const [bracketViewMode, setBracketViewMode] = useState<'bracket' | 'cards'>('bracket');
+  const [bracketLoading, setBracketLoading] = useState<boolean>(false);
+  const [fullBracketCache, setFullBracketCache] = useState<{ [garaKey: string]: BracketRoundData[] }>({});
 
   const activeCategoryDef = getTorneoCategoryByKey(categoryKey);
   const activeGroup: TorneoGroupKey = useMemo(() => {
@@ -96,6 +108,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
 
   const handleGroupClick = (groupKey: TorneoGroupKey) => {
     setSelectedTorneo(null);
+    setMapSelection(EMPTY_MAP_SELECTION);
     if (groupKey === 'all') {
       setCategoryKey('all');
       setRegFilterId(0);
@@ -115,6 +128,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
 
   const handleCategoryChange = (newKey: string) => {
     setSelectedTorneo(null);
+    setMapSelection(EMPTY_MAP_SELECTION);
     const cat = getTorneoCategoryByKey(newKey);
     if ((newKey === 'reg_all' || cat?.group === 'regionali') && comitId === 0) {
       setComitId(4);
@@ -128,6 +142,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
 
   const handleRegionChange = (newComit: number) => {
     setSelectedTorneo(null);
+    setMapSelection(EMPTY_MAP_SELECTION);
     setComitId(newComit);
     setRegFilterId(newComit);
     if (newComit > 0 && categoryKey !== 'open' && !categoryKey.startsWith('reg_') && categoryKey !== 'all') {
@@ -135,6 +150,10 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
     } else if (newComit === 0 && categoryKey.startsWith('reg_')) {
       setCategoryKey('all');
     }
+  };
+
+  const handleShowList = () => {
+    torneiListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   // Sub-categories for the active macro group
@@ -273,273 +292,269 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
         i.statusLabel.toLowerCase().includes(q)
     );
   }, [garaData?.iscritti, garaSearchQuery]);
-  const workInProgress = true;
+
+  const currentGaraKey = selectedGara
+    ? `${selectedGara.idt}_${selectedGara.com}_${selectedGara.garaId}`
+    : '';
+
+  const loadCompleteBracket = useCallback(
+    async (
+      gara: TorneoGaraLink,
+      turni: Array<{ tab: number; turno: number; label: string }>
+    ) => {
+      const garaKey = `${gara.idt}_${gara.com}_${gara.garaId}`;
+      if (fullBracketCache[garaKey] && fullBracketCache[garaKey].length > 0) {
+        return;
+      }
+
+      setBracketLoading(true);
+      try {
+        const roundPromises = turni.map(async (t) => {
+          try {
+            const res = await fetchTorneoGara({
+              idt: gara.idt,
+              com: gara.com,
+              gara: gara.garaId,
+              anno: gara.anno,
+              isDoppio: gara.isDoppio,
+              mode: 'risultati',
+              tab: t.tab,
+              turno: t.turno,
+            });
+            return {
+              tab: t.tab,
+              turno: t.turno,
+              roundLabel: t.label,
+              matches: res.partiteTabellone || [],
+            };
+          } catch {
+            return {
+              tab: t.tab,
+              turno: t.turno,
+              roundLabel: t.label,
+              matches: [],
+            };
+          }
+        });
+
+        const allRounds = await Promise.all(roundPromises);
+        const populatedRounds = allRounds.filter((r) => r.matches && r.matches.length > 0);
+
+        // Ordina i round dal primo turno (più partite, es. 32esimi o 16esimi) alla finale (1 partita)
+        populatedRounds.sort((a, b) => b.matches.length - a.matches.length);
+
+        setFullBracketCache((prev) => ({
+          ...prev,
+          [garaKey]: populatedRounds,
+        }));
+      } catch (err) {
+        console.error('Errore nel caricamento del tabellone completo:', err);
+      } finally {
+        setBracketLoading(false);
+      }
+    },
+    [fullBracketCache]
+  );
+
+  useEffect(() => {
+    if (
+      garaPhaseTab === 'tabellone' &&
+      bracketViewMode === 'bracket' &&
+      selectedGara &&
+      garaData?.turniTabellone &&
+      garaData.turniTabellone.length > 0
+    ) {
+      const garaKey = `${selectedGara.idt}_${selectedGara.com}_${selectedGara.garaId}`;
+      if (!fullBracketCache[garaKey]) {
+        loadCompleteBracket(selectedGara, garaData.turniTabellone);
+      }
+    }
+  }, [
+    garaPhaseTab,
+    bracketViewMode,
+    selectedGara,
+    garaData?.turniTabellone,
+    fullBracketCache,
+    loadCompleteBracket,
+  ]);
+
+  const currentFullBracketRounds: BracketRoundData[] = useMemo(() => {
+    if (currentGaraKey && fullBracketCache[currentGaraKey]) {
+      return fullBracketCache[currentGaraKey];
+    }
+    if (garaData?.allTurniTabellone && garaData.allTurniTabellone.length > 0) {
+      return garaData.allTurniTabellone.map((t) => ({
+        tab: t.tab,
+        turno: t.turno,
+        roundLabel: t.label,
+        matches: t.matches,
+      }));
+    }
+    return [];
+  }, [currentGaraKey, fullBracketCache, garaData?.allTurniTabellone]);
+
+  const torneiByRegion = useMemo(() => {
+    if (!filteredSections || filteredSections.length === 0) return [];
+
+    const seen = new Set<string>();
+    const list: Array<{ torneo: TorneoItem; sectionTitle: string; region: string }> = [];
+
+    for (const sec of filteredSections) {
+      for (const t of sec.tornei) {
+        const uniqueKey = `${t.com}-${t.idt}-${t.tipo}`;
+        if (!seen.has(uniqueKey)) {
+          seen.add(uniqueKey);
+
+          let reg = t.regione?.trim();
+          if (!reg && t.com > 0) {
+            reg = REGIONS_COMIT.find((r) => r.id === t.com)?.name;
+          }
+          if (!reg) {
+            reg = sec.regioneNome || 'Nazionale';
+          }
+          if (reg.toLowerCase().includes('nazionale') || t.com === 0) {
+            reg = 'Nazionale';
+          }
+
+          list.push({ torneo: t, sectionTitle: sec.title, region: reg });
+        }
+      }
+    }
+
+    const groupMap = new Map<string, Array<{ torneo: TorneoItem; sectionTitle: string }>>();
+    for (const item of list) {
+      if (!groupMap.has(item.region)) {
+        groupMap.set(item.region, []);
+      }
+      groupMap.get(item.region)!.push({ torneo: item.torneo, sectionTitle: item.sectionTitle });
+    }
+
+    const sortedRegions = Array.from(groupMap.keys()).sort((a, b) => {
+      if (a === 'Nazionale') return -1;
+      if (b === 'Nazionale') return 1;
+      return a.localeCompare(b, 'it');
+    });
+
+    return sortedRegions.map((region) => ({
+      region,
+      items: groupMap.get(region)!,
+    }));
+  }, [filteredSections]);
+
+  const visibleTorneiByRegion = useMemo(() => {
+    if (!mapSelection.region && !mapSelection.placeKey) return torneiByRegion;
+
+    return torneiByRegion
+      .filter(
+        (group) => !mapSelection.region || regionMatches(group.region, mapSelection.region)
+      )
+      .map((group) => ({
+        ...group,
+        items: mapSelection.placeKey
+          ? group.items.filter(
+              (item) =>
+                getTorneoPlace(item.torneo, group.region).key === mapSelection.placeKey
+            )
+          : group.items,
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [torneiByRegion, mapSelection.region, mapSelection.placeKey]);
+
+  const visibleTorneiCount = useMemo(
+    () => visibleTorneiByRegion.reduce((total, group) => total + group.items.length, 0),
+    [visibleTorneiByRegion]
+  );
+
+  const workInProgress = false;
   if (workInProgress) return <div className='work-in-progress'>
     <div>
       <img src="/wip.png" alt="Lavori in corso" className="wip mb-3 w-25" />
     </div>
   </div>;
+
   return (
-    <div className="ranking-tab-container">
-      {/* Top Filter Card reusing ClassificheRankingTab classes */}
-      <div className="ranking-filter-card">
-        {/* Row 1: Header with Title, Status Switcher and Refresh */}
-        <div className="ranking-filter-header">
-          <div className="ranking-header-actions">
-            {/* Status Filter Buttons */}
-            <div className="ranking-gender-group" role="group" aria-label="Stato tornei">
-              <button
-                type="button"
-                className={`ranking-gender-btn ${statusFilter === 'all' ? 'active' : ''}`}
-                onClick={() => setStatusFilter('all')}
-              >
-                Tutti
-              </button>
-              <button
-                type="button"
-                className={`ranking-gender-btn ${statusFilter === 'disputato' ? 'active' : ''}`}
-                onClick={() => setStatusFilter('disputato')}
-              >
-                <i className="bi bi-check2-circle me-1"></i>
-                Risultati
-              </button>
-              <button
-                type="button"
-                className={`ranking-gender-btn ${statusFilter === 'in_programma' ? 'active' : ''}`}
-                onClick={() => setStatusFilter('in_programma')}
-              >
-                <i className="bi bi-calendar-event me-1"></i>
-                In Programma
-              </button>
-            </div>
+    <div>
+      {/* Controls Bar */}
+      <div className="controls">
+        <div className="controls-left tornei">
+          <div className="filter-btn-group">
+            <button
+              type="button"
+              className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setStatusFilter('all')}
+            >
+              Tutti
+            </button>
+            <button
+              type="button"
+              className={`filter-btn ${statusFilter === 'disputato' ? 'active' : ''}`}
+              onClick={() => setStatusFilter('disputato')}
+            >
+              Risultati
+            </button>
+            <button
+              type="button"
+              className={`filter-btn ${statusFilter === 'in_programma' ? 'active' : ''}`}
+              onClick={() => setStatusFilter('in_programma')}
+            >
+              In Programma
+            </button>
           </div>
-        </div>
 
-        {/* Row 2: Macro Category Navigation Pills */}
-        <div className="ranking-macro-nav" role="tablist" aria-label="Categorie Tornei">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeGroup === 'all'}
-            className={`ranking-macro-pill ${activeGroup === 'all' ? 'is-active' : ''}`}
-            onClick={() => handleGroupClick('all')}
+          <select
+            id="tornei-region-select"
+            value={comitId}
+            onChange={(e) => handleRegionChange(Number(e.target.value))}
           >
-            <i className="bi bi-trophy-fill me-1"></i>
-            <span>Tutti Attivi</span>
-          </button>
+            {REGIONS_COMIT.map((reg) => (
+              <option key={reg.id} value={reg.id}>
+                {reg.name}
+              </option>
+            ))}
+          </select>
 
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeGroup === 'top'}
-            className={`ranking-macro-pill ${activeGroup === 'top' ? 'is-active' : ''}`}
-            onClick={() => handleGroupClick('top')}
+          <select
+            id="tornei-category-select"
+            value={categoryKey}
+            onChange={(e) => handleCategoryChange(e.target.value)}
           >
-            <i className="bi bi-stars me-1"></i>
-            <span>Tornei Top</span>
-            <span className="macro-badge">Top 1-6</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeGroup === 'open'}
-            className={`ranking-macro-pill pill-stranieri ${activeGroup === 'open' ? 'is-active' : ''}`}
-            onClick={() => handleGroupClick('open')}
-          >
-            <i className="bi bi-globe-europe-africa me-1"></i>
-            <span>Tornei Open</span>
-            <span className="pill-highlight-dot"></span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeGroup === 'nazionali'}
-            className={`ranking-macro-pill ${activeGroup === 'nazionali' ? 'is-active' : ''}`}
-            onClick={() => handleGroupClick('nazionali')}
-          >
-            <i className="bi bi-flag-fill me-1"></i>
-            <span>Nazionali</span>
-            <span className="macro-badge">Giov • Master • Para</span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeGroup === 'regionali'}
-            className={`ranking-macro-pill ${activeGroup === 'regionali' ? 'is-active' : ''}`}
-            onClick={() => handleGroupClick('regionali')}
-          >
-            <i className="bi bi-geo-alt-fill me-1"></i>
-            <span>Regionali</span>
-            <span className="macro-badge">Comitati</span>
-          </button>
-        </div>
-
-        {/* Row 3a: Sub-Category Chips for Top / Nazionali / Regionali */}
-        {currentGroupCategories.length > 0 && (
-          <div className="ranking-subchips-container" role="group" aria-label="Sotto-categorie tornei">
-            <span className="subchips-label">
-              <i className="bi bi-funnel-fill me-1"></i>
-              Seleziona:
-            </span>
-            <div className="ranking-subchips-list">
-              {activeGroup === 'regionali' && (
-                <button
-                  type="button"
-                  className={`ranking-subchip-btn ${categoryKey === 'reg_all' ? 'is-active' : ''}`}
-                  onClick={() => handleCategoryChange('reg_all')}
-                >
-                  Tutti Regionali
-                </button>
-              )}
-              {currentGroupCategories.map((cat) => (
-                <button
-                  key={cat.key}
-                  type="button"
-                  className={`ranking-subchip-btn ${categoryKey === cat.key ? 'is-active' : ''}`}
-                  onClick={() => handleCategoryChange(cat.key)}
-                >
-                  {cat.shortLabel}
-                </button>
+            <optgroup label="Panoramica">
+              <option value="all">Tutti i Tornei Attivi</option>
+            </optgroup>
+            <optgroup label="Tornei Nazionali Top">
+              {getTorneiCategoriesByGroup('top').map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                </option>
               ))}
-            </div>
-          </div>
-        )}
-
-        {/* Row 3b: Region Sub-Chips when viewing Tornei Open (TOR=0&COMIT=30&ID=36) */}
-        {activeGroup === 'open' && openAvailableRegions.length > 0 && (
-          <div className="ranking-subchips-container" role="group" aria-label="Regioni Tornei Open">
-            <span className="subchips-label">
-              <i className="bi bi-geo-alt-fill me-1"></i>
-              Regioni Open:
-            </span>
-            <div className="ranking-subchips-list">
-              <button
-                type="button"
-                className={`ranking-subchip-btn ${regFilterId === 0 ? 'is-active' : ''}`}
-                onClick={() => {
-                  setRegFilterId(0);
-                  setComitId(0);
-                }}
-              >
-                Tutte ({openAvailableRegions.length})
-              </button>
-              {openAvailableRegions.map((r) => (
-                <button
-                  key={r.regId}
-                  type="button"
-                  className={`ranking-subchip-btn ${regFilterId === r.regId ? 'is-active' : ''}`}
-                  onClick={() => {
-                    setRegFilterId(r.regId);
-                    setComitId(r.regId);
-                  }}
-                >
-                  {r.name}
-                </button>
+            </optgroup>
+            <optgroup label="Tornei Open Interregionali">
+              {getTorneiCategoriesByGroup('open').map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                </option>
               ))}
-            </div>
-          </div>
-        )}
-
-        {/* Row 4: Controls Row with Region Select, Category Select & Search */}
-        <div className="ranking-controls-row">
-          <div className="ranking-region-select-wrap">
-            <label htmlFor="tornei-region-select" className="ranking-select-label">
-              <i className="bi bi-geo-alt-fill me-1 text-primary"></i>
-              Comitato:
-            </label>
-            <div className="ranking-select-inner">
-              <select
-                id="tornei-region-select"
-                className="ranking-select-input"
-                value={comitId}
-                onChange={(e) => handleRegionChange(Number(e.target.value))}
-              >
-                {REGIONS_COMIT.map((reg) => (
-                  <option key={reg.id} value={reg.id}>
-                    {reg.name}
-                  </option>
-                ))}
-              </select>
-              <i className="bi bi-chevron-down ranking-select-chevron"></i>
-            </div>
-          </div>
-
-          <div className="ranking-category-select-wrap">
-            <label htmlFor="tornei-category-select" className="ranking-select-label">
-              <i className="bi bi-trophy-fill me-1 text-primary"></i>
-              Manifestazione:
-            </label>
-            <div className="ranking-select-inner">
-              <select
-                id="tornei-category-select"
-                className="ranking-select-input ranking-cat-select"
-                value={categoryKey}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-              >
-                <optgroup label="Panoramica">
-                  <option value="all">Tutti i Tornei Attivi</option>
-                </optgroup>
-                <optgroup label="Tornei Nazionali Top">
-                  {getTorneiCategoriesByGroup('top').map((c) => (
-                    <option key={c.key} value={c.key}>
-                      {c.label}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Tornei Open Interregionali">
-                  {getTorneiCategoriesByGroup('open').map((c) => (
-                    <option key={c.key} value={c.key}>
-                      {c.label}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Manifestazioni Nazionali">
-                  {getTorneiCategoriesByGroup('nazionali').map((c) => (
-                    <option key={c.key} value={c.key}>
-                      {c.label}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Tornei Regionali">
-                  <option value="reg_all">Tutti i Tornei della Regione</option>
-                  {getTorneiCategoriesByGroup('regionali').map((c) => (
-                    <option key={c.key} value={c.key}>
-                      {c.label}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
-              <i className="bi bi-chevron-down ranking-select-chevron"></i>
-            </div>
-          </div>
-
-          <div className="ranking-inline-search-wrap">
-            <div className="ranking-search-inner">
-              <i className="bi bi-search ranking-search-icon"></i>
-              <input
-                type="text"
-                className="ranking-search-input"
-                placeholder="Cerca sede, provincia o data..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  className="ranking-search-clear"
-                  onClick={() => setSearchQuery('')}
-                  aria-label="Cancella filtro"
-                >
-                  <i className="bi bi-x-circle-fill"></i>
-                </button>
-              )}
-            </div>
-          </div>
+            </optgroup>
+            <optgroup label="Manifestazioni Nazionali">
+              {getTorneiCategoriesByGroup('nazionali').map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Tornei Regionali">
+              <option value="reg_all">Tutti i Tornei della Regione</option>
+              {getTorneiCategoriesByGroup('regionali').map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                </option>
+              ))}
+            </optgroup>
+          </select>
         </div>
       </div>
+
+      <div className="ranking-tab-container">
 
       {/* Selected Tournament Interactive Detail View */}
       {selectedTorneo ? (
@@ -567,7 +582,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
                 onClick={() => setSelectedTorneo(null)}
               >
                 <i className="bi bi-arrow-left me-1"></i>
-                Elenco Tornei
+                Torna Indietro
               </button>
             </div>
           </div>
@@ -694,23 +709,49 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
                   </div>
 
                   <div className="controls-right">
-                    {garaPhaseTab === 'tabellone' && garaData.turniTabellone.length > 0 && selectedGara && (
-                      <div className="ranking-subchips-list">
-                        {garaData.turniTabellone.map((t) => {
-                          const isAct =
-                            garaData.activeTurno?.turno === t.turno &&
-                            garaData.activeTurno?.tab === t.tab;
-                          return (
-                            <button
-                              key={`${t.tab}-${t.turno}`}
-                              type="button"
-                              className={`ranking-subchip-btn ${isAct ? 'is-active' : ''}`}
-                              onClick={() => handleSelectGara(selectedGara, undefined, { tab: t.tab, turno: t.turno })}
-                            >
-                              {t.label}
-                            </button>
-                          );
-                        })}
+                    {garaPhaseTab === 'tabellone' && selectedGara && (
+                      <div className="d-flex align-items-center gap-2 flex-wrap">
+                        {/* Bracket Mode Switcher */}
+                        <div className="filter-btn-group">
+                          <button
+                            type="button"
+                            className={`filter-btn ${bracketViewMode === 'bracket' ? 'active' : ''}`}
+                            onClick={() => setBracketViewMode('bracket')}
+                            title="Visualizza Tabellone Grafico ad albero"
+                          >
+                            <i className="bi bi-diagram-3-fill me-1"></i>
+                            Tabellone
+                          </button>
+                          <button
+                            type="button"
+                            className={`filter-btn ${bracketViewMode === 'cards' ? 'active' : ''}`}
+                            onClick={() => setBracketViewMode('cards')}
+                            title="Visualizza Elenco Incontri per turno"
+                          >
+                            <i className="bi bi-list-ul me-1"></i>
+                            Elenco Partite
+                          </button>
+                        </div>
+
+                        {bracketViewMode === 'cards' && garaData.turniTabellone.length > 0 && (
+                          <div className="ranking-subchips-list">
+                            {garaData.turniTabellone.map((t) => {
+                              const isAct =
+                                garaData.activeTurno?.turno === t.turno &&
+                                garaData.activeTurno?.tab === t.tab;
+                              return (
+                                <button
+                                  key={`${t.tab}-${t.turno}`}
+                                  type="button"
+                                  className={`ranking-subchip-btn ${isAct ? 'is-active' : ''}`}
+                                  onClick={() => handleSelectGara(selectedGara, undefined, { tab: t.tab, turno: t.turno })}
+                                >
+                                  {t.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -741,7 +782,31 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
               {/* 1. TABELLONE ELIMINAZIONE DIRETTA */}
               {garaData.mode === 'risultati' && garaPhaseTab === 'tabellone' && (
                 <div>
-                  {garaData.partiteTabellone.length > 0 ? (
+                  {bracketViewMode === 'bracket' ? (
+                    bracketLoading ? (
+                      <div className="bracket-loading-box">
+                        <div
+                          className="spinner-border text-primary"
+                          role="status"
+                          style={{ width: '2.5rem', height: '2.5rem' }}
+                        >
+                          <span className="visually-hidden">Caricamento tabellone completo...</span>
+                        </div>
+                        <p className="mt-3 mb-1 fw-bold fs-6">Generazione del tabellone completo in corso...</p>
+                        <small className="text-muted">
+                          Scaricamento di tutte le partite dei turni ({garaData.turniTabellone.map((t) => t.label).join(' • ')})
+                        </small>
+                      </div>
+                    ) : (
+                      <TorneoBracket
+                        rounds={currentFullBracketRounds}
+                        competitionName={
+                          garaData.titoloGara || selectedGara?.nome || 'Tabellone Eliminazione Diretta'
+                        }
+                        onOpenAtletaModal={handleAthleteClick}
+                      />
+                    )
+                  ) : garaData.partiteTabellone.length > 0 ? (
                     <div className="match-cards-grid">
                       {garaData.partiteTabellone.map((m, idx) => (
                         <div key={idx} className="match-card">
@@ -1053,82 +1118,149 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
             Riprova
           </button>
         </div>
-      ) : filteredSections.length > 0 ? (
-        <div className="tornei-sections-stack">
-          {filteredSections.map((sec) => (
-            <div key={`${sec.key}-${sec.comit}-${sec.reg || 0}`} className="ranking-card-block ranking-table-card">
-              <div className="ranking-section-header official-header">
-                <div className="official-title-group">
-                  <span className="official-crown">
-                    <i className="bi bi-trophy-fill text-warning"></i>
+      ) : torneiByRegion.length > 0 ? (
+        <div className="tornei-explorer">
+          <aside className="tornei-map-column">
+            <TorneiItalyMap
+              groups={torneiByRegion}
+              selection={mapSelection}
+              onSelectionChange={setMapSelection}
+              onShowList={handleShowList}
+            />
+          </aside>
+
+          <section className="tornei-list-column" ref={torneiListRef}>
+            {mapSelection.region && (
+              <div className="tornei-map-filter-banner">
+                <div className="tornei-map-filter-text">
+                  <i className="bi bi-funnel-fill"></i>
+                  <span>
+                    Filtro mappa: <strong>{mapSelection.label || mapSelection.region}</strong>
+                    <span className="tornei-map-filter-count">
+                      {visibleTorneiCount}{' '}
+                      {visibleTorneiCount === 1 ? 'torneo' : 'tornei'}
+                    </span>
                   </span>
-                  <div>
-                    <div className="official-main-title">{sec.title}</div>
-                    <div className="official-subtitle-text">
-                      <strong>{sec.tornei.length}</strong> {sec.tornei.length === 1 ? 'torneo disponibile' : 'tornei disponibili'}
-                      {sec.regioneNome ? ` • ${sec.regioneNome}` : ''}
+                </div>
+                <button
+                  type="button"
+                  className="tornei-map-filter-clear"
+                  onClick={() => setMapSelection(EMPTY_MAP_SELECTION)}
+                >
+                  <i className="bi bi-x-lg"></i>
+                  <span>Mostra tutti</span>
+                </button>
+              </div>
+            )}
+
+            <div className="tornei-list-heading">
+              <div>
+                <h3>{headerTitle}</h3>
+                <p>{headerSubtitle}</p>
+              </div>
+              <span className="tornei-list-count">
+                {visibleTorneiCount}{' '}
+                {visibleTorneiCount === 1 ? 'torneo' : 'tornei'}
+              </span>
+            </div>
+
+            {visibleTorneiByRegion.length > 0 ? (
+              <div className="torneo-regions-list">
+                {visibleTorneiByRegion.map((group) => (
+                  <div key={group.region} className="torneo-region-card">
+                    <div className="torneo-region-header">
+                      <div className="d-flex align-items-center gap-2">
+                        <i
+                          className={`bi ${
+                            group.region === 'Nazionale'
+                              ? 'bi-trophy-fill text-warning'
+                              : 'bi-geo-alt-fill text-primary'
+                          }`}
+                        ></i>
+                        <span>{group.region}</span>
+                      </div>
+                      <span className="torneo-region-badge">
+                        {group.items.length} {group.items.length === 1 ? 'torneo' : 'tornei'}
+                      </span>
+                    </div>
+
+                    <div className="torneo-rows-container">
+                      {group.items.map(({ torneo, sectionTitle }) => (
+                        <div
+                          key={`${torneo.com}-${torneo.idt}-${torneo.tipo}`}
+                          className="torneo-row"
+                          onClick={() => handleSelectTorneo(torneo)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleSelectTorneo(torneo);
+                            }
+                          }}
+                        >
+                          <div className="torneo-row-date">
+                            <i className="bi bi-calendar3 me-1 text-muted"></i>
+                            <span>{torneo.data}</span>
+                          </div>
+
+                          <div className="torneo-row-info">
+                            <div className="torneo-row-title">{torneo.luogo}</div>
+                            {sectionTitle && (
+                              <div className="torneo-row-meta">{sectionTitle}</div>
+                            )}
+                          </div>
+
+                          <div className="torneo-row-badge-wrap">
+                            <span
+                              className={`torneo-status-pill ${
+                                torneo.status === 'disputato'
+                                  ? 'status-disputato'
+                                  : 'status-programma'
+                              }`}
+                            >
+                              <i
+                                className={`bi ${
+                                  torneo.status === 'disputato'
+                                    ? 'bi-check2'
+                                    : 'bi-clock'
+                                } me-1`}
+                              ></i>
+                              {torneo.status === 'disputato'
+                                ? 'Risultati'
+                                : 'In Programma'}
+                            </span>
+                          </div>
+
+                          <div className="torneo-row-chevron">
+                            <i className="bi bi-chevron-right"></i>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
-                <div className="official-badge-group">
-                  <span className="section-badge">{sec.shortLabel}</span>
-                </div>
+                ))}
               </div>
-
-              <div className="tornei-cards-body">
-                <div className="match-cards-grid">
-                  {sec.tornei.map((torneo) => (
-                    <div
-                      key={`${torneo.com}-${torneo.idt}-${torneo.tipo}`}
-                      className={`match-card torneo-item-card ${torneo.status === 'disputato' ? 'is-disputato' : 'is-in-programma'
-                        }`}
-                      onClick={() => handleSelectTorneo(torneo)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleSelectTorneo(torneo);
-                        }
-                      }}
-                    >
-                      <div className="torneo-card-top">
-                        <span className="torneo-date-pill">
-                          <i className="bi bi-calendar3"></i>
-                          {torneo.data}
-                        </span>
-                        <span
-                          className={`torneo-status-pill ${torneo.status === 'disputato' ? 'status-disputato' : 'status-programma'
-                            }`}
-                        >
-                          <i
-                            className={`bi ${torneo.status === 'disputato' ? 'bi-check-circle-fill' : 'bi-clock-fill'
-                              }`}
-                          ></i>
-                          {torneo.status === 'disputato' ? 'Risultati' : 'In Programma'}
-                        </span>
-                      </div>
-
-                      <h3 className="torneo-luogo-title">
-                        <span>{torneo.luogo}</span>
-                        <i className="bi bi-chevron-right" style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}></i>
-                      </h3>
-
-                      <div className="torneo-card-footer">
-                        <span>
-                          <i className="bi bi-geo-alt me-1"></i>
-                          {torneo.regione || 'Nazionale'}
-                        </span>
-                        <span style={{ fontWeight: 600, color: 'var(--color-info-text)' }}>
-                          {torneo.status === 'disputato' ? 'Vedi risultati e tabelloni' : 'Vedi gare e iscritti'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            ) : (
+              <div className="ranking-empty-card tornei-map-empty-list">
+                <i className="bi bi-geo-alt ranking-empty-icon"></i>
+                <h3>Nessun torneo per questo filtro</h3>
+                <p>
+                  La mappa non ha tornei corrispondenti a{' '}
+                  <strong>{mapSelection.label || mapSelection.region}</strong> con i filtri
+                  attuali.
+                </p>
+                <button
+                  type="button"
+                  className="btn-action"
+                  onClick={() => setMapSelection(EMPTY_MAP_SELECTION)}
+                >
+                  <i className="bi bi-arrow-left me-1"></i>
+                  Mostra tutti i tornei
+                </button>
               </div>
-            </div>
-          ))}
+            )}
+          </section>
         </div>
       ) : (
         <div className="ranking-empty-card">
@@ -1153,6 +1285,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 };
