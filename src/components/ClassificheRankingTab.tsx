@@ -19,7 +19,7 @@ export interface ClassificheRankingTabProps {
 }
 
 export const REGIONS_COMIT = [
-  { id: 0, name: 'Tutte (Nazionale)' },
+  { id: 0, name: 'Class. Nazionale)' },
   { id: 14, name: 'Abruzzo' },
   { id: 7, name: 'Alto Adige' },
   { id: 17, name: 'Basilicata' },
@@ -81,8 +81,6 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  const [isControlsOpen, setIsControlsOpen] = useState<boolean>(false);
-  const [isQuickFiltersOpen, setIsQuickFiltersOpen] = useState<boolean>(false);
 
   const activeCategoryDef = getRankingCategoryByKey(category);
   const activeGroup = activeCategoryDef.group;
@@ -207,146 +205,79 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
   }, [data?.athletes, searchQuery]);
 
   return (
-    <div className="ranking-tab-container">
-      {/* Top Filter Card */}
-      <div className="ranking-filter-card">
-        {/* Row 1: Header with Title, Gender Switcher and Actions */}
-
-        {/* Bootstrap Accordion Container with 2 Distinct Panels */}
-        <div className="accordion ranking-accordion" id="rankingFiltersAccordion">
-          {/* Panel 1: Filtri Classifica (Regione, Categoria, Ricerca) */}
-          <div className="accordion-item ranking-accordion-item" id="ranking-controls-expansion">
-            <h3 className="accordion-header" id="headingControls">
-              <button
-                className={`accordion-button ${!isControlsOpen ? 'collapsed' : ''}`}
-                type="button"
-                onClick={() => setIsControlsOpen((prev) => !prev)}
-                aria-expanded={isControlsOpen}
-                aria-controls="collapseControls"
-              >
-                <div className="d-flex align-items-center gap-2 flex-wrap flex-grow-1 me-2">
-                  <span className="fw-semibold text-main d-inline-flex align-items-center">
-                    <i className="bi bi-list me-2"></i>
-                    <span className="text-muted">Classifica</span>
-                  </span>
-                  <span className="ranking-pill-badge">
-                    <i className="bi bi-geo-alt-fill me-1"></i>
-                    {selectedRegionName}
-                  </span>
-                  <span className="ranking-pill-badge">
-                    {activeCategoryDef.shortLabel}
-                  </span>
-                </div>
-              </button>
-            </h3>
-            <div
-              id="collapseControls"
-              className={`accordion-collapse collapse ${isControlsOpen ? 'show' : ''}`}
-              aria-labelledby="headingControls"
+    <div>
+      {/* Controls Bar */}
+      <div className="controls">
+        <div className="controls-left classifiche">
+          <div className="filter-btn-group">
+            <button
+              type="button"
+              className={`filter-btn ${sesso === 'M' ? 'active' : ''}`}
+              onClick={() => handleSessoChange('M')}
             >
-              <div className="accordion-body ranking-accordion-body p-3">
-                <div className="row g-3 align-items-end">
-                  {/* Region Select */}
-                  <div className="col-12 col-md-4">
-                    <label htmlFor="ranking-region-select" className="form-label mb-1 fw-semibold small text-secondary d-flex align-items-center gap-1">
-                      <span> Regione</span>
-                    </label>
-                    <div className="input-group input-group-sm">
-                      <span className="input-group-text border-end-0">
-                        <i className="bi bi-map"></i>
-                      </span>
-                      <select
-                        id="ranking-region-select"
-                        className="form-select border-start-0 ps-1"
-                        value={comitId}
-                        onChange={(e) => handleComitChange(Number(e.target.value))}
-                      >
-                        {REGIONS_COMIT.map((reg) => (
-                          <option key={reg.id} value={reg.id}>
-                            {reg.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Category Select */}
-                  <div className="col-12 col-md-5">
-                    <label htmlFor="ranking-category-select" className="form-label mb-1 fw-semibold small text-secondary d-flex align-items-center gap-1">
-                      <span>Categoria</span>
-                    </label>
-                    <div className="input-group input-group-sm">
-                      <span className="input-group-text border-end-0">
-                        <i className="bi bi-trophy"></i>
-                      </span>
-                      <select
-                        id="ranking-category-select"
-                        className="form-select border-start-0 ps-1"
-                        value={category}
-                        onChange={(e) => handleCategoryChange(e.target.value as RankingCategoryKey)}
-                      >
-                        <optgroup label="Classifica Generale">
-                          <option value="generale">Generale</option>
-                        </optgroup>
-                        <optgroup label="Altre Categorie (Speciali)">
-                          <option value="stranieri">🌍 Stranieri</option>
-                          <option value="fuori_quadro">Fuori Quadro (FQ)</option>
-                          <option value="provvisori">Provvisori</option>
-                        </optgroup>
-                        <optgroup label="Settore Giovanile">
-                          <option value="u11">Under 11 (Giovanissimi)</option>
-                          <option value="u13">Under 13 (Ragazzi)</option>
-                          <option value="u15">Under 15 (Allievi)</option>
-                          <option value="u17">Under 17 (Cadetti)</option>
-                          <option value="u19">Under 19 (Juniores)</option>
-                          <option value="u21">Under 21</option>
-                        </optgroup>
-                        <optgroup label="Master / Veterani">
-                          <option value="master_1">Master Cat. 1 (40-49)</option>
-                          <option value="master_2">Master Cat. 2 (50-59)</option>
-                          <option value="master_3">Master Cat. 3 (60-64)</option>
-                          <option value="master_4">Master Cat. 4 (65-69)</option>
-                          <option value="master_5">Master Cat. 5 (70-74)</option>
-                          <option value="master_6">Master Cat. 6 (75-79)</option>
-                          <option value="master_7">Master Cat. 7 (80+)</option>
-                        </optgroup>
-                        <optgroup label="Paralimpici">
-                          <option value="para_1_5">Paralimpica Classe 1-5 (Carrozzina)</option>
-                          <option value="para_6_10">Paralimpica Classe 6-10 (In piedi)</option>
-                          <option value="para_11">Paralimpica Classe 11 (DIR)</option>
-                        </optgroup>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="ranking-filter-header mb-4">
-                <div className="ranking-header-actions">
-                  {/* Gender Selector Buttons */}
-                  <div className="ranking-gender-group" role="group" aria-label="Sesso">
-                    <button
-                      type="button"
-                      className={`ranking-gender-btn ${sesso === 'M' ? 'active' : ''}`}
-                      onClick={() => handleSessoChange('M')}
-                    >
-                      <i className="bi bi-gender-male me-1"></i>
-                      Maschile
-                    </button>
-                    <button
-                      type="button"
-                      className={`ranking-gender-btn ${sesso === 'F' ? 'active' : ''}`}
-                      onClick={() => handleSessoChange('F')}
-                    >
-                      <i className="bi bi-gender-female me-1"></i>
-                      Femminile
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+              Maschile
+            </button>
+            <button
+              type="button"
+              className={`filter-btn ${sesso === 'F' ? 'active' : ''}`}
+              onClick={() => handleSessoChange('F')}
+            >
+              Femminile
+            </button>
           </div>
+
+          <select
+            id="ranking-region-select"
+            value={comitId}
+            onChange={(e) => handleComitChange(Number(e.target.value))}
+          >
+            {REGIONS_COMIT.map((reg) => (
+              <option key={reg.id} value={reg.id}>
+                {reg.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            id="ranking-category-select"
+            value={category}
+            onChange={(e) => handleCategoryChange(e.target.value as RankingCategoryKey)}
+          >
+            <optgroup label="Classifica Generale">
+              <option value="generale">Generale</option>
+            </optgroup>
+            <optgroup label="Altre Categorie (Speciali)">
+              <option value="stranieri">🌍 Stranieri</option>
+              <option value="fuori_quadro">Fuori Quadro (FQ)</option>
+              <option value="provvisori">Provvisori</option>
+            </optgroup>
+            <optgroup label="Settore Giovanile">
+              <option value="u11">Under 11 (Giovanissimi)</option>
+              <option value="u13">Under 13 (Ragazzi)</option>
+              <option value="u15">Under 15 (Allievi)</option>
+              <option value="u17">Under 17 (Cadetti)</option>
+              <option value="u19">Under 19 (Juniores)</option>
+              <option value="u21">Under 21</option>
+            </optgroup>
+            <optgroup label="Master / Veterani">
+              <option value="master_1">Master Cat. 1 (40-49)</option>
+              <option value="master_2">Master Cat. 2 (50-59)</option>
+              <option value="master_3">Master Cat. 3 (60-64)</option>
+              <option value="master_4">Master Cat. 4 (65-69)</option>
+              <option value="master_5">Master Cat. 5 (70-74)</option>
+              <option value="master_6">Master Cat. 6 (75-79)</option>
+              <option value="master_7">Master Cat. 7 (80+)</option>
+            </optgroup>
+            <optgroup label="Paralimpici">
+              <option value="para_1_5">Paralimpica Classe 1-5 (Carrozzina)</option>
+              <option value="para_6_10">Paralimpica Classe 6-10 (In piedi)</option>
+              <option value="para_11">Paralimpica Classe 11 (DIR)</option>
+            </optgroup>
+          </select>
         </div>
       </div>
+
+      <div className="ranking-tab-container">
 
       {/* Main Content Area */}
       {loading && !refreshing ? (
@@ -563,6 +494,7 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 };

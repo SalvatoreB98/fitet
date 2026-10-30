@@ -301,9 +301,6 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
           </div>
         </div>
 
-        <div className="controls-right text-muted" style={{ fontSize: '12px' }}>
-          Risultati ufficiali e referti federali FITeT
-        </div>
       </div>
       <div className='p-1 m-1 mt-3 text-right'>
         <button onClick={() => goToCurrent()} className='btn btn-primary rounded-pill'>Vai alla giornata corrente ↓ </button>

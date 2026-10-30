@@ -1125,7 +1125,7 @@ nav {
 
 @media screen and (max-width: 768px) {
   .portal-main.without-portal-nav {
-    margin-top: 70px;
+    margin-top: 60px;
   }
 
   .portal-main {
@@ -1192,18 +1192,26 @@ nav {
 }
 
 @media screen and (max-width: 768px) {
-  .controls-left.calendario {
+
+  .controls-left.calendario,
+  .controls-left.classifiche {
     display: grid;
     width: 100%;
   }
 
-  .select-clearable-wrapper select {
+  .select-clearable-wrapper select,
+  .controls-left.classifiche select {
     width: 100%;
   }
 
   .calendario .filter-btn-group {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .classifiche .filter-btn-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 }
 
