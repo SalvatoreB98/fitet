@@ -21,6 +21,7 @@ const SUBSCRIBE_ENDPOINT = '/api/push/subscribe';
 let registrationPromise: Promise<ServiceWorkerRegistration | null> | null = null;
 let publicKeyPromise: Promise<string> | null = null;
 let cachedPublicKey: string | null = null;
+let syncedEndpointInSession: string | null = null;
 
 /**
  * Rileva se l'app è aperta come PWA installata.
@@ -184,6 +185,8 @@ export async function preparePushNotifications(): Promise<void> {
 
 /**
  * Stato corrente delle notifiche per il dispositivo.
+ * Se il permesso è già concesso e c'è una subscription locale, verifica che la chiave VAPID
+ * coincida con quella attuale del server e sincronizza silenziosamente la subscription su Supabase.
  */
 export async function getPushNotificationStatus(): Promise<PushNotificationStatus> {
   const supported = isPushSupported();
@@ -199,7 +202,43 @@ export async function getPushNotificationStatus(): Promise<PushNotificationStatu
   if (permission === 'granted') {
     try {
       const registration = await getActiveRegistration();
-      const subscription = await registration?.pushManager.getSubscription();
+      let subscription = await registration?.pushManager.getSubscription();
+
+      if (registration && subscription) {
+        try {
+          const publicKey = await getVapidPublicKey();
+          const targetKeyBytes = urlBase64ToUint8Array(publicKey);
+          const currentAppServerKey = subscription.options?.applicationServerKey;
+          let keyMatches = false;
+
+          if (currentAppServerKey) {
+            const currentBytes = new Uint8Array(currentAppServerKey);
+            keyMatches =
+              currentBytes.length === targetKeyBytes.length &&
+              currentBytes.every((val, i) => val === targetKeyBytes[i]);
+          }
+
+          if (!keyMatches) {
+            console.warn('[Push] Chiave VAPID cambiata rispetto alla subscription locale: rinnovo automatico...');
+            await subscription.unsubscribe().catch(() => undefined);
+            subscription = await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: targetKeyBytes,
+            });
+            syncedEndpointInSession = null;
+          }
+
+          if (subscription && syncedEndpointInSession !== subscription.endpoint) {
+            const syncRes = await sendSubscriptionToBackend(subscription, true);
+            if (syncRes.ok) {
+              syncedEndpointInSession = subscription.endpoint;
+            }
+          }
+        } catch (syncErr) {
+          console.warn('[Push] Verifica/sync silenzioso subscription non riuscito:', syncErr);
+        }
+      }
+
       subscribed = Boolean(subscription);
     } catch (err) {
       console.warn('[Push] Lettura subscription fallita:', err);
@@ -236,7 +275,8 @@ interface BackendSubscriptionResult {
 }
 
 async function sendSubscriptionToBackend(
-  subscription: PushSubscription
+  subscription: PushSubscription,
+  silent = false
 ): Promise<BackendSubscriptionResult> {
   const json = subscription.toJSON();
 
@@ -248,6 +288,7 @@ async function sendSubscriptionToBackend(
         endpoint: subscription.endpoint,
         expirationTime: subscription.expirationTime,
         keys: json.keys,
+        silent,
       }),
     });
 
@@ -260,6 +301,7 @@ async function sendSubscriptionToBackend(
       };
     }
 
+    syncedEndpointInSession = subscription.endpoint;
     return { ok: true, welcomeSent: Boolean(data?.welcomeSent) };
   } catch (err: any) {
     return {
@@ -378,4 +420,5 @@ export async function unsubscribeFromPush(): Promise<void> {
   await subscription.unsubscribe().catch((err) => {
     console.warn('[Push] unsubscribe locale fallito:', err);
   });
+  syncedEndpointInSession = null;
 }

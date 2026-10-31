@@ -2659,14 +2659,21 @@ var PushService = class {
     } catch (err) {
       const statusCode = typeof err?.statusCode === "number" ? err.statusCode : void 0;
       const message = err?.body || err?.message || "Errore sconosciuto durante l'invio push.";
-      const isVapidMismatch = statusCode === 403 && message.includes("VAPID credentials") || statusCode === 400 && message.includes("VapidPkHashMismatch");
-      if (statusCode === 404 || statusCode === 410 || isVapidMismatch) {
+      if (statusCode === 404 || statusCode === 410) {
         await this.removeSubscription(subscription.endpoint);
         console.warn(
-          `[PushService] Subscription obsoleta/invalida (${statusCode}) rimossa dal database:`,
+          `[PushService] Subscription obsoleta/scaduta (${statusCode}) rimossa dal database:`,
           message
         );
         return { sent: false, statusCode, error: message, removed: true };
+      }
+      const isVapidMismatch = statusCode === 403 && message.includes("VAPID credentials") || statusCode === 400 && message.includes("VapidPkHashMismatch");
+      if (isVapidMismatch) {
+        console.warn(
+          `[PushService] \u26A0\uFE0F VAPID key mismatch (${statusCode}): le chiavi VAPID di questo ambiente non coincidono con quelle usate dal browser per creare la subscription.`,
+          message
+        );
+        return { sent: false, statusCode, error: message, removed: false };
       }
       console.warn(
         `[PushService] Invio push fallito (${statusCode ?? "no-status"}) per ${subscription.endpoint.slice(0, 60)}...:`,
@@ -2731,6 +2738,13 @@ var PushService = class {
     );
     if (error) {
       console.error(`[PushService] Scrittura stato "${key}" fallita:`, error.message);
+    }
+  }
+  async deleteState(key) {
+    if (!this.supabase) return;
+    const { error } = await this.supabase.from("push_state").delete().eq("key", key);
+    if (error) {
+      console.error(`[PushService] Eliminazione stato "${key}" fallita:`, error.message);
     }
   }
   /**
@@ -3696,6 +3710,102 @@ function parseLuogo(luogo) {
 
 // server/services/torneiNotificationService.ts
 var TORNEI_KNOWN_KEYS_STATE_KEY = "known_tornei_keys";
+var cachedKnownKeys = null;
+var cachedKnownKeysTimestamp = 0;
+var KNOWN_KEYS_CACHE_TTL_MS = 15 * 60 * 1e3;
+var isPassiveCheckRunning = false;
+var pendingObservedMap = /* @__PURE__ */ new Map();
+async function notifyObservedTorneiIfNeeded(observedTornei) {
+  if (!observedTornei || observedTornei.length === 0) {
+    return;
+  }
+  for (const t of observedTornei) {
+    const key = getTorneoUniqueKey(t);
+    if (!cachedKnownKeys?.has(key) && !pendingObservedMap.has(key)) {
+      const isRegional = t.com >= 1 && t.com <= 21;
+      const resolvedRegion = isRegional ? COMIT_NAMES[t.com] || t.regione : getTorneoHostRegion(t);
+      pendingObservedMap.set(key, {
+        ...t,
+        key,
+        regione: resolvedRegion
+      });
+    }
+  }
+  if (pendingObservedMap.size === 0 || isPassiveCheckRunning) {
+    return;
+  }
+  isPassiveCheckRunning = true;
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    while (pendingObservedMap.size > 0) {
+      const batch = Array.from(pendingObservedMap.values());
+      pendingObservedMap.clear();
+      const now = Date.now();
+      if (!cachedKnownKeys || now - cachedKnownKeysTimestamp > KNOWN_KEYS_CACHE_TTL_MS) {
+        const previousState = await pushService.getState(TORNEI_KNOWN_KEYS_STATE_KEY);
+        if (!previousState) {
+          return;
+        }
+        const parsed = JSON.parse(previousState);
+        if (!Array.isArray(parsed) || parsed.length === 0) {
+          return;
+        }
+        cachedKnownKeys = new Set(parsed);
+        cachedKnownKeysTimestamp = now;
+      }
+      const candidates = batch.filter((t) => !cachedKnownKeys.has(t.key));
+      if (candidates.length === 0) {
+        continue;
+      }
+      const freshState = await pushService.getState(TORNEI_KNOWN_KEYS_STATE_KEY);
+      if (!freshState) return;
+      const freshKnown = new Set(JSON.parse(freshState));
+      const newTornei = candidates.filter((t) => !freshKnown.has(t.key));
+      if (newTornei.length === 0) {
+        cachedKnownKeys = freshKnown;
+        cachedKnownKeysTimestamp = Date.now();
+        continue;
+      }
+      if (pushService.isReady()) {
+        let title;
+        let body;
+        if (newTornei.length === 1) {
+          const single = newTornei[0];
+          const isNat = single.com === 30 || single.com === 0;
+          const typeLabel = single.categoriaLabel || (isNat ? "Torneo Nazionale" : "Torneo Regionale");
+          title = `\u{1F3C6} Nuovo ${typeLabel}`;
+          body = `${single.luogo} \u2022 ${single.data}${single.regione ? ` (${single.regione})` : ""}`;
+        } else {
+          title = `\u{1F3C6} ${newTornei.length} nuovi tornei FITeT pubblicati!`;
+          const previews = newTornei.slice(0, 3).map((t) => `${t.luogo} (${t.data})`).join(", ");
+          const extra = newTornei.length > 3 ? ` e altri ${newTornei.length - 3}...` : "";
+          body = `Disponibili nuove gare a: ${previews}${extra}`;
+        }
+        await pushService.sendToAll({
+          title,
+          body,
+          url: "/?view=tornei",
+          icon: "/icon.png",
+          badge: "/icon.png",
+          tag: `tornei-new-${Date.now()}`,
+          data: {
+            type: "new_tornei",
+            count: newTornei.length,
+            keys: newTornei.map((t) => t.key)
+          }
+        });
+      }
+      const updatedKeys = Array.from(/* @__PURE__ */ new Set([...freshKnown, ...newTornei.map((t) => t.key)]));
+      await pushService.setState(TORNEI_KNOWN_KEYS_STATE_KEY, JSON.stringify(updatedKeys));
+      cachedKnownKeys = new Set(updatedKeys);
+      cachedKnownKeysTimestamp = Date.now();
+    }
+  } catch (err) {
+    console.warn("[TorneiScanner] Errore durante controllo passivo nuovi tornei:", err);
+  } finally {
+    isPassiveCheckRunning = false;
+  }
+}
 function getTorneoUniqueKey(torneo) {
   return `${torneo.com}-${torneo.idt}-${torneo.tipo ?? 0}`;
 }
@@ -3765,7 +3875,19 @@ async function scanAllTornei(concurrency = 10) {
           target.key,
           target.label
         );
-        for (const t of parsed.tornei) {
+        let itemsToAdd = parsed.tornei;
+        if (parsed.regions.length > 0 && parsed.tornei.length === 0) {
+          const regLists = await Promise.all(
+            parsed.regions.map(async (r) => {
+              const regUrl = `https://portale.fitet.org/risultati/tornei/elenco_tornei.php?REG=${r.regId}&TOR=${r.tor}&ID=${r.id}&COMIT=${r.comit}`;
+              const regHtml = await FitetClient.fetchHtml(regUrl).catch(() => "");
+              if (!regHtml) return [];
+              return parseElencoTornei(regHtml, r.comit, r.tor, r.regId, target.key, target.label).tornei;
+            })
+          );
+          itemsToAdd = regLists.flat();
+        }
+        for (const t of itemsToAdd) {
           const key = getTorneoUniqueKey(t);
           if (!torneiMap.has(key)) {
             const resolvedRegion = target.isRegional ? COMIT_NAMES[t.com] || target.label : getTorneoHostRegion(t);
@@ -3802,6 +3924,8 @@ async function checkNewTorneiAndNotify(options = {}) {
         TORNEI_KNOWN_KEYS_STATE_KEY,
         JSON.stringify(currentKeys)
       );
+      cachedKnownKeys = new Set(currentKeys);
+      cachedKnownKeysTimestamp = Date.now();
       console.log(`[TorneiScanner] Baseline inizializzato con ${currentKeys.length} tornei.`);
     }
     return {
@@ -3824,6 +3948,8 @@ async function checkNewTorneiAndNotify(options = {}) {
   }
   const newTornei = scannedTornei.filter((t) => !knownKeys.has(t.key));
   if (newTornei.length === 0) {
+    cachedKnownKeys = knownKeys;
+    cachedKnownKeysTimestamp = Date.now();
     console.log("[TorneiScanner] Nessun nuovo torneo rilevato.");
     return {
       changed: false,
@@ -3883,6 +4009,8 @@ async function checkNewTorneiAndNotify(options = {}) {
       TORNEI_KNOWN_KEYS_STATE_KEY,
       JSON.stringify(updatedKeys)
     );
+    cachedKnownKeys = new Set(updatedKeys);
+    cachedKnownKeysTimestamp = Date.now();
   }
   return {
     changed: true,
@@ -3893,6 +4021,47 @@ async function checkNewTorneiAndNotify(options = {}) {
     broadcastResult,
     durationMs: Date.now() - startTime
   };
+}
+var dailySchedulerTimer = null;
+var lastDailyCheckDate = "";
+function getRomeDateHour() {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Rome",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
+  const parts = formatter.formatToParts(/* @__PURE__ */ new Date());
+  const map = {};
+  for (const p of parts) {
+    map[p.type] = p.value;
+  }
+  const dateStr = `${map.year}-${map.month}-${map.day}`;
+  const hour = parseInt(map.hour || "0", 10) % 24;
+  const minute = parseInt(map.minute || "0", 10);
+  return { dateStr, hour, minute };
+}
+function startDailyTorneiScheduler() {
+  if (dailySchedulerTimer) return;
+  const checkTick = async () => {
+    try {
+      const { dateStr, hour } = getRomeDateHour();
+      if (hour === 9 && lastDailyCheckDate !== dateStr) {
+        lastDailyCheckDate = dateStr;
+        console.log(`[TorneiScanner] Trigger giornaliero delle 09:00 (${dateStr}) avviato...`);
+        await checkNewTorneiAndNotify();
+      }
+    } catch (err) {
+      console.warn("[TorneiScanner] Errore durante il controllo giornaliero delle 09:00:", err);
+    }
+  };
+  dailySchedulerTimer = setInterval(checkTick, 60 * 1e3);
+  if (typeof dailySchedulerTimer.unref === "function") {
+    dailySchedulerTimer.unref();
+  }
 }
 
 // server/parsers/squadraParser.ts
@@ -5226,6 +5395,11 @@ async function fetchSingleTorneoSection(key, shortLabel, fallbackTitle, tor, com
       }))
     };
     cacheService.set(cacheKey, sectionResult2, 30 * 60 * 1e3);
+    if (mergedTornei.length > 0) {
+      notifyObservedTorneiIfNeeded(mergedTornei).catch((err) => {
+        console.warn("[TorneiScanner] Errore trigger passivo tornei:", err);
+      });
+    }
     return sectionResult2;
   }
   if (tor === 0 && parsed.tornei.length === 0 && parsed.regions.length === 0) {
@@ -5263,6 +5437,11 @@ async function fetchSingleTorneoSection(key, shortLabel, fallbackTitle, tor, com
     tornei: parsed.tornei
   };
   cacheService.set(cacheKey, sectionResult, 30 * 60 * 1e3);
+  if (sectionResult.tornei.length > 0) {
+    notifyObservedTorneiIfNeeded(sectionResult.tornei).catch((err) => {
+      console.warn("[TorneiScanner] Errore trigger passivo tornei:", err);
+    });
+  }
   return sectionResult;
 }
 app.get("/api/tornei", async (req, res) => {
@@ -6123,6 +6302,7 @@ app.get("/api/push/public-key", (_req, res) => {
 });
 app.post("/api/push/subscribe", async (req, res) => {
   const body = req.body?.subscription || req.body || {};
+  const silent = Boolean(req.body?.silent);
   const subscription = {
     endpoint: body.endpoint,
     expirationTime: body.expirationTime ?? null,
@@ -6146,12 +6326,20 @@ app.post("/api/push/subscribe", async (req, res) => {
       subscription,
       req.headers["user-agent"] || null
     );
+    if (silent) {
+      return res.status(200).json({
+        success: true,
+        welcomeSent: false,
+        subscriptionId: saved.id ?? null
+      });
+    }
     const welcome = await pushService.sendToSubscription(saved, {
       title: "Notifiche attivate!",
-      body: "Da questo momento in poi riceverai delle notifiche, ad esempio all'aggiornamento delle classifiche!",
+      body: "Da questo momento in poi riceverai delle notifiche su classifiche e nuovi tornei FITeT!",
       icon: "/icon.png",
       badge: "/icon.png",
-      tag: "fitet-welcome"
+      tag: `fitet-welcome-${Date.now()}`,
+      renotify: true
     });
     if (!welcome.sent && welcome.removed) {
       return res.status(410).json({ error: "Subscription non pi\xF9 valida." });
@@ -6217,6 +6405,7 @@ app.get("/api/push/check-tornei", async (req, res) => {
   }
 });
 if (!process.env.VERCEL) {
+  startDailyTorneiScheduler();
   const distPath = path5.resolve(process.cwd(), "dist");
   app.use(express.static(distPath));
   app.get(["/player/:id", "/atleta/:id"], async (req, res, next) => {

@@ -17,7 +17,11 @@ import {
     pushService,
     notifyRankingChangeIfNeeded,
 } from './services/pushService';
-import { checkNewTorneiAndNotify } from './services/torneiNotificationService';
+import {
+    checkNewTorneiAndNotify,
+    notifyObservedTorneiIfNeeded,
+    startDailyTorneiScheduler,
+} from './services/torneiNotificationService';
 import type { PushSubscriptionPayload } from './services/pushService';
 import { parseDettaglioSquadra } from './parsers/squadraParser';
 import { parseRefertoIncontro, parseDettaglioPartita } from './parsers/refertoParser';
@@ -483,6 +487,11 @@ async function fetchSingleTorneoSection(
             })),
         };
         cacheService.set(cacheKey, sectionResult, 30 * 60 * 1000);
+        if (mergedTornei.length > 0) {
+            notifyObservedTorneiIfNeeded(mergedTornei).catch((err) => {
+                console.warn('[TorneiScanner] Errore trigger passivo tornei:', err);
+            });
+        }
         return sectionResult;
     }
 
@@ -525,6 +534,11 @@ async function fetchSingleTorneoSection(
     };
 
     cacheService.set(cacheKey, sectionResult, 30 * 60 * 1000);
+    if (sectionResult.tornei.length > 0) {
+        notifyObservedTorneiIfNeeded(sectionResult.tornei).catch((err) => {
+            console.warn('[TorneiScanner] Errore trigger passivo tornei:', err);
+        });
+    }
     return sectionResult;
 }
 
@@ -1608,9 +1622,10 @@ app.get('/api/push/public-key', (_req, res) => {
     res.json({ publicKey });
 });
 
-// Salva la subscription del dispositivo e invia subito la notifica di benvenuto.
+// Salva la subscription del dispositivo e invia subito la notifica di benvenuto (salvo sync silenzioso).
 app.post('/api/push/subscribe', async (req, res) => {
     const body = req.body?.subscription || req.body || {};
+    const silent = Boolean(req.body?.silent);
     const subscription: PushSubscriptionPayload = {
         endpoint: body.endpoint,
         expirationTime: body.expirationTime ?? null,
@@ -1637,12 +1652,21 @@ app.post('/api/push/subscribe', async (req, res) => {
             req.headers['user-agent'] || null
         );
 
+        if (silent) {
+            return res.status(200).json({
+                success: true,
+                welcomeSent: false,
+                subscriptionId: saved.id ?? null,
+            });
+        }
+
         const welcome = await pushService.sendToSubscription(saved, {
             title: 'Notifiche attivate!',
-            body: "Da questo momento in poi riceverai delle notifiche, ad esempio all'aggiornamento delle classifiche!",
+            body: "Da questo momento in poi riceverai delle notifiche su classifiche e nuovi tornei FITeT!",
             icon: '/icon.png',
             badge: '/icon.png',
-            tag: 'fitet-welcome',
+            tag: `fitet-welcome-${Date.now()}`,
+            renotify: true,
         });
 
         if (!welcome.sent && welcome.removed) {
@@ -1725,6 +1749,7 @@ app.get('/api/push/check-tornei', async (req, res) => {
 
 // Serve static frontend files in production only when running as standalone node server (not on Vercel)
 if (!process.env.VERCEL) {
+    startDailyTorneiScheduler();
     const distPath = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distPath));
 

@@ -242,19 +242,28 @@ class PushService {
             const statusCode = typeof err?.statusCode === 'number' ? err.statusCode : undefined;
             const message = err?.body || err?.message || 'Errore sconosciuto durante l\'invio push.';
 
-            // 404/410 (dispositivo revocato) oppure 400/403 con chiave VAPID mismatch (chiavi cambiate nel server):
-            // La subscription è irrecuperabile con queste chiavi VAPID e va rimossa.
+            // 404/410: il dispositivo ha revocato il permesso o la subscription è scaduta -> rimuovi dal DB.
+            if (statusCode === 404 || statusCode === 410) {
+                await this.removeSubscription(subscription.endpoint);
+                console.warn(
+                    `[PushService] Subscription obsoleta/scaduta (${statusCode}) rimossa dal database:`,
+                    message
+                );
+                return { sent: false, statusCode, error: message, removed: true };
+            }
+
+            // 400/403 con VAPID mismatch: NON rimuovere dal DB per evitare che un test locale
+            // con chiavi .env diverse cancelli le subscription registrate in produzione (o viceversa).
             const isVapidMismatch =
                 (statusCode === 403 && message.includes('VAPID credentials')) ||
                 (statusCode === 400 && message.includes('VapidPkHashMismatch'));
 
-            if (statusCode === 404 || statusCode === 410 || isVapidMismatch) {
-                await this.removeSubscription(subscription.endpoint);
+            if (isVapidMismatch) {
                 console.warn(
-                    `[PushService] Subscription obsoleta/invalida (${statusCode}) rimossa dal database:`,
+                    `[PushService] ⚠️ VAPID key mismatch (${statusCode}): le chiavi VAPID di questo ambiente non coincidono con quelle usate dal browser per creare la subscription.`,
                     message
                 );
-                return { sent: false, statusCode, error: message, removed: true };
+                return { sent: false, statusCode, error: message, removed: false };
             }
 
             console.warn(
@@ -345,6 +354,19 @@ class PushService {
 
         if (error) {
             console.error(`[PushService] Scrittura stato "${key}" fallita:`, error.message);
+        }
+    }
+
+    async deleteState(key: string): Promise<void> {
+        if (!this.supabase) return;
+
+        const { error } = await this.supabase
+            .from('push_state')
+            .delete()
+            .eq('key', key);
+
+        if (error) {
+            console.error(`[PushService] Eliminazione stato "${key}" fallita:`, error.message);
         }
     }
 

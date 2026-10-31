@@ -6,6 +6,130 @@ import { getTorneoHostRegion } from '../../src/utils/torneoMap';
 
 export const TORNEI_KNOWN_KEYS_STATE_KEY = 'known_tornei_keys';
 
+let cachedKnownKeys: Set<string> | null = null;
+let cachedKnownKeysTimestamp = 0;
+const KNOWN_KEYS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minuti
+let isPassiveCheckRunning = false;
+const pendingObservedMap = new Map<string, ScannedTorneoItem>();
+
+/**
+ * Controllo passivo ("piggyback") invocato quando gli utenti consultano la tab Tornei:
+ * confronta i tornei appena caricati da FITeT con il baseline su Supabase e, se rileva
+ * nuovi tornei non ancora notificati durante la giornata, invia la push senza bisogno
+ * di attendere il cron giornaliero di Vercel Hobby.
+ */
+export async function notifyObservedTorneiIfNeeded(observedTornei: TorneoItem[]): Promise<void> {
+  if (!observedTornei || observedTornei.length === 0) {
+    return;
+  }
+
+  for (const t of observedTornei) {
+    const key = getTorneoUniqueKey(t);
+    if (!cachedKnownKeys?.has(key) && !pendingObservedMap.has(key)) {
+      const isRegional = t.com >= 1 && t.com <= 21;
+      const resolvedRegion = isRegional
+        ? (COMIT_NAMES[t.com] || t.regione)
+        : getTorneoHostRegion(t);
+      pendingObservedMap.set(key, {
+        ...t,
+        key,
+        regione: resolvedRegion,
+      });
+    }
+  }
+
+  if (pendingObservedMap.size === 0 || isPassiveCheckRunning) {
+    return;
+  }
+
+  isPassiveCheckRunning = true;
+  try {
+    // Attende 300ms per raggruppare eventuali sezioni caricate in parallelo con Promise.all
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    while (pendingObservedMap.size > 0) {
+      const batch = Array.from(pendingObservedMap.values());
+      pendingObservedMap.clear();
+
+      const now = Date.now();
+      if (!cachedKnownKeys || now - cachedKnownKeysTimestamp > KNOWN_KEYS_CACHE_TTL_MS) {
+        const previousState = await pushService.getState(TORNEI_KNOWN_KEYS_STATE_KEY);
+        if (!previousState) {
+          // Il baseline completo non è ancora stato inizializzato dal cron: evita falsi positivi parziali
+          return;
+        }
+        const parsed = JSON.parse(previousState);
+        if (!Array.isArray(parsed) || parsed.length === 0) {
+          return;
+        }
+        cachedKnownKeys = new Set(parsed);
+        cachedKnownKeysTimestamp = now;
+      }
+
+      const candidates = batch.filter((t) => !cachedKnownKeys!.has(t.key));
+      if (candidates.length === 0) {
+        continue;
+      }
+
+      // Rileggiamo lo stato fresco da Supabase per evitare race condition tra istanze serverless
+      const freshState = await pushService.getState(TORNEI_KNOWN_KEYS_STATE_KEY);
+      if (!freshState) return;
+      const freshKnown = new Set<string>(JSON.parse(freshState));
+
+      const newTornei = candidates.filter((t) => !freshKnown.has(t.key));
+      if (newTornei.length === 0) {
+        cachedKnownKeys = freshKnown;
+        cachedKnownKeysTimestamp = Date.now();
+        continue;
+      }
+
+      if (pushService.isReady()) {
+        let title: string;
+        let body: string;
+
+        if (newTornei.length === 1) {
+          const single = newTornei[0];
+          const isNat = single.com === 30 || single.com === 0;
+          const typeLabel = single.categoriaLabel || (isNat ? 'Torneo Nazionale' : 'Torneo Regionale');
+          title = `🏆 Nuovo ${typeLabel}`;
+          body = `${single.luogo} • ${single.data}${single.regione ? ` (${single.regione})` : ''}`;
+        } else {
+          title = `🏆 ${newTornei.length} nuovi tornei FITeT pubblicati!`;
+          const previews = newTornei
+            .slice(0, 3)
+            .map((t) => `${t.luogo} (${t.data})`)
+            .join(', ');
+          const extra = newTornei.length > 3 ? ` e altri ${newTornei.length - 3}...` : '';
+          body = `Disponibili nuove gare a: ${previews}${extra}`;
+        }
+
+        await pushService.sendToAll({
+          title,
+          body,
+          url: '/?view=tornei',
+          icon: '/icon.png',
+          badge: '/icon.png',
+          tag: `tornei-new-${Date.now()}`,
+          data: {
+            type: 'new_tornei',
+            count: newTornei.length,
+            keys: newTornei.map((t) => t.key),
+          },
+        });
+      }
+
+      const updatedKeys = Array.from(new Set([...freshKnown, ...newTornei.map((t) => t.key)]));
+      await pushService.setState(TORNEI_KNOWN_KEYS_STATE_KEY, JSON.stringify(updatedKeys));
+      cachedKnownKeys = new Set(updatedKeys);
+      cachedKnownKeysTimestamp = Date.now();
+    }
+  } catch (err) {
+    console.warn('[TorneiScanner] Errore durante controllo passivo nuovi tornei:', err);
+  } finally {
+    isPassiveCheckRunning = false;
+  }
+}
+
 export interface ScannedTorneoItem extends TorneoItem {
   key: string;
 }
@@ -144,7 +268,21 @@ export async function scanAllTornei(concurrency = 10): Promise<ScannedTorneoItem
           target.label
         );
 
-        for (const t of parsed.tornei) {
+        let itemsToAdd = parsed.tornei;
+
+        if (parsed.regions.length > 0 && parsed.tornei.length === 0) {
+          const regLists = await Promise.all(
+            parsed.regions.map(async (r) => {
+              const regUrl = `https://portale.fitet.org/risultati/tornei/elenco_tornei.php?REG=${r.regId}&TOR=${r.tor}&ID=${r.id}&COMIT=${r.comit}`;
+              const regHtml = await FitetClient.fetchHtml(regUrl).catch(() => '');
+              if (!regHtml) return [];
+              return parseElencoTornei(regHtml, r.comit, r.tor, r.regId, target.key, target.label).tornei;
+            })
+          );
+          itemsToAdd = regLists.flat();
+        }
+
+        for (const t of itemsToAdd) {
           const key = getTorneoUniqueKey(t);
 
           if (!torneiMap.has(key)) {
@@ -211,6 +349,8 @@ export async function checkNewTorneiAndNotify(
         TORNEI_KNOWN_KEYS_STATE_KEY,
         JSON.stringify(currentKeys)
       );
+      cachedKnownKeys = new Set(currentKeys);
+      cachedKnownKeysTimestamp = Date.now();
       console.log(`[TorneiScanner] Baseline inizializzato con ${currentKeys.length} tornei.`);
     }
 
@@ -239,6 +379,8 @@ export async function checkNewTorneiAndNotify(
   const newTornei = scannedTornei.filter((t) => !knownKeys.has(t.key));
 
   if (newTornei.length === 0) {
+    cachedKnownKeys = knownKeys;
+    cachedKnownKeysTimestamp = Date.now();
     console.log('[TorneiScanner] Nessun nuovo torneo rilevato.');
     return {
       changed: false,
@@ -310,6 +452,8 @@ export async function checkNewTorneiAndNotify(
       TORNEI_KNOWN_KEYS_STATE_KEY,
       JSON.stringify(updatedKeys)
     );
+    cachedKnownKeys = new Set(updatedKeys);
+    cachedKnownKeysTimestamp = Date.now();
   }
 
   return {
@@ -321,4 +465,58 @@ export async function checkNewTorneiAndNotify(
     broadcastResult,
     durationMs: Date.now() - startTime,
   };
+}
+
+let dailySchedulerTimer: NodeJS.Timeout | null = null;
+let lastDailyCheckDate = '';
+
+/**
+ * Calcola la data e l'ora corrente nel fuso orario italiano (Europe/Rome).
+ */
+function getRomeDateHour(): { dateStr: string; hour: number; minute: number } {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(new Date());
+  const map: Record<string, string> = {};
+  for (const p of parts) {
+    map[p.type] = p.value;
+  }
+  const dateStr = `${map.year}-${map.month}-${map.day}`;
+  const hour = parseInt(map.hour || '0', 10) % 24;
+  const minute = parseInt(map.minute || '0', 10);
+  return { dateStr, hour, minute };
+}
+
+/**
+ * Avvia uno scheduler giornaliero sul server che esegue il controllo completo
+ * dei tornei nazionali e regionali 1 volta al giorno di mattina alle 09:00 (ora italiana).
+ */
+export function startDailyTorneiScheduler(): void {
+  if (dailySchedulerTimer) return;
+
+  const checkTick = async () => {
+    try {
+      const { dateStr, hour } = getRomeDateHour();
+      if (hour === 9 && lastDailyCheckDate !== dateStr) {
+        lastDailyCheckDate = dateStr;
+        console.log(`[TorneiScanner] Trigger giornaliero delle 09:00 (${dateStr}) avviato...`);
+        await checkNewTorneiAndNotify();
+      }
+    } catch (err) {
+      console.warn('[TorneiScanner] Errore durante il controllo giornaliero delle 09:00:', err);
+    }
+  };
+
+  // Controlla ogni minuto se sono le 09:00 del mattino (Europe/Rome)
+  dailySchedulerTimer = setInterval(checkTick, 60 * 1000);
+  if (typeof dailySchedulerTimer.unref === 'function') {
+    dailySchedulerTimer.unref();
+  }
 }
