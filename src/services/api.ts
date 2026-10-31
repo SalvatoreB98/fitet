@@ -75,7 +75,7 @@ async function fetchWithVenueFallback<T>(
     // Nessuna cache salvata: rilancia l'errore
     const isTimeout = err.name === 'AbortError';
     const message = isTimeout
-      ? 'Connessione debole in palestra: la richiesta è scaduta (timeout) e nessun dato è presente in memoria'
+      ? 'Connessione debole: la richiesta è scaduta (timeout) e nessun dato è presente in memoria'
       : isOffline
         ? 'Connessione assente (offline): nessun dato salvato precedentemente per questa visualizzazione'
         : err.message || 'Errore di rete';

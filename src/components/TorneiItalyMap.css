@@ -105,6 +105,18 @@
   user-select: none;
 }
 
+.tornei-map-svg.is-single-region {
+  max-height: 440px;
+}
+
+.tornei-map-svg.is-single-region .tornei-map-region:not(.is-selected):not(.has-tornei) {
+  opacity: 0.2;
+}
+
+.tornei-map-svg.is-single-region .tornei-map-marker-count {
+  font-size: 5.5px;
+}
+
 /* Regioni */
 .tornei-map-region {
   fill: rgba(148, 163, 184, 0.22);

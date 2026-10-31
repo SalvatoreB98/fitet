@@ -5539,6 +5539,35 @@ app.get("/api/tornei/gara", async (req, res) => {
       );
       allTurniTabellone = allTurniRaw.filter((tr) => tr.matches.length > 0);
     }
+    const hasPlayedGironi = gironi.some(
+      (g) => g.partite.length > 0 || g.classifica.length > 0
+    );
+    const hasPlayedBracket = allTurniTabellone.length > 0 || partiteTabellone.length > 0;
+    if (!hasPlayedGironi && !hasPlayedBracket && reqCod1 === void 0 && reqCod2 === void 0 && reqTab === void 0 && reqTurno === void 0) {
+      const iscrHtml = await FitetClient.fetchHtml(
+        `${baseUrl}/iscrizioni_gara.php?GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}`
+      ).catch(() => "");
+      const parsedIscr = parseIscrizioniGara(iscrHtml, mapping);
+      if (parsedIscr.iscritti.length > 0) {
+        const fallbackPayload = {
+          idt,
+          com,
+          garaId,
+          anno,
+          titoloGara: parsedIscr.titoloGara || meta.titoloGara || `Gara ${garaId}`,
+          mode: "iscrizioni",
+          isDoppio,
+          maxIscritti: parsedIscr.maxIscritti,
+          iscritti: parsedIscr.iscritti,
+          gironiRanges: [],
+          gironi: [],
+          turniTabellone: [],
+          partiteTabellone: []
+        };
+        cacheService.set(cacheKey, fallbackPayload, 15 * 60 * 1e3);
+        return res.json(fallbackPayload);
+      }
+    }
     const payload = {
       idt,
       com,

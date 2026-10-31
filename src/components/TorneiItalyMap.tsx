@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import { TorneoItem } from '../types/fitet';
 import { ITALY_MAP_VIEWBOX, ITALY_REGION_SHAPES } from '../data/italyGeo';
 import {
+  getRegionBbox,
   getRegionFilterKey,
   getTorneoPlace,
   regionMatches,
@@ -38,6 +39,8 @@ export interface TorneiItalyMapProps {
   selection: TorneiMapSelection;
   onSelectionChange: (selection: TorneiMapSelection) => void;
   onShowList: () => void;
+  focusRegion?: string | null;
+  mapTitle?: string;
 }
 
 function buildPlaces(groups: TorneiRegionGroup[]): MapPlace[] {
@@ -72,9 +75,19 @@ export const TorneiItalyMap: React.FC<TorneiItalyMapProps> = ({
   selection,
   onSelectionChange,
   onShowList,
+  focusRegion,
+  mapTitle,
 }) => {
   const places = useMemo(() => buildPlaces(groups), [groups]);
   const svgRef = useRef<SVGSVGElement | null>(null);
+
+  const regionBbox = useMemo(
+    () => (focusRegion ? getRegionBbox(focusRegion) : null),
+    [focusRegion]
+  );
+  const effectiveViewBox = regionBbox || ITALY_MAP_VIEWBOX;
+  const isSingleRegion = Boolean(regionBbox);
+
   const totalTornei = useMemo(
     () => places.reduce((total, place) => total + place.items.length, 0),
     [places]
@@ -178,7 +191,9 @@ export const TorneiItalyMap: React.FC<TorneiItalyMapProps> = ({
             <i className="bi bi-map-fill"></i>
             Mappa interattiva
           </div>
-          <h3 className="tornei-map-title">Tornei in Italia</h3>
+          <h3 className="tornei-map-title">
+            {mapTitle || (focusRegion ? `Tornei in ${focusRegion}` : 'Tornei in Italia')}
+          </h3>
         </div>
         {selection.region && (
           <button type="button" className="tornei-map-reset" onClick={clearSelection}>
@@ -201,10 +216,10 @@ export const TorneiItalyMap: React.FC<TorneiItalyMapProps> = ({
       <div className="tornei-map-canvas">
         <svg
           ref={svgRef}
-          className="tornei-map-svg"
-          viewBox={ITALY_MAP_VIEWBOX}
+          className={`tornei-map-svg ${isSingleRegion ? 'is-single-region' : ''}`}
+          viewBox={effectiveViewBox}
           role="img"
-          aria-label="Mappa dell'Italia con i tornei FITeT. Seleziona una regione o un torneo per filtrare l'elenco."
+          aria-label={`Mappa con i tornei FITeT ${focusRegion ? `in ${focusRegion}` : "dell'Italia"}. Seleziona una località per filtrare l'elenco.`}
           onClick={handleSvgClick}
         >
           <g className="tornei-map-regions">
@@ -250,7 +265,9 @@ export const TorneiItalyMap: React.FC<TorneiItalyMapProps> = ({
                   : place.disputed > 0
                     ? 'disputed'
                     : 'upcoming';
-              const radius = place.items.length > 1 ? 10.5 : 8.5;
+              const radius = isSingleRegion
+                ? (place.items.length > 1 ? 5.5 : 4.2)
+                : (place.items.length > 1 ? 10.5 : 8.5);
 
               return (
                 <g
@@ -275,20 +292,25 @@ export const TorneiItalyMap: React.FC<TorneiItalyMapProps> = ({
                   tabIndex={0}
                   aria-label={`Filtra i tornei a ${place.label} (${place.items.length})`}
                 >
-                  <circle className="tornei-map-marker-hit" cx={place.x} cy={place.y} r={22} />
+                  <circle
+                    className="tornei-map-marker-hit"
+                    cx={place.x}
+                    cy={place.y}
+                    r={isSingleRegion ? 12 : 22}
+                  />
                   {isSelected && (
                     <circle
                       className="tornei-map-marker-pulse"
                       cx={place.x}
                       cy={place.y}
-                      r={radius + 7}
+                      r={radius + (isSingleRegion ? 3.5 : 7)}
                     />
                   )}
                   <circle
                     className="tornei-map-marker-dot"
                     cx={place.x}
                     cy={place.y}
-                    r={isSelected ? radius + 2 : radius}
+                    r={isSelected ? radius + (isSingleRegion ? 1 : 2) : radius}
                   />
                   {place.items.length > 1 && (
                     <text

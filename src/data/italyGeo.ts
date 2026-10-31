@@ -8,6 +8,29 @@
 
 export const ITALY_MAP_VIEWBOX = '0 0 640 820';
 
+export const ITALY_REGION_BBOX: Record<string, string> = {
+  'Piemonte': '1 46 162 205',
+  "Valle d'Aosta": '10 81 88 68',
+  'Liguria': '46 176 162 94',
+  'Lombardia': '97 33 180 173',
+  'Trentino-Alto Adige': '193 -1 137 135',
+  'Veneto': '205 30 157 168',
+  'Friuli Venezia Giulia': '292 32 112 108',
+  'Emilia Romagna': '133 143 212 131',
+  'Marche': '285 227 118 120',
+  'Toscana': '158 191 167 187',
+  'Umbria': '270 252 100 118',
+  'Lazio': '248 306 162 171',
+  'Campania': '366 398 135 132',
+  'Abruzzo': '328 302 120 114',
+  'Molise': '375 360 92 78',
+  'Puglia': '426 356 213 188',
+  'Basilicata': '446 423 108 114',
+  'Calabria': '461 490 111 176',
+  'Sicilia': '272 578 220 243',
+  'Sardegna': '78 411 117 193',
+};
+
 export interface ItalyRegionShape {
   name: string;
   canonicalName: string;

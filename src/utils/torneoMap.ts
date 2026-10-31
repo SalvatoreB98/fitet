@@ -5,6 +5,7 @@ import {
   ITALY_CITY_TO_REGION,
   ITALY_PROVINCE_COORDS,
   ITALY_PROVINCE_TO_REGION,
+  ITALY_REGION_BBOX,
   ITALY_REGION_COORDS,
   projectItalyPoint,
 } from '../data/italyGeo';
@@ -48,7 +49,7 @@ export interface TorneoPlace {
   y: number;
 }
 
-function normalizeText(value: string): string {
+export function normalizeText(value: string): string {
   return String(value || '')
     .toLowerCase()
     .normalize('NFD')
@@ -57,7 +58,7 @@ function normalizeText(value: string): string {
     .trim();
 }
 
-function normalizeCityName(value: string): string {
+export function normalizeCityName(value: string): string {
   const normalized = normalizeText(value);
   return CITY_ALIASES[normalized] || normalized;
 }
@@ -80,6 +81,17 @@ export function regionMatches(
 export function getCanonicalRegionName(region: string | null | undefined): string {
   const normalized = normalizeText(region || '');
   return REGION_CANONICAL_NAMES[normalized] || (region || '').trim();
+}
+
+export function getRegionBbox(region: string | null | undefined): string | null {
+  if (!region) return null;
+  const canonical = getCanonicalRegionName(region);
+  if (ITALY_REGION_BBOX[canonical]) return ITALY_REGION_BBOX[canonical];
+  const normalized = normalizeText(region);
+  for (const [key, bbox] of Object.entries(ITALY_REGION_BBOX)) {
+    if (normalizeText(key) === normalized) return bbox;
+  }
+  return null;
 }
 
 export function resolveTorneoRegion(

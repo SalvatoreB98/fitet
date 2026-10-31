@@ -83,7 +83,7 @@ export const VenueConnectionBanner: React.FC<VenueConnectionBannerProps> = ({
         type="button"
         className="venue-compact-pill"
         onClick={() => setIsDismissed(false)}
-        title="Connessione debole in palestra - Clicca per dettagli"
+        title="Connessione debole - Clicca per dettagli"
       >
         <span className="pulse-indicator"></span>
         <i className="bi bi-reception-1 me-1"></i>
@@ -107,7 +107,7 @@ export const VenueConnectionBanner: React.FC<VenueConnectionBannerProps> = ({
           <div className="venue-banner-text">
             <div className="venue-banner-title-row">
               <span className="venue-banner-title">
-                {!isOnline ? 'Modalità Palestra (Offline)' : 'Connessione debole in palestra'}
+                {!isOnline ? 'Modalità Offline' : 'Connessione debole'}
               </span>
               {cachedTime && (
                 <span className="venue-banner-time-badge">

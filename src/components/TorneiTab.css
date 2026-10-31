@@ -13,7 +13,7 @@
 .tornei-portal-nav {
   position: static;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
   padding: 4px;
   margin-bottom: 10px;
@@ -22,7 +22,15 @@
   background: var(--bg-controls);
 }
 
+@media screen and (max-width: 580px) {
+  .tornei-portal-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+}
+
 .tornei-portal-tab {
+  white-space: nowrap;
   appearance: none;
   border: none;
   background: transparent;
@@ -108,6 +116,7 @@
 .tornei-list-column {
   min-width: 0;
   scroll-margin-top: 96px;
+  padding: 0.5em;
 }
 
 .tornei-list-heading {
@@ -176,11 +185,11 @@
   min-width: 0;
 }
 
-.tornei-map-filter-text > i {
+.tornei-map-filter-text>i {
   flex-shrink: 0;
 }
 
-.tornei-map-filter-text > span {
+.tornei-map-filter-text>span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -885,7 +894,7 @@
   min-width: 0;
 }
 
-.tornei-girone + .tornei-girone {
+.tornei-girone+.tornei-girone {
   padding-top: 18px;
   border-top: 1px solid var(--border-color);
 }
@@ -1168,7 +1177,7 @@
     min-width: 0;
   }
 
-  .tornei-map-filter-text > span {
+  .tornei-map-filter-text>span {
     white-space: normal;
   }
 
@@ -1268,4 +1277,414 @@
     flex: 1;
     min-width: 0;
   }
+}
+
+/* ==========================================================================
+   I Miei Tornei (Profilo Atleta) & Responsive Order
+   ========================================================================== */
+
+/* Su mobile: i risultati vengono prima, la mappa immediatamente sotto */
+@media screen and (max-width: 980px) {
+  .tornei-explorer.miei-tornei-explorer {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tornei-explorer.miei-tornei-explorer .tornei-list-column {
+    order: 1;
+    width: 100%;
+  }
+
+  .tornei-explorer.miei-tornei-explorer .tornei-map-column {
+    order: 2;
+    width: 100%;
+    position: static;
+    margin-top: 14px;
+  }
+}
+
+.miei-profile-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.miei-profile-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.miei-profile-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--color-primary-600);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.88rem;
+  flex-shrink: 0;
+}
+
+.miei-profile-text {
+  min-width: 0;
+}
+
+.miei-profile-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.miei-profile-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.miei-change-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-controls);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.miei-change-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-dark);
+  border-color: var(--border-input);
+}
+
+.miei-summary-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  background: var(--bg-th, #f8fafc);
+  border: 1px solid var(--border-color);
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.miei-summary-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.miei-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 0.72rem;
+}
+
+.miei-tornei-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.miei-torneo-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.miei-torneo-card:hover {
+  border-color: var(--border-input);
+}
+
+.miei-torneo-header {
+  padding: 12px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.miei-torneo-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.miei-torneo-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.miei-torneo-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.miei-wl-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.miei-wl-badge.is-win {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border: 1px solid var(--color-success-border);
+}
+
+.miei-wl-badge.is-loss {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
+}
+
+.miei-torneo-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  line-height: 1.3;
+}
+
+.miei-torneo-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.miei-torneo-place {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.miei-torneo-expand-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-primary-600);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.miei-torneo-body {
+  border-top: 1px solid var(--border-color);
+  padding: 10px 14px 12px;
+  background: var(--bg-th, #f8fafc);
+}
+
+.miei-matches-table-wrap {
+  margin-top: 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-card);
+  overflow-x: auto;
+}
+
+.miei-matches-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  min-width: 320px;
+}
+
+.miei-matches-table th {
+  padding: 6px 8px;
+  background: var(--bg-th, #f1f5f9);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.miei-matches-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+}
+
+.miei-matches-table tr:last-child td {
+  border-bottom: none;
+}
+
+.miei-result-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  font-weight: 700;
+  font-size: 0.74rem;
+}
+
+.miei-result-chip.is-v {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  border: 1px solid var(--color-success-border);
+}
+
+.miei-result-chip.is-s {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid var(--color-danger-border);
+}
+
+.miei-opponent-link {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--text-dark);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.miei-opponent-link:hover {
+  color: var(--color-primary-600);
+  text-decoration: underline;
+}
+
+.miei-torneo-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.miei-picker-card {
+  padding: 24px 20px;
+  text-align: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.miei-picker-icon {
+  font-size: 2.2rem;
+  color: var(--color-primary-600);
+  margin-bottom: 8px;
+}
+
+.miei-picker-title {
+  margin: 0 0 4px;
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  color: var(--text-dark);
+}
+
+.miei-picker-desc {
+  margin: 0 auto 16px;
+  max-width: 440px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.miei-search-box {
+  position: relative;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.miei-search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin-top: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 220px;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.miei-search-item {
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.miei-search-item:last-child {
+  border-bottom: none;
+}
+
+.miei-search-item:hover {
+  background: var(--bg-hover);
 }
