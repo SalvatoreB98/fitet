@@ -1358,6 +1358,12 @@
   text-overflow: ellipsis;
 }
 
+.btn-clear-filter {
+  all: unset;
+  cursor: pointer;
+  margin-left: 0.5em;
+}
+
 .miei-change-btn {
   display: inline-flex;
   align-items: center;

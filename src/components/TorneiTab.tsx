@@ -1123,8 +1123,8 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
 
                       <span
                         className={`tornei-row-status ${torneo.status === 'disputato'
-                            ? 'is-disputato'
-                            : 'is-programma'
+                          ? 'is-disputato'
+                          : 'is-programma'
                           }`}
                       >
                         <i className="tornei-status-dot" aria-hidden="true"></i>
@@ -1268,82 +1268,82 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
             </div>
 
             <div className="tornei-phase-body">
-            {loadingGara ? (
-              <div className="tornei-loading-state tornei-loading-compact">
-                <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}>
-                  <span className="visually-hidden">Caricamento...</span>
-                </div>
-                <p className="tornei-loading-text">Caricamento turno...</p>
-              </div>
-            ) : bracketViewMode === 'bracket' ? (
-              bracketLoading ? (
+              {loadingGara ? (
                 <div className="tornei-loading-state tornei-loading-compact">
                   <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}>
-                    <span className="visually-hidden">Caricamento tabellone...</span>
+                    <span className="visually-hidden">Caricamento...</span>
                   </div>
-                  <p className="tornei-loading-text">Generazione del tabellone completo...</p>
+                  <p className="tornei-loading-text">Caricamento turno...</p>
+                </div>
+              ) : bracketViewMode === 'bracket' ? (
+                bracketLoading ? (
+                  <div className="tornei-loading-state tornei-loading-compact">
+                    <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}>
+                      <span className="visually-hidden">Caricamento tabellone...</span>
+                    </div>
+                    <p className="tornei-loading-text">Generazione del tabellone completo...</p>
+                  </div>
+                ) : (
+                  <TorneoBracket
+                    rounds={currentFullBracketRounds}
+                    competitionName={garaDisplayTitle || 'Tabellone Eliminazione Diretta'}
+                    onOpenAtletaModal={handleAthleteClick}
+                  />
+                )
+              ) : garaData.partiteTabellone.length > 0 ? (
+                <div className="match-cards-grid">
+                  {garaData.partiteTabellone.map((m, idx) => (
+                    <div key={idx} className="match-card">
+                      <div className="torneo-card-top">
+                        <span className="giornata-badge-pill">
+                          {garaData.activeTurno?.label || 'Tabellone'}
+                        </span>
+                        {m.sets.length > 0 && (
+                          <div className="torneo-match-sets">
+                            {m.sets.map((s, si) => (
+                              <span key={si} className="torneo-set-chip">
+                                {s.p1}-{s.p2}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className={`torneo-match-row ${m.vincitore === 1 ? 'is-winner' : ''}`}>
+                        <div className="athlete-name-cell">
+                          <button
+                            type="button"
+                            className="athlete-link-btn"
+                            onClick={() => handleAthleteClick(m.atleta1Id, m.atleta1)}
+                          >
+                            <span>{m.atleta1 || 'Bye / —'}</span>
+                          </button>
+                          {m.societa1 && <span className="athlete-mobile-meta">{m.societa1}</span>}
+                        </div>
+                        <span className="badge-points-official">{m.set1}</span>
+                      </div>
+
+                      <div className={`torneo-match-row ${m.vincitore === 2 ? 'is-winner' : ''}`}>
+                        <div className="athlete-name-cell">
+                          <button
+                            type="button"
+                            className="athlete-link-btn"
+                            onClick={() => handleAthleteClick(m.atleta2Id, m.atleta2)}
+                          >
+                            <span>{m.atleta2 || 'Bye / —'}</span>
+                          </button>
+                          {m.societa2 && <span className="athlete-mobile-meta">{m.societa2}</span>}
+                        </div>
+                        <span className="badge-points-official">{m.set2}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <TorneoBracket
-                  rounds={currentFullBracketRounds}
-                  competitionName={garaDisplayTitle || 'Tabellone Eliminazione Diretta'}
-                  onOpenAtletaModal={handleAthleteClick}
-                />
-              )
-            ) : garaData.partiteTabellone.length > 0 ? (
-              <div className="match-cards-grid">
-                {garaData.partiteTabellone.map((m, idx) => (
-                  <div key={idx} className="match-card">
-                    <div className="torneo-card-top">
-                      <span className="giornata-badge-pill">
-                        {garaData.activeTurno?.label || 'Tabellone'}
-                      </span>
-                      {m.sets.length > 0 && (
-                        <div className="torneo-match-sets">
-                          {m.sets.map((s, si) => (
-                            <span key={si} className="torneo-set-chip">
-                              {s.p1}-{s.p2}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className={`torneo-match-row ${m.vincitore === 1 ? 'is-winner' : ''}`}>
-                      <div className="athlete-name-cell">
-                        <button
-                          type="button"
-                          className="athlete-link-btn"
-                          onClick={() => handleAthleteClick(m.atleta1Id, m.atleta1)}
-                        >
-                          <span>{m.atleta1 || 'Bye / —'}</span>
-                        </button>
-                        {m.societa1 && <span className="athlete-mobile-meta">{m.societa1}</span>}
-                      </div>
-                      <span className="badge-points-official">{m.set1}</span>
-                    </div>
-
-                    <div className={`torneo-match-row ${m.vincitore === 2 ? 'is-winner' : ''}`}>
-                      <div className="athlete-name-cell">
-                        <button
-                          type="button"
-                          className="athlete-link-btn"
-                          onClick={() => handleAthleteClick(m.atleta2Id, m.atleta2)}
-                        >
-                          <span>{m.atleta2 || 'Bye / —'}</span>
-                        </button>
-                        {m.societa2 && <span className="athlete-mobile-meta">{m.societa2}</span>}
-                      </div>
-                      <span className="badge-points-official">{m.set2}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="tornei-empty-box">
-                Nessun incontro registrato per questo turno. Seleziona un altro turno dall'elenco.
-              </div>
-            )}
+                <div className="tornei-empty-box">
+                  Nessun incontro registrato per questo turno. Seleziona un altro turno dall'elenco.
+                </div>
+              )}
             </div>
           </>
         )}
@@ -1373,127 +1373,127 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
             )}
 
             <div className="tornei-phase-body">
-            {loadingGara ? (
-              <div className="tornei-loading-state tornei-loading-compact">
-                <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}>
-                  <span className="visually-hidden">Caricamento...</span>
+              {loadingGara ? (
+                <div className="tornei-loading-state tornei-loading-compact">
+                  <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}>
+                    <span className="visually-hidden">Caricamento...</span>
+                  </div>
+                  <p className="tornei-loading-text">Caricamento gironi...</p>
                 </div>
-                <p className="tornei-loading-text">Caricamento gironi...</p>
-              </div>
-            ) : garaData.gironi.length > 0 ? (
-              <div className="tornei-gironi-list">
-                {garaData.gironi.map((gir) => (
-                  <section key={gir.numero} className="tornei-girone">
-                    <div className="tornei-girone-head">
-                      <div>
-                        <span className="tornei-girone-title">Girone {gir.numero}</span>
-                        <span className="tornei-girone-sub">Classifica e incontri</span>
-                      </div>
-                      <span className="tornei-girone-count">{gir.partite.length} incontri</span>
-                    </div>
-
-                    {gir.classifica.length > 0 && (
-                      <div className="table-responsive tornei-table-wrap">
-                        <table className="tornei-table">
-                          <thead>
-                            <tr>
-                              <th className="th-rank">#</th>
-                              <th className="th-athlete">Atleta</th>
-                              <th className="th-provincia hide-xs">Società</th>
-                              <th className="text-center">Pt</th>
-                              <th className="text-center">V-P</th>
-                              <th className="text-center">Set</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {gir.classifica.map((row) => (
-                              <tr
-                                key={row.nome}
-                                className="tornei-table-row"
-                                onClick={() => handleAthleteClick(row.atletaId, row.nome)}
-                              >
-                                <td className="td-rank">
-                                  <span className={`rank-badge rank-badge-${row.posizione <= 2 ? row.posizione : 'default'}`}>
-                                    {row.posizione}
-                                  </span>
-                                </td>
-                                <td className="td-athlete">
-                                  <div className="athlete-row-cell">
-                                    <AthleteAvatar
-                                      atletaId={row.atletaId || undefined}
-                                      nome={row.nome}
-                                      size={26}
-                                      className="tornei-avatar"
-                                    />
-                                    <div className="athlete-name-cell">
-                                      <span className="athlete-link-btn">{row.nome}</span>
-                                      <span className="athlete-mobile-meta show-xs">{row.societa}</span>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="hide-xs">
-                                  <span className="provincia-text">{row.societa}</span>
-                                </td>
-                                <td className="text-center">
-                                  <span className="badge-points-official">{row.punti}</span>
-                                </td>
-                                <td className="text-center">
-                                  <span className="settore-badge">{row.vinte}-{row.perse}</span>
-                                </td>
-                                <td className="text-center">
-                                  <span className="date-text">{row.setVinti}-{row.setPersi}</span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-
-                    <div className="match-cards-grid">
-                      {gir.partite.map((m, mi) => (
-                        <div key={mi} className="match-card">
-                          {m.sets.length > 0 && (
-                            <div className="torneo-card-top">
-                              <span className="athlete-mobile-meta">Incontro #{mi + 1}</span>
-                              <div className="torneo-match-sets">
-                                {m.sets.map((s, si) => (
-                                  <span key={si} className="torneo-set-chip">
-                                    {s.p1}-{s.p2}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          <div className={`torneo-match-row ${m.vincitore === 1 ? 'is-winner' : ''}`}>
-                            <button
-                              type="button"
-                              className="athlete-link-btn"
-                              onClick={() => handleAthleteClick(m.atleta1Id, m.atleta1)}
-                            >
-                              <span>{m.atleta1}</span>
-                            </button>
-                            <strong>{m.set1}</strong>
-                          </div>
-                          <div className={`torneo-match-row ${m.vincitore === 2 ? 'is-winner' : ''}`}>
-                            <button
-                              type="button"
-                              className="athlete-link-btn"
-                              onClick={() => handleAthleteClick(m.atleta2Id, m.atleta2)}
-                            >
-                              <span>{m.atleta2}</span>
-                            </button>
-                            <strong>{m.set2}</strong>
-                          </div>
+              ) : garaData.gironi.length > 0 ? (
+                <div className="tornei-gironi-list">
+                  {garaData.gironi.map((gir) => (
+                    <section key={gir.numero} className="tornei-girone">
+                      <div className="tornei-girone-head">
+                        <div>
+                          <span className="tornei-girone-title">Girone {gir.numero}</span>
+                          <span className="tornei-girone-sub">Classifica e incontri</span>
                         </div>
-                      ))}
-                    </div>
-                  </section>
-                ))}
-              </div>
-            ) : (
-              <div className="tornei-empty-box">Nessun girone trovato per questo intervallo.</div>
-            )}
+                        <span className="tornei-girone-count">{gir.partite.length} incontri</span>
+                      </div>
+
+                      {gir.classifica.length > 0 && (
+                        <div className="table-responsive tornei-table-wrap">
+                          <table className="tornei-table">
+                            <thead>
+                              <tr>
+                                <th className="th-rank">#</th>
+                                <th className="th-athlete">Atleta</th>
+                                <th className="th-provincia hide-xs">Società</th>
+                                <th className="text-center">Pt</th>
+                                <th className="text-center">V-P</th>
+                                <th className="text-center">Set</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {gir.classifica.map((row) => (
+                                <tr
+                                  key={row.nome}
+                                  className="tornei-table-row"
+                                  onClick={() => handleAthleteClick(row.atletaId, row.nome)}
+                                >
+                                  <td className="td-rank">
+                                    <span className={`rank-badge rank-badge-${row.posizione <= 2 ? row.posizione : 'default'}`}>
+                                      {row.posizione}
+                                    </span>
+                                  </td>
+                                  <td className="td-athlete">
+                                    <div className="athlete-row-cell">
+                                      <AthleteAvatar
+                                        atletaId={row.atletaId || undefined}
+                                        nome={row.nome}
+                                        size={26}
+                                        className="tornei-avatar"
+                                      />
+                                      <div className="athlete-name-cell">
+                                        <span className="athlete-link-btn">{row.nome}</span>
+                                        <span className="athlete-mobile-meta show-xs">{row.societa}</span>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="hide-xs">
+                                    <span className="provincia-text">{row.societa}</span>
+                                  </td>
+                                  <td className="text-center">
+                                    <span className="badge-points-official">{row.punti}</span>
+                                  </td>
+                                  <td className="text-center">
+                                    <span className="settore-badge">{row.vinte}-{row.perse}</span>
+                                  </td>
+                                  <td className="text-center">
+                                    <span className="date-text">{row.setVinti}-{row.setPersi}</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      <div className="match-cards-grid">
+                        {gir.partite.map((m, mi) => (
+                          <div key={mi} className="match-card">
+                            {m.sets.length > 0 && (
+                              <div className="torneo-card-top">
+                                <span className="athlete-mobile-meta">Incontro #{mi + 1}</span>
+                                <div className="torneo-match-sets">
+                                  {m.sets.map((s, si) => (
+                                    <span key={si} className="torneo-set-chip">
+                                      {s.p1}-{s.p2}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            <div className={`torneo-match-row ${m.vincitore === 1 ? 'is-winner' : ''}`}>
+                              <button
+                                type="button"
+                                className="athlete-link-btn"
+                                onClick={() => handleAthleteClick(m.atleta1Id, m.atleta1)}
+                              >
+                                <span>{m.atleta1}</span>
+                              </button>
+                              <strong>{m.set1}</strong>
+                            </div>
+                            <div className={`torneo-match-row ${m.vincitore === 2 ? 'is-winner' : ''}`}>
+                              <button
+                                type="button"
+                                className="athlete-link-btn"
+                                onClick={() => handleAthleteClick(m.atleta2Id, m.atleta2)}
+                              >
+                                <span>{m.atleta2}</span>
+                              </button>
+                              <strong>{m.set2}</strong>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              ) : (
+                <div className="tornei-empty-box">Nessun girone trovato per questo intervallo.</div>
+              )}
             </div>
           </>
         )}
@@ -1518,84 +1518,84 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
             </div>
 
             <div className="tornei-phase-body">
-            {filteredIscritti.length > 0 ? (
-              <div className="table-responsive tornei-table-wrap">
-                <table className="tornei-table">
-                  <thead>
-                    <tr>
-                      <th className="th-rank">#</th>
-                      <th className="th-athlete">Atleta</th>
-                      <th className="th-provincia hide-xs">Società</th>
-                      <th className="th-points text-end">Punti</th>
-                      <th className="th-cat text-center">Stato</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredIscritti.map((iscr) => {
-                      const statusCls = iscr.statusClass.includes('diritto')
-                        ? 'is-diritto'
-                        : iscr.statusClass.includes('no_ammessi')
-                          ? 'is-no-ammesso'
-                          : iscr.statusClass.includes('wd')
-                            ? 'is-wd'
-                            : '';
-                      return (
-                        <tr
-                          key={`${iscr.posizione}-${iscr.nome}`}
-                          className="tornei-table-row"
-                          onClick={() => handleAthleteClick(iscr.atletaId, iscr.nome)}
-                        >
-                          <td className="td-rank">
-                            <span className={`rank-badge rank-badge-${iscr.posizione <= 3 ? iscr.posizione : 'default'}`}>
-                              {iscr.posizione}
-                            </span>
-                          </td>
-                          <td className="td-athlete">
-                            <div className="athlete-row-cell">
-                              <AthleteAvatar
-                                atletaId={iscr.atletaId || undefined}
-                                nome={iscr.nome}
-                                size={28}
-                                className="tornei-avatar"
-                              />
-                              <div className="athlete-name-cell">
-                                <button
-                                  type="button"
-                                  className="athlete-link-btn"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAthleteClick(iscr.atletaId, iscr.nome);
-                                  }}
-                                >
-                                  <MarqueeText text={iscr.nome} className="athlete-link-text" />
-                                  <i className="bi bi-arrow-up-right athlete-link-arrow"></i>
-                                </button>
-                                <div className="athlete-mobile-meta show-xs">{iscr.societa}</div>
+              {filteredIscritti.length > 0 ? (
+                <div className="table-responsive tornei-table-wrap">
+                  <table className="tornei-table">
+                    <thead>
+                      <tr>
+                        <th className="th-rank">#</th>
+                        <th className="th-athlete">Atleta</th>
+                        <th className="th-provincia hide-xs">Società</th>
+                        <th className="th-points text-end">Punti</th>
+                        <th className="th-cat text-center">Stato</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredIscritti.map((iscr) => {
+                        const statusCls = iscr.statusClass.includes('diritto')
+                          ? 'is-diritto'
+                          : iscr.statusClass.includes('no_ammessi')
+                            ? 'is-no-ammesso'
+                            : iscr.statusClass.includes('wd')
+                              ? 'is-wd'
+                              : '';
+                        return (
+                          <tr
+                            key={`${iscr.posizione}-${iscr.nome}`}
+                            className="tornei-table-row"
+                            onClick={() => handleAthleteClick(iscr.atletaId, iscr.nome)}
+                          >
+                            <td className="td-rank">
+                              <span className={`rank-badge rank-badge-${iscr.posizione <= 3 ? iscr.posizione : 'default'}`}>
+                                {iscr.posizione}
+                              </span>
+                            </td>
+                            <td className="td-athlete">
+                              <div className="athlete-row-cell">
+                                <AthleteAvatar
+                                  atletaId={iscr.atletaId || undefined}
+                                  nome={iscr.nome}
+                                  size={28}
+                                  className="tornei-avatar"
+                                />
+                                <div className="athlete-name-cell">
+                                  <button
+                                    type="button"
+                                    className="athlete-link-btn"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleAthleteClick(iscr.atletaId, iscr.nome);
+                                    }}
+                                  >
+                                    <MarqueeText text={iscr.nome} className="athlete-link-text" />
+                                    <i className="bi bi-arrow-up-right athlete-link-arrow"></i>
+                                  </button>
+                                  <div className="athlete-mobile-meta show-xs">{iscr.societa}</div>
+                                </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className="td-provincia hide-xs">
-                            <span className="provincia-text">{iscr.societa}</span>
-                          </td>
-                          <td className="td-points text-end">
-                            <span className="badge-points-official">{iscr.punti || '-'}</span>
-                          </td>
-                          <td className="td-cat text-center">
-                            <span className={`torneo-iscritto-status ${statusCls}`}>
-                              {iscr.statusLabel}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="tornei-empty-box">
-                Nessun iscritto pubblicato al momento per questa gara.
-              </div>
-            )}
+                            </td>
+                            <td className="td-provincia hide-xs">
+                              <span className="provincia-text">{iscr.societa}</span>
+                            </td>
+                            <td className="td-points text-end">
+                              <span className="badge-points-official">{iscr.punti || '-'}</span>
+                            </td>
+                            <td className="td-cat text-center">
+                              <span className={`torneo-iscritto-status ${statusCls}`}>
+                                {iscr.statusLabel}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="tornei-empty-box">
+                  Nessun iscritto pubblicato al momento per questa gara.
+                </div>
+              )}
             </div>
           </>
         )}
@@ -1911,8 +1911,8 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
               myFocusRegion
                 ? `I tuoi tornei (${myFocusRegion})`
                 : myDistinctRegions.length > 1
-                ? 'I tuoi tornei in Italia'
-                : 'Mappa dei tuoi tornei'
+                  ? 'I tuoi tornei in Italia'
+                  : 'Mappa dei tuoi tornei'
             }
           />
         </aside>
@@ -1935,14 +1935,15 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
                 </div>
               </div>
             </div>
-            <button
+            {/* TODO */}
+            {/* <button
               type="button"
               className="miei-change-btn"
               onClick={() => setIsChangingAthlete((v) => !v)}
             >
               <i className="bi bi-person-gear"></i>
               <span>{isChangingAthlete ? 'Chiudi' : 'Cambia'}</span>
-            </button>
+            </button> */}
           </div>
 
           {isChangingAthlete && (
@@ -2015,7 +2016,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
                 className="btn-clear-filter"
                 onClick={() => setMyMapSelection(EMPTY_MAP_SELECTION)}
               >
-                <i className="bi bi-x-circle"></i> Mostra tutti
+                <i className="bi bi-x-circle"></i>
               </button>
             </div>
           )}
