@@ -464,8 +464,7 @@
 }
 
 .tornei-back-btn:hover {
-  color: var(--color-primary-800);
-  text-decoration: underline;
+   text-decoration: underline;
 }
 
 .tornei-back-btn:focus-visible {
