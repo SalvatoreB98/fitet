@@ -137,6 +137,18 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   const [bracketViewMode, setBracketViewMode] = useState<'bracket' | 'cards'>('bracket');
   const [bracketLoading, setBracketLoading] = useState<boolean>(false);
   const [fullBracketCache, setFullBracketCache] = useState<{ [garaKey: string]: BracketRoundData[] }>({});
+  const [isModalFullscreen, setIsModalFullscreen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleFullscreenEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ isFullscreen?: boolean }>;
+      if (typeof customEvent.detail?.isFullscreen === 'boolean') {
+        setIsModalFullscreen(customEvent.detail.isFullscreen);
+      }
+    };
+    window.addEventListener('tornei-modal-fullscreen', handleFullscreenEvent);
+    return () => window.removeEventListener('tornei-modal-fullscreen', handleFullscreenEvent);
+  }, []);
 
   // My Player Tornei State
   const [myPlayerId, setMyPlayerId] = useState<string | null>(() => getMyPlayerId());
@@ -866,6 +878,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   };
 
   const backToTornei = () => {
+    setIsModalFullscreen(false);
     setSelectedTorneo(null);
     setTorneoDettaglio(null);
     setDettaglioError(null);
@@ -876,6 +889,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   };
 
   const backToTorneo = () => {
+    setIsModalFullscreen(false);
     setSelectedGara(null);
     setGaraData(null);
     setGaraPhaseTab(null);
@@ -884,6 +898,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   };
 
   const backToGara = () => {
+    setIsModalFullscreen(false);
     setGaraPhaseTab(null);
     scrollToRoot();
   };
@@ -1111,16 +1126,6 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
       : selectedGara.nome
     : '';
 
-  const workInProgress = false;
-  if (workInProgress) {
-    return (
-      <div className='work-in-progress'>
-        <div>
-          <img src="/wip.png" alt="Lavori in corso" className="wip mb-3 w-25" />
-        </div>
-      </div>
-    );
-  }
 
   const shell = (content: React.ReactNode) => (
     <div className="tornei-tab-container" ref={torneiRootRef}>
@@ -1367,7 +1372,10 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
                   <button
                     type="button"
                     className={`tornei-segmented-btn ${bracketViewMode === 'cards' ? 'is-active' : ''}`}
-                    onClick={() => setBracketViewMode('cards')}
+                    onClick={() => {
+                      setIsModalFullscreen(false);
+                      setBracketViewMode('cards');
+                    }}
                   >
                     Elenco
                   </button>
@@ -1415,6 +1423,9 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
                       rounds={currentFullBracketRounds}
                       competitionName={garaDisplayTitle || 'Tabellone Eliminazione Diretta'}
                       onOpenAtletaModal={handleAthleteClick}
+                      isModal={isModalFullscreen}
+                      onToggleFullscreen={setIsModalFullscreen}
+                      onCloseFullscreen={() => setIsModalFullscreen(false)}
                     />
                   )
                 ) : garaData.partiteTabellone.length > 0 ? (
@@ -1942,8 +1953,14 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
     if (typeof document === 'undefined') return null;
 
     return createPortal(
-      <div className="modal-backdrop-simple modal-torneo-detail-backdrop" onClick={backToTornei}>
-        <div className="modal-card-simple modal-torneo-detail-card" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`modal-backdrop-simple modal-torneo-detail-backdrop ${isModalFullscreen ? 'is-fullscreen' : ''}`}
+        onClick={backToTornei}
+      >
+        <div
+          className={`modal-card-simple modal-torneo-detail-card ${isModalFullscreen ? 'is-fullscreen' : ''}`}
+          onClick={(e) => e.stopPropagation()}
+        >
           {modalContent}
         </div>
       </div>,

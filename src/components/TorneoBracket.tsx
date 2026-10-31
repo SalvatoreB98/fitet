@@ -15,6 +15,7 @@ export interface TorneoBracketProps {
   competitionName?: string;
   onOpenAtletaModal: (atletaId: string, nome: string) => void;
   onCloseFullscreen?: () => void;
+  onToggleFullscreen?: (isFullscreen: boolean) => void;
   isModal?: boolean;
 }
 
@@ -23,6 +24,7 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
   competitionName = 'Tabellone Eliminazione Diretta',
   onOpenAtletaModal,
   onCloseFullscreen,
+  onToggleFullscreen,
   isModal = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -32,15 +34,19 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(isModal);
 
-  // Drag & Pan State Refs
+  // Live Zoom & Pan State Refs (evita closure stale durante gesture a 60fps)
+  const zoomRef = useRef<number>(1);
   const isDraggingRef = useRef<boolean>(false);
+  const hasMovedRef = useRef<boolean>(false);
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const offsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const lastOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const activePointerIdRef = useRef<number | null>(null);
-  const activePointersRef = useRef<Map<number, PointerEvent>>(new Map());
   const initialPinchDistanceRef = useRef<number | null>(null);
   const initialZoomLevelRef = useRef<number>(1);
+  const initialPinchMidRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const initialPinchOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const rafZoomUpdateRef = useRef<number | null>(null);
 
   // Normalizza e ordina i round dal primo turno (più partite) all'ultimo (la finale con 1 partita)
   const sortedRounds = useMemo(() => {
@@ -110,6 +116,14 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
     }
   }, []);
 
+  const scheduleZoomStateSync = useCallback((nextZoom: number) => {
+    if (rafZoomUpdateRef.current !== null) return;
+    rafZoomUpdateRef.current = requestAnimationFrame(() => {
+      rafZoomUpdateRef.current = null;
+      setZoomLevel(zoomRef.current);
+    });
+  }, []);
+
   const centerGrid = useCallback(() => {
     if (!containerRef.current || !gridRef.current) return;
     const container = containerRef.current;
@@ -123,69 +137,194 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
 
     offsetRef.current = { x: ox, y: oy };
     lastOffsetRef.current = { x: ox, y: oy };
-    applyTransform(zoomLevel, ox, oy);
-  }, [zoomLevel, applyTransform]);
+    applyTransform(zoomRef.current, ox, oy);
+  }, [applyTransform]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       centerGrid();
     }, 100);
     return () => clearTimeout(timer);
-  }, [centerGrid, sortedRounds]);
+  }, [centerGrid, sortedRounds, isFullscreen]);
+
+  useEffect(() => {
+    return () => {
+      if (rafZoomUpdateRef.current !== null) {
+        cancelAnimationFrame(rafZoomUpdateRef.current);
+      }
+    };
+  }, []);
 
   // Zoom Controls
   const zoomIn = (step = 0.15) => {
-    setZoomLevel((prev) => {
-      const next = Math.min(2.0, Math.round((prev + step) * 100) / 100);
-      applyTransform(next, offsetRef.current.x, offsetRef.current.y);
-      return next;
-    });
+    const next = Math.min(2.5, Math.round((zoomRef.current + step) * 100) / 100);
+    zoomRef.current = next;
+    setZoomLevel(next);
+    applyTransform(next, offsetRef.current.x, offsetRef.current.y);
   };
 
   const zoomOut = (step = 0.15) => {
-    setZoomLevel((prev) => {
-      const next = Math.max(0.4, Math.round((prev - step) * 100) / 100);
-      applyTransform(next, offsetRef.current.x, offsetRef.current.y);
-      return next;
-    });
+    const next = Math.max(0.35, Math.round((zoomRef.current - step) * 100) / 100);
+    zoomRef.current = next;
+    setZoomLevel(next);
+    applyTransform(next, offsetRef.current.x, offsetRef.current.y);
   };
 
   const resetZoom = () => {
+    zoomRef.current = 1;
     setZoomLevel(1);
     offsetRef.current = { x: 0, y: 0 };
     lastOffsetRef.current = { x: 0, y: 0 };
     centerGrid();
   };
 
-  // Wheel Zoom
+  // Wheel Zoom (centrato sul cursore su desktop)
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (e.deltaY < 0) {
-      zoomIn(0.1);
-    } else {
-      zoomOut(0.1);
+    const container = containerRef.current;
+    const prevZoom = zoomRef.current;
+    const step = e.deltaY < 0 ? 0.1 : -0.1;
+    const nextZoom = Math.min(2.5, Math.max(0.35, Math.round((prevZoom + step) * 100) / 100));
+    if (nextZoom === prevZoom) return;
+
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      const px = e.clientX - (rect.left + rect.width / 2);
+      const py = e.clientY - (rect.top + rect.height / 2);
+      const nx = offsetRef.current.x + px / nextZoom - px / prevZoom;
+      const ny = offsetRef.current.y + py / nextZoom - py / prevZoom;
+      offsetRef.current = { x: nx, y: ny };
+      lastOffsetRef.current = { x: nx, y: ny };
     }
+
+    zoomRef.current = nextZoom;
+    setZoomLevel(nextZoom);
+    applyTransform(nextZoom, offsetRef.current.x, offsetRef.current.y);
   };
 
-  // Distance helper per pinch
-  const getPinchDistance = (p1: PointerEvent, p2: PointerEvent) => {
-    return Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
-  };
+  // Touch Events nativi (passive: false) per Pinch-to-Zoom fluido su .bracket-scale e Pan su mobile
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-  // Pointer Events per Drag & Pan
+    const getTouchDistance = (t1: Touch, t2: Touch) =>
+      Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+
+    const getTouchMidRelCenter = (t1: Touch, t2: Touch) => {
+      const rect = container.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      return {
+        x: (t1.clientX + t2.clientX) / 2 - cx,
+        y: (t1.clientY + t2.clientY) / 2 - cy,
+      };
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.closest('button') || target.closest('.bracket-controls'))) {
+        return;
+      }
+
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        isDraggingRef.current = false;
+        container.classList.add('is-gesture-active');
+        const dist = getTouchDistance(e.touches[0], e.touches[1]);
+        initialPinchDistanceRef.current = Math.max(10, dist);
+        initialZoomLevelRef.current = zoomRef.current;
+        initialPinchMidRef.current = getTouchMidRelCenter(e.touches[0], e.touches[1]);
+        initialPinchOffsetRef.current = { ...offsetRef.current };
+      } else if (e.touches.length === 1) {
+        initialPinchDistanceRef.current = null;
+        isDraggingRef.current = true;
+        hasMovedRef.current = false;
+        dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        lastOffsetRef.current = { ...offsetRef.current };
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && initialPinchDistanceRef.current) {
+        e.preventDefault();
+        const newDist = getTouchDistance(e.touches[0], e.touches[1]);
+        const scaleRatio = newDist / initialPinchDistanceRef.current;
+        const nextZoom = Math.min(2.5, Math.max(0.35, initialZoomLevelRef.current * scaleRatio));
+
+        const curMid = getTouchMidRelCenter(e.touches[0], e.touches[1]);
+        const initMid = initialPinchMidRef.current;
+        const initZoom = initialZoomLevelRef.current;
+
+        // Mantiene il punto focale sotto le dita durante il pinch + trascinamento a 2 dita
+        const nx = initialPinchOffsetRef.current.x + curMid.x / nextZoom - initMid.x / initZoom;
+        const ny = initialPinchOffsetRef.current.y + curMid.y / nextZoom - initMid.y / initZoom;
+
+        zoomRef.current = nextZoom;
+        offsetRef.current = { x: nx, y: ny };
+        lastOffsetRef.current = { x: nx, y: ny };
+
+        applyTransform(nextZoom, nx, ny);
+        scheduleZoomStateSync(nextZoom);
+        return;
+      }
+
+      if (e.touches.length === 1 && isDraggingRef.current) {
+        const dx = e.touches[0].clientX - dragStartRef.current.x;
+        const dy = e.touches[0].clientY - dragStartRef.current.y;
+
+        if (!hasMovedRef.current && Math.hypot(dx, dy) < 5) {
+          return;
+        }
+        hasMovedRef.current = true;
+        container.classList.add('is-gesture-active', 'dragging');
+        e.preventDefault();
+
+        const currentZoom = zoomRef.current || 1;
+        const nx = lastOffsetRef.current.x + dx / currentZoom;
+        const ny = lastOffsetRef.current.y + dy / currentZoom;
+
+        offsetRef.current = { x: nx, y: ny };
+        applyTransform(currentZoom, nx, ny);
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        initialPinchDistanceRef.current = null;
+        setZoomLevel(zoomRef.current);
+      }
+
+      if (e.touches.length === 1) {
+        // Transizione fluida da 2 dita a 1 dito senza salti di posizione
+        isDraggingRef.current = true;
+        hasMovedRef.current = true;
+        dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        lastOffsetRef.current = { ...offsetRef.current };
+      } else if (e.touches.length === 0) {
+        isDraggingRef.current = false;
+        container.classList.remove('is-gesture-active', 'dragging');
+      }
+    };
+
+    container.addEventListener('touchstart', onTouchStart, { passive: false });
+    container.addEventListener('touchmove', onTouchMove, { passive: false });
+    container.addEventListener('touchend', onTouchEnd);
+    container.addEventListener('touchcancel', onTouchEnd);
+
+    return () => {
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', onTouchEnd);
+      container.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [applyTransform, scheduleZoomStateSync]);
+
+  // Pointer Events per Drag & Pan con mouse su Desktop (i touch sono gestiti dai listener nativi)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    activePointersRef.current.set(e.pointerId, e.nativeEvent);
-
-    if (activePointersRef.current.size === 2) {
-      const [p1, p2] = Array.from(activePointersRef.current.values());
-      initialPinchDistanceRef.current = getPinchDistance(p1, p2);
-      initialZoomLevelRef.current = zoomLevel;
-      isDraggingRef.current = false;
-      return;
-    }
+    if (e.pointerType === 'touch') return;
 
     const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('.bracket-controls')) return;
+    if (target.closest('button') || target.closest('.bracket-controls') || target.closest('.bracket-player')) return;
 
     if (!containerRef.current) return;
     activePointerIdRef.current = e.pointerId;
@@ -195,53 +334,31 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     lastOffsetRef.current = { ...offsetRef.current };
 
-    containerRef.current.classList.add('dragging');
+    containerRef.current.classList.add('dragging', 'is-gesture-active');
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (activePointersRef.current.has(e.pointerId)) {
-      activePointersRef.current.set(e.pointerId, e.nativeEvent);
-    }
-
-    // Gestione pinch
-    if (activePointersRef.current.size === 2) {
-      const [p1, p2] = Array.from(activePointersRef.current.values());
-      const newDistance = getPinchDistance(p1, p2);
-      if (initialPinchDistanceRef.current) {
-        const scaleChange = newDistance / initialPinchDistanceRef.current;
-        const newZoom = Math.min(2.0, Math.max(0.4, initialZoomLevelRef.current * scaleChange));
-        setZoomLevel(newZoom);
-        applyTransform(newZoom, offsetRef.current.x, offsetRef.current.y);
-      }
-      return;
-    }
-
+    if (e.pointerType === 'touch') return;
     if (!isDraggingRef.current) return;
     if (activePointerIdRef.current !== null && e.pointerId !== activePointerIdRef.current) return;
 
-    const dx = e.clientX - dragStartRef.current.x;
-    const dy = e.clientY - dragStartRef.current.y;
+    const currentZoom = zoomRef.current || 1;
+    const dx = (e.clientX - dragStartRef.current.x) / currentZoom;
+    const dy = (e.clientY - dragStartRef.current.y) / currentZoom;
 
     const nx = lastOffsetRef.current.x + dx;
     const ny = lastOffsetRef.current.y + dy;
 
     offsetRef.current = { x: nx, y: ny };
-    if (gridRef.current) {
-      gridRef.current.style.transform = `translate3d(${nx}px, ${ny}px, 0)`;
-    }
+    applyTransform(currentZoom, nx, ny);
   };
 
   const handlePointerUp = (e?: React.PointerEvent<HTMLDivElement>) => {
-    if (e) {
-      activePointersRef.current.delete(e.pointerId);
-    }
-    if (activePointersRef.current.size < 2) {
-      initialPinchDistanceRef.current = null;
-    }
+    if (e?.pointerType === 'touch') return;
 
     isDraggingRef.current = false;
     if (containerRef.current) {
-      containerRef.current.classList.remove('dragging');
+      containerRef.current.classList.remove('dragging', 'is-gesture-active');
       if (e && activePointerIdRef.current !== null && e.pointerId === activePointerIdRef.current) {
         try {
           containerRef.current.releasePointerCapture(activePointerIdRef.current);
@@ -309,7 +426,7 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
     const gridRect = grid.getBoundingClientRect();
     if (gridRect.width === 0 || gridRect.height === 0) return;
 
-    const currentZoom = zoomLevel || 1;
+    const currentZoom = zoomRef.current || 1;
 
     const getBox = (el: HTMLElement) => {
       const r = el.getBoundingClientRect();
@@ -464,7 +581,7 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
     }
 
     setLinePaths(newLines);
-  }, [isTwoSides, leftRounds, rightRounds, finalMatch, sortedRounds, zoomLevel]);
+  }, [isTwoSides, leftRounds, rightRounds, finalMatch, sortedRounds]);
 
   // Osserva layout e resize per aggiornare le linee
   useEffect(() => {
@@ -617,11 +734,21 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
         </button>
         <button
           type="button"
+          className="bracket-fullscreen-btn"
           onClick={() => {
-            if (isFullscreen && onCloseFullscreen) {
+            const next = !isFullscreen;
+            if (!next && onCloseFullscreen) {
               onCloseFullscreen();
             }
-            setIsFullscreen((prev) => !prev);
+            setIsFullscreen(next);
+            if (onToggleFullscreen) {
+              onToggleFullscreen(next);
+            }
+            window.dispatchEvent(
+              new CustomEvent('tornei-modal-fullscreen', {
+                detail: { isFullscreen: next },
+              })
+            );
           }}
           title={isFullscreen ? 'Riduci a finestra' : 'Espandi a schermo intero'}
         >
