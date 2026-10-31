@@ -79,9 +79,17 @@ interface AvailablePhase {
 
 export interface TorneiTabProps {
   onOpenAtletaModal: (atletaId: string, nome: string) => void;
+  portalView?: TorneiPortalView;
+  onPortalViewChange?: (view: TorneiPortalView) => void;
+  onUpdateCounts?: (counts: { miei: number; mappa: number; risultati: number; programma: number }) => void;
 }
 
-export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
+export const TorneiTab: React.FC<TorneiTabProps> = ({
+  onOpenAtletaModal,
+  portalView: propsPortalView,
+  onPortalViewChange,
+  onUpdateCounts,
+}) => {
   const [categoryKey, setCategoryKey] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const cat = new URLSearchParams(window.location.search).get('tcat');
@@ -99,7 +107,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   });
 
   const [regFilterId, setRegFilterId] = useState<number>(0);
-  const [portalView, setPortalView] = useState<TorneiPortalView>(() => {
+  const [internalPortalView, setInternalPortalView] = useState<TorneiPortalView>(() => {
     const hasPlayer = Boolean(getMyPlayerId());
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search);
@@ -111,11 +119,17 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
     }
     return hasPlayer ? 'miei' : 'mappa';
   });
+
+  const portalView = propsPortalView !== undefined ? propsPortalView : internalPortalView;
+  const setPortalView = (view: TorneiPortalView | ((prev: TorneiPortalView) => TorneiPortalView)) => {
+    const next = typeof view === 'function' ? view(portalView) : view;
+    setInternalPortalView(next);
+    onPortalViewChange?.(next);
+  };
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [mapSelection, setMapSelection] = useState<TorneiMapSelection>(EMPTY_MAP_SELECTION);
   const torneiListRef = useRef<HTMLDivElement | null>(null);
   const torneiRootRef = useRef<HTMLDivElement | null>(null);
-  const navRef = useRef<HTMLDivElement | null>(null);
 
   const [data, setData] = useState<TorneiResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -252,9 +266,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
     portalView === 'mappa' ? 'all' : portalView === 'risultati' ? 'disputato' : 'in_programma';
 
   const scrollToRoot = () => {
-    window.requestAnimationFrame(() => {
-      torneiRootRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    window.scrollTo(0, 0);
   };
 
   const loadTornei = async (
@@ -340,19 +352,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
     }
   };
 
-  const centerTab = (tab: TorneiPortalView, targetBtn?: HTMLElement | null) => {
-    const nav = navRef.current;
-    if (!nav) return;
-
-    const btn = targetBtn || nav.querySelector<HTMLButtonElement>(`.tornei-portal-tab[data-tab="${tab}"]`);
-    if (!btn) return;
-
-    const targetLeft = btn.offsetLeft + (btn.offsetWidth / 2) - (nav.clientWidth / 2);
-    nav.scrollTo({
-      left: Math.max(0, targetLeft),
-      behavior: 'smooth',
-    });
-  };
+  const centerTab = (_tab: TorneiPortalView, _targetBtn?: HTMLElement | null) => {};
 
   const handlePortalViewChange = (view: TorneiPortalView, e?: React.MouseEvent<HTMLButtonElement>) => {
     if (view === portalView) return;
@@ -711,6 +711,10 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
 
     return { mappa, risultati, programma, miei: myTornei.length };
   }, [searchFilteredSections, myTornei.length]);
+
+  useEffect(() => {
+    onUpdateCounts?.(portalCounts);
+  }, [portalCounts, onUpdateCounts]);
 
   const torneiByRegion = useMemo(() => {
     if (!filteredSections || filteredSections.length === 0) return [];
@@ -2299,32 +2303,8 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
     );
   };
 
-  const portalTabs: Array<{ key: TorneiPortalView; label: string; icon: string }> = [
-    ...(myPlayerId ? [{ key: 'miei' as const, label: 'I Miei Tornei', icon: 'bi bi-person-fill' }] : []),
-    { key: 'mappa', label: 'Mappa', icon: 'bi bi-map-fill' },
-    { key: 'risultati', label: 'Risultati', icon: 'bi bi-trophy-fill' },
-    { key: 'programma', label: 'In Programma', icon: 'bi bi-calendar3' },
-  ];
-
   return shell(
     <>
-      <nav className="portal-nav tornei-portal-nav" ref={navRef} aria-label="Sezioni tornei">
-        {portalTabs.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            data-tab={tab.key}
-            className={`portal-nav-tab tornei-portal-tab ${portalView === tab.key ? 'active is-active' : ''}`}
-            onClick={(e) => handlePortalViewChange(tab.key, e)}
-            aria-current={portalView === tab.key ? 'page' : undefined}
-          >
-            <i className={tab.icon}></i>
-            <span>{tab.label}</span>
-            <span className="tab-badge">{portalCounts[tab.key]}</span>
-          </button>
-        ))}
-      </nav>
-
       {portalView !== 'miei' && (
         <div className="controls tornei-controls">
           <div className="controls-left tornei">

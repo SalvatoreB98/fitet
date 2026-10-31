@@ -9,6 +9,7 @@ import { useFavoriteAthletes } from '../utils/favorites';
 
 export type MainViewType = 'home' | 'campionato' | 'tornei' | 'classifiche';
 export type ChampionshipTabType = 'classifica' | 'calendario' | 'statistiche';
+export type TorneiPortalView = 'miei' | 'mappa' | 'risultati' | 'programma';
 
 interface HeaderProps {
   mainView: MainViewType;
@@ -25,6 +26,15 @@ interface HeaderProps {
     calendario: number;
     statistiche: number;
   };
+  torneiTab?: TorneiPortalView;
+  onChangeTorneiTab?: (tab: TorneiPortalView) => void;
+  torneiCounts?: {
+    miei?: number;
+    mappa?: number;
+    risultati?: number;
+    programma?: number;
+  };
+  hasMyPlayer?: boolean;
   onSelectAthleteById: (id: string, name: string) => void;
   championshipName?: string;
   championshipRegion?: string;
@@ -48,6 +58,10 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onChangeTab,
   counts,
+  torneiTab = 'mappa',
+  onChangeTorneiTab,
+  torneiCounts,
+  hasMyPlayer = false,
   onSelectAthleteById,
   championshipName,
   championshipRegion,
@@ -98,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({
     };
   }, [isMenuOpen]);
 
-  const centerTab = (tab: ChampionshipTabType, targetBtn?: HTMLElement | null) => {
+  const centerTab = (tab: string, targetBtn?: HTMLElement | null) => {
     const nav = navRef.current;
     if (!nav) return;
 
@@ -118,11 +132,18 @@ export const Header: React.FC<HeaderProps> = ({
     onChangeTab(tab);
   };
 
+  const handleTorneiTabClick = (tab: TorneiPortalView, e: React.MouseEvent<HTMLButtonElement>) => {
+    centerTab(tab, e.currentTarget);
+    onChangeTorneiTab?.(tab);
+  };
+
   useEffect(() => {
     if (mainView === 'campionato') {
       centerTab(activeTab);
+    } else if (mainView === 'tornei' && torneiTab) {
+      centerTab(torneiTab);
     }
-  }, [activeTab, mainView]);
+  }, [activeTab, torneiTab, mainView]);
 
   return (
     <>
@@ -493,41 +514,105 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Sub-Navigation Tabs: SHOWN ONLY when mainView === 'campionato' */}
-        {mainView === 'campionato' && (
-          <div className="portal-nav" ref={navRef}>
-            <button
-              type="button"
-              data-tab="classifica"
-              className={`portal-nav-tab ${activeTab === 'classifica' ? 'active' : ''}`}
-              onClick={(e) => handleTabClick('classifica', e)}
-            >
-              <i className="bi bi-shield-fill"></i>
-              <span>Classifica Squadre</span>
-              <span className="tab-badge">{counts.classifica}</span>
-            </button>
+        {/* Unified Sub-Navigation Tabs: Shown for 'campionato' and 'tornei' */}
+        {(mainView === 'campionato' || mainView === 'tornei') && (
+          <div className="portal-nav" ref={navRef} aria-label={mainView === 'campionato' ? "Sezioni campionato" : "Sezioni tornei"}>
+            {mainView === 'campionato' ? (
+              <>
+                <button
+                  type="button"
+                  data-tab="classifica"
+                  className={`portal-nav-tab ${activeTab === 'classifica' ? 'active' : ''}`}
+                  onClick={(e) => handleTabClick('classifica', e)}
+                >
+                  <i className="bi bi-shield-fill"></i>
+                  <span>Classifica Squadre</span>
+                  <span className="tab-badge">{counts.classifica}</span>
+                </button>
 
-            <button
-              type="button"
-              data-tab="calendario"
-              className={`portal-nav-tab ${activeTab === 'calendario' ? 'active' : ''}`}
-              onClick={(e) => handleTabClick('calendario', e)}
-            >
-              <i className="bi bi-calendar3"></i>
-              <span>Calendario & Risultati</span>
-              <span className="tab-badge">{counts.calendario}G</span>
-            </button>
+                <button
+                  type="button"
+                  data-tab="calendario"
+                  className={`portal-nav-tab ${activeTab === 'calendario' ? 'active' : ''}`}
+                  onClick={(e) => handleTabClick('calendario', e)}
+                >
+                  <i className="bi bi-calendar3"></i>
+                  <span>Calendario & Risultati</span>
+                  <span className="tab-badge">{counts.calendario}G</span>
+                </button>
 
-            <button
-              type="button"
-              data-tab="statistiche"
-              className={`portal-nav-tab ${activeTab === 'statistiche' ? 'active' : ''}`}
-              onClick={(e) => handleTabClick('statistiche', e)}
-            >
-              <i className="bi bi-person-lines-fill"></i>
-              <span>Atleti Girone</span>
-              <span className="tab-badge">{counts.statistiche}</span>
-            </button>
+                <button
+                  type="button"
+                  data-tab="statistiche"
+                  className={`portal-nav-tab ${activeTab === 'statistiche' ? 'active' : ''}`}
+                  onClick={(e) => handleTabClick('statistiche', e)}
+                >
+                  <i className="bi bi-person-lines-fill"></i>
+                  <span>Atleti Girone</span>
+                  <span className="tab-badge">{counts.statistiche}</span>
+                </button>
+              </>
+            ) : (
+              <>
+                {hasMyPlayer && (
+                  <button
+                    type="button"
+                    data-tab="miei"
+                    className={`portal-nav-tab ${torneiTab === 'miei' ? 'active' : ''}`}
+                    onClick={(e) => handleTorneiTabClick('miei', e)}
+                    aria-current={torneiTab === 'miei' ? 'page' : undefined}
+                  >
+                    <i className="bi bi-person-fill"></i>
+                    <span>I Miei Tornei</span>
+                    {typeof torneiCounts?.miei === 'number' && (
+                      <span className="tab-badge">{torneiCounts.miei}</span>
+                    )}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  data-tab="mappa"
+                  className={`portal-nav-tab ${torneiTab === 'mappa' ? 'active' : ''}`}
+                  onClick={(e) => handleTorneiTabClick('mappa', e)}
+                  aria-current={torneiTab === 'mappa' ? 'page' : undefined}
+                >
+                  <i className="bi bi-map-fill"></i>
+                  <span>Mappa</span>
+                  {typeof torneiCounts?.mappa === 'number' && (
+                    <span className="tab-badge">{torneiCounts.mappa}</span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  data-tab="risultati"
+                  className={`portal-nav-tab ${torneiTab === 'risultati' ? 'active' : ''}`}
+                  onClick={(e) => handleTorneiTabClick('risultati', e)}
+                  aria-current={torneiTab === 'risultati' ? 'page' : undefined}
+                >
+                  <i className="bi bi-trophy-fill"></i>
+                  <span>Risultati</span>
+                  {typeof torneiCounts?.risultati === 'number' && (
+                    <span className="tab-badge">{torneiCounts.risultati}</span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  data-tab="programma"
+                  className={`portal-nav-tab ${torneiTab === 'programma' ? 'active' : ''}`}
+                  onClick={(e) => handleTorneiTabClick('programma', e)}
+                  aria-current={torneiTab === 'programma' ? 'page' : undefined}
+                >
+                  <i className="bi bi-calendar3"></i>
+                  <span>In Programma</span>
+                  {typeof torneiCounts?.programma === 'number' && (
+                    <span className="tab-badge">{torneiCounts.programma}</span>
+                  )}
+                </button>
+              </>
+            )}
           </div>
         )}
       </nav>

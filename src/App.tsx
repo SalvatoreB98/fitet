@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import { DashboardData, ChampionshipItem } from './types/fitet';
 import { fetchDashboard, fetchCampionati } from './services/api';
-import { Header, MainViewType, ChampionshipTabType } from './components/Header';
+import { Header, MainViewType, ChampionshipTabType, TorneiPortalView } from './components/Header';
 import { ClassificaTab } from './components/ClassificaTab';
 import { CalendarioTab } from './components/CalendarioTab';
 import { StatisticheTab } from './components/StatisticheTab';
@@ -28,6 +28,7 @@ import {
   setMyChampionshipId,
   getMyPlayedChampionships,
   subscribeToMyProfile,
+  getMyPlayerId,
 } from './utils/myProfile';
 
 const getAthleteFromUrl = (): { id: string; name: string } | null => {
@@ -144,6 +145,27 @@ export const App: React.FC = () => {
     }
     return 'classifica';
   });
+
+  const [hasMyPlayer, setHasMyPlayer] = useState<boolean>(() => Boolean(getMyPlayerId()));
+
+  const [torneiTab, setTorneiTab] = useState<TorneiPortalView>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab') as TorneiPortalView | null;
+      if (tabParam && ['miei', 'mappa', 'risultati', 'programma'].includes(tabParam)) {
+        if (tabParam === 'miei' && !getMyPlayerId()) return 'mappa';
+        return tabParam;
+      }
+    }
+    return getMyPlayerId() ? 'miei' : 'mappa';
+  });
+
+  const [torneiCounts, setTorneiCounts] = useState<{
+    miei?: number;
+    mappa?: number;
+    risultati?: number;
+    programma?: number;
+  }>({});
 
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
 
@@ -447,13 +469,18 @@ export const App: React.FC = () => {
     }
   }, [camId, annoId, showIntro]);
 
-  // Ascolta aggiornamenti del profilo per sincronizzare il campionato personale
+  // Ascolta aggiornamenti del profilo per sincronizzare il campionato personale e stato atleta
   useEffect(() => {
     return subscribeToMyProfile(() => {
       const updatedMyCam = getMyChampionshipId();
       setMyCamId(updatedMyCam);
       if (updatedMyCam && !camId) {
         setCamId(updatedMyCam);
+      }
+      const playerExists = Boolean(getMyPlayerId());
+      setHasMyPlayer(playerExists);
+      if (!playerExists) {
+        setTorneiTab((prev) => (prev === 'miei' ? 'mappa' : prev));
       }
     });
   }, [camId]);
@@ -554,10 +581,10 @@ export const App: React.FC = () => {
     if (nav) {
       const rect = nav.getBoundingClientRect();
       if (rect.top < 0) {
-        window.scrollTo({ top: window.scrollY + rect.top, behavior: 'smooth' });
+        window.scrollTo(0, window.scrollY + rect.top);
       }
     } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo(0, 0);
     }
   };
 
@@ -577,7 +604,9 @@ export const App: React.FC = () => {
         url.searchParams.set('view', 'tornei');
         const currentTab = url.searchParams.get('tab');
         if (!currentTab || !['miei', 'mappa', 'risultati', 'programma'].includes(currentTab)) {
-          url.searchParams.set('tab', 'miei');
+          const defaultTab = hasMyPlayer ? 'miei' : 'mappa';
+          url.searchParams.set('tab', defaultTab);
+          setTorneiTab(defaultTab);
         }
       } else if (view === 'campionato') {
         url.searchParams.set('view', 'campionato');
@@ -586,7 +615,7 @@ export const App: React.FC = () => {
       window.history.pushState({ ...(window.history.state || {}), view }, '', url.toString());
     }
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo(0, 0);
   };
 
   const handleChampionshipTabChange = (tab: ChampionshipTabType) => {
@@ -596,6 +625,17 @@ export const App: React.FC = () => {
       url.searchParams.set('view', 'campionato');
       url.searchParams.set('tab', tab);
       window.history.pushState({ ...(window.history.state || {}), view: 'campionato', tab }, '', url.toString());
+    }
+    scrollToNav();
+  };
+
+  const handleTorneiTabChange = (tab: TorneiPortalView) => {
+    setTorneiTab(tab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', 'tornei');
+      url.searchParams.set('tab', tab);
+      window.history.pushState({ ...(window.history.state || {}), view: 'tornei', tab }, '', url.toString());
     }
     scrollToNav();
   };
@@ -611,6 +651,15 @@ export const App: React.FC = () => {
         setMainView('classifiche');
       } else if (viewParam === 'tornei' || ['miei', 'mappa', 'risultati', 'programma'].includes(tabParam || '')) {
         setMainView('tornei');
+        if (tabParam && ['miei', 'mappa', 'risultati', 'programma'].includes(tabParam)) {
+          if (tabParam === 'miei' && !getMyPlayerId()) {
+            setTorneiTab('mappa');
+          } else {
+            setTorneiTab(tabParam as TorneiPortalView);
+          }
+        } else {
+          setTorneiTab(getMyPlayerId() ? 'miei' : 'mappa');
+        }
       } else if (viewParam === 'campionato' || (urlParams.get('cam') && tabParam && ['classifica', 'calendario', 'statistiche'].includes(tabParam))) {
         setMainView('campionato');
         if (tabParam && ['classifica', 'calendario', 'statistiche'].includes(tabParam)) {
@@ -705,6 +754,10 @@ export const App: React.FC = () => {
           calendario: (data && data.championship?.id === camId) ? data.calendario.length : 0,
           statistiche: (data && data.championship?.id === camId) ? data.statisticheAtleti.length : 0,
         }}
+        torneiTab={torneiTab}
+        onChangeTorneiTab={handleTorneiTabChange}
+        torneiCounts={torneiCounts}
+        hasMyPlayer={hasMyPlayer}
         onSelectAthleteById={(id, name) => setSelectedAthlete({ id, name })}
         championshipName={headerChampionshipName}
         championshipRegion={headerChampionshipRegion}
@@ -805,6 +858,9 @@ export const App: React.FC = () => {
         >
           <TorneiTab
             onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+            portalView={torneiTab}
+            onPortalViewChange={handleTorneiTabChange}
+            onUpdateCounts={setTorneiCounts}
           />
         </div>
 
