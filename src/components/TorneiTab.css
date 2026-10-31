@@ -1,14 +1,97 @@
 /* ==========================================================================
-   TorneiTab.css - Minimal styles reusing :root variables and project classes
+   TorneiTab.css - Tornei portal, sequential detail flow and map/list layout
    ========================================================================== */
 
-.tornei-sections-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+.tornei-tab-container {
+  scroll-margin-top: 96px;
 }
 
-/* Layout mappa + elenco */
+/* ==========================================================================
+   Portal navigation: Mappa / Risultati / Programma
+   ========================================================================== */
+
+.tornei-portal-nav {
+  position: static;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-controls);
+}
+
+.tornei-portal-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  min-height: 46px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.tornei-portal-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+}
+
+.tornei-portal-tab.is-active {
+  background: var(--bg-card);
+  color: var(--text-dark);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+}
+
+.tornei-portal-tab:focus-visible {
+  outline: 2px solid var(--color-primary-600);
+  outline-offset: -2px;
+}
+
+.tornei-portal-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-th, #f1f5f9);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.tornei-portal-tab.is-active .tornei-portal-tab-count {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+/* Filter bar */
+.tornei-controls {
+  margin-bottom: 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+}
+
+.tornei-controls-search {
+  flex: 1 1 190px;
+  max-width: 280px;
+}
+
+/* ==========================================================================
+   Map + list layout
+   ========================================================================== */
+
 .tornei-explorer {
   display: grid;
   grid-template-columns: minmax(310px, 0.85fr) minmax(0, 1.6fr);
@@ -18,27 +101,8 @@
 
 .tornei-map-column {
   position: sticky;
+  top: 96px;
   min-width: 0;
-}
-
-.ranking-refresh-btn {
-  all: unset;
-  position: fixed;
-  top: 1em;
-  left: 1em;
-  background: var(--color-primary-700);
-  border-radius: 20px;
-  padding: 10px;
-  width: auto;
-  z-index: 10;
-  color: var(--text-dark);
-  font-family: var(--font-serif);
-  font-weight: 600;
-  font-size: 0.7rem;
-  padding: 11px 16px;
-  box-shadow: none !important;
-  border: none;
-  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .tornei-list-column {
@@ -51,7 +115,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .tornei-list-heading h3 {
@@ -84,7 +148,7 @@
   white-space: nowrap;
 }
 
-/* Banner filtro attivo dalla mappa */
+/* Active map filter banner */
 .tornei-map-filter-banner {
   display: flex;
   align-items: center;
@@ -112,11 +176,11 @@
   min-width: 0;
 }
 
-.tornei-map-filter-text>i {
+.tornei-map-filter-text > i {
   flex-shrink: 0;
 }
 
-.tornei-map-filter-text>span {
+.tornei-map-filter-text > span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -162,137 +226,106 @@
   margin-top: 4px;
 }
 
-@media screen and (max-width: 980px) {
-  .tornei-explorer {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
+/* ==========================================================================
+   Region groups + tournament rows (flat, no nested cards)
+   ========================================================================== */
 
-  .tornei-map-column {
-    position: static;
-  }
-}
-
-/* Schermi desktop molto bassi: la mappa è più alta del viewport,
-   meglio lasciarla scorrere con la pagina. */
-@media screen and (min-width: 981px) and (max-height: 700px) {
-  .tornei-map-column {
-    position: static;
-  }
-}
-
-@media screen and (max-width: 600px) {
-  .tornei-list-heading {
-    align-items: center;
-  }
-
-  .tornei-list-heading h3 {
-    font-size: 0.96rem;
-  }
-
-  .tornei-list-heading p {
-    font-size: 0.7rem;
-  }
-
-  .tornei-map-filter-banner {
-    flex-wrap: wrap;
-    gap: 7px;
-    padding: 7px 10px;
-  }
-
-  .tornei-map-filter-text {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .tornei-map-filter-text>span {
-    white-space: normal;
-  }
-
-  .tornei-map-filter-count {
-    display: none;
-  }
-}
-
-/* Minimal Rows Layout per Tornei per Regione */
-.torneo-regions-list {
+.tornei-region-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
-.torneo-region-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+.tornei-region-group {
+  min-width: 0;
 }
 
-.torneo-region-header {
+.tornei-region-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px;
-  background: var(--bg-th, #f8fafc);
+  gap: 8px;
+  padding: 0 2px 6px;
+  margin-bottom: 2px;
   border-bottom: 1px solid var(--border-color);
-  font-weight: 600;
-  font-size: 0.85rem;
+}
+
+.tornei-region-name {
+  font-family: var(--font-serif);
+  font-size: 0.86rem;
+  font-weight: 700;
   color: var(--text-dark);
+  letter-spacing: 0.01em;
 }
 
-.torneo-region-badge {
-  font-size: 0.72rem;
-  font-weight: 600;
-  padding: 1px 8px;
-  border-radius: 10px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+.tornei-region-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--bg-th, #f1f5f9);
   color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
 }
 
-.torneo-rows-container {
+.tornei-rows {
   display: flex;
   flex-direction: column;
 }
 
 .torneo-row {
+  appearance: none;
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 10px 6px;
+  border: none;
   border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
   cursor: pointer;
-  background: var(--bg-card);
   transition: background-color 0.15s ease;
 }
 
-.torneo-row:last-child {
-  border-bottom: none;
+.torneo-row:hover {
+  background: var(--bg-hover);
 }
 
-.torneo-row:hover {
-  background: var(--bg-hover, rgba(0, 0, 0, 0.03));
+.torneo-row:focus-visible {
+  outline: 2px solid var(--color-primary-600);
+  outline-offset: -2px;
 }
 
 .torneo-row-date {
-  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 108px;
+  font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-muted);
   white-space: nowrap;
-  min-width: 115px;
-  display: flex;
-  align-items: center;
 }
 
 .torneo-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
 
 .torneo-row-title {
-  font-weight: 600;
+  display: block;
   font-size: 0.92rem;
+  font-weight: 600;
   color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
@@ -300,23 +333,19 @@
 }
 
 .torneo-row-meta {
-  font-size: 0.76rem;
+  display: block;
+  font-size: 0.74rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 2px;
-}
-
-.torneo-row-badge-wrap {
-  flex-shrink: 0;
 }
 
 .torneo-row-chevron {
-  color: var(--text-muted);
-  font-size: 0.85rem;
   flex-shrink: 0;
-  transition: transform 0.15s ease;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  transition: transform 0.15s ease, color 0.15s ease;
 }
 
 .torneo-row:hover .torneo-row-chevron {
@@ -324,51 +353,668 @@
   color: var(--color-primary-700);
 }
 
-@media screen and (max-width: 600px) {
-  .torneo-row {
-    display: grid;
-    grid-template-columns: 1fr auto auto;
-    grid-template-areas:
-      "date badge chevron"
-      "info info chevron";
-    gap: 4px 8px;
-    padding: 8px 10px;
-  }
-
-  .torneo-row-date {
-    grid-area: date;
-    font-size: 0.75rem;
-    min-width: 0;
-  }
-
-  .torneo-row-info {
-    grid-area: info;
-  }
-
-  .torneo-row-title {
-    font-size: 0.88rem;
-    white-space: normal;
-  }
-
-  .torneo-row-meta {
-    font-size: 0.72rem;
-    white-space: normal;
-  }
-
-  .torneo-row-badge-wrap {
-    grid-area: badge;
-  }
-
-  .torneo-row-chevron {
-    grid-area: chevron;
-    align-self: center;
-  }
+.tornei-row-status {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
-.tornei-cards-body {
-  padding: 14px 16px 18px;
-  background: var(--bg-container);
+.tornei-row-status.is-disputato {
+  color: var(--color-success-text);
 }
+
+.tornei-row-status.is-programma {
+  color: var(--color-warning-text);
+}
+
+.tornei-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Sequential detail flow
+   ========================================================================== */
+
+.tornei-detail {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow-container);
+  overflow: hidden;
+}
+
+.tornei-stepbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-th, #f8fafc);
+}
+
+.tornei-back-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 4px 2px;
+  color: var(--color-primary-700);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.tornei-back-btn:hover {
+  color: var(--color-primary-800);
+  text-decoration: underline;
+}
+
+.tornei-back-btn:focus-visible {
+  outline: 2px solid var(--color-primary-600);
+  outline-offset: 2px;
+}
+
+.tornei-step-indicator {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.tornei-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tornei-detail-head-main {
+  min-width: 0;
+}
+
+.tornei-detail-kicker {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-primary-600);
+}
+
+.tornei-detail-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text-dark);
+}
+
+.tornei-detail-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.tornei-status-text {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tornei-status-text.is-disputato {
+  color: var(--color-success-text);
+}
+
+.tornei-status-text.is-programma {
+  color: var(--color-warning-text);
+}
+
+/* Document links */
+.tornei-doc-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.torneo-doc-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.torneo-doc-link:hover {
+  background: var(--bg-hover);
+  border-color: var(--color-primary-600);
+  color: var(--color-primary-700);
+}
+
+.torneo-doc-link i {
+  font-size: 0.82rem;
+}
+
+/* Detail sections */
+.tornei-detail-section {
+  padding: 14px 18px 18px;
+}
+
+.tornei-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.tornei-section-head h3 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.tornei-section-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--bg-th, #f1f5f9);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Gare list */
+.tornei-gare-list,
+.tornei-phase-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.tornei-gara-row,
+.tornei-phase-row {
+  appearance: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 8px;
+  margin: 0 -8px;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 0.15s ease;
+}
+
+.tornei-gara-row:first-child,
+.tornei-phase-row:first-child {
+  border-top: 1px solid var(--border-color);
+}
+
+.tornei-gara-row:hover,
+.tornei-phase-row:hover {
+  background: var(--bg-hover);
+}
+
+.tornei-gara-row:focus-visible,
+.tornei-phase-row:focus-visible {
+  outline: 2px solid var(--color-primary-600);
+  outline-offset: -2px;
+}
+
+.tornei-gara-index,
+.tornei-phase-index {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--bg-th, #f1f5f9);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.tornei-gara-info,
+.tornei-phase-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tornei-gara-name,
+.tornei-phase-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.tornei-gara-meta,
+.tornei-phase-desc {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+.tornei-gara-chevron,
+.tornei-phase-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.tornei-gara-row:hover .tornei-gara-chevron,
+.tornei-phase-row:hover .tornei-phase-chevron {
+  transform: translateX(2px);
+  color: var(--color-primary-700);
+}
+
+/* Winner highlight */
+.tornei-winner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 18px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+}
+
+.tornei-winner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tornei-winner-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-warning-text);
+}
+
+.tornei-winner-points {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-warning-text);
+  white-space: nowrap;
+}
+
+/* Phase toolbar and controls */
+.tornei-phase-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tornei-phase-body {
+  padding: 14px 18px 18px;
+}
+
+.tornei-segmented {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-controls);
+}
+
+.tornei-segmented-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tornei-segmented-btn:hover {
+  color: var(--text-main);
+}
+
+.tornei-segmented-btn.is-active {
+  background: var(--bg-card);
+  color: var(--text-dark);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+
+.tornei-segmented-btn:focus-visible {
+  outline: 2px solid var(--color-primary-600);
+  outline-offset: -2px;
+}
+
+.tornei-select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.tornei-select {
+  min-width: 140px;
+  padding: 6px 9px;
+  border: 1px solid var(--border-input, var(--border-color));
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tornei-select:focus {
+  outline: none;
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 2px var(--color-info-bg);
+}
+
+.tornei-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1 1 220px;
+  max-width: 340px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-input, var(--border-color));
+  border-radius: 7px;
+  background: var(--bg-card);
+}
+
+.tornei-search:focus-within {
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 2px var(--color-info-bg);
+}
+
+.tornei-search-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.tornei-search-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+}
+
+.tornei-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Tables (gironi / iscritti)
+   ========================================================================== */
+
+.tornei-table-wrap {
+  margin-top: 10px;
+}
+
+.tornei-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  color: var(--text-main);
+}
+
+.tornei-table thead th {
+  padding: 7px 6px;
+  background: var(--bg-th, #f8fafc);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.tornei-table tbody td {
+  padding: 6px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+}
+
+.tornei-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.tornei-table tbody tr:nth-child(odd) {
+  background: rgba(148, 163, 184, 0.06);
+}
+
+.tornei-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.tornei-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+[data-theme='dark'] .tornei-table tbody tr:nth-child(odd) {
+  background: rgba(148, 163, 184, 0.05);
+}
+
+.tornei-avatar {
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+/* Gironi */
+.tornei-gironi-list {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.tornei-girone {
+  min-width: 0;
+}
+
+.tornei-girone + .tornei-girone {
+  padding-top: 18px;
+  border-top: 1px solid var(--border-color);
+}
+
+.tornei-girone-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.tornei-girone-title {
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.tornei-girone-sub {
+  display: block;
+  margin-top: 1px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.tornei-girone-count {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Loading / error / empty states
+   ========================================================================== */
+
+.tornei-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.tornei-loading-compact {
+  padding: 28px 20px;
+}
+
+.tornei-loading-text {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.tornei-inline-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 2px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.tornei-empty-card,
+.tornei-error-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 40px 20px;
+  text-align: center;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-card);
+}
+
+.tornei-empty-icon,
+.tornei-error-icon {
+  margin-bottom: 2px;
+  font-size: 1.8rem;
+  color: var(--color-primary-500);
+}
+
+.tornei-error-icon {
+  color: var(--color-danger-text);
+}
+
+.tornei-empty-card h3,
+.tornei-error-card h3 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  color: var(--text-dark);
+}
+
+.tornei-empty-card p,
+.tornei-error-card p {
+  max-width: 480px;
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.tornei-empty-card .btn-action,
+.tornei-error-card .btn-action {
+  margin-top: 8px;
+}
+
+.tornei-empty-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 2px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Work in progress
+   ========================================================================== */
 
 .work-in-progress {
   display: grid;
@@ -386,28 +1032,9 @@
   filter: invert(0.9);
 }
 
-.torneo-item-card {
-  cursor: pointer;
-  border-left: 4px solid var(--color-primary-600);
-  background: var(--bg-card);
-  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
-}
-
-.torneo-item-card:hover {
-  background: var(--bg-hover);
-  border-color: var(--border-input);
-  border-left-color: var(--color-primary-700);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-container);
-}
-
-.torneo-item-card.is-disputato {
-  border-left-color: var(--color-success-text);
-}
-
-.torneo-item-card.is-in-programma {
-  border-left-color: var(--color-accent-amber);
-}
+/* ==========================================================================
+   Match cards / gironi / iscritti helpers
+   ========================================================================== */
 
 .torneo-card-top {
   display: flex;
@@ -415,120 +1042,6 @@
   justify-content: space-between;
   gap: 8px;
   flex-wrap: wrap;
-}
-
-.torneo-date-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--font-sans);
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 6px;
-  background: var(--color-info-bg);
-  color: var(--color-info-text);
-  border: 1px solid var(--color-info-border);
-}
-
-.torneo-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: var(--font-sans);
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-
-.torneo-status-pill.status-disputato {
-  background: var(--color-success-bg);
-  color: var(--color-success-text);
-  border: 1px solid var(--color-success-border);
-}
-
-.torneo-status-pill.status-programma {
-  background: var(--color-warning-bg);
-  color: var(--color-warning-text);
-  border: 1px solid var(--color-warning-border);
-}
-
-.torneo-luogo-title {
-  font-family: var(--font-serif);
-  font-size: 1.02rem;
-  font-weight: 700;
-  color: var(--text-dark);
-  margin: 2px 0 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.torneo-card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding-top: 6px;
-  border-top: 1px dashed var(--border-color);
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-
-/* Dettaglio TorneoInline / Drawer View */
-.torneo-detail-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 12px 16px;
-  background: var(--bg-th);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.torneo-detail-links {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.torneo-doc-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-decoration: none;
-  border: 1px solid var(--border-color);
-  background: var(--bg-card);
-  color: var(--text-main);
-  transition: all 0.15s ease;
-}
-
-.torneo-doc-link:hover {
-  background: var(--bg-hover);
-  color: var(--color-info-text);
-  border-color: var(--color-info-border);
-}
-
-.torneo-winner-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 12px 16px 4px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: var(--color-warning-bg);
-  border: 1px solid var(--color-warning-border);
-  color: var(--color-warning-text);
 }
 
 .torneo-match-row {
@@ -585,4 +1098,174 @@
   background: var(--color-danger-bg);
   color: var(--color-danger-text);
   border-color: var(--color-danger-border);
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media screen and (max-width: 980px) {
+  .tornei-explorer {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .tornei-map-column {
+    position: static;
+  }
+}
+
+/* Very short desktop screens: the map is taller than the viewport,
+   so let it scroll with the page. */
+@media screen and (min-width: 981px) and (max-height: 700px) {
+  .tornei-map-column {
+    position: static;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .tornei-controls-search {
+    max-width: none;
+    width: 100%;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .tornei-portal-tab {
+    min-height: 42px;
+    gap: 5px;
+    font-size: 0.8rem;
+    padding: 7px 6px;
+  }
+
+  .tornei-portal-tab-count {
+    min-width: 20px;
+    height: 18px;
+    padding: 0 5px;
+    font-size: 0.64rem;
+  }
+
+  .tornei-list-heading {
+    align-items: center;
+  }
+
+  .tornei-list-heading h3 {
+    font-size: 0.96rem;
+  }
+
+  .tornei-list-heading p {
+    font-size: 0.7rem;
+  }
+
+  .tornei-map-filter-banner {
+    flex-wrap: wrap;
+    gap: 7px;
+    padding: 7px 10px;
+  }
+
+  .tornei-map-filter-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tornei-map-filter-text > span {
+    white-space: normal;
+  }
+
+  .tornei-map-filter-count {
+    display: none;
+  }
+
+  .torneo-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      'date status chevron'
+      'info info chevron';
+    gap: 4px 8px;
+    padding: 9px 4px;
+  }
+
+  .torneo-row-date {
+    grid-area: date;
+    min-width: 0;
+    font-size: 0.72rem;
+  }
+
+  .torneo-row-info {
+    grid-area: info;
+  }
+
+  .torneo-row-title {
+    font-size: 0.86rem;
+    white-space: normal;
+  }
+
+  .torneo-row-meta {
+    font-size: 0.7rem;
+    white-space: normal;
+  }
+
+  .tornei-row-status {
+    grid-area: status;
+  }
+
+  .torneo-row-chevron {
+    grid-area: chevron;
+    align-self: center;
+  }
+
+  .tornei-stepbar {
+    padding: 9px 14px;
+  }
+
+  .tornei-detail-head {
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 14px 12px;
+  }
+
+  .tornei-detail-title {
+    font-size: 1.05rem;
+  }
+
+  .tornei-doc-links {
+    padding: 9px 14px;
+  }
+
+  .tornei-detail-section {
+    padding: 12px 14px 16px;
+  }
+
+  .tornei-phase-toolbar {
+    padding: 10px 14px;
+  }
+
+  .tornei-phase-body {
+    padding: 12px 14px 16px;
+  }
+
+  .tornei-winner {
+    margin: 12px 14px 0;
+  }
+
+  .tornei-gara-row,
+  .tornei-phase-row {
+    padding: 10px 4px;
+    margin: 0;
+  }
+
+  .tornei-search {
+    max-width: none;
+    flex-basis: 100%;
+  }
+
+  .tornei-select-wrap {
+    width: 100%;
+  }
+
+  .tornei-select {
+    flex: 1;
+    min-width: 0;
+  }
 }

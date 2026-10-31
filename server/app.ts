@@ -882,6 +882,47 @@ app.get('/api/tornei/gara', async (req, res) => {
             allTurniTabellone = allTurniRaw.filter((tr) => tr.matches.length > 0);
         }
 
+        // Se non è ancora stato giocato alcun incontro (tabellone e gironi vuoti),
+        // mostra l'elenco iscritti invece di una pagina senza contenuti.
+        // Non applichiamo il fallback quando l'utente sta navigando un turno/girone specifico.
+        const hasPlayedGironi = gironi.some(
+            (g) => g.partite.length > 0 || g.classifica.length > 0
+        );
+        const hasPlayedBracket = allTurniTabellone.length > 0 || partiteTabellone.length > 0;
+
+        if (
+            !hasPlayedGironi &&
+            !hasPlayedBracket &&
+            reqCod1 === undefined &&
+            reqCod2 === undefined &&
+            reqTab === undefined &&
+            reqTurno === undefined
+        ) {
+            const iscrHtml = await FitetClient.fetchHtml(
+                `${baseUrl}/iscrizioni_gara.php?GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}`
+            ).catch(() => '');
+            const parsedIscr = parseIscrizioniGara(iscrHtml, mapping);
+            if (parsedIscr.iscritti.length > 0) {
+                const fallbackPayload: TorneoGaraDettaglioResponse = {
+                    idt,
+                    com,
+                    garaId,
+                    anno,
+                    titoloGara: parsedIscr.titoloGara || meta.titoloGara || `Gara ${garaId}`,
+                    mode: 'iscrizioni',
+                    isDoppio,
+                    maxIscritti: parsedIscr.maxIscritti,
+                    iscritti: parsedIscr.iscritti,
+                    gironiRanges: [],
+                    gironi: [],
+                    turniTabellone: [],
+                    partiteTabellone: [],
+                };
+                cacheService.set(cacheKey, fallbackPayload, 15 * 60 * 1000);
+                return res.json(fallbackPayload);
+            }
+        }
+
         const payload: TorneoGaraDettaglioResponse = {
             idt,
             com,

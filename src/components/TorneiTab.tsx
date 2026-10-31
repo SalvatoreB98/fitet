@@ -7,13 +7,10 @@ import {
   TorneoGaraDettaglioResponse,
 } from '../types/fitet';
 import {
-  TorneoGroupKey,
-  TORNEI_GROUPS,
-  TORNEI_CATEGORIES,
   getTorneoCategoryByKey,
   getTorneiCategoriesByGroup,
 } from '../constants/torneiCategories';
-import { REGIONS_COMIT } from './ClassificheRankingTab';
+import { REGIONS_COMIT } from '../constants/regions';
 import { fetchTornei, fetchTorneoDettaglio, fetchTorneoGara } from '../services/api';
 import { AthleteAvatar } from './AthleteAvatar';
 import { MarqueeText } from './MarqueeText';
@@ -26,12 +23,24 @@ import {
 import {
   getTorneoHostRegion,
   getTorneoPlace,
-  isTorneoNational,
   regionMatches,
-  torneoMatchesRegion,
 } from '../utils/torneoMap';
 import './ClassificheRankingTab.css';
 import './TorneiTab.css';
+
+type TorneiPortalView = 'mappa' | 'risultati' | 'programma';
+type GaraPhase = 'tabellone' | 'gironi' | 'iscritti';
+
+interface TorneiListGroup {
+  region: string;
+  items: Array<{ torneo: TorneoItem; sectionTitle: string }>;
+}
+
+interface AvailablePhase {
+  key: GaraPhase;
+  title: string;
+  description: string;
+}
 
 export interface TorneiTabProps {
   onOpenAtletaModal: (atletaId: string, nome: string) => void;
@@ -55,10 +64,11 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   });
 
   const [regFilterId, setRegFilterId] = useState<number>(0);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'disputato' | 'in_programma'>('all');
+  const [portalView, setPortalView] = useState<TorneiPortalView>('mappa');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [mapSelection, setMapSelection] = useState<TorneiMapSelection>(EMPTY_MAP_SELECTION);
   const torneiListRef = useRef<HTMLDivElement | null>(null);
+  const torneiRootRef = useRef<HTMLDivElement | null>(null);
 
   const [data, setData] = useState<TorneiResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -69,23 +79,28 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   const [selectedTorneo, setSelectedTorneo] = useState<TorneoItem | null>(null);
   const [torneoDettaglio, setTorneoDettaglio] = useState<TorneoDettaglioResponse | null>(null);
   const [loadingDettaglio, setLoadingDettaglio] = useState<boolean>(false);
+  const [dettaglioError, setDettaglioError] = useState<string | null>(null);
 
   // Selected Gara inside Tournament
   const [selectedGara, setSelectedGara] = useState<TorneoGaraLink | null>(null);
   const [garaData, setGaraData] = useState<TorneoGaraDettaglioResponse | null>(null);
   const [loadingGara, setLoadingGara] = useState<boolean>(false);
-  const [garaPhaseTab, setGaraPhaseTab] = useState<'tabellone' | 'gironi' | 'iscritti'>('tabellone');
+  const [garaPhaseTab, setGaraPhaseTab] = useState<GaraPhase | null>(null);
   const [garaSearchQuery, setGaraSearchQuery] = useState<string>('');
   const [bracketViewMode, setBracketViewMode] = useState<'bracket' | 'cards'>('bracket');
   const [bracketLoading, setBracketLoading] = useState<boolean>(false);
   const [fullBracketCache, setFullBracketCache] = useState<{ [garaKey: string]: BracketRoundData[] }>({});
 
   const activeCategoryDef = getTorneoCategoryByKey(categoryKey);
-  const activeGroup: TorneoGroupKey = useMemo(() => {
-    if (categoryKey === 'all') return 'all';
-    if (categoryKey === 'reg_all') return 'regionali';
-    return activeCategoryDef?.group || 'all';
-  }, [categoryKey, activeCategoryDef]);
+
+  const statusFilter: 'all' | 'disputato' | 'in_programma' =
+    portalView === 'mappa' ? 'all' : portalView === 'risultati' ? 'disputato' : 'in_programma';
+
+  const scrollToRoot = () => {
+    window.requestAnimationFrame(() => {
+      torneiRootRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
 
   const loadTornei = async (
     targetCat = categoryKey,
@@ -111,26 +126,6 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   useEffect(() => {
     loadTornei(categoryKey, comitId, regFilterId);
   }, [categoryKey, comitId, regFilterId]);
-
-  const handleGroupClick = (groupKey: TorneoGroupKey) => {
-    setSelectedTorneo(null);
-    setMapSelection(EMPTY_MAP_SELECTION);
-    if (groupKey === 'all') {
-      setCategoryKey('all');
-      setRegFilterId(0);
-      return;
-    }
-    if (groupKey === 'regionali') {
-      if (comitId === 0) setComitId(4); // Default Lombardia se nessuna regione scelta
-      setCategoryKey('reg_all');
-      return;
-    }
-    const groupDef = TORNEI_GROUPS.find((g) => g.key === groupKey);
-    if (groupDef) {
-      if (groupKey !== 'open') setComitId(0);
-      setCategoryKey(groupDef.defaultCategoryKey);
-    }
-  };
 
   const handleCategoryChange = (newKey: string) => {
     setSelectedTorneo(null);
@@ -190,81 +185,206 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
     }
   };
 
+  const handlePortalViewChange = (view: TorneiPortalView) => {
+    if (view === portalView) return;
+    setPortalView(view);
+    scrollToRoot();
+  };
+
   const handleShowList = () => {
     torneiListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  // Sub-categories for the active macro group
-  const currentGroupCategories = useMemo(() => {
-    if (activeGroup === 'all' || activeGroup === 'open') return [];
-    return getTorneiCategoriesByGroup(activeGroup);
-  }, [activeGroup]);
+  const resetAllFilters = () => {
+    setCategoryKey('all');
+    setComitId(0);
+    setRegFilterId(0);
+    setSearchQuery('');
+    setMapSelection(EMPTY_MAP_SELECTION);
+  };
 
-  // Open available regions from `TOR=0&COMIT=30&ID=36`
-  const openAvailableRegions = useMemo(() => {
-    if (!data?.sections) return [];
-    for (const sec of data.sections) {
-      if (sec.availableRegions && sec.availableRegions.length > 0) {
-        return sec.availableRegions;
-      }
-    }
-    return [];
-  }, [data]);
-
-  // Filtered sections based on statusFilter and searchQuery
-  const filteredSections = useMemo(() => {
+  // Sections filtered only by the text search (used for portal counters)
+  const searchFilteredSections = useMemo(() => {
     if (!data?.sections) return [];
     const q = searchQuery.toLowerCase().trim();
+    if (!q) return data.sections;
 
     return data.sections
       .map((sec) => {
-        const filtered = sec.tornei.filter((t) => {
-          if (statusFilter !== 'all' && t.status !== statusFilter) return false;
-          if (!q) return true;
-          return (
+        const filtered = sec.tornei.filter(
+          (t) =>
             t.luogo.toLowerCase().includes(q) ||
             t.data.toLowerCase().includes(q) ||
             (t.regione && t.regione.toLowerCase().includes(q)) ||
             sec.title.toLowerCase().includes(q)
-          );
-        });
+        );
         return { ...sec, tornei: filtered };
       })
       .filter((sec) => sec.tornei.length > 0);
-  }, [data, statusFilter, searchQuery]);
+  }, [data, searchQuery]);
 
-  const totalFilteredCount = useMemo(() => {
-    return filteredSections.reduce((acc, s) => acc + s.tornei.length, 0);
+  // Sections filtered by the active portal view (status) and text search
+  const filteredSections = useMemo(() => {
+    if (statusFilter === 'all') return searchFilteredSections;
+
+    return searchFilteredSections
+      .map((sec) => ({
+        ...sec,
+        tornei: sec.tornei.filter((t) => t.status === statusFilter),
+      }))
+      .filter((sec) => sec.tornei.length > 0);
+  }, [searchFilteredSections, statusFilter]);
+
+  const portalCounts = useMemo(() => {
+    const seen = new Set<string>();
+    let mappa = 0;
+    let risultati = 0;
+    let programma = 0;
+
+    for (const sec of searchFilteredSections) {
+      for (const t of sec.tornei) {
+        const key = `${t.com}-${t.idt}-${t.tipo}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        mappa += 1;
+        if (t.status === 'disputato') risultati += 1;
+        else programma += 1;
+      }
+    }
+
+    return { mappa, risultati, programma };
+  }, [searchFilteredSections]);
+
+  const torneiByRegion = useMemo(() => {
+    if (!filteredSections || filteredSections.length === 0) return [];
+
+    const seen = new Set<string>();
+    const list: Array<{ torneo: TorneoItem; sectionTitle: string; region: string }> = [];
+
+    for (const sec of filteredSections) {
+      for (const t of sec.tornei) {
+        const uniqueKey = `${t.com}-${t.idt}-${t.tipo}`;
+        if (!seen.has(uniqueKey)) {
+          seen.add(uniqueKey);
+
+          let reg = t.regione?.trim();
+          if (!reg && t.com > 0 && t.com !== 30) {
+            reg = REGIONS_COMIT.find((r) => r.id === t.com)?.name;
+          }
+          if (!reg) {
+            reg = sec.regioneNome;
+          }
+          // Se la regione è nazionale o non definita, verifichiamo la regione geografica della città di svolgimento
+          const host = getTorneoHostRegion(t);
+          if (host && host !== 'Nazionale') {
+            reg = host;
+          } else if (!reg || reg.toLowerCase().includes('nazionale') || t.com === 0 || t.com === 30) {
+            reg = 'Nazionale';
+          }
+
+          list.push({ torneo: t, sectionTitle: sec.title, region: reg });
+        }
+      }
+    }
+
+    const groupMap = new Map<string, Array<{ torneo: TorneoItem; sectionTitle: string }>>();
+    for (const item of list) {
+      if (!groupMap.has(item.region)) {
+        groupMap.set(item.region, []);
+      }
+      groupMap.get(item.region)!.push({ torneo: item.torneo, sectionTitle: item.sectionTitle });
+    }
+
+    const sortedRegions = Array.from(groupMap.keys()).sort((a, b) => {
+      if (a === 'Nazionale') return -1;
+      if (b === 'Nazionale') return 1;
+      return a.localeCompare(b, 'it');
+    });
+
+    return sortedRegions.map((region) => ({
+      region,
+      items: groupMap.get(region)!,
+    }));
   }, [filteredSections]);
 
-  // Load a single tournament's detail and first competition
+  const visibleTorneiByRegion = useMemo(() => {
+    if (!mapSelection.region && !mapSelection.placeKey) return torneiByRegion;
+
+    return torneiByRegion
+      .filter(
+        (group) => !mapSelection.region || regionMatches(group.region, mapSelection.region)
+      )
+      .map((group) => ({
+        ...group,
+        items: mapSelection.placeKey
+          ? group.items.filter(
+            (item) =>
+              getTorneoPlace(item.torneo, group.region).key === mapSelection.placeKey
+          )
+          : group.items,
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [torneiByRegion, mapSelection.region, mapSelection.placeKey]);
+
+  const visibleTorneiCount = useMemo(
+    () => visibleTorneiByRegion.reduce((total, group) => total + group.items.length, 0),
+    [visibleTorneiByRegion]
+  );
+
+  // Load a single tournament's detail (gare list)
   const handleSelectTorneo = async (torneo: TorneoItem) => {
     setSelectedTorneo(torneo);
     setTorneoDettaglio(null);
+    setDettaglioError(null);
     setSelectedGara(null);
     setGaraData(null);
+    setGaraPhaseTab(null);
     setLoadingDettaglio(true);
     setGaraSearchQuery('');
+    setBracketViewMode('bracket');
+    scrollToRoot();
 
     try {
       const det = await fetchTorneoDettaglio(torneo.idt, torneo.com, torneo.anno);
       setTorneoDettaglio(det);
-      if (det.gare.length > 0) {
-        await handleSelectGara(det.gare[0]);
-      }
-    } catch {
-      // Fallback empty
+    } catch (err: any) {
+      setDettaglioError(err?.message || 'Impossibile caricare le gare del torneo.');
     } finally {
       setLoadingDettaglio(false);
     }
   };
 
-  const handleSelectGara = async (
-    gara: TorneoGaraLink,
-    customRange?: { cod1: number; cod2: number },
-    customTurno?: { tab: number; turno: number }
-  ) => {
+  // Open a gara: load its data and stop on the phase-choice screen
+  const handleOpenGara = async (gara: TorneoGaraLink) => {
     setSelectedGara(gara);
+    setGaraData(null);
+    setGaraPhaseTab(null);
+    setGaraSearchQuery('');
+    setBracketViewMode('bracket');
+    scrollToRoot();
+    setLoadingGara(true);
+
+    try {
+      const res = await fetchTorneoGara({
+        idt: gara.idt,
+        com: gara.com,
+        gara: gara.garaId,
+        anno: gara.anno,
+        isDoppio: gara.isDoppio,
+        mode: gara.mode,
+      });
+      setGaraData(res);
+    } catch {
+      setGaraData(null);
+    } finally {
+      setLoadingGara(false);
+    }
+  };
+
+  const reloadGara = async (
+    gara: TorneoGaraLink,
+    params: { cod1?: number; cod2?: number; tab?: number; turno?: number }
+  ) => {
     setLoadingGara(true);
     try {
       const res = await fetchTorneoGara({
@@ -274,28 +394,53 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
         anno: gara.anno,
         isDoppio: gara.isDoppio,
         mode: gara.mode,
-        cod1: customRange?.cod1,
-        cod2: customRange?.cod2,
-        tab: customTurno?.tab,
-        turno: customTurno?.turno,
+        ...params,
       });
       setGaraData(res);
-      if (!customRange && !customTurno) {
-        if (res.mode === 'iscrizioni') {
-          setGaraPhaseTab('iscritti');
-        } else if (res.partiteTabellone.length > 0) {
-          setGaraPhaseTab('tabellone');
-        } else if (res.gironi.length > 0) {
-          setGaraPhaseTab('gironi');
-        } else {
-          setGaraPhaseTab('tabellone');
-        }
-      }
     } catch {
-      // Keep previous or empty
+      // Keep the current data visible if a single turno/girone fails
     } finally {
       setLoadingGara(false);
     }
+  };
+
+  const handleSelectTurno = (tab: number, turno: number) => {
+    if (!selectedGara) return;
+    void reloadGara(selectedGara, { tab, turno });
+  };
+
+  const handleSelectGirone = (cod1: number, cod2: number) => {
+    if (!selectedGara) return;
+    void reloadGara(selectedGara, { cod1, cod2 });
+  };
+
+  const handleOpenPhase = (phase: GaraPhase) => {
+    setGaraPhaseTab(phase);
+    if (phase === 'iscritti') setGaraSearchQuery('');
+    scrollToRoot();
+  };
+
+  const backToTornei = () => {
+    setSelectedTorneo(null);
+    setTorneoDettaglio(null);
+    setDettaglioError(null);
+    setSelectedGara(null);
+    setGaraData(null);
+    setGaraPhaseTab(null);
+    scrollToRoot();
+  };
+
+  const backToTorneo = () => {
+    setSelectedGara(null);
+    setGaraData(null);
+    setGaraPhaseTab(null);
+    setGaraSearchQuery('');
+    scrollToRoot();
+  };
+
+  const backToGara = () => {
+    setGaraPhaseTab(null);
+    scrollToRoot();
   };
 
   const handleAthleteClick = (atletaId: string | null | undefined, nome: string) => {
@@ -307,7 +452,9 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   };
 
   const selectedRegionName =
-    REGIONS_COMIT.find((r) => r.id === comitId)?.name || 'Tutte (Nazionale)';
+    comitId === 0
+      ? 'Tutte le regioni'
+      : REGIONS_COMIT.find((r) => r.id === comitId)?.name || 'Nazionale';
 
   const headerTitle = activeCategoryDef
     ? activeCategoryDef.label
@@ -318,6 +465,18 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   const headerSubtitle = activeCategoryDef
     ? `${activeCategoryDef.description} • ${selectedRegionName}`
     : `Calendario risultati, tabelloni e iscritti • ${selectedRegionName}`;
+
+  const listTitle =
+    portalView === 'mappa'
+      ? headerTitle
+      : portalView === 'risultati'
+        ? 'Risultati dei tornei'
+        : 'Tornei in programma';
+
+  const listSubtitle =
+    portalView === 'mappa'
+      ? headerSubtitle
+      : `${activeCategoryDef ? `${activeCategoryDef.label} • ` : ''}${selectedRegionName}`;
 
   const filteredIscritti = useMemo(() => {
     if (!garaData?.iscritti) return [];
@@ -396,22 +555,31 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
 
   useEffect(() => {
     if (
-      garaPhaseTab === 'tabellone' &&
-      bracketViewMode === 'bracket' &&
-      selectedGara &&
-      garaData?.turniTabellone &&
-      garaData.turniTabellone.length > 0
+      garaPhaseTab !== 'tabellone' ||
+      bracketViewMode !== 'bracket' ||
+      !selectedGara ||
+      !garaData?.turniTabellone ||
+      garaData.turniTabellone.length === 0
     ) {
-      const garaKey = `${selectedGara.idt}_${selectedGara.com}_${selectedGara.garaId}`;
-      if (!fullBracketCache[garaKey]) {
-        loadCompleteBracket(selectedGara, garaData.turniTabellone);
-      }
+      return;
+    }
+
+    // The API already returns every round: only use the per-round fallback
+    // for older cached payloads that do not include allTurniTabellone.
+    if (garaData.allTurniTabellone && garaData.allTurniTabellone.length > 0) {
+      return;
+    }
+
+    const garaKey = `${selectedGara.idt}_${selectedGara.com}_${selectedGara.garaId}`;
+    if (!fullBracketCache[garaKey]) {
+      loadCompleteBracket(selectedGara, garaData.turniTabellone);
     }
   }, [
     garaPhaseTab,
     bracketViewMode,
     selectedGara,
     garaData?.turniTabellone,
+    garaData?.allTurniTabellone,
     fullBracketCache,
     loadCompleteBracket,
   ]);
@@ -431,122 +599,903 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
     return [];
   }, [currentGaraKey, fullBracketCache, garaData?.allTurniTabellone]);
 
-  const torneiByRegion = useMemo(() => {
-    if (!filteredSections || filteredSections.length === 0) return [];
+  const availablePhases = useMemo<AvailablePhase[]>(() => {
+    if (!garaData) return [];
 
-    const seen = new Set<string>();
-    const list: Array<{ torneo: TorneoItem; sectionTitle: string; region: string }> = [];
-
-    for (const sec of filteredSections) {
-      for (const t of sec.tornei) {
-        const uniqueKey = `${t.com}-${t.idt}-${t.tipo}`;
-        if (!seen.has(uniqueKey)) {
-          seen.add(uniqueKey);
-
-          let reg = t.regione?.trim();
-          if (!reg && t.com > 0 && t.com !== 30) {
-            reg = REGIONS_COMIT.find((r) => r.id === t.com)?.name;
-          }
-          if (!reg) {
-            reg = sec.regioneNome;
-          }
-          // Se la regione è nazionale o non definita, verifichiamo la regione geografica della città di svolgimento
-          const host = getTorneoHostRegion(t);
-          if (host && host !== 'Nazionale') {
-            reg = host;
-          } else if (!reg || reg.toLowerCase().includes('nazionale') || t.com === 0 || t.com === 30) {
-            reg = 'Nazionale';
-          }
-
-          list.push({ torneo: t, sectionTitle: sec.title, region: reg });
-        }
-      }
+    if (garaData.mode === 'iscrizioni') {
+      return [
+        {
+          key: 'iscritti',
+          title: 'Iscritti',
+          description: `${garaData.iscritti.length} ${garaData.iscritti.length === 1 ? 'iscritto' : 'iscritti'} • Elenco partecipanti`,
+        },
+      ];
     }
 
-    const groupMap = new Map<string, Array<{ torneo: TorneoItem; sectionTitle: string }>>();
-    for (const item of list) {
-      if (!groupMap.has(item.region)) {
-        groupMap.set(item.region, []);
-      }
-      groupMap.get(item.region)!.push({ torneo: item.torneo, sectionTitle: item.sectionTitle });
+    const bracketMatches =
+      (garaData.partiteTabellone?.length || 0) +
+      (garaData.allTurniTabellone?.reduce((total, t) => total + t.matches.length, 0) || 0);
+
+    const phases: AvailablePhase[] = [];
+    if (bracketMatches > 0) {
+      phases.push({
+        key: 'tabellone',
+        title: 'Eliminazione diretta',
+        description: `${garaData.turniTabellone.length} ${garaData.turniTabellone.length === 1 ? 'turno' : 'turni'} • Tabellone e incontri`,
+      });
     }
+    if (garaData.gironiRanges.length > 0) {
+      phases.push({
+        key: 'gironi',
+        title: 'Gironi di qualificazione',
+        description:
+          garaData.gironiRanges.length > 1
+            ? `${garaData.gironiRanges.length} gruppi di gironi • Classifiche e incontri`
+            : 'Classifiche e incontri dei gironi',
+      });
+    }
+    return phases;
+  }, [garaData]);
 
-    const sortedRegions = Array.from(groupMap.keys()).sort((a, b) => {
-      if (a === 'Nazionale') return -1;
-      if (b === 'Nazionale') return 1;
-      return a.localeCompare(b, 'it');
-    });
+  const phaseTitle =
+    garaPhaseTab === 'tabellone'
+      ? 'Eliminazione diretta'
+      : garaPhaseTab === 'gironi'
+        ? 'Gironi di qualificazione'
+        : 'Iscritti';
 
-    return sortedRegions.map((region) => ({
-      region,
-      items: groupMap.get(region)!,
-    }));
-  }, [filteredSections]);
+  const activeTurnoValue =
+    garaData?.activeTurno
+      ? `${garaData.activeTurno.tab}-${garaData.activeTurno.turno}`
+      : garaData?.turniTabellone && garaData.turniTabellone.length > 0
+        ? `${garaData.turniTabellone[0].tab}-${garaData.turniTabellone[0].turno}`
+        : '';
 
-  const visibleTorneiByRegion = useMemo(() => {
-    if (!mapSelection.region && !mapSelection.placeKey) return torneiByRegion;
+  const activeGironiRangeValue =
+    garaData?.activeGironiRange
+      ? `${garaData.activeGironiRange.cod1}-${garaData.activeGironiRange.cod2}`
+      : garaData?.gironiRanges && garaData.gironiRanges.length > 0
+        ? `${garaData.gironiRanges[0].cod1}-${garaData.gironiRanges[0].cod2}`
+        : '';
 
-    return torneiByRegion
-      .filter(
-        (group) => !mapSelection.region || regionMatches(group.region, mapSelection.region)
-      )
-      .map((group) => ({
-        ...group,
-        items: mapSelection.placeKey
-          ? group.items.filter(
-            (item) =>
-              getTorneoPlace(item.torneo, group.region).key === mapSelection.placeKey
-          )
-          : group.items,
-      }))
-      .filter((group) => group.items.length > 0);
-  }, [torneiByRegion, mapSelection.region, mapSelection.placeKey]);
-
-  const visibleTorneiCount = useMemo(
-    () => visibleTorneiByRegion.reduce((total, group) => total + group.items.length, 0),
-    [visibleTorneiByRegion]
-  );
+  // Il portale FITeT a volte restituisce un titolo generico ("Gara 1001"):
+  // in quel caso è più utile il nome della gara ricavato dall'elenco del torneo.
+  const garaDisplayTitle = selectedGara
+    ? garaData?.titoloGara && !/^Gara\s+\d+$/i.test(garaData.titoloGara.trim())
+      ? garaData.titoloGara
+      : selectedGara.nome
+    : '';
 
   const workInProgress = false;
-  if (workInProgress) return <div className='work-in-progress'>
-    <div>
-      <img src="/wip.png" alt="Lavori in corso" className="wip mb-3 w-25" />
-    </div>
-  </div>;
+  if (workInProgress) {
+    return (
+      <div className='work-in-progress'>
+        <div>
+          <img src="/wip.png" alt="Lavori in corso" className="wip mb-3 w-25" />
+        </div>
+      </div>
+    );
+  }
 
-  return (
-    <div>
-      {/* Controls Bar */}
-      <div className="controls">
-        <div className="controls-left tornei">
-          <div className="filter-btn-group">
+  const shell = (content: React.ReactNode) => (
+    <div className="tornei-tab-container" ref={torneiRootRef}>
+      {content}
+    </div>
+  );
+
+  const renderStepBar = (backLabel: string, step: number, onBack: () => void) => (
+    <div className="tornei-stepbar">
+      <button type="button" className="tornei-back-btn" onClick={onBack}>
+        <i className="bi bi-arrow-left" aria-hidden="true"></i>
+        <span>{backLabel}</span>
+      </button>
+      <span className="tornei-step-indicator">Passo {step} di 3</span>
+    </div>
+  );
+
+  const renderTorneiList = (
+    groups: TorneiListGroup[],
+    options: { withMapBanner: boolean; title: string; subtitle: string }
+  ) => {
+    const count = groups.reduce((total, group) => total + group.items.length, 0);
+
+    return (
+      <section className="tornei-list-column" ref={torneiListRef}>
+        {options.withMapBanner && mapSelection.region && (
+          <div className="tornei-map-filter-banner">
+            <div className="tornei-map-filter-text">
+              <i className="bi bi-funnel-fill" aria-hidden="true"></i>
+              <span>
+                Filtro mappa: <strong>{mapSelection.label || mapSelection.region}</strong>
+                <span className="tornei-map-filter-count">
+                  {count} {count === 1 ? 'torneo' : 'tornei'}
+                </span>
+              </span>
+            </div>
             <button
               type="button"
-              className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setStatusFilter('all')}
+              className="tornei-map-filter-clear"
+              onClick={() => handleMapSelectionChange(EMPTY_MAP_SELECTION)}
             >
-              Tutti
-            </button>
-            <button
-              type="button"
-              className={`filter-btn ${statusFilter === 'disputato' ? 'active' : ''}`}
-              onClick={() => setStatusFilter('disputato')}
-            >
-              Risultati
-            </button>
-            <button
-              type="button"
-              className={`filter-btn ${statusFilter === 'in_programma' ? 'active' : ''}`}
-              onClick={() => setStatusFilter('in_programma')}
-            >
-              In Programma
+              <i className="bi bi-x-lg" aria-hidden="true"></i>
+              <span>Mostra tutti</span>
             </button>
           </div>
+        )}
 
+        <div className="tornei-list-heading">
+          <div>
+            <h3>{options.title}</h3>
+            <p>{options.subtitle}</p>
+          </div>
+          <span className="tornei-list-count">
+            {count} {count === 1 ? 'torneo' : 'tornei'}
+          </span>
+        </div>
+
+        {groups.length > 0 && (
+          <div className="tornei-region-list">
+            {groups.map((group) => (
+              <div key={group.region} className="tornei-region-group">
+                <div className="tornei-region-heading">
+                  <span className="tornei-region-name">{group.region}</span>
+                  <span className="tornei-region-count">{group.items.length}</span>
+                </div>
+
+                <div className="tornei-rows">
+                  {group.items.map(({ torneo, sectionTitle }) => (
+                    <button
+                      key={`${torneo.com}-${torneo.idt}-${torneo.tipo}`}
+                      type="button"
+                      className="torneo-row"
+                      onClick={() => handleSelectTorneo(torneo)}
+                    >
+                      <span className="torneo-row-date">
+                        <i className="bi bi-calendar3" aria-hidden="true"></i>
+                        <span>{torneo.data}</span>
+                      </span>
+
+                      <span className="torneo-row-info">
+                        <span className="torneo-row-title">{torneo.luogo}</span>
+                        {sectionTitle && (
+                          <span className="torneo-row-meta">{sectionTitle}</span>
+                        )}
+                      </span>
+
+                      <span
+                        className={`tornei-row-status ${torneo.status === 'disputato'
+                            ? 'is-disputato'
+                            : 'is-programma'
+                          }`}
+                      >
+                        <i className="tornei-status-dot" aria-hidden="true"></i>
+                        {torneo.status === 'disputato' ? 'Risultati' : 'Programma'}
+                      </span>
+
+                      <i className="bi bi-chevron-right torneo-row-chevron" aria-hidden="true"></i>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  };
+
+  const loadingState = (
+    <div className="tornei-loading-state">
+      <div className="spinner-border text-primary" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
+        <span className="visually-hidden">Caricamento...</span>
+      </div>
+      <p className="tornei-loading-text">Caricamento calendario e risultati tornei FITeT...</p>
+    </div>
+  );
+
+  const errorState = (
+    <div className="tornei-error-card">
+      <div className="tornei-error-icon">
+        <i className="bi bi-exclamation-triangle-fill"></i>
+      </div>
+      <h3>Impossibile caricare i tornei</h3>
+      <p>{error}</p>
+      <button
+        type="button"
+        className="btn-action"
+        onClick={() => loadTornei(categoryKey, comitId, regFilterId, true)}
+      >
+        <i className="bi bi-arrow-clockwise" aria-hidden="true"></i>
+        Riprova
+      </button>
+    </div>
+  );
+
+  const emptyAll = (
+    <div className="tornei-empty-card">
+      <i className="bi bi-trophy tornei-empty-icon"></i>
+      <h3>Nessun torneo trovato</h3>
+      <p>
+        Non ci sono tornei pubblicati per i filtri selezionati ({headerTitle} • {selectedRegionName}).
+      </p>
+      <button type="button" className="btn-action" onClick={resetAllFilters}>
+        <i className="bi bi-arrow-left" aria-hidden="true"></i>
+        Azzera i filtri
+      </button>
+    </div>
+  );
+
+  const emptyStatus = (
+    <div className="tornei-empty-card">
+      <i
+        className={`bi ${portalView === 'risultati' ? 'bi-check2-circle' : 'bi-calendar-event'
+          } tornei-empty-icon`}
+      ></i>
+      <h3>
+        {portalView === 'risultati' ? 'Nessun risultato disponibile' : 'Nessun torneo in programma'}
+      </h3>
+      <p>
+        {portalView === 'risultati'
+          ? 'Non ci sono tornei disputati'
+          : 'Non ci sono tornei in programma'}{' '}
+        per i filtri selezionati ({selectedRegionName}).
+      </p>
+      <button type="button" className="btn-action" onClick={resetAllFilters}>
+        <i className="bi bi-arrow-left" aria-hidden="true"></i>
+        Azzera i filtri
+      </button>
+    </div>
+  );
+
+  // ---------------------------------------------------------------------------
+  // STEP 3 - Fase (tabellone / gironi / iscritti)
+  // ---------------------------------------------------------------------------
+  if (selectedTorneo && selectedGara && garaPhaseTab) {
+    return shell(
+      <div className="tornei-detail">
+        {renderStepBar('Torna alla gara', 3, backToGara)}
+
+        <header className="tornei-detail-head">
+          <div className="tornei-detail-head-main">
+            <span className="tornei-detail-kicker">
+              {garaDisplayTitle}
+            </span>
+            <h2 className="tornei-detail-title">{phaseTitle}</h2>
+            <p className="tornei-detail-subtitle">
+              {selectedTorneo.luogo} • {selectedTorneo.data}
+            </p>
+          </div>
+        </header>
+
+        {garaPhaseTab === 'tabellone' && garaData && (
+          <>
+            <div className="tornei-phase-toolbar">
+              <div className="tornei-segmented" role="group" aria-label="Vista del tabellone">
+                <button
+                  type="button"
+                  className={`tornei-segmented-btn ${bracketViewMode === 'bracket' ? 'is-active' : ''}`}
+                  onClick={() => setBracketViewMode('bracket')}
+                >
+                  Tabellone
+                </button>
+                <button
+                  type="button"
+                  className={`tornei-segmented-btn ${bracketViewMode === 'cards' ? 'is-active' : ''}`}
+                  onClick={() => setBracketViewMode('cards')}
+                >
+                  Elenco
+                </button>
+              </div>
+
+              {bracketViewMode === 'cards' && garaData.turniTabellone.length > 0 && (
+                <label className="tornei-select-wrap">
+                  <span>Turno</span>
+                  <select
+                    className="tornei-select"
+                    value={activeTurnoValue}
+                    onChange={(e) => {
+                      const [tab, turno] = e.target.value.split('-').map(Number);
+                      handleSelectTurno(tab, turno);
+                    }}
+                  >
+                    {garaData.turniTabellone.map((t) => (
+                      <option key={`${t.tab}-${t.turno}`} value={`${t.tab}-${t.turno}`}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+
+            <div className="tornei-phase-body">
+            {loadingGara ? (
+              <div className="tornei-loading-state tornei-loading-compact">
+                <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}>
+                  <span className="visually-hidden">Caricamento...</span>
+                </div>
+                <p className="tornei-loading-text">Caricamento turno...</p>
+              </div>
+            ) : bracketViewMode === 'bracket' ? (
+              bracketLoading ? (
+                <div className="tornei-loading-state tornei-loading-compact">
+                  <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}>
+                    <span className="visually-hidden">Caricamento tabellone...</span>
+                  </div>
+                  <p className="tornei-loading-text">Generazione del tabellone completo...</p>
+                </div>
+              ) : (
+                <TorneoBracket
+                  rounds={currentFullBracketRounds}
+                  competitionName={garaDisplayTitle || 'Tabellone Eliminazione Diretta'}
+                  onOpenAtletaModal={handleAthleteClick}
+                />
+              )
+            ) : garaData.partiteTabellone.length > 0 ? (
+              <div className="match-cards-grid">
+                {garaData.partiteTabellone.map((m, idx) => (
+                  <div key={idx} className="match-card">
+                    <div className="torneo-card-top">
+                      <span className="giornata-badge-pill">
+                        {garaData.activeTurno?.label || 'Tabellone'}
+                      </span>
+                      {m.sets.length > 0 && (
+                        <div className="torneo-match-sets">
+                          {m.sets.map((s, si) => (
+                            <span key={si} className="torneo-set-chip">
+                              {s.p1}-{s.p2}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className={`torneo-match-row ${m.vincitore === 1 ? 'is-winner' : ''}`}>
+                      <div className="athlete-name-cell">
+                        <button
+                          type="button"
+                          className="athlete-link-btn"
+                          onClick={() => handleAthleteClick(m.atleta1Id, m.atleta1)}
+                        >
+                          <span>{m.atleta1 || 'Bye / —'}</span>
+                        </button>
+                        {m.societa1 && <span className="athlete-mobile-meta">{m.societa1}</span>}
+                      </div>
+                      <span className="badge-points-official">{m.set1}</span>
+                    </div>
+
+                    <div className={`torneo-match-row ${m.vincitore === 2 ? 'is-winner' : ''}`}>
+                      <div className="athlete-name-cell">
+                        <button
+                          type="button"
+                          className="athlete-link-btn"
+                          onClick={() => handleAthleteClick(m.atleta2Id, m.atleta2)}
+                        >
+                          <span>{m.atleta2 || 'Bye / —'}</span>
+                        </button>
+                        {m.societa2 && <span className="athlete-mobile-meta">{m.societa2}</span>}
+                      </div>
+                      <span className="badge-points-official">{m.set2}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="tornei-empty-box">
+                Nessun incontro registrato per questo turno. Seleziona un altro turno dall'elenco.
+              </div>
+            )}
+            </div>
+          </>
+        )}
+
+        {garaPhaseTab === 'gironi' && garaData && (
+          <>
+            {garaData.gironiRanges.length > 1 && (
+              <div className="tornei-phase-toolbar">
+                <label className="tornei-select-wrap">
+                  <span>Gruppo gironi</span>
+                  <select
+                    className="tornei-select"
+                    value={activeGironiRangeValue}
+                    onChange={(e) => {
+                      const [cod1, cod2] = e.target.value.split('-').map(Number);
+                      handleSelectGirone(cod1, cod2);
+                    }}
+                  >
+                    {garaData.gironiRanges.map((gr) => (
+                      <option key={`${gr.cod1}-${gr.cod2}`} value={`${gr.cod1}-${gr.cod2}`}>
+                        {gr.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+
+            <div className="tornei-phase-body">
+            {loadingGara ? (
+              <div className="tornei-loading-state tornei-loading-compact">
+                <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}>
+                  <span className="visually-hidden">Caricamento...</span>
+                </div>
+                <p className="tornei-loading-text">Caricamento gironi...</p>
+              </div>
+            ) : garaData.gironi.length > 0 ? (
+              <div className="tornei-gironi-list">
+                {garaData.gironi.map((gir) => (
+                  <section key={gir.numero} className="tornei-girone">
+                    <div className="tornei-girone-head">
+                      <div>
+                        <span className="tornei-girone-title">Girone {gir.numero}</span>
+                        <span className="tornei-girone-sub">Classifica e incontri</span>
+                      </div>
+                      <span className="tornei-girone-count">{gir.partite.length} incontri</span>
+                    </div>
+
+                    {gir.classifica.length > 0 && (
+                      <div className="table-responsive tornei-table-wrap">
+                        <table className="tornei-table">
+                          <thead>
+                            <tr>
+                              <th className="th-rank">#</th>
+                              <th className="th-athlete">Atleta</th>
+                              <th className="th-provincia hide-xs">Società</th>
+                              <th className="text-center">Pt</th>
+                              <th className="text-center">V-P</th>
+                              <th className="text-center">Set</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {gir.classifica.map((row) => (
+                              <tr
+                                key={row.nome}
+                                className="tornei-table-row"
+                                onClick={() => handleAthleteClick(row.atletaId, row.nome)}
+                              >
+                                <td className="td-rank">
+                                  <span className={`rank-badge rank-badge-${row.posizione <= 2 ? row.posizione : 'default'}`}>
+                                    {row.posizione}
+                                  </span>
+                                </td>
+                                <td className="td-athlete">
+                                  <div className="athlete-row-cell">
+                                    <AthleteAvatar
+                                      atletaId={row.atletaId || undefined}
+                                      nome={row.nome}
+                                      size={26}
+                                      className="tornei-avatar"
+                                    />
+                                    <div className="athlete-name-cell">
+                                      <span className="athlete-link-btn">{row.nome}</span>
+                                      <span className="athlete-mobile-meta show-xs">{row.societa}</span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="hide-xs">
+                                  <span className="provincia-text">{row.societa}</span>
+                                </td>
+                                <td className="text-center">
+                                  <span className="badge-points-official">{row.punti}</span>
+                                </td>
+                                <td className="text-center">
+                                  <span className="settore-badge">{row.vinte}-{row.perse}</span>
+                                </td>
+                                <td className="text-center">
+                                  <span className="date-text">{row.setVinti}-{row.setPersi}</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    <div className="match-cards-grid">
+                      {gir.partite.map((m, mi) => (
+                        <div key={mi} className="match-card">
+                          {m.sets.length > 0 && (
+                            <div className="torneo-card-top">
+                              <span className="athlete-mobile-meta">Incontro #{mi + 1}</span>
+                              <div className="torneo-match-sets">
+                                {m.sets.map((s, si) => (
+                                  <span key={si} className="torneo-set-chip">
+                                    {s.p1}-{s.p2}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <div className={`torneo-match-row ${m.vincitore === 1 ? 'is-winner' : ''}`}>
+                            <button
+                              type="button"
+                              className="athlete-link-btn"
+                              onClick={() => handleAthleteClick(m.atleta1Id, m.atleta1)}
+                            >
+                              <span>{m.atleta1}</span>
+                            </button>
+                            <strong>{m.set1}</strong>
+                          </div>
+                          <div className={`torneo-match-row ${m.vincitore === 2 ? 'is-winner' : ''}`}>
+                            <button
+                              type="button"
+                              className="athlete-link-btn"
+                              onClick={() => handleAthleteClick(m.atleta2Id, m.atleta2)}
+                            >
+                              <span>{m.atleta2}</span>
+                            </button>
+                            <strong>{m.set2}</strong>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <div className="tornei-empty-box">Nessun girone trovato per questo intervallo.</div>
+            )}
+            </div>
+          </>
+        )}
+
+        {garaPhaseTab === 'iscritti' && garaData && (
+          <>
+            <div className="tornei-phase-toolbar">
+              <div className="tornei-search">
+                <i className="bi bi-search tornei-search-icon" aria-hidden="true"></i>
+                <input
+                  type="search"
+                  className="tornei-search-input"
+                  placeholder="Cerca atleta o società..."
+                  value={garaSearchQuery}
+                  onChange={(e) => setGaraSearchQuery(e.target.value)}
+                  aria-label="Cerca atleta o società"
+                />
+              </div>
+              <span className="tornei-section-count">
+                {filteredIscritti.length} / {garaData.iscritti.length}
+              </span>
+            </div>
+
+            <div className="tornei-phase-body">
+            {filteredIscritti.length > 0 ? (
+              <div className="table-responsive tornei-table-wrap">
+                <table className="tornei-table">
+                  <thead>
+                    <tr>
+                      <th className="th-rank">#</th>
+                      <th className="th-athlete">Atleta</th>
+                      <th className="th-provincia hide-xs">Società</th>
+                      <th className="th-points text-end">Punti</th>
+                      <th className="th-cat text-center">Stato</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredIscritti.map((iscr) => {
+                      const statusCls = iscr.statusClass.includes('diritto')
+                        ? 'is-diritto'
+                        : iscr.statusClass.includes('no_ammessi')
+                          ? 'is-no-ammesso'
+                          : iscr.statusClass.includes('wd')
+                            ? 'is-wd'
+                            : '';
+                      return (
+                        <tr
+                          key={`${iscr.posizione}-${iscr.nome}`}
+                          className="tornei-table-row"
+                          onClick={() => handleAthleteClick(iscr.atletaId, iscr.nome)}
+                        >
+                          <td className="td-rank">
+                            <span className={`rank-badge rank-badge-${iscr.posizione <= 3 ? iscr.posizione : 'default'}`}>
+                              {iscr.posizione}
+                            </span>
+                          </td>
+                          <td className="td-athlete">
+                            <div className="athlete-row-cell">
+                              <AthleteAvatar
+                                atletaId={iscr.atletaId || undefined}
+                                nome={iscr.nome}
+                                size={28}
+                                className="tornei-avatar"
+                              />
+                              <div className="athlete-name-cell">
+                                <button
+                                  type="button"
+                                  className="athlete-link-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAthleteClick(iscr.atletaId, iscr.nome);
+                                  }}
+                                >
+                                  <MarqueeText text={iscr.nome} className="athlete-link-text" />
+                                  <i className="bi bi-arrow-up-right athlete-link-arrow"></i>
+                                </button>
+                                <div className="athlete-mobile-meta show-xs">{iscr.societa}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="td-provincia hide-xs">
+                            <span className="provincia-text">{iscr.societa}</span>
+                          </td>
+                          <td className="td-points text-end">
+                            <span className="badge-points-official">{iscr.punti || '-'}</span>
+                          </td>
+                          <td className="td-cat text-center">
+                            <span className={`torneo-iscritto-status ${statusCls}`}>
+                              {iscr.statusLabel}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="tornei-empty-box">
+                Nessun iscritto pubblicato al momento per questa gara.
+              </div>
+            )}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // STEP 2 - Gara (scelta della fase)
+  // ---------------------------------------------------------------------------
+  if (selectedTorneo && selectedGara) {
+    const torneoName =
+      torneoDettaglio?.titolo || `${selectedTorneo.luogo} (${selectedTorneo.data})`;
+
+    return shell(
+      <div className="tornei-detail">
+        {renderStepBar('Torna al torneo', 2, backToTorneo)}
+
+        <header className="tornei-detail-head">
+          <div className="tornei-detail-head-main">
+            <span className="tornei-detail-kicker">{torneoName}</span>
+            <h2 className="tornei-detail-title">{garaDisplayTitle}</h2>
+            <p className="tornei-detail-subtitle">
+              {selectedGara.isDoppio ? 'Doppio' : 'Singolo'} • {selectedTorneo.data} •{' '}
+              {selectedTorneo.luogo}
+            </p>
+          </div>
+        </header>
+
+        {loadingGara ? (
+          <div className="tornei-loading-state">
+            <div className="spinner-border text-primary" role="status" style={{ width: '2.2rem', height: '2.2rem' }}>
+              <span className="visually-hidden">Caricamento...</span>
+            </div>
+            <p className="tornei-loading-text">Caricamento dati gara dal portale FITeT...</p>
+          </div>
+        ) : !garaData ? (
+          <div className="tornei-empty-box">
+            <span>Impossibile caricare i dati di questa gara.</span>
+            <button type="button" className="btn-action" onClick={() => handleOpenGara(selectedGara)}>
+              <i className="bi bi-arrow-clockwise" aria-hidden="true"></i>
+              Riprova
+            </button>
+          </div>
+        ) : (
+          <>
+            {garaData.vincitore && (
+              <div className="tornei-winner">
+                <AthleteAvatar
+                  atletaId={garaData.vincitoreId || undefined}
+                  nome={garaData.vincitore}
+                  size={36}
+                  className="tornei-avatar"
+                />
+                <div className="tornei-winner-info">
+                  <span className="tornei-winner-label">1° classificato</span>
+                  <button
+                    type="button"
+                    className="athlete-link-btn"
+                    onClick={() => handleAthleteClick(garaData.vincitoreId, garaData.vincitore!)}
+                  >
+                    <span>{garaData.vincitore}</span>
+                    <i className="bi bi-arrow-up-right athlete-link-arrow"></i>
+                  </button>
+                </div>
+                {garaData.valoreRanking && (
+                  <span className="tornei-winner-points">Ranking {garaData.valoreRanking}</span>
+                )}
+              </div>
+            )}
+
+            <section className="tornei-detail-section">
+              <div className="tornei-section-head">
+                <h3>Scegli la fase</h3>
+                <span className="tornei-section-count">{availablePhases.length}</span>
+              </div>
+
+              {availablePhases.length > 0 ? (
+                <div className="tornei-phase-list">
+                  {availablePhases.map((phase, index) => (
+                    <button
+                      key={phase.key}
+                      type="button"
+                      className="tornei-phase-row"
+                      onClick={() => handleOpenPhase(phase.key)}
+                    >
+                      <span className="tornei-phase-index">{index + 1}</span>
+                      <span className="tornei-phase-info">
+                        <span className="tornei-phase-name">{phase.title}</span>
+                        <span className="tornei-phase-desc">{phase.description}</span>
+                      </span>
+                      <i className="bi bi-chevron-right tornei-phase-chevron" aria-hidden="true"></i>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="tornei-empty-box">
+                  <span>
+                    Nessun tabellone, girone o elenco iscritti disponibile per questa gara. I
+                    risultati potrebbero non essere ancora pubblicati.
+                  </span>
+                </div>
+              )}
+            </section>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // STEP 1 - Torneo (elenco gare)
+  // ---------------------------------------------------------------------------
+  if (selectedTorneo) {
+    const torneoTitle =
+      torneoDettaglio?.titolo || `${selectedTorneo.luogo} (${selectedTorneo.data})`;
+    const torneoSubtitle =
+      torneoDettaglio?.sottotitolo || `${selectedTorneo.data} • ${selectedTorneo.luogo}`;
+
+    return shell(
+      <div className="tornei-detail">
+        {renderStepBar('Torna ai tornei', 1, backToTornei)}
+
+        <header className="tornei-detail-head">
+          <div className="tornei-detail-head-main">
+            <span className="tornei-detail-kicker">Torneo</span>
+            <h2 className="tornei-detail-title">{torneoTitle}</h2>
+            <p className="tornei-detail-subtitle">
+              {torneoSubtitle}
+              {selectedTorneo.regione ? ` • ${selectedTorneo.regione}` : ''}
+            </p>
+          </div>
+          <span
+            className={`tornei-status-text ${selectedTorneo.status === 'disputato' ? 'is-disputato' : 'is-programma'
+              }`}
+          >
+            <i className="tornei-status-dot" aria-hidden="true"></i>
+            {selectedTorneo.status === 'disputato' ? 'Risultati disponibili' : 'In programma'}
+          </span>
+        </header>
+
+        <div className="tornei-doc-links">
+          {torneoDettaglio?.pdfSinteticoUrl && (
+            <a
+              href={torneoDettaglio.pdfSinteticoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="torneo-doc-link"
+            >
+              <i className="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+              <span>PDF sintetico</span>
+            </a>
+          )}
+          {torneoDettaglio?.tabelloniHomeUrl && (
+            <a
+              href={torneoDettaglio.tabelloniHomeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="torneo-doc-link"
+            >
+              <i className="bi bi-diagram-3" aria-hidden="true"></i>
+              <span>Tabelloni ufficiali</span>
+            </a>
+          )}
+          <a
+            href={selectedTorneo.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="torneo-doc-link"
+          >
+            <i className="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+            <span>Pagina FITeT</span>
+          </a>
+        </div>
+
+        <section className="tornei-detail-section">
+          <div className="tornei-section-head">
+            <h3>Gare del torneo</h3>
+            {torneoDettaglio && (
+              <span className="tornei-section-count">{torneoDettaglio.gare.length}</span>
+            )}
+          </div>
+
+          {loadingDettaglio ? (
+            <div className="tornei-inline-loading">
+              <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span>
+              <span>Caricamento gare...</span>
+            </div>
+          ) : dettaglioError ? (
+            <div className="tornei-empty-box">
+              <span>{dettaglioError}</span>
+              <button type="button" className="btn-action" onClick={() => handleSelectTorneo(selectedTorneo)}>
+                <i className="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                Riprova
+              </button>
+            </div>
+          ) : torneoDettaglio && torneoDettaglio.gare.length > 0 ? (
+            <div className="tornei-gare-list">
+              {torneoDettaglio.gare.map((gara, index) => (
+                <button
+                  key={`${gara.garaId}-${gara.mode}-${index}`}
+                  type="button"
+                  className="tornei-gara-row"
+                  onClick={() => handleOpenGara(gara)}
+                >
+                  <span className="tornei-gara-index">{index + 1}</span>
+                  <span className="tornei-gara-info">
+                    <span className="tornei-gara-name">{gara.nome}</span>
+                    <span className="tornei-gara-meta">
+                      {gara.isDoppio ? 'Doppio' : 'Singolo'}
+                      {' • '}
+                      {gara.mode === 'risultati' ? 'Risultati e iscritti' : 'Iscrizioni'}
+                    </span>
+                  </span>
+                  <i className="bi bi-chevron-right tornei-gara-chevron" aria-hidden="true"></i>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="tornei-empty-box">Nessuna gara pubblicata per questo torneo.</div>
+          )}
+        </section>
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // PORTAL - Mappa / Risultati / Programma
+  // ---------------------------------------------------------------------------
+  const portalTabs: Array<{ key: TorneiPortalView; label: string }> = [
+    { key: 'mappa', label: 'Mappa' },
+    { key: 'risultati', label: 'Risultati' },
+    { key: 'programma', label: 'Programma' },
+  ];
+
+  return shell(
+    <>
+      <nav className="tornei-portal-nav" aria-label="Sezioni tornei">
+        {portalTabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            className={`tornei-portal-tab ${portalView === tab.key ? 'is-active' : ''}`}
+            onClick={() => handlePortalViewChange(tab.key)}
+            aria-current={portalView === tab.key ? 'page' : undefined}
+          >
+            <span className="tornei-portal-tab-label">{tab.label}</span>
+            <span className="tornei-portal-tab-count">{portalCounts[tab.key]}</span>
+          </button>
+        ))}
+      </nav>
+
+      <div className="controls tornei-controls">
+        <div className="controls-left tornei">
           <select
             id="tornei-region-select"
             value={comitId}
             onChange={(e) => handleRegionChange(Number(e.target.value))}
+            aria-label="Filtra per regione"
           >
             {REGIONS_COMIT.map((reg) => (
               <option key={reg.id} value={reg.id}>
@@ -559,6 +1508,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
             id="tornei-category-select"
             value={categoryKey}
             onChange={(e) => handleCategoryChange(e.target.value)}
+            aria-label="Filtra per categoria"
           >
             <optgroup label="Panoramica">
               <option value="all">Tutti i Tornei Attivi</option>
@@ -593,573 +1543,26 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
               ))}
             </optgroup>
           </select>
+
+          <input
+            type="search"
+            className="tornei-controls-search"
+            placeholder="Cerca località o data..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Cerca torneo per località o data"
+          />
         </div>
       </div>
 
-      <div className="ranking-tab-container">
-
-        {/* Selected Tournament Interactive Detail View */}
-        {selectedTorneo ? (
-          <div className="ranking-card-block ranking-table-card">
-            <div className="ranking-section-header official-header">
-              <div className="official-title-group">
-                <span className="official-crown">
-                  <i className="bi bi-trophy-fill text-warning"></i>
-                </span>
-                <div>
-                  <div className="official-main-title">
-                    {torneoDettaglio?.titolo || `${selectedTorneo.luogo} (${selectedTorneo.data})`}
-                  </div>
-                  <div className="official-subtitle-text">
-                    {torneoDettaglio?.sottotitolo || `${selectedTorneo.data} • ${selectedTorneo.luogo}`}
-                    {selectedTorneo.regione ? ` • ${selectedTorneo.regione}` : ''}
-                  </div>
-                </div>
-              </div>
-
-              <div className="official-badge-group">
-                <button
-                  type="button"
-                  className="ranking-refresh-btn"
-                  onClick={() => setSelectedTorneo(null)}
-                >
-                  <i className="bi bi-arrow-left me-1"></i>
-                  Torna Indietro
-                </button>
-              </div>
-            </div>
-
-            {/* Document Links & Gare Selector */}
-            <div className="torneo-detail-banner">
-              <div className="torneo-detail-links">
-                {torneoDettaglio?.pdfSinteticoUrl && (
-                  <a
-                    href={torneoDettaglio.pdfSinteticoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="torneo-doc-link"
-                  >
-                    <i className="bi bi-file-earmark-pdf-fill text-danger"></i>
-                  </a>
-                )}
-                {torneoDettaglio?.tabelloniHomeUrl && (
-                  <a
-                    href={torneoDettaglio.tabelloniHomeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="torneo-doc-link"
-                  >
-                    <i className="bi bi-diagram-3-fill text-success"></i>
-                    <span>Tabelloni Ufficiali</span>
-                  </a>
-                )}
-                <a
-                  href={selectedTorneo.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="torneo-doc-link"
-                >
-                  <i className="bi bi-box-arrow-up-right"></i>
-                  <span>Pagina FITeT</span>
-                </a>
-              </div>
-
-              {torneoDettaglio && torneoDettaglio.gare.length > 0 && (
-                <div className="ranking-subchips-list">
-                  {torneoDettaglio.gare.map((g) => (
-                    <button
-                      key={g.garaId}
-                      type="button"
-                      className={`ranking-subchip-btn ${selectedGara?.garaId === g.garaId ? 'is-active' : ''}`}
-                      onClick={() => handleSelectGara(g)}
-                    >
-                      <i className={`bi ${g.isDoppio ? 'bi-people-fill' : 'bi-person-fill'} me-1`}></i>
-                      {g.nome}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Body of the selected Gara */}
-            {loadingDettaglio || loadingGara ? (
-              <div className="ranking-loading-state" style={{ border: 'none', borderRadius: 0 }}>
-                <div className="spinner-border text-primary" role="status" style={{ width: '2.2rem', height: '2.2rem' }}>
-                  <span className="visually-hidden">Caricamento...</span>
-                </div>
-                <p className="ranking-loading-text">Caricamento dati gara dal portale FITeT...</p>
-              </div>
-            ) : garaData ? (
-              <div className="tornei-cards-body">
-                {/* Winner Banner if available */}
-                {garaData.vincitore && (
-                  <div className="torneo-winner-banner" style={{ margin: '0 0 12px' }}>
-                    <div className="athlete-row-cell">
-                      <AthleteAvatar
-                        atletaId={garaData.vincitoreId || undefined}
-                        nome={garaData.vincitore}
-                        size={36}
-                        className="ranking-athlete-avatar"
-                      />
-                      <div>
-                        <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase' }}>
-                          <i className="bi bi-trophy-fill me-1"></i> 1° Classificato • {garaData.titoloGara}
-                        </div>
-                        <button
-                          type="button"
-                          className="athlete-link-btn"
-                          onClick={() => handleAthleteClick(garaData.vincitoreId, garaData.vincitore!)}
-                        >
-                          <span>{garaData.vincitore}</span>
-                          <i className="bi bi-arrow-up-right athlete-link-arrow"></i>
-                        </button>
-                      </div>
-                    </div>
-                    {garaData.valoreRanking && (
-                      <span className="section-badge">Valore Ranking: {garaData.valoreRanking}</span>
-                    )}
-                  </div>
-                )}
-
-                {/* Phase Switcher if mode === 'risultati' */}
-                {garaData.mode === 'risultati' && (garaData.turniTabellone.length > 0 || garaData.gironiRanges.length > 0) && (
-                  <div className="controls" style={{ marginBottom: '12px', borderRadius: '8px' }}>
-                    <div className="controls-left">
-                      <div className="ranking-gender-group">
-                        {garaData.turniTabellone.length > 0 && (
-                          <button
-                            type="button"
-                            className={`ranking-gender-btn ${garaPhaseTab === 'tabellone' ? 'active' : ''}`}
-                            onClick={() => setGaraPhaseTab('tabellone')}
-                          >
-                            <i className="bi bi-diagram-3-fill me-1"></i>
-                            Eliminazione Diretta
-                          </button>
-                        )}
-                        {garaData.gironiRanges.length > 0 && (
-                          <button
-                            type="button"
-                            className={`ranking-gender-btn ${garaPhaseTab === 'gironi' ? 'active' : ''}`}
-                            onClick={() => setGaraPhaseTab('gironi')}
-                          >
-                            <i className="bi bi-grid-3x3-gap-fill me-1"></i>
-                            Gironi di Qualificazione
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="controls-right">
-                      {garaPhaseTab === 'tabellone' && selectedGara && (
-                        <div className="d-flex align-items-center gap-2 flex-wrap">
-                          {/* Bracket Mode Switcher */}
-                          <div className="filter-btn-group">
-                            <button
-                              type="button"
-                              className={`filter-btn ${bracketViewMode === 'bracket' ? 'active' : ''}`}
-                              onClick={() => setBracketViewMode('bracket')}
-                              title="Visualizza Tabellone Grafico ad albero"
-                            >
-                              <i className="bi bi-diagram-3-fill me-1"></i>
-                              Tabellone
-                            </button>
-                            <button
-                              type="button"
-                              className={`filter-btn ${bracketViewMode === 'cards' ? 'active' : ''}`}
-                              onClick={() => setBracketViewMode('cards')}
-                              title="Visualizza Elenco Incontri per turno"
-                            >
-                              <i className="bi bi-list-ul me-1"></i>
-                              Elenco Partite
-                            </button>
-                          </div>
-
-                          {bracketViewMode === 'cards' && garaData.turniTabellone.length > 0 && (
-                            <div className="ranking-subchips-list">
-                              {garaData.turniTabellone.map((t) => {
-                                const isAct =
-                                  garaData.activeTurno?.turno === t.turno &&
-                                  garaData.activeTurno?.tab === t.tab;
-                                return (
-                                  <button
-                                    key={`${t.tab}-${t.turno}`}
-                                    type="button"
-                                    className={`ranking-subchip-btn ${isAct ? 'is-active' : ''}`}
-                                    onClick={() => handleSelectGara(selectedGara, undefined, { tab: t.tab, turno: t.turno })}
-                                  >
-                                    {t.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {garaPhaseTab === 'gironi' && garaData.gironiRanges.length > 0 && selectedGara && (
-                        <div className="ranking-subchips-list">
-                          <span className="subchips-label me-1">Gironi:</span>
-                          {garaData.gironiRanges.map((gr) => {
-                            const isAct =
-                              garaData.activeGironiRange?.cod1 === gr.cod1 &&
-                              garaData.activeGironiRange?.cod2 === gr.cod2;
-                            return (
-                              <button
-                                key={`${gr.cod1}-${gr.cod2}`}
-                                type="button"
-                                className={`ranking-subchip-btn ${isAct ? 'is-active' : ''}`}
-                                onClick={() => handleSelectGara(selectedGara, { cod1: gr.cod1, cod2: gr.cod2 })}
-                              >
-                                {gr.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* 1. TABELLONE ELIMINAZIONE DIRETTA */}
-                {garaData.mode === 'risultati' && garaPhaseTab === 'tabellone' && (
-                  <div>
-                    {bracketViewMode === 'bracket' ? (
-                      bracketLoading ? (
-                        <div className="bracket-loading-box">
-                          <div
-                            className="spinner-border text-primary"
-                            role="status"
-                            style={{ width: '2.5rem', height: '2.5rem' }}
-                          >
-                            <span className="visually-hidden">Caricamento tabellone completo...</span>
-                          </div>
-                          <p className="mt-3 mb-1 fw-bold fs-6">Generazione del tabellone completo in corso...</p>
-                          <small className="text-muted">
-                            Scaricamento di tutte le partite dei turni ({garaData.turniTabellone.map((t) => t.label).join(' • ')})
-                          </small>
-                        </div>
-                      ) : (
-                        <TorneoBracket
-                          rounds={currentFullBracketRounds}
-                          competitionName={
-                            garaData.titoloGara || selectedGara?.nome || 'Tabellone Eliminazione Diretta'
-                          }
-                          onOpenAtletaModal={handleAthleteClick}
-                        />
-                      )
-                    ) : garaData.partiteTabellone.length > 0 ? (
-                      <div className="match-cards-grid">
-                        {garaData.partiteTabellone.map((m, idx) => (
-                          <div key={idx} className="match-card">
-                            <div className="torneo-card-top">
-                              <span className="giornata-badge-pill">
-                                {garaData.activeTurno?.label || 'Tabellone'}
-                              </span>
-                              {m.sets.length > 0 && (
-                                <div className="torneo-match-sets">
-                                  {m.sets.map((s, si) => (
-                                    <span key={si} className="torneo-set-chip">
-                                      {s.p1}-{s.p2}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            <div className={`torneo-match-row ${m.vincitore === 1 ? 'is-winner' : ''}`}>
-                              <div className="athlete-name-cell">
-                                <button
-                                  type="button"
-                                  className="athlete-link-btn"
-                                  onClick={() => handleAthleteClick(m.atleta1Id, m.atleta1)}
-                                >
-                                  <span>{m.atleta1 || 'Bye / —'}</span>
-                                </button>
-                                {m.societa1 && <span className="athlete-mobile-meta">{m.societa1}</span>}
-                              </div>
-                              <span className="badge-points-official">{m.set1}</span>
-                            </div>
-
-                            <div className={`torneo-match-row ${m.vincitore === 2 ? 'is-winner' : ''}`}>
-                              <div className="athlete-name-cell">
-                                <button
-                                  type="button"
-                                  className="athlete-link-btn"
-                                  onClick={() => handleAthleteClick(m.atleta2Id, m.atleta2)}
-                                >
-                                  <span>{m.atleta2 || 'Bye / —'}</span>
-                                </button>
-                                {m.societa2 && <span className="athlete-mobile-meta">{m.societa2}</span>}
-                              </div>
-                              <span className="badge-points-official">{m.set2}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="ranking-no-results-box">
-                        Nessun incontro registrato per questo turno. Seleziona un altro turno o consulta i Gironi di Qualificazione.
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* 2. GIRONI DI QUALIFICAZIONE */}
-                {garaData.mode === 'risultati' && garaPhaseTab === 'gironi' && (
-                  <div className="tornei-sections-stack">
-                    {garaData.gironi.length > 0 ? (
-                      garaData.gironi.map((gir) => (
-                        <div key={gir.numero} className="giornata-section" style={{ marginBottom: '16px' }}>
-                          <div className="giornata-header-banner" style={{ marginBottom: '10px', background: 'var(--bg-th)' }}>
-                            <div className="giornata-title-group">
-                              <span className="giornata-badge-pill">Girone {gir.numero}</span>
-                              <span className="giornata-phase-text">Classifica e Incontri</span>
-                            </div>
-                            <span className="giornata-meta-count">{gir.partite.length} incontri</span>
-                          </div>
-
-                          {gir.classifica.length > 0 && (
-                            <div className="table-responsive" style={{ marginBottom: '12px' }}>
-                              <table className="ranking-table">
-                                <thead>
-                                  <tr>
-                                    <th className="th-rank">#</th>
-                                    <th className="th-athlete">Atleta</th>
-                                    <th className="th-provincia hide-xs">Società</th>
-                                    <th className="text-center">Pt</th>
-                                    <th className="text-center">V-P</th>
-                                    <th className="text-center">Set</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {gir.classifica.map((row) => (
-                                    <tr
-                                      key={row.nome}
-                                      className="ranking-row"
-                                      onClick={() => handleAthleteClick(row.atletaId, row.nome)}
-                                    >
-                                      <td className="td-rank">
-                                        <span className={`rank-badge rank-badge-${row.posizione <= 2 ? row.posizione : 'default'}`}>
-                                          {row.posizione}
-                                        </span>
-                                      </td>
-                                      <td className="td-athlete">
-                                        <div className="athlete-row-cell">
-                                          <AthleteAvatar
-                                            atletaId={row.atletaId || undefined}
-                                            nome={row.nome}
-                                            size={26}
-                                            className="ranking-athlete-avatar"
-                                          />
-                                          <div className="athlete-name-cell">
-                                            <span className="athlete-link-btn">{row.nome}</span>
-                                            <span className="athlete-mobile-meta show-xs">{row.societa}</span>
-                                          </div>
-                                        </div>
-                                      </td>
-                                      <td className="hide-xs">
-                                        <span className="provincia-text">{row.societa}</span>
-                                      </td>
-                                      <td className="text-center">
-                                        <span className="badge-points-official">{row.punti}</span>
-                                      </td>
-                                      <td className="text-center">
-                                        <span className="settore-badge">{row.vinte}-{row.perse}</span>
-                                      </td>
-                                      <td className="text-center">
-                                        <span className="date-text">{row.setVinti}-{row.setPersi}</span>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-
-                          <div className="match-cards-grid">
-                            {gir.partite.map((m, mi) => (
-                              <div key={mi} className="match-card">
-                                {m.sets.length > 0 && (
-                                  <div className="torneo-card-top">
-                                    <span className="athlete-mobile-meta">Incontro #{mi + 1}</span>
-                                    <div className="torneo-match-sets">
-                                      {m.sets.map((s, si) => (
-                                        <span key={si} className="torneo-set-chip">
-                                          {s.p1}-{s.p2}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                                <div className={`torneo-match-row ${m.vincitore === 1 ? 'is-winner' : ''}`}>
-                                  <button
-                                    type="button"
-                                    className="athlete-link-btn"
-                                    onClick={() => handleAthleteClick(m.atleta1Id, m.atleta1)}
-                                  >
-                                    <span>{m.atleta1}</span>
-                                  </button>
-                                  <strong>{m.set1}</strong>
-                                </div>
-                                <div className={`torneo-match-row ${m.vincitore === 2 ? 'is-winner' : ''}`}>
-                                  <button
-                                    type="button"
-                                    className="athlete-link-btn"
-                                    onClick={() => handleAthleteClick(m.atleta2Id, m.atleta2)}
-                                  >
-                                    <span>{m.atleta2}</span>
-                                  </button>
-                                  <strong>{m.set2}</strong>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="ranking-no-results-box">
-                        Nessun girone trovato per questo intervallo.
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* 3. ELENCO ISCRITTI GARA */}
-                {garaData.mode === 'iscrizioni' && (
-                  <div>
-                    <div className="controls" style={{ marginBottom: '10px', borderRadius: '8px' }}>
-                      <div className="controls-left">
-                        <strong>{garaData.titoloGara}</strong>
-                        <span className="giornata-meta-count">
-                          {garaData.iscritti.length} iscritti
-                          {garaData.maxIscritti ? ` (max ${garaData.maxIscritti})` : ''}
-                        </span>
-                      </div>
-                      <div className="controls-right">
-                        <div className="ranking-search-inner">
-                          <i className="bi bi-search ranking-search-icon"></i>
-                          <input
-                            type="text"
-                            className="ranking-search-input"
-                            placeholder="Cerca atleta o società..."
-                            value={garaSearchQuery}
-                            onChange={(e) => setGaraSearchQuery(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {filteredIscritti.length > 0 ? (
-                      <div className="table-responsive">
-                        <table className="ranking-table">
-                          <thead>
-                            <tr>
-                              <th className="th-rank">#</th>
-                              <th className="th-athlete">Atleta</th>
-                              <th className="th-provincia hide-xs">Società</th>
-                              <th className="th-points text-end">Punti</th>
-                              <th className="th-cat text-center">Stato</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {filteredIscritti.map((iscr) => {
-                              const statusCls = iscr.statusClass.includes('diritto')
-                                ? 'is-diritto'
-                                : iscr.statusClass.includes('no_ammessi')
-                                  ? 'is-no-ammesso'
-                                  : iscr.statusClass.includes('wd')
-                                    ? 'is-wd'
-                                    : '';
-                              return (
-                                <tr
-                                  key={`${iscr.posizione}-${iscr.nome}`}
-                                  className="ranking-row"
-                                  onClick={() => handleAthleteClick(iscr.atletaId, iscr.nome)}
-                                >
-                                  <td className="td-rank">
-                                    <span className={`rank-badge rank-badge-${iscr.posizione <= 3 ? iscr.posizione : 'default'}`}>
-                                      {iscr.posizione}
-                                    </span>
-                                  </td>
-                                  <td className="td-athlete">
-                                    <div className="athlete-row-cell">
-                                      <AthleteAvatar
-                                        atletaId={iscr.atletaId || undefined}
-                                        nome={iscr.nome}
-                                        size={28}
-                                        className="ranking-athlete-avatar"
-                                      />
-                                      <div className="athlete-name-cell">
-                                        <button
-                                          type="button"
-                                          className="athlete-link-btn"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleAthleteClick(iscr.atletaId, iscr.nome);
-                                          }}
-                                        >
-                                          <MarqueeText text={iscr.nome} className="athlete-link-text" />
-                                          <i className="bi bi-arrow-up-right athlete-link-arrow"></i>
-                                        </button>
-                                        <div className="athlete-mobile-meta show-xs">{iscr.societa}</div>
-                                      </div>
-                                    </div>
-                                  </td>
-                                  <td className="td-provincia hide-xs">
-                                    <span className="provincia-text">{iscr.societa}</span>
-                                  </td>
-                                  <td className="td-points text-end">
-                                    <span className="badge-points-official">{iscr.punti || '-'}</span>
-                                  </td>
-                                  <td className="td-cat text-center">
-                                    <span className={`torneo-iscritto-status ${statusCls}`}>
-                                      {iscr.statusLabel}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="ranking-no-results-box">
-                        Nessun iscritto pubblicato al momento per questa gara.
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="ranking-no-results-box">
-                Seleziona una gara sopra oppure apri il documento PDF dei dati sintetici.
-              </div>
-            )}
-          </div>
-        ) : loading && !refreshing ? (
-          <div className="ranking-loading-state">
-            <div className="spinner-border text-primary" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
-              <span className="visually-hidden">Caricamento...</span>
-            </div>
-            <p className="ranking-loading-text">Caricamento calendario e risultati tornei FITeT...</p>
-          </div>
-        ) : error ? (
-          <div className="ranking-error-card">
-            <div className="ranking-error-icon">
-              <i className="bi bi-exclamation-triangle-fill"></i>
-            </div>
-            <h3>Impossibile caricare i tornei</h3>
-            <p>{error}</p>
-            <button
-              type="button"
-              className="btn-action"
-              onClick={() => loadTornei(categoryKey, comitId, regFilterId, true)}
-            >
-              <i className="bi bi-arrow-clockwise me-1"></i>
-              Riprova
-            </button>
-          </div>
-        ) : torneiByRegion.length > 0 ? (
+      {loading && !refreshing ? (
+        loadingState
+      ) : error ? (
+        errorState
+      ) : portalView === 'mappa' ? (
+        torneiByRegion.length === 0 ? (
+          emptyAll
+        ) : (
           <div className="tornei-explorer">
             <aside className="tornei-map-column">
               <TorneiItalyMap
@@ -1170,118 +1573,16 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
               />
             </aside>
 
-            <section className="tornei-list-column" ref={torneiListRef}>
-              {mapSelection.region && (
-                <div className="tornei-map-filter-banner">
-                  <div className="tornei-map-filter-text">
-                    <i className="bi bi-funnel-fill"></i>
-                    <span>
-                      Filtro mappa: <strong>{mapSelection.label || mapSelection.region}</strong>
-                      <span className="tornei-map-filter-count">
-                        {visibleTorneiCount}{' '}
-                        {visibleTorneiCount === 1 ? 'torneo' : 'tornei'}
-                      </span>
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    className="tornei-map-filter-clear"
-                    onClick={() => setMapSelection(EMPTY_MAP_SELECTION)}
-                  >
-                    <i className="bi bi-x-lg"></i>
-                    <span>Mostra tutti</span>
-                  </button>
-                </div>
-              )}
-
-              <div className="tornei-list-heading">
-                <div>
-                  <h3>{headerTitle}</h3>
-                  <p>{headerSubtitle}</p>
-                </div>
-                <span className="tornei-list-count">
-                  {visibleTorneiCount}{' '}
-                  {visibleTorneiCount === 1 ? 'torneo' : 'tornei'}
-                </span>
-              </div>
-
-              {visibleTorneiByRegion.length > 0 ? (
-                <div className="torneo-regions-list">
-                  {visibleTorneiByRegion.map((group) => (
-                    <div key={group.region} className="torneo-region-card">
-                      <div className="torneo-region-header">
-                        <div className="d-flex align-items-center gap-2">
-                          <i
-                            className={`bi ${group.region === 'Nazionale'
-                                ? 'bi-trophy-fill text-warning'
-                                : 'bi-geo-alt-fill text-primary'
-                              }`}
-                          ></i>
-                          <span>{group.region}</span>
-                        </div>
-                        <span className="torneo-region-badge">
-                          {group.items.length} {group.items.length === 1 ? 'torneo' : 'tornei'}
-                        </span>
-                      </div>
-
-                      <div className="torneo-rows-container">
-                        {group.items.map(({ torneo, sectionTitle }) => (
-                          <div
-                            key={`${torneo.com}-${torneo.idt}-${torneo.tipo}`}
-                            className="torneo-row"
-                            onClick={() => handleSelectTorneo(torneo)}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                handleSelectTorneo(torneo);
-                              }
-                            }}
-                          >
-                            <div className="torneo-row-date">
-                              <i className="bi bi-calendar3 me-1 text-muted"></i>
-                              <span>{torneo.data}</span>
-                            </div>
-
-                            <div className="torneo-row-info">
-                              <div className="torneo-row-title">{torneo.luogo}</div>
-                              {sectionTitle && (
-                                <div className="torneo-row-meta">{sectionTitle}</div>
-                              )}
-                            </div>
-
-                            <div className="torneo-row-badge-wrap">
-                              <span
-                                className={`torneo-status-pill ${torneo.status === 'disputato'
-                                    ? 'status-disputato'
-                                    : 'status-programma'
-                                  }`}
-                              >
-                                <i
-                                  className={`bi ${torneo.status === 'disputato'
-                                      ? 'bi-check2'
-                                      : 'bi-clock'
-                                    } me-1`}
-                                ></i>
-                                {torneo.status === 'disputato'
-                                  ? 'Risultati'
-                                  : 'In Programma'}
-                              </span>
-                            </div>
-
-                            <div className="torneo-row-chevron">
-                              <i className="bi bi-chevron-right"></i>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="ranking-empty-card tornei-map-empty-list">
-                  <i className="bi bi-geo-alt ranking-empty-icon"></i>
+            {visibleTorneiByRegion.length > 0 ? (
+              renderTorneiList(visibleTorneiByRegion, {
+                withMapBanner: true,
+                title: listTitle,
+                subtitle: listSubtitle,
+              })
+            ) : (
+              <section className="tornei-list-column" ref={torneiListRef}>
+                <div className="tornei-empty-card tornei-map-empty-list">
+                  <i className="bi bi-geo-alt tornei-empty-icon"></i>
                   <h3>Nessun torneo per questo filtro</h3>
                   <p>
                     La mappa non ha tornei corrispondenti a{' '}
@@ -1291,39 +1592,25 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
                   <button
                     type="button"
                     className="btn-action"
-                    onClick={() => setMapSelection(EMPTY_MAP_SELECTION)}
+                    onClick={() => handleMapSelectionChange(EMPTY_MAP_SELECTION)}
                   >
-                    <i className="bi bi-arrow-left me-1"></i>
+                    <i className="bi bi-arrow-left" aria-hidden="true"></i>
                     Mostra tutti i tornei
                   </button>
                 </div>
-              )}
-            </section>
+              </section>
+            )}
           </div>
-        ) : (
-          <div className="ranking-empty-card">
-            <i className="bi bi-trophy ranking-empty-icon"></i>
-            <h3>Nessun torneo trovato</h3>
-            <p>
-              Non ci sono tornei pubblicati per i filtri selezionati ({headerTitle} • {selectedRegionName}).
-            </p>
-            <button
-              type="button"
-              className="btn-action"
-              onClick={() => {
-                setCategoryKey('all');
-                setComitId(0);
-                setRegFilterId(0);
-                setStatusFilter('all');
-                setSearchQuery('');
-              }}
-            >
-              <i className="bi bi-arrow-left me-1"></i>
-              Mostra Tutti i Tornei Attivi
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+        )
+      ) : torneiByRegion.length === 0 ? (
+        emptyStatus
+      ) : (
+        renderTorneiList(torneiByRegion, {
+          withMapBanner: false,
+          title: listTitle,
+          subtitle: listSubtitle,
+        })
+      )}
+    </>
   );
 };

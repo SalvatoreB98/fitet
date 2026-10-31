@@ -140,10 +140,12 @@ export const TorneiItalyMap: React.FC<TorneiItalyMapProps> = ({
     if (!svg || !matrix) return;
 
     const target = event.target as Element | null;
-    const isMarkerClick = Boolean(target?.closest?.('.tornei-map-marker'));
     const isRegionClick = Boolean(target?.closest?.('.tornei-map-region'));
 
-    if (isMarkerClick || isRegionClick) {
+    // Le regioni gestiscono il click sul proprio path; per i marker usiamo
+    // il rilevamento del punto più vicino, così anche i pallini piccoli
+    // restano facili da toccare su mobile.
+    if (isRegionClick) {
       return;
     }
 
