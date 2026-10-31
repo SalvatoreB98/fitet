@@ -17,6 +17,7 @@ import {
     pushService,
     notifyRankingChangeIfNeeded,
 } from './services/pushService';
+import { checkNewTorneiAndNotify } from './services/torneiNotificationService';
 import type { PushSubscriptionPayload } from './services/pushService';
 import { parseDettaglioSquadra } from './parsers/squadraParser';
 import { parseRefertoIncontro, parseDettaglioPartita } from './parsers/refertoParser';
@@ -1694,6 +1695,29 @@ app.get('/api/push/check-ranking', async (req, res) => {
         console.error('[PushService] Errore controllo cambio ranking:', error);
         return res.status(500).json({
             error: 'Errore durante il controllo del cambio classifica.',
+            details: error.message,
+        });
+    }
+});
+
+// Endpoint per cron esterno / Vercel Cron: controlla se sono stati pubblicati nuovi tornei
+// nazionali o regionali e invia la notifica push a tutti i dispositivi registrati.
+app.get('/api/push/check-tornei', async (req, res) => {
+    if (!isPushCronAuthorized(req)) {
+        return res.status(401).json({ error: 'Non autorizzato.' });
+    }
+
+    const dryRun = req.query.dryRun === 'true';
+    const init = req.query.init === 'true';
+    const concurrency = req.query.concurrency ? parseInt(req.query.concurrency as string, 10) : undefined;
+
+    try {
+        const result = await checkNewTorneiAndNotify({ dryRun, init, concurrency });
+        return res.json({ success: true, ...result });
+    } catch (error: any) {
+        console.error('[PushService] Errore controllo nuovi tornei:', error);
+        return res.status(500).json({
+            error: 'Errore durante il controllo dei nuovi tornei.',
             details: error.message,
         });
     }

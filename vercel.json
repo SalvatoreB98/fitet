@@ -41,6 +41,10 @@
     {
       "path": "/api/push/check-ranking",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/push/check-tornei",
+      "schedule": "0 8,14,20 * * *"
     }
   ],
   "rewrites": [
