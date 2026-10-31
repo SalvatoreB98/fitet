@@ -120,7 +120,7 @@ export const App: React.FC = () => {
       }
       const tabParam = urlParams.get('tab');
       if (tabParam === 'classifiche') return 'classifiche';
-      if (tabParam === 'tornei') return 'tornei';
+      if (tabParam === 'tornei' || ['miei', 'mappa', 'risultati', 'programma'].includes(tabParam || '')) return 'tornei';
       const camParam = urlParams.get('cam');
       if (camParam && ['classifica', 'calendario', 'statistiche'].includes(tabParam || '')) {
         return 'campionato';
@@ -570,9 +570,15 @@ export const App: React.FC = () => {
       if (view === 'home') {
         url.searchParams.delete('view');
         url.searchParams.delete('tab');
-      } else if (view === 'classifiche' || view === 'tornei') {
+      } else if (view === 'classifiche') {
         url.searchParams.set('view', view);
         url.searchParams.delete('tab');
+      } else if (view === 'tornei') {
+        url.searchParams.set('view', 'tornei');
+        const currentTab = url.searchParams.get('tab');
+        if (!currentTab || !['miei', 'mappa', 'risultati', 'programma'].includes(currentTab)) {
+          url.searchParams.set('tab', 'miei');
+        }
       } else if (view === 'campionato') {
         url.searchParams.set('view', 'campionato');
         url.searchParams.set('tab', championshipTab);
@@ -603,7 +609,7 @@ export const App: React.FC = () => {
 
       if (viewParam === 'classifiche') {
         setMainView('classifiche');
-      } else if (viewParam === 'tornei') {
+      } else if (viewParam === 'tornei' || ['miei', 'mappa', 'risultati', 'programma'].includes(tabParam || '')) {
         setMainView('tornei');
       } else if (viewParam === 'campionato' || (urlParams.get('cam') && tabParam && ['classifica', 'calendario', 'statistiche'].includes(tabParam))) {
         setMainView('campionato');
@@ -731,7 +737,7 @@ export const App: React.FC = () => {
       )}
 
       {/* Main Content Area: Retains mounted tab panels to eliminate CLS */}
-      <main className={`portal-main ${mainView !== 'campionato' ? 'without-portal-nav' : ''}`}>
+      <main className={`portal-main ${mainView !== 'campionato' && mainView !== 'tornei' ? 'without-portal-nav' : ''}`}>
         {/* VIEW 1: Home Dashboard */}
         <div
           className="tab-panel"

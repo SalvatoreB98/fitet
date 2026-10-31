@@ -98,11 +98,21 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   });
 
   const [regFilterId, setRegFilterId] = useState<number>(0);
-  const [portalView, setPortalView] = useState<TorneiPortalView>('mappa');
+  const [portalView, setPortalView] = useState<TorneiPortalView>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      const tab = p.get('tab') || p.get('ttab');
+      if (tab === 'miei' || tab === 'mappa' || tab === 'risultati' || tab === 'programma') {
+        return tab;
+      }
+    }
+    return 'miei';
+  });
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [mapSelection, setMapSelection] = useState<TorneiMapSelection>(EMPTY_MAP_SELECTION);
   const torneiListRef = useRef<HTMLDivElement | null>(null);
   const torneiRootRef = useRef<HTMLDivElement | null>(null);
+  const navRef = useRef<HTMLDivElement | null>(null);
 
   const [data, setData] = useState<TorneiResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -311,11 +321,74 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
     }
   };
 
-  const handlePortalViewChange = (view: TorneiPortalView) => {
+  const centerTab = (tab: TorneiPortalView, targetBtn?: HTMLElement | null) => {
+    const nav = navRef.current;
+    if (!nav) return;
+
+    const btn = targetBtn || nav.querySelector<HTMLButtonElement>(`.tornei-portal-tab[data-tab="${tab}"]`);
+    if (!btn) return;
+
+    const targetLeft = btn.offsetLeft + (btn.offsetWidth / 2) - (nav.clientWidth / 2);
+    nav.scrollTo({
+      left: Math.max(0, targetLeft),
+      behavior: 'smooth',
+    });
+  };
+
+  const handlePortalViewChange = (view: TorneiPortalView, e?: React.MouseEvent<HTMLButtonElement>) => {
     if (view === portalView) return;
     setPortalView(view);
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', 'tornei');
+      url.searchParams.set('tab', view);
+      window.history.pushState({ ...(window.history.state || {}), view: 'tornei', tab: view }, '', url.toString());
+    }
+
+    centerTab(view, e?.currentTarget);
     scrollToRoot();
   };
+
+  useEffect(() => {
+    centerTab(portalView);
+  }, [portalView]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window === 'undefined') return;
+      const p = new URLSearchParams(window.location.search);
+      const v = p.get('view');
+      if (v === 'tornei' || !v) {
+        const tab = p.get('tab') || p.get('ttab');
+        if (tab === 'miei' || tab === 'mappa' || tab === 'risultati' || tab === 'programma') {
+          setPortalView(tab);
+          centerTab(tab);
+        }
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('view') === 'tornei') {
+        if (categoryKey && categoryKey !== 'all') {
+          url.searchParams.set('tcat', categoryKey);
+        } else {
+          url.searchParams.delete('tcat');
+        }
+        if (comitId > 0) {
+          url.searchParams.set('tcomit', String(comitId));
+        } else {
+          url.searchParams.delete('tcomit');
+        }
+        window.history.replaceState({ ...(window.history.state || {}) }, '', url.toString());
+      }
+    }
+  }, [categoryKey, comitId]);
 
   const handleShowList = () => {
     torneiListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2154,26 +2227,28 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
     );
   };
 
-  const portalTabs: Array<{ key: TorneiPortalView; label: string }> = [
-    { key: 'mappa', label: 'Mappa' },
-    { key: 'risultati', label: 'Risultati' },
-    { key: 'programma', label: 'In Programma' },
-    { key: 'miei', label: 'I Miei Tornei' },
+  const portalTabs: Array<{ key: TorneiPortalView; label: string; icon: string }> = [
+    { key: 'miei', label: 'I Miei Tornei', icon: 'bi bi-person-fill' },
+    { key: 'mappa', label: 'Mappa', icon: 'bi bi-map-fill' },
+    { key: 'risultati', label: 'Risultati', icon: 'bi bi-trophy-fill' },
+    { key: 'programma', label: 'In Programma', icon: 'bi bi-calendar3' },
   ];
 
   return shell(
     <>
-      <nav className="tornei-portal-nav" aria-label="Sezioni tornei">
+      <nav className="portal-nav tornei-portal-nav" ref={navRef} aria-label="Sezioni tornei">
         {portalTabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
-            className={`tornei-portal-tab ${portalView === tab.key ? 'is-active' : ''}`}
-            onClick={() => handlePortalViewChange(tab.key)}
+            data-tab={tab.key}
+            className={`portal-nav-tab tornei-portal-tab ${portalView === tab.key ? 'active is-active' : ''}`}
+            onClick={(e) => handlePortalViewChange(tab.key, e)}
             aria-current={portalView === tab.key ? 'page' : undefined}
           >
-            <span className="tornei-portal-tab-label">{tab.label}</span>
-            <span className="tornei-portal-tab-count">{portalCounts[tab.key]}</span>
+            <i className={tab.icon}></i>
+            <span>{tab.label}</span>
+            <span className="tab-badge">{portalCounts[tab.key]}</span>
           </button>
         ))}
       </nav>

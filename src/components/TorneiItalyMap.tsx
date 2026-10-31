@@ -140,6 +140,7 @@ export const TorneiItalyMap: React.FC<TorneiItalyMapProps> = ({
       placeKey: place.key,
       label: place.label,
     });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   /**

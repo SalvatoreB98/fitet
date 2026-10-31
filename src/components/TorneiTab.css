@@ -3,85 +3,120 @@
    ========================================================================== */
 
 .tornei-tab-container {
-  scroll-margin-top: 96px;
+  scroll-margin-top: 122px;
 }
 
-/* ==========================================================================
-   Portal navigation: Mappa / Risultati / Programma
-   ========================================================================== */
-
-.tornei-portal-nav {
-  position: static;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px;
-  padding: 4px;
-  margin-bottom: 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  background: var(--bg-controls);
-}
-
-@media screen and (max-width: 580px) {
-  .tornei-portal-nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 4px;
+@media screen and (max-width: 768px) {
+  .tornei-tab-container {
+    scroll-margin-top: 110px;
   }
 }
 
+/* ==========================================================================
+   Portal navigation: Sub-nav bar matching portal-nav exactly
+   ========================================================================== */
+
+.tornei-portal-nav {
+  position: fixed;
+  top: 75px;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--color-primary-800, #0e3e65);
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.tornei-portal-nav::-webkit-scrollbar {
+  display: none;
+}
+
+@media screen and (max-width: 768px) {
+  .tornei-portal-nav {
+    top: 57px;
+  }
+}
+
+[data-theme="dark"] .tornei-portal-nav {
+  background: #060c18;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 .tornei-portal-tab {
-  white-space: nowrap;
-  appearance: none;
-  border: none;
   background: transparent;
-  min-height: 46px;
-  padding: 8px 10px;
-  border-radius: 7px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  color: #94a3b8;
+  border: none;
+  border-bottom: 3px solid transparent;
   font-family: var(--font-sans);
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 12px 18px;
   cursor: pointer;
-  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media screen and (max-width: 500px) {
+  .tornei-portal-tab {
+    min-width: 55vw;
+    justify-content: center;
+  }
 }
 
 .tornei-portal-tab:hover {
-  background: var(--bg-hover);
-  color: var(--text-main);
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.04);
 }
 
-.tornei-portal-tab.is-active {
-  background: var(--bg-card);
-  color: var(--text-dark);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+.tornei-portal-tab.is-active,
+.tornei-portal-tab.active {
+  color: #ffffff;
+  border-bottom-color: var(--color-accent-amber);
+  background: rgba(255, 255, 255, 0.07);
 }
 
-.tornei-portal-tab:focus-visible {
-  outline: 2px solid var(--color-primary-600);
-  outline-offset: -2px;
+[data-theme="dark"] .tornei-portal-tab {
+  color: #8899b5;
 }
 
+[data-theme="dark"] .tornei-portal-tab:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .tornei-portal-tab.is-active,
+[data-theme="dark"] .tornei-portal-tab.active {
+  color: #ffffff;
+  border-bottom-color: #f59e0b;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.tornei-portal-tab .tab-badge,
 .tornei-portal-tab-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--bg-th, #f1f5f9);
-  color: var(--text-muted);
-  font-size: 0.68rem;
+  background: rgba(255, 255, 255, 0.14);
+  color: #cbd5e1;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 9999px;
   font-weight: 700;
+  transition: all 0.2s ease;
 }
 
-.tornei-portal-tab.is-active .tornei-portal-tab-count {
-  background: var(--color-info-bg);
-  color: var(--color-info-text);
+.tornei-portal-tab.is-active .tab-badge,
+.tornei-portal-tab.active .tab-badge,
+.tornei-portal-tab.is-active .tornei-portal-tab-count,
+.tornei-portal-tab.active .tornei-portal-tab-count {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fef08a;
 }
 
 /* Filter bar */
