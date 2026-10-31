@@ -31,6 +31,11 @@
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
 }
 
 .tornei-portal-nav::-webkit-scrollbar {
@@ -488,6 +493,14 @@
   gap: 14px;
   padding: 16px 18px 14px;
   border-bottom: 1px solid var(--border-color);
+}
+
+.modal-torneo-detail-card.is-fullscreen .tornei-detail-head {
+  display: none;
+}
+
+.modal-torneo-detail-card.is-fullscreen .tornei-phase-toolbar {
+  display: none;
 }
 
 .tornei-detail-head-main {
@@ -1259,6 +1272,9 @@
   }
 
   .tornei-stepbar {
+    position: fixed;
+    left: 0;
+    right: 0;
     padding: 9px 14px;
   }
 
@@ -1266,6 +1282,7 @@
     flex-direction: column;
     gap: 6px;
     padding: 14px 14px 12px;
+    margin-top: 37px;
   }
 
   .tornei-detail-title {

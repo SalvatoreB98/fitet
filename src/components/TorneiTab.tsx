@@ -1873,7 +1873,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
                 rel="noopener noreferrer"
                 className="torneo-doc-link"
               >
-                <i className="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+                <i className="bi bi-file-earmark-pdf" aria-hidden="true" style={{ color: 'red' }}></i>
                 <span>PDF sintetico</span>
               </a>
             )}
