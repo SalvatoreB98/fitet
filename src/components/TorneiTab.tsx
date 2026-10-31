@@ -99,14 +99,16 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
 
   const [regFilterId, setRegFilterId] = useState<number>(0);
   const [portalView, setPortalView] = useState<TorneiPortalView>(() => {
+    const hasPlayer = Boolean(getMyPlayerId());
     if (typeof window !== 'undefined') {
       const p = new URLSearchParams(window.location.search);
       const tab = p.get('tab') || p.get('ttab');
-      if (tab === 'miei' || tab === 'mappa' || tab === 'risultati' || tab === 'programma') {
+      if (tab === 'miei' && hasPlayer) return 'miei';
+      if (tab === 'mappa' || tab === 'risultati' || tab === 'programma') {
         return tab;
       }
     }
-    return 'miei';
+    return hasPlayer ? 'miei' : 'mappa';
   });
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [mapSelection, setMapSelection] = useState<TorneiMapSelection>(EMPTY_MAP_SELECTION);
@@ -150,8 +152,12 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
 
   useEffect(() => {
     const unsub = subscribeToMyProfile(() => {
-      setMyPlayerId(getMyPlayerId());
+      const pid = getMyPlayerId();
+      setMyPlayerId(pid);
       setMyPlayerName(getMyPlayerName() || '');
+      if (!pid) {
+        setPortalView((prev) => (prev === 'miei' ? 'mappa' : prev));
+      }
     });
     return unsub;
   }, []);
@@ -361,9 +367,15 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
       const v = p.get('view');
       if (v === 'tornei' || !v) {
         const tab = p.get('tab') || p.get('ttab');
-        if (tab === 'miei' || tab === 'mappa' || tab === 'risultati' || tab === 'programma') {
+        if (tab === 'miei' && getMyPlayerId()) {
+          setPortalView('miei');
+          centerTab('miei');
+        } else if (tab === 'mappa' || tab === 'risultati' || tab === 'programma') {
           setPortalView(tab);
           centerTab(tab);
+        } else if (tab === 'miei' && !getMyPlayerId()) {
+          setPortalView('mappa');
+          centerTab('mappa');
         }
       }
     };
@@ -2228,7 +2240,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
   };
 
   const portalTabs: Array<{ key: TorneiPortalView; label: string; icon: string }> = [
-    { key: 'miei', label: 'I Miei Tornei', icon: 'bi bi-person-fill' },
+    ...(myPlayerId ? [{ key: 'miei' as const, label: 'I Miei Tornei', icon: 'bi bi-person-fill' }] : []),
     { key: 'mappa', label: 'Mappa', icon: 'bi bi-map-fill' },
     { key: 'risultati', label: 'Risultati', icon: 'bi bi-trophy-fill' },
     { key: 'programma', label: 'In Programma', icon: 'bi bi-calendar3' },
@@ -2325,7 +2337,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
         loadingState
       ) : error ? (
         errorState
-      ) : portalView === 'miei' ? (
+      ) : portalView === 'miei' && myPlayerId ? (
         renderMyTorneiView()
       ) : portalView === 'mappa' ? (
         torneiByRegion.length === 0 ? (
