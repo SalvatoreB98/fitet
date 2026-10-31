@@ -25,7 +25,8 @@
 .ranking-refresh-btn {
   all: unset;
   position: fixed;
-  bottom: 80px;
+  top: 1em;
+  left: 1em;
   background: var(--color-primary-700);
   border-radius: 20px;
   padding: 10px;
@@ -39,7 +40,6 @@
   box-shadow: none !important;
   border: none;
   transition: background-color 0.2s ease, color 0.2s ease;
-  opacity: 0.9;
 }
 
 .tornei-list-column {

@@ -19,7 +19,7 @@ export interface ClassificheRankingTabProps {
 }
 
 export const REGIONS_COMIT = [
-  { id: 0, name: 'Class. Nazionale)' },
+  { id: 0, name: 'Class. Nazionale' },
   { id: 14, name: 'Abruzzo' },
   { id: 7, name: 'Alto Adige' },
   { id: 17, name: 'Basilicata' },
@@ -279,221 +279,221 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
 
       <div className="ranking-tab-container">
 
-      {/* Main Content Area */}
-      {loading && !refreshing ? (
-        <div className="ranking-loading-state">
-          <div className="spinner-border text-primary" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
-            <span className="visually-hidden">Caricamento...</span>
+        {/* Main Content Area */}
+        {loading && !refreshing ? (
+          <div className="ranking-loading-state">
+            <div className="spinner-border text-primary" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
+              <span className="visually-hidden">Caricamento...</span>
+            </div>
+            <p className="ranking-loading-text">
+              Caricamento {activeCategoryDef.label.toLowerCase()} FITeT...
+            </p>
           </div>
-          <p className="ranking-loading-text">
-            Caricamento {activeCategoryDef.label.toLowerCase()} FITeT...
-          </p>
-        </div>
-      ) : error ? (
-        <div className="ranking-error-card">
-          <div className="ranking-error-icon">
-            <i className="bi bi-exclamation-triangle-fill"></i>
+        ) : error ? (
+          <div className="ranking-error-card">
+            <div className="ranking-error-icon">
+              <i className="bi bi-exclamation-triangle-fill"></i>
+            </div>
+            <h3>Impossibile caricare la classifica</h3>
+            <p>{error}</p>
+            <button
+              type="button"
+              className="btn-action"
+              onClick={() => loadRanking(page, sesso, comitId, category, true)}
+            >
+              <i className="bi bi-arrow-clockwise me-1"></i>
+              Riprova
+            </button>
           </div>
-          <h3>Impossibile caricare la classifica</h3>
-          <p>{error}</p>
-          <button
-            type="button"
-            className="btn-action"
-            onClick={() => loadRanking(page, sesso, comitId, category, true)}
-          >
-            <i className="bi bi-arrow-clockwise me-1"></i>
-            Riprova
-          </button>
-        </div>
-      ) : data && data.athletes.length > 0 ? (
-        <div className="ranking-card-block ranking-table-card">
-          {/* Section Header */}
-          <div className="ranking-section-header official-header">
-            <div className="official-title-group">
-              <span className="official-crown">
-                <i className={`${activeCategoryDef.icon || 'bi-trophy-fill'} text-warning`}></i>
-              </span>
-              <div>
-                <div className="official-main-title">{data.title || activeCategoryDef.label}</div>
-                <div className="official-subtitle-text">
-                  Totale: <strong>{data.totalAthletes.toLocaleString('it-IT')}</strong> atleti registrati
-                  {searchQuery && ` • ${filteredAthletes.length} corrispondenti al filtro`}
+        ) : data && data.athletes.length > 0 ? (
+          <div className="ranking-card-block ranking-table-card">
+            {/* Section Header */}
+            <div className="ranking-section-header official-header">
+              <div className="official-title-group">
+                <span className="official-crown">
+                  <i className={`${activeCategoryDef.icon || 'bi-trophy-fill'} text-warning`}></i>
+                </span>
+                <div>
+                  <div className="official-main-title">{data.title || activeCategoryDef.label}</div>
+                  <div className="official-subtitle-text">
+                    Totale: <strong>{data.totalAthletes.toLocaleString('it-IT')}</strong> atleti registrati
+                    {searchQuery && ` • ${filteredAthletes.length} corrispondenti al filtro`}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Athletes Table */}
-          {filteredAthletes.length > 0 ? (
-            <div className="table-responsive">
-              <table className="ranking-table">
-                <thead>
-                  <tr>
-                    <th className="th-rank">#</th>
-                    <th className="th-athlete">Atleta</th>
-                    <th className="th-date hide-xs">Nascita</th>
-                    <th className="th-settore hide-xs">Sett.</th>
-                    <th className="th-points text-end">Punti</th>
-                    <th className="th-posnaz hide-sm text-center">Pos. Naz</th>
-                    <th className="th-provincia hide-md">Provincia</th>
-                    <th className="th-cat text-center">Cat.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAthletes.map((ath: RankingAthleteItem) => {
-                    const isPodium = ath.hasOfficialRank !== false && ath.rank <= 3;
-                    return (
-                      <tr
-                        key={`${ath.atletaId || ath.nome}-${ath.rank}`}
-                        className={`ranking-row ${isPodium ? `podium-rank-${ath.rank}` : ''}`}
-                        onClick={() => onOpenAtletaModal(ath.atletaId, ath.nome)}
-                        title="Clicca per aprire la scheda atleta"
-                      >
-                        {/* Rank Position */}
-                        <td className="td-rank">
-                          {ath.hasOfficialRank !== false ? (
-                            <span className={`rank-badge rank-badge-${ath.rank <= 3 ? ath.rank : 'default'}`}>
-                              {ath.rank === 1 && <i className="bi bi-trophy-fill rank-medal gold"></i>}
-                              {ath.rank === 2 && <i className="bi bi-trophy-fill rank-medal silver"></i>}
-                              {ath.rank === 3 && <i className="bi bi-trophy-fill rank-medal bronze"></i>}
-                              {ath.rank}
-                            </span>
-                          ) : (
-                            <span
-                              className="rank-badge rank-badge-unranked"
-                              title="Posizione progressiva (non numerata nella graduatoria ufficiale)"
-                            >
-                              <span className="unranked-hash">#</span>{ath.rank}
-                            </span>
-                          )}
-                        </td>
-
-                        {/* Athlete Name */}
-                        <td className="td-athlete">
-                          <div className="athlete-row-cell">
-                            <AthleteAvatar
-                              atletaId={ath.atletaId}
-                              nome={ath.nome}
-                              size={28}
-                              className="ranking-athlete-avatar"
-                            />
-                            <div className="athlete-name-cell">
-                              <button
-                                type="button"
-                                className="athlete-link-btn"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onOpenAtletaModal(ath.atletaId, ath.nome);
-                                }}
+            {/* Athletes Table */}
+            {filteredAthletes.length > 0 ? (
+              <div className="table-responsive">
+                <table className="ranking-table">
+                  <thead>
+                    <tr>
+                      <th className="th-rank">#</th>
+                      <th className="th-athlete">Atleta</th>
+                      <th className="th-date hide-xs">Nascita</th>
+                      <th className="th-settore hide-xs">Sett.</th>
+                      <th className="th-points text-end">Punti</th>
+                      <th className="th-posnaz hide-sm text-center">Pos. Naz</th>
+                      <th className="th-provincia hide-md">Provincia</th>
+                      <th className="th-cat text-center">Cat.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAthletes.map((ath: RankingAthleteItem) => {
+                      const isPodium = ath.hasOfficialRank !== false && ath.rank <= 3;
+                      return (
+                        <tr
+                          key={`${ath.atletaId || ath.nome}-${ath.rank}`}
+                          className={`ranking-row ${isPodium ? `podium-rank-${ath.rank}` : ''}`}
+                          onClick={() => onOpenAtletaModal(ath.atletaId, ath.nome)}
+                          title="Clicca per aprire la scheda atleta"
+                        >
+                          {/* Rank Position */}
+                          <td className="td-rank">
+                            {ath.hasOfficialRank !== false ? (
+                              <span className={`rank-badge rank-badge-${ath.rank <= 3 ? ath.rank : 'default'}`}>
+                                {ath.rank === 1 && <i className="bi bi-trophy-fill rank-medal gold"></i>}
+                                {ath.rank === 2 && <i className="bi bi-trophy-fill rank-medal silver"></i>}
+                                {ath.rank === 3 && <i className="bi bi-trophy-fill rank-medal bronze"></i>}
+                                {ath.rank}
+                              </span>
+                            ) : (
+                              <span
+                                className="rank-badge rank-badge-unranked"
+                                title="Posizione progressiva (non numerata nella graduatoria ufficiale)"
                               >
-                                <MarqueeText text={ath.nome} className="athlete-link-text" />
-                                <i className="bi bi-arrow-up-right athlete-link-arrow"></i>
-                              </button>
-                              {/* Mobile submeta */}
-                              <div className="athlete-mobile-meta show-xs">
-                                {ath.provinciaOrRegione && <span>{ath.provinciaOrRegione}</span>}
-                                {ath.settore && <span> • {ath.settore}</span>}
-                                {category === 'stranieri' && (
-                                  <span className="mobile-stranieri-pill">Straniero</span>
-                                )}
+                                <span className="unranked-hash">#</span>{ath.rank}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Athlete Name */}
+                          <td className="td-athlete">
+                            <div className="athlete-row-cell">
+                              <AthleteAvatar
+                                atletaId={ath.atletaId}
+                                nome={ath.nome}
+                                size={28}
+                                className="ranking-athlete-avatar"
+                              />
+                              <div className="athlete-name-cell">
+                                <button
+                                  type="button"
+                                  className="athlete-link-btn"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpenAtletaModal(ath.atletaId, ath.nome);
+                                  }}
+                                >
+                                  <MarqueeText text={ath.nome} className="athlete-link-text" />
+                                  <i className="bi bi-arrow-up-right athlete-link-arrow"></i>
+                                </button>
+                                {/* Mobile submeta */}
+                                <div className="athlete-mobile-meta show-xs">
+                                  {ath.provinciaOrRegione && <span>{ath.provinciaOrRegione}</span>}
+                                  {ath.settore && <span> • {ath.settore}</span>}
+                                  {category === 'stranieri' && (
+                                    <span className="mobile-stranieri-pill">Straniero</span>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Data Nascita */}
-                        <td className="td-date hide-xs">
-                          <span className="date-text">{ath.dataNascita || '-'}</span>
-                        </td>
+                          {/* Data Nascita */}
+                          <td className="td-date hide-xs">
+                            <span className="date-text">{ath.dataNascita || '-'}</span>
+                          </td>
 
-                        {/* Settore */}
-                        <td className="td-settore hide-xs">
-                          <span className="settore-badge">{ath.settore || '-'}</span>
-                        </td>
+                          {/* Settore */}
+                          <td className="td-settore hide-xs">
+                            <span className="settore-badge">{ath.settore || '-'}</span>
+                          </td>
 
-                        {/* Punti */}
-                        <td className="td-points text-end">
-                          <span className="badge-points-official">{formatPoints(ath.punti)}</span>
-                        </td>
+                          {/* Punti */}
+                          <td className="td-points text-end">
+                            <span className="badge-points-official">{formatPoints(ath.punti)}</span>
+                          </td>
 
-                        {/* Pos Naz */}
-                        <td className="td-posnaz hide-sm text-center">
-                          <span className="posnaz-text">{ath.posNazOrVariazione || '-'}</span>
-                        </td>
+                          {/* Pos Naz */}
+                          <td className="td-posnaz hide-sm text-center">
+                            <span className="posnaz-text">{ath.posNazOrVariazione || '-'}</span>
+                          </td>
 
-                        {/* Provincia */}
-                        <td className="td-provincia hide-md">
-                          <span className="provincia-text">{ath.provinciaOrRegione || '-'}</span>
-                        </td>
+                          {/* Provincia */}
+                          <td className="td-provincia hide-md">
+                            <span className="provincia-text">{ath.provinciaOrRegione || '-'}</span>
+                          </td>
 
-                        {/* Categoria */}
-                        <td className="td-cat text-center">
-                          <span className={`cat-pill cat-pill-${ath.categoria || 'default'}`}>
-                            {ath.categoria ? `${ath.categoria}ª` : '-'}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          {/* Categoria */}
+                          <td className="td-cat text-center">
+                            <span className={`cat-pill cat-pill-${ath.categoria || 'default'}`}>
+                              {ath.categoria ? `${ath.categoria}ª` : '-'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="ranking-no-results-box">
+                <i className="bi bi-search me-2"></i>
+                Nessun atleta corrisponde alla ricerca &quot;{searchQuery}&quot; su questa pagina.
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            <div className="ranking-pagination-bar">
+              <button
+                type="button"
+                className="ranking-page-nav-btn"
+                onClick={handlePrevPage}
+                disabled={page <= 1}
+                aria-label="Pagina precedente"
+              >
+                <i className="bi bi-chevron-left me-1"></i>
+                Precedente
+              </button>
+
+              <div className="ranking-page-indicator">
+                <span>
+                  Pagina <strong>{page}</strong> di <strong>{data.totalPages}</strong>
+                </span>
+              </div>
+
+              <button
+                type="button"
+                className="ranking-page-nav-btn"
+                onClick={handleNextPage}
+                disabled={page >= data.totalPages}
+                aria-label="Pagina successiva"
+              >
+                Successiva
+                <i className="bi bi-chevron-right ms-1"></i>
+              </button>
             </div>
-          ) : (
-            <div className="ranking-no-results-box">
-              <i className="bi bi-search me-2"></i>
-              Nessun atleta corrisponde alla ricerca &quot;{searchQuery}&quot; su questa pagina.
-            </div>
-          )}
-
-          {/* Pagination Controls */}
-          <div className="ranking-pagination-bar">
+          </div>
+        ) : (
+          <div className="ranking-empty-card">
+            <i className="bi bi-clipboard-x ranking-empty-icon"></i>
+            <h3>Nessun atleta trovato</h3>
+            <p>
+              Non ci sono atleti registrati per la categoria <strong>{activeCategoryDef.label}</strong> (
+              {selectedRegionName}, {sesso === 'M' ? 'Maschile' : 'Femminile'}).
+            </p>
             <button
               type="button"
-              className="ranking-page-nav-btn"
-              onClick={handlePrevPage}
-              disabled={page <= 1}
-              aria-label="Pagina precedente"
+              className="btn-action"
+              onClick={() => handleCategoryChange('generale')}
             >
-              <i className="bi bi-chevron-left me-1"></i>
-              Precedente
-            </button>
-
-            <div className="ranking-page-indicator">
-              <span>
-                Pagina <strong>{page}</strong> di <strong>{data.totalPages}</strong>
-              </span>
-            </div>
-
-            <button
-              type="button"
-              className="ranking-page-nav-btn"
-              onClick={handleNextPage}
-              disabled={page >= data.totalPages}
-              aria-label="Pagina successiva"
-            >
-              Successiva
-              <i className="bi bi-chevron-right ms-1"></i>
+              <i className="bi bi-arrow-left me-1"></i>
+              Torna alla Classifica Generale
             </button>
           </div>
-        </div>
-      ) : (
-        <div className="ranking-empty-card">
-          <i className="bi bi-clipboard-x ranking-empty-icon"></i>
-          <h3>Nessun atleta trovato</h3>
-          <p>
-            Non ci sono atleti registrati per la categoria <strong>{activeCategoryDef.label}</strong> (
-            {selectedRegionName}, {sesso === 'M' ? 'Maschile' : 'Femminile'}).
-          </p>
-          <button
-            type="button"
-            className="btn-action"
-            onClick={() => handleCategoryChange('generale')}
-          >
-            <i className="bi bi-arrow-left me-1"></i>
-            Torna alla Classifica Generale
-          </button>
-        </div>
-      )}
+        )}
       </div>
     </div>
   );

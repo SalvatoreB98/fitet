@@ -8,6 +8,7 @@ import {
   TorneoPlace,
 } from '../utils/torneoMap';
 import './TorneiItalyMap.css';
+import { isMobile } from '../utils/utils';
 
 export interface TorneiRegionGroup {
   region: string;
@@ -109,6 +110,11 @@ export const TorneiItalyMap: React.FC<TorneiItalyMapProps> = ({
       return;
     }
     onSelectionChange({ region, placeKey: null, label: region });
+    if (isMobile()) {
+      setTimeout(() => {
+        window.scrollTo({ top: 700, behavior: 'smooth' });
+      }, 300);
+    }
   };
 
   const handlePlaceClick = (place: MapPlace) => {
@@ -218,9 +224,8 @@ export const TorneiItalyMap: React.FC<TorneiItalyMapProps> = ({
                   key={shape.canonicalName}
                   d={shape.path}
                   fillRule="evenodd"
-                  className={`tornei-map-region ${hasTornei ? 'has-tornei' : ''} ${
-                    isSelected ? 'is-selected' : ''
-                  }`}
+                  className={`tornei-map-region ${hasTornei ? 'has-tornei' : ''} ${isSelected ? 'is-selected' : ''
+                    }`}
                   onClick={() => handleRegionClick(shape.canonicalName)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -330,47 +335,6 @@ export const TorneiItalyMap: React.FC<TorneiItalyMapProps> = ({
           <i className="tornei-map-legend-dot is-mixed"></i> Entrambi
         </span>
       </div>
-
-      {selectedPlace ? (
-        <div className="tornei-map-selection-card">
-          <div className="tornei-map-selection-icon">
-            <i className="bi bi-geo-alt-fill"></i>
-          </div>
-          <div className="tornei-map-selection-text">
-            <strong>{selectedPlace.label}</strong>
-            <span>
-              {selectedPlace.items.length}{' '}
-              {selectedPlace.items.length === 1 ? 'torneo filtrato' : 'tornei filtrati'} nell&apos;elenco
-            </span>
-          </div>
-          <button type="button" className="tornei-map-show-list" onClick={onShowList}>
-            Vedi elenco
-            <i className="bi bi-arrow-down-short"></i>
-          </button>
-        </div>
-      ) : selection.region ? (
-        <div className="tornei-map-selection-card">
-          <div className="tornei-map-selection-icon">
-            <i className="bi bi-geo-fill"></i>
-          </div>
-          <div className="tornei-map-selection-text">
-            <strong>{selection.region}</strong>
-            <span>
-              {regionCount} {regionCount === 1 ? 'torneo filtrato' : 'tornei filtrati'} nell&apos;elenco
-            </span>
-          </div>
-          <button type="button" className="tornei-map-show-list" onClick={onShowList}>
-            Vedi elenco
-            <i className="bi bi-arrow-down-short"></i>
-          </button>
-        </div>
-      ) : (
-        <p className="tornei-map-hint">
-          <i className="bi bi-hand-index-thumb"></i>
-          Tocca una regione o un pallino per filtrare i tornei. Tocca di nuovo per rimuovere il
-          filtro.
-        </p>
-      )}
     </div>
   );
 };

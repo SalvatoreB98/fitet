@@ -280,23 +280,7 @@
   background: #2563eb;
 }
 
-/* Selected place / region card */
-.tornei-map-selection-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 9px;
-  background: var(--color-info-bg);
-  border: 1px solid var(--color-info-border);
-  color: var(--color-info-text);
-}
 
-[data-theme='dark'] .tornei-map-selection-card {
-  background: rgba(2, 132, 199, 0.12);
-  border-color: rgba(56, 189, 248, 0.28);
-  color: #7dd3fc;
-}
 
 .tornei-map-selection-icon {
   display: grid;
@@ -393,9 +377,6 @@
     font-size: 0.66rem;
   }
 
-  .tornei-map-selection-card {
-    flex-wrap: wrap;
-  }
 
   .tornei-map-show-list {
     margin-left: auto;
