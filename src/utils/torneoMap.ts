@@ -1,8 +1,10 @@
 import { TorneoItem } from '../types/fitet';
-import { REGIONS_COMIT } from '../components/ClassificheRankingTab';
+import { REGIONS_COMIT } from '../constants/regions';
 import {
   ITALY_CITY_COORDS,
+  ITALY_CITY_TO_REGION,
   ITALY_PROVINCE_COORDS,
+  ITALY_PROVINCE_TO_REGION,
   ITALY_REGION_COORDS,
   projectItalyPoint,
 } from '../data/italyGeo';
@@ -97,6 +99,74 @@ export function resolveTorneoRegion(
   return region;
 }
 
+export function isTorneoNational(
+  torneo: TorneoItem,
+  sectionRegionName?: string
+): boolean {
+  if (torneo.com === 0 || torneo.com === 30) return true;
+  const reg = (torneo.regione || sectionRegionName || '').toLowerCase();
+  return reg.includes('nazionale') || reg === 'italia';
+}
+
+/**
+ * Risolve la regione geografica reale in cui si svolge il torneo
+ * (a partire dal campo luogo: comune/provincia).
+ * Riconosce la regione sia per i tornei regionali sia per quelli nazionali
+ * (es. "Terni" -> "Umbria", "Spezzano Albanese (CS)" -> "Calabria",
+ * "Casamassima (BA)" -> "Puglia", "Bardonecchia (TO)" -> "Piemonte").
+ */
+export function getTorneoHostRegion(
+  torneo: TorneoItem,
+  fallbackRegion?: string
+): string {
+  let reg = torneo.regione?.trim();
+  if (!reg && torneo.com > 0 && torneo.com !== 30) {
+    reg = REGIONS_COMIT.find((item) => item.id === torneo.com)?.name;
+  }
+  if (reg && !reg.toLowerCase().includes('nazionale') && reg.toLowerCase() !== 'italia') {
+    return getCanonicalRegionName(reg);
+  }
+
+  const { city, provinceCode } = parseLuogo(torneo.luogo);
+
+  if (provinceCode && ITALY_PROVINCE_TO_REGION[provinceCode]) {
+    return ITALY_PROVINCE_TO_REGION[provinceCode];
+  }
+
+  const cityKey = normalizeCityName(city);
+  if (cityKey && ITALY_CITY_TO_REGION[cityKey]) {
+    return ITALY_CITY_TO_REGION[cityKey];
+  }
+
+  if (fallbackRegion && !fallbackRegion.toLowerCase().includes('nazionale')) {
+    return getCanonicalRegionName(fallbackRegion);
+  }
+
+  return 'Nazionale';
+}
+
+/**
+ * Determina se un torneo appartiene a una regione o si svolge in quella regione.
+ * Include anche i tornei che sono nazionali ma che si svolgono (o sono stati svolti) lì.
+ */
+export function torneoMatchesRegion(
+  torneo: TorneoItem,
+  targetRegion: string | null | undefined,
+  assignedRegion?: string
+): boolean {
+  if (!targetRegion) return true;
+
+  if (assignedRegion && regionMatches(assignedRegion, targetRegion)) return true;
+  if (torneo.regione && regionMatches(torneo.regione, targetRegion)) return true;
+  if (torneo.com > 0 && torneo.com !== 30) {
+    const comitName = REGIONS_COMIT.find((r) => r.id === torneo.com)?.name;
+    if (regionMatches(comitName, targetRegion)) return true;
+  }
+
+  const host = getTorneoHostRegion(torneo, assignedRegion);
+  return regionMatches(host, targetRegion);
+}
+
 interface ParsedLuogo {
   city: string;
   provinceCode: string | null;
@@ -146,17 +216,25 @@ function getCoordinates(
 /**
  * Risolve la posizione geografica di un torneo a partire dal campo `luogo`
  * (es. "Moncalieri (TO)", "Milano", "26/02/2027 - Terni").
+ * La regione restituita è la regione geografica effettiva in cui si svolge il torneo.
  */
-export function getTorneoPlace(torneo: TorneoItem, region: string): TorneoPlace {
+export function getTorneoPlace(torneo: TorneoItem, region?: string): TorneoPlace {
+  const hostRegion = getTorneoHostRegion(torneo, region);
+  const effectiveRegion =
+    hostRegion !== 'Nazionale'
+      ? hostRegion
+      : region && region !== 'Nazionale'
+        ? region
+        : 'Nazionale';
   const { city, provinceCode } = parseLuogo(torneo.luogo);
   const safeCity = city || 'Italia';
-  const [lon, lat] = getCoordinates(safeCity, provinceCode, region);
+  const [lon, lat] = getCoordinates(safeCity, provinceCode, effectiveRegion);
   const { x, y } = projectItalyPoint(lon, lat);
 
   return {
     city: safeCity,
     provinceCode,
-    region,
+    region: effectiveRegion,
     key: `${lon.toFixed(4)}|${lat.toFixed(4)}`,
     label: provinceCode ? `${safeCity} (${provinceCode})` : safeCity,
     lon,

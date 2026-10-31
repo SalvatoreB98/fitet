@@ -143,14 +143,7 @@ export const TorneiItalyMap: React.FC<TorneiItalyMapProps> = ({
     const isMarkerClick = Boolean(target?.closest?.('.tornei-map-marker'));
     const isRegionClick = Boolean(target?.closest?.('.tornei-map-region'));
 
-    // Su desktop un click sulla regione deve sempre selezionare la regione:
-    // il fallback "marker più vicino" serve solo per i tap imprecisi su mobile.
-    if (
-      !isMarkerClick &&
-      isRegionClick &&
-      typeof window !== 'undefined' &&
-      window.innerWidth > 980
-    ) {
+    if (isMarkerClick || isRegionClick) {
       return;
     }
 

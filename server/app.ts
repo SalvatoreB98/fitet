@@ -35,6 +35,7 @@ import {
 } from './parsers/torneiParser';
 import { RANKING_CATEGORIES, getRankingCategoryByKey } from '../src/constants/rankingCategories';
 import { TORNEI_CATEGORIES, getTorneoCategoryByKey } from '../src/constants/torneiCategories';
+import { torneoMatchesRegion } from '../src/utils/torneoMap';
 import * as cheerio from 'cheerio';
 import {
     DashboardData,
@@ -541,9 +542,10 @@ app.get('/api/tornei', async (req, res) => {
 
             if (isRegionSelected || categoryKey === 'reg_all') {
                 const targetRegion = isRegionSelected ? comitParam : (regParam >= 1 && regParam <= 21 ? regParam : 4);
+                const targetRegionName = COMIT_NAMES[targetRegion] || '';
                 const regCategories = TORNEI_CATEGORIES.filter((c) => c.group === 'regionali');
 
-                const sections = await Promise.all(
+                const regSections = await Promise.all(
                     regCategories.map((c) =>
                         fetchSingleTorneoSection(
                             c.key,
@@ -558,14 +560,42 @@ app.get('/api/tornei', async (req, res) => {
                     )
                 );
 
-                const populated = sections.filter((s) => s.tornei.length > 0);
+                // Fetch categorie nazionali e includi i tornei che si svolgono nelle località di questa regione
+                const nationalCats = TORNEI_CATEGORIES.filter((c) => c.group !== 'regionali');
+                const natSections = await Promise.all(
+                    nationalCats.map((c) =>
+                        fetchSingleTorneoSection(
+                            c.key,
+                            c.shortLabel,
+                            c.label,
+                            c.tor,
+                            c.comit,
+                            c.id,
+                            undefined,
+                            forceRefresh
+                        )
+                    )
+                );
+
+                const filteredNatSections = natSections
+                    .map((sec) => {
+                        const matchingTornei = sec.tornei.filter((t) =>
+                            torneoMatchesRegion(t, targetRegionName)
+                        );
+                        return { ...sec, tornei: matchingTornei };
+                    })
+                    .filter((sec) => sec.tornei.length > 0);
+
+                const populatedReg = regSections.filter((s) => s.tornei.length > 0);
+                const combinedSections = [...populatedReg, ...filteredNatSections];
+
                 const payload: TorneiResponse = {
-                    title: `TORNEI REGIONALI ${COMIT_NAMES[targetRegion]?.toUpperCase() || ''} - STAGIONE 2026/27`,
+                    title: `MANIFESTAZIONI E TORNEI IN ${targetRegionName.toUpperCase()} - STAGIONE 2026/27`,
                     categoryKey,
                     comitId: targetRegion,
                     regId: targetRegion,
-                    sections: populated.length > 0 ? populated : sections.slice(0, 1),
-                    totalTornei: populated.reduce((acc, s) => acc + s.tornei.length, 0),
+                    sections: combinedSections.length > 0 ? combinedSections : regSections.slice(0, 1),
+                    totalTornei: combinedSections.reduce((acc, s) => acc + s.tornei.length, 0),
                     lastUpdated: new Date().toISOString(),
                 };
                 return res.json(payload);
@@ -627,6 +657,13 @@ app.get('/api/tornei', async (req, res) => {
             activeRegFilter,
             forceRefresh
         );
+
+        if (!isRegCat && comitParam >= 1 && comitParam <= 21) {
+            const targetRegionName = COMIT_NAMES[comitParam] || '';
+            section.tornei = section.tornei.filter((t) =>
+                torneoMatchesRegion(t, targetRegionName)
+            );
+        }
 
         const payload: TorneiResponse = {
             title: section.title,

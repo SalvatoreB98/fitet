@@ -4327,6 +4327,389 @@ function getTorneoCategoryByKey(key) {
   return TORNEI_CATEGORIES.find((c) => c.key === key);
 }
 
+// src/constants/regions.ts
+var REGIONS_COMIT = [
+  { id: 0, name: "Tutte le Regioni / Nazionale" },
+  { id: 14, name: "Abruzzo" },
+  { id: 7, name: "Alto Adige" },
+  { id: 17, name: "Basilicata" },
+  { id: 19, name: "Calabria" },
+  { id: 16, name: "Campania" },
+  { id: 9, name: "Emilia Romagna" },
+  { id: 8, name: "Friuli Venezia Giulia" },
+  { id: 13, name: "Lazio" },
+  { id: 3, name: "Liguria" },
+  { id: 4, name: "Lombardia" },
+  { id: 11, name: "Marche" },
+  { id: 15, name: "Molise" },
+  { id: 2, name: "Piemonte" },
+  { id: 18, name: "Puglia" },
+  { id: 21, name: "Sardegna" },
+  { id: 20, name: "Sicilia" },
+  { id: 10, name: "Toscana" },
+  { id: 6, name: "Trentino" },
+  { id: 12, name: "Umbria" },
+  { id: 1, name: "Valle d'Aosta" },
+  { id: 5, name: "Veneto" }
+];
+
+// src/data/italyGeo.ts
+var ITALY_PROVINCE_TO_REGION = {
+  "AG": "Sicilia",
+  "AL": "Piemonte",
+  "AN": "Marche",
+  "AO": "Valle d'Aosta",
+  "AP": "Marche",
+  "AQ": "Abruzzo",
+  "AR": "Toscana",
+  "AT": "Piemonte",
+  "AV": "Campania",
+  "BA": "Puglia",
+  "BG": "Lombardia",
+  "BI": "Piemonte",
+  "BL": "Veneto",
+  "BN": "Campania",
+  "BO": "Emilia Romagna",
+  "BR": "Puglia",
+  "BS": "Lombardia",
+  "BT": "Puglia",
+  "BZ": "Trentino-Alto Adige",
+  "CA": "Sardegna",
+  "CB": "Molise",
+  "CE": "Campania",
+  "CH": "Abruzzo",
+  "CI": "Sardegna",
+  "CL": "Sicilia",
+  "CN": "Piemonte",
+  "CO": "Lombardia",
+  "CR": "Lombardia",
+  "CS": "Calabria",
+  "CT": "Sicilia",
+  "CZ": "Calabria",
+  "EN": "Sicilia",
+  "FC": "Emilia Romagna",
+  "FE": "Emilia Romagna",
+  "FG": "Puglia",
+  "FI": "Toscana",
+  "FM": "Marche",
+  "FR": "Lazio",
+  "GE": "Liguria",
+  "GO": "Friuli Venezia Giulia",
+  "GR": "Toscana",
+  "IM": "Liguria",
+  "IS": "Molise",
+  "KR": "Calabria",
+  "LC": "Lombardia",
+  "LE": "Puglia",
+  "LI": "Toscana",
+  "LO": "Lombardia",
+  "LT": "Lazio",
+  "LU": "Toscana",
+  "MB": "Lombardia",
+  "MC": "Marche",
+  "ME": "Sicilia",
+  "MI": "Lombardia",
+  "MN": "Lombardia",
+  "MO": "Emilia Romagna",
+  "MS": "Toscana",
+  "MT": "Basilicata",
+  "NA": "Campania",
+  "NO": "Piemonte",
+  "NU": "Sardegna",
+  "OG": "Sardegna",
+  "OR": "Sardegna",
+  "OT": "Sardegna",
+  "PA": "Sicilia",
+  "PC": "Emilia Romagna",
+  "PD": "Veneto",
+  "PE": "Abruzzo",
+  "PG": "Umbria",
+  "PI": "Toscana",
+  "PN": "Friuli Venezia Giulia",
+  "PO": "Toscana",
+  "PR": "Emilia Romagna",
+  "PT": "Toscana",
+  "PU": "Marche",
+  "PV": "Lombardia",
+  "PZ": "Basilicata",
+  "RA": "Emilia Romagna",
+  "RC": "Calabria",
+  "RE": "Emilia Romagna",
+  "RG": "Sicilia",
+  "RI": "Lazio",
+  "RM": "Lazio",
+  "RN": "Emilia Romagna",
+  "RO": "Veneto",
+  "SA": "Campania",
+  "SI": "Toscana",
+  "SO": "Lombardia",
+  "SP": "Liguria",
+  "SR": "Sicilia",
+  "SS": "Sardegna",
+  "SU": "Sardegna",
+  "SV": "Liguria",
+  "TA": "Puglia",
+  "TE": "Abruzzo",
+  "TN": "Trentino-Alto Adige",
+  "TO": "Piemonte",
+  "TP": "Sicilia",
+  "TR": "Umbria",
+  "TS": "Friuli Venezia Giulia",
+  "TV": "Veneto",
+  "UD": "Friuli Venezia Giulia",
+  "VA": "Lombardia",
+  "VB": "Piemonte",
+  "VC": "Piemonte",
+  "VE": "Veneto",
+  "VI": "Veneto",
+  "VR": "Veneto",
+  "VS": "Sardegna",
+  "VT": "Lazio",
+  "VV": "Calabria"
+};
+var ITALY_CITY_TO_REGION = {
+  "agrigento": "Sicilia",
+  "alessandria": "Piemonte",
+  "ancona": "Marche",
+  "andria": "Puglia",
+  "aosta": "Valle d'Aosta",
+  "arezzo": "Toscana",
+  "ascoli piceno": "Marche",
+  "asti": "Piemonte",
+  "avellino": "Campania",
+  "bardonecchia": "Piemonte",
+  "bari": "Puglia",
+  "barletta": "Puglia",
+  "belluno": "Veneto",
+  "benevento": "Campania",
+  "bergamo": "Lombardia",
+  "biella": "Piemonte",
+  "bologna": "Emilia Romagna",
+  "bolzano": "Trentino-Alto Adige",
+  "bordighera": "Liguria",
+  "borgo san giacomo": "Lombardia",
+  "bra": "Piemonte",
+  "brescia": "Lombardia",
+  "brindisi": "Puglia",
+  "cagliari": "Sardegna",
+  "caltanissetta": "Sicilia",
+  "camerino": "Marche",
+  "campobasso": "Molise",
+  "carbonia": "Sardegna",
+  "cartura": "Veneto",
+  "casamassima": "Puglia",
+  "cascina": "Toscana",
+  "caserta": "Campania",
+  "catania": "Sicilia",
+  "catanzaro": "Calabria",
+  "chieti": "Abruzzo",
+  "ciampino": "Lazio",
+  "coccaglio": "Lombardia",
+  "como": "Lombardia",
+  "cortemaggiore": "Emilia Romagna",
+  "cosenza": "Calabria",
+  "cossato": "Piemonte",
+  "cremona": "Lombardia",
+  "crotone": "Calabria",
+  "cuneo": "Piemonte",
+  "enna": "Sicilia",
+  "ferentino": "Lazio",
+  "fermo": "Marche",
+  "ferrara": "Emilia Romagna",
+  "firenze": "Toscana",
+  "foggia": "Puglia",
+  "forli": "Emilia Romagna",
+  "forte dei marmi": "Toscana",
+  "fossano": "Piemonte",
+  "frosinone": "Lazio",
+  "genova": "Liguria",
+  "gorizia": "Friuli Venezia Giulia",
+  "grosseto": "Toscana",
+  "imperia": "Liguria",
+  "isernia": "Molise",
+  "l aquila": "Abruzzo",
+  "la spezia": "Liguria",
+  "latina": "Lazio",
+  "latisana": "Friuli Venezia Giulia",
+  "lecce": "Puglia",
+  "lecco": "Lombardia",
+  "livorno": "Toscana",
+  "lodi": "Lombardia",
+  "lucca": "Toscana",
+  "macerata": "Marche",
+  "mantova": "Lombardia",
+  "martina franca": "Puglia",
+  "massa": "Toscana",
+  "matera": "Basilicata",
+  "messina": "Sicilia",
+  "milano": "Lombardia",
+  "milazzo": "Sicilia",
+  "modena": "Emilia Romagna",
+  "molfetta": "Puglia",
+  "moncalieri": "Piemonte",
+  "montichiari": "Lombardia",
+  "monza": "Lombardia",
+  "napoli": "Campania",
+  "nerviano": "Lombardia",
+  "norbello": "Sardegna",
+  "novara": "Piemonte",
+  "nulvi": "Sardegna",
+  "nuoro": "Sardegna",
+  "oristano": "Sardegna",
+  "padova": "Veneto",
+  "palermo": "Sicilia",
+  "parma": "Emilia Romagna",
+  "parolise": "Campania",
+  "pavia": "Lombardia",
+  "perugia": "Umbria",
+  "pesaro": "Marche",
+  "pescara": "Abruzzo",
+  "piacenza": "Emilia Romagna",
+  "piossasco": "Piemonte",
+  "pisa": "Toscana",
+  "pistoia": "Toscana",
+  "pordenone": "Friuli Venezia Giulia",
+  "potenza": "Basilicata",
+  "prato": "Toscana",
+  "ragusa": "Sicilia",
+  "ravenna": "Emilia Romagna",
+  "reggio calabria": "Calabria",
+  "reggio di calabria": "Calabria",
+  "reggio nell emilia": "Emilia Romagna",
+  "rieti": "Lazio",
+  "rimini": "Emilia Romagna",
+  "roma": "Lazio",
+  "rovigo": "Veneto",
+  "s giovanni lupatoto": "Veneto",
+  "salerno": "Campania",
+  "salsomaggiore terme": "Emilia Romagna",
+  "san felice sul panaro": "Emilia Romagna",
+  "san nicola la strada": "Campania",
+  "sanremo": "Liguria",
+  "saronno": "Lombardia",
+  "sassari": "Sardegna",
+  "savona": "Liguria",
+  "senigallia": "Marche",
+  "sermide": "Lombardia",
+  "sesto fiorentino": "Toscana",
+  "siena": "Toscana",
+  "silvi": "Abruzzo",
+  "siracusa": "Sicilia",
+  "sondrio": "Lombardia",
+  "spadafora": "Sicilia",
+  "spezzano albanese": "Calabria",
+  "taranto": "Puglia",
+  "teramo": "Abruzzo",
+  "terni": "Umbria",
+  "torino": "Piemonte",
+  "trani": "Puglia",
+  "trapani": "Sicilia",
+  "trento": "Trentino-Alto Adige",
+  "treviso": "Veneto",
+  "trieste": "Friuli Venezia Giulia",
+  "udine": "Friuli Venezia Giulia",
+  "varazze": "Liguria",
+  "varese": "Lombardia",
+  "vedano olona": "Lombardia",
+  "venezia": "Veneto",
+  "verbania": "Piemonte",
+  "vercelli": "Piemonte",
+  "verona": "Veneto",
+  "verzuolo": "Piemonte",
+  "vibo valentia": "Calabria",
+  "vicenza": "Veneto",
+  "villa guardia": "Lombardia",
+  "viterbo": "Lazio"
+};
+
+// src/utils/torneoMap.ts
+var REGION_FILTER_KEYS = {
+  "trentino alto adige": "trentino-alto-adige",
+  trentino: "trentino-alto-adige",
+  "alto adige": "trentino-alto-adige",
+  "valle d aosta": "valle-d-aosta",
+  "friuli venezia giulia": "friuli-venezia-giulia",
+  "emilia romagna": "emilia-romagna"
+};
+var CITY_ALIASES = {
+  "reggio calabria": "reggio di calabria",
+  sermide: "sermide e felonica",
+  "s giovanni lupatoto": "san giovanni lupatoto",
+  "s. giovanni lupatoto": "san giovanni lupatoto"
+};
+var REGION_CANONICAL_NAMES = {
+  "trentino alto adige": "Trentino-Alto Adige",
+  trentino: "Trentino-Alto Adige",
+  "alto adige": "Trentino-Alto Adige",
+  "valle d aosta": "Valle d'Aosta",
+  "friuli venezia giulia": "Friuli Venezia Giulia",
+  "emilia romagna": "Emilia Romagna"
+};
+function normalizeText(value) {
+  return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+function normalizeCityName(value) {
+  const normalized = normalizeText(value);
+  return CITY_ALIASES[normalized] || normalized;
+}
+function getRegionFilterKey(region) {
+  const normalized = normalizeText(region || "");
+  if (!normalized) return "";
+  return REGION_FILTER_KEYS[normalized] || normalized.replace(/\s+/g, "-");
+}
+function regionMatches(regionA, regionB) {
+  const keyA = getRegionFilterKey(regionA);
+  const keyB = getRegionFilterKey(regionB);
+  return Boolean(keyA && keyB && keyA === keyB);
+}
+function getCanonicalRegionName(region) {
+  const normalized = normalizeText(region || "");
+  return REGION_CANONICAL_NAMES[normalized] || (region || "").trim();
+}
+function getTorneoHostRegion(torneo, fallbackRegion) {
+  let reg = torneo.regione?.trim();
+  if (!reg && torneo.com > 0 && torneo.com !== 30) {
+    reg = REGIONS_COMIT.find((item) => item.id === torneo.com)?.name;
+  }
+  if (reg && !reg.toLowerCase().includes("nazionale") && reg.toLowerCase() !== "italia") {
+    return getCanonicalRegionName(reg);
+  }
+  const { city, provinceCode } = parseLuogo(torneo.luogo);
+  if (provinceCode && ITALY_PROVINCE_TO_REGION[provinceCode]) {
+    return ITALY_PROVINCE_TO_REGION[provinceCode];
+  }
+  const cityKey = normalizeCityName(city);
+  if (cityKey && ITALY_CITY_TO_REGION[cityKey]) {
+    return ITALY_CITY_TO_REGION[cityKey];
+  }
+  if (fallbackRegion && !fallbackRegion.toLowerCase().includes("nazionale")) {
+    return getCanonicalRegionName(fallbackRegion);
+  }
+  return "Nazionale";
+}
+function torneoMatchesRegion(torneo, targetRegion, assignedRegion) {
+  if (!targetRegion) return true;
+  if (assignedRegion && regionMatches(assignedRegion, targetRegion)) return true;
+  if (torneo.regione && regionMatches(torneo.regione, targetRegion)) return true;
+  if (torneo.com > 0 && torneo.com !== 30) {
+    const comitName = REGIONS_COMIT.find((r) => r.id === torneo.com)?.name;
+    if (regionMatches(comitName, targetRegion)) return true;
+  }
+  const host = getTorneoHostRegion(torneo, assignedRegion);
+  return regionMatches(host, targetRegion);
+}
+function parseLuogo(luogo) {
+  const cleaned = String(luogo || "").replace(/^\d{1,2}\/\d{1,2}\/\d{4}\s*-\s*/, "").trim();
+  const match = cleaned.match(/^(.*?)\s*\(([A-Za-z]{2})\)\s*$/);
+  if (match) {
+    return {
+      city: match[1].trim(),
+      provinceCode: match[2].toUpperCase()
+    };
+  }
+  return { city: cleaned, provinceCode: null };
+}
+
 // server/app.ts
 import * as cheerio14 from "cheerio";
 var app = express();
@@ -4693,8 +5076,9 @@ app.get("/api/tornei", async (req, res) => {
       const isRegionSelected = comitParam >= 1 && comitParam <= 21;
       if (isRegionSelected || categoryKey === "reg_all") {
         const targetRegion = isRegionSelected ? comitParam : regParam >= 1 && regParam <= 21 ? regParam : 4;
+        const targetRegionName = COMIT_NAMES[targetRegion] || "";
         const regCategories = TORNEI_CATEGORIES.filter((c) => c.group === "regionali");
-        const sections2 = await Promise.all(
+        const regSections = await Promise.all(
           regCategories.map(
             (c) => fetchSingleTorneoSection(
               c.key,
@@ -4708,14 +5092,36 @@ app.get("/api/tornei", async (req, res) => {
             )
           )
         );
-        const populated2 = sections2.filter((s) => s.tornei.length > 0);
+        const nationalCats = TORNEI_CATEGORIES.filter((c) => c.group !== "regionali");
+        const natSections = await Promise.all(
+          nationalCats.map(
+            (c) => fetchSingleTorneoSection(
+              c.key,
+              c.shortLabel,
+              c.label,
+              c.tor,
+              c.comit,
+              c.id,
+              void 0,
+              forceRefresh
+            )
+          )
+        );
+        const filteredNatSections = natSections.map((sec) => {
+          const matchingTornei = sec.tornei.filter(
+            (t) => torneoMatchesRegion(t, targetRegionName)
+          );
+          return { ...sec, tornei: matchingTornei };
+        }).filter((sec) => sec.tornei.length > 0);
+        const populatedReg = regSections.filter((s) => s.tornei.length > 0);
+        const combinedSections = [...populatedReg, ...filteredNatSections];
         const payload3 = {
-          title: `TORNEI REGIONALI ${COMIT_NAMES[targetRegion]?.toUpperCase() || ""} - STAGIONE 2026/27`,
+          title: `MANIFESTAZIONI E TORNEI IN ${targetRegionName.toUpperCase()} - STAGIONE 2026/27`,
           categoryKey,
           comitId: targetRegion,
           regId: targetRegion,
-          sections: populated2.length > 0 ? populated2 : sections2.slice(0, 1),
-          totalTornei: populated2.reduce((acc, s) => acc + s.tornei.length, 0),
+          sections: combinedSections.length > 0 ? combinedSections : regSections.slice(0, 1),
+          totalTornei: combinedSections.reduce((acc, s) => acc + s.tornei.length, 0),
           lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
         };
         return res.json(payload3);
@@ -4763,6 +5169,12 @@ app.get("/api/tornei", async (req, res) => {
       activeRegFilter,
       forceRefresh
     );
+    if (!isRegCat && comitParam >= 1 && comitParam <= 21) {
+      const targetRegionName = COMIT_NAMES[comitParam] || "";
+      section.tornei = section.tornei.filter(
+        (t) => torneoMatchesRegion(t, targetRegionName)
+      );
+    }
     const payload = {
       title: section.title,
       categoryKey: catDef?.key || categoryKey,

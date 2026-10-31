@@ -23,7 +23,13 @@ import {
   TorneiItalyMap,
   TorneiMapSelection,
 } from './TorneiItalyMap';
-import { getTorneoPlace, regionMatches } from '../utils/torneoMap';
+import {
+  getTorneoHostRegion,
+  getTorneoPlace,
+  isTorneoNational,
+  regionMatches,
+  torneoMatchesRegion,
+} from '../utils/torneoMap';
 import './ClassificheRankingTab.css';
 import './TorneiTab.css';
 
@@ -142,13 +148,45 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
 
   const handleRegionChange = (newComit: number) => {
     setSelectedTorneo(null);
-    setMapSelection(EMPTY_MAP_SELECTION);
     setComitId(newComit);
     setRegFilterId(newComit);
+
+    if (newComit > 0) {
+      const regName = REGIONS_COMIT.find((r) => r.id === newComit)?.name;
+      if (regName) {
+        setMapSelection({ region: regName, placeKey: null, label: regName });
+      } else {
+        setMapSelection(EMPTY_MAP_SELECTION);
+      }
+    } else {
+      setMapSelection(EMPTY_MAP_SELECTION);
+    }
+
     if (newComit > 0 && categoryKey !== 'open' && !categoryKey.startsWith('reg_') && categoryKey !== 'all') {
       setCategoryKey('reg_all');
     } else if (newComit === 0 && categoryKey.startsWith('reg_')) {
       setCategoryKey('all');
+    }
+  };
+
+  const handleMapSelectionChange = (newSelection: TorneiMapSelection) => {
+    setMapSelection(newSelection);
+
+    if (newSelection.region) {
+      const matchedComit = REGIONS_COMIT.find((r) =>
+        regionMatches(r.name, newSelection.region)
+      );
+      if (matchedComit && matchedComit.id > 0 && matchedComit.id !== comitId) {
+        setSelectedTorneo(null);
+        setComitId(matchedComit.id);
+        setRegFilterId(matchedComit.id);
+      }
+    } else {
+      if (comitId !== 0) {
+        setSelectedTorneo(null);
+        setComitId(0);
+        setRegFilterId(0);
+      }
     }
   };
 
@@ -406,13 +444,17 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
           seen.add(uniqueKey);
 
           let reg = t.regione?.trim();
-          if (!reg && t.com > 0) {
+          if (!reg && t.com > 0 && t.com !== 30) {
             reg = REGIONS_COMIT.find((r) => r.id === t.com)?.name;
           }
           if (!reg) {
-            reg = sec.regioneNome || 'Nazionale';
+            reg = sec.regioneNome;
           }
-          if (reg.toLowerCase().includes('nazionale') || t.com === 0) {
+          // Se la regione è nazionale o non definita, verifichiamo la regione geografica della città di svolgimento
+          const host = getTorneoHostRegion(t);
+          if (host && host !== 'Nazionale') {
+            reg = host;
+          } else if (!reg || reg.toLowerCase().includes('nazionale') || t.com === 0 || t.com === 30) {
             reg = 'Nazionale';
           }
 
@@ -1123,7 +1165,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({ onOpenAtletaModal }) => {
               <TorneiItalyMap
                 groups={torneiByRegion}
                 selection={mapSelection}
-                onSelectionChange={setMapSelection}
+                onSelectionChange={handleMapSelectionChange}
                 onShowList={handleShowList}
               />
             </aside>
