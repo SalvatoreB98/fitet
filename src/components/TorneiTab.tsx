@@ -1841,7 +1841,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                             title="Clicca per ordinare per Punti Ultima Classifica (Teste di Serie)"
                           >
                             <span className="th-sortable-inner">
-                              <span>Δ nuovi pt </span>
+                              <span>Punti attuali </span>
                               {loadingCurrentPoints ? (
                                 <span
                                   className="spinner-border spinner-border-sm ms-1"
@@ -1931,7 +1931,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                                 {ptsAttuali !== null ? (
                                   <div className="iscritto-current-pts-wrap">
                                     <span className="badge-points-official is-current-rank">
-                                      {(Number(ptsAttuali) - Number(iscr.punti)).toLocaleString('it-IT')}
+                                      {(ptsAttuali).toLocaleString('it-IT')}
                                     </span>
                                     {delta !== null && (
                                       <span
