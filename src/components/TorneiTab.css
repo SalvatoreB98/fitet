@@ -1926,6 +1926,7 @@
   background: none;
   border: none;
   font-weight: 200;
+  color: var(--text-dark);
 }
 
 .miei-profile-left {
