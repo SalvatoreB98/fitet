@@ -1928,6 +1928,11 @@
   font-weight: 200;
 }
 
+.miei-profile-left {
+  display: flex;
+  gap: 1em;
+}
+
 .iscritto-delta-badge {
   display: inline-flex;
   align-items: center;
