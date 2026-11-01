@@ -1927,7 +1927,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                                   {ptsIscrNum > 0 ? ptsIscrNum.toLocaleString('it-IT') : iscr.punti || '-'}
                                 </span>
                               </td>
-                              <td className="td-points text-end">
+                              <td className="td-points text-center">
                                 {ptsAttuali !== null ? (
                                   <div className="iscritto-current-pts-wrap">
                                     <span className="badge-points-official is-current-rank">
