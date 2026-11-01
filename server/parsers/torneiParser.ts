@@ -396,6 +396,7 @@ export function parseIscrizioniGara(
 
     const statusClass = (nameP.attr('class') || 'dettagli').trim();
     const punti = cleanText($(tds[3]).text());
+    const puntiIscrizione = parseInt(punti.replace(/\./g, '').replace(/[^\d-]/g, ''), 10) || 0;
     const societa = cleanText($(tds[4]).text());
     const posizione = parseInt(posText, 10) || iscritti.length + 1;
 
@@ -404,6 +405,8 @@ export function parseIscrizioniGara(
       nome,
       atletaId: lookupAthleteId(nome, athleteMapping),
       punti,
+      puntiIscrizione,
+      puntiClassificaAttuale: null,
       societa,
       statusClass,
       statusLabel: STATUS_LABELS[statusClass] || 'Iscritto',

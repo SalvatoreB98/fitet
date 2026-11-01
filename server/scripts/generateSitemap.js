@@ -19,8 +19,32 @@ const mainRoutes = [
   { loc: '/?tab=classifica', priority: '0.9', changefreq: 'daily' },
   { loc: '/?tab=calendario', priority: '0.9', changefreq: 'daily' },
   { loc: '/?tab=statistiche', priority: '0.8', changefreq: 'daily' },
-  { loc: '/?tab=ranking', priority: '0.8', changefreq: 'weekly' },
-  { loc: '/?tab=cercaAtleta', priority: '0.8', changefreq: 'weekly' },
+  { loc: '/?view=classifiche', priority: '0.9', changefreq: 'weekly' },
+  { loc: '/?view=tornei', priority: '0.9', changefreq: 'daily' },
+];
+
+const regionalSlugs = [
+  'abruzzo',
+  'alto-adige',
+  'basilicata',
+  'calabria',
+  'campania',
+  'emilia-romagna',
+  'friuli-venezia-giulia',
+  'lazio',
+  'liguria',
+  'lombardia',
+  'marche',
+  'molise',
+  'piemonte',
+  'puglia',
+  'sardegna',
+  'sicilia',
+  'toscana',
+  'trentino',
+  'umbria',
+  'valle-d-aosta',
+  'veneto',
 ];
 
 for (const r of mainRoutes) {
@@ -29,6 +53,16 @@ for (const r of mainRoutes) {
   xml += `    <lastmod>${today}</lastmod>\n`;
   xml += `    <changefreq>${r.changefreq}</changefreq>\n`;
   xml += `    <priority>${r.priority}</priority>\n`;
+  xml += '  </url>\n';
+}
+
+// All 21 dedicated regional SEO pages (/regioni/<slug>)
+for (const slug of regionalSlugs) {
+  xml += '  <url>\n';
+  xml += `    <loc>${BASE_URL}/regioni/${slug}</loc>\n`;
+  xml += `    <lastmod>${today}</lastmod>\n`;
+  xml += '    <changefreq>daily</changefreq>\n';
+  xml += '    <priority>0.9</priority>\n';
   xml += '  </url>\n';
 }
 
@@ -45,4 +79,4 @@ for (const c of campionati) {
 xml += '</urlset>\n';
 
 fs.writeFileSync(sitemapPath, xml, 'utf8');
-console.log(`Generated public/sitemap.xml with ${mainRoutes.length + campionati.length} URLs.`);
+console.log(`Generated public/sitemap.xml with ${mainRoutes.length + regionalSlugs.length + campionati.length} URLs.`);

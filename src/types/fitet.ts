@@ -441,6 +441,8 @@ export interface TorneoIscrittoItem {
   nome: string;
   atletaId?: string | null;
   punti: string;
+  puntiIscrizione: number;
+  puntiClassificaAttuale?: number | null;
   societa: string;
   statusClass: string;
   statusLabel: string;

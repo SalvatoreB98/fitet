@@ -12,7 +12,12 @@ import {
   getTorneiCategoriesByGroup,
 } from '../constants/torneiCategories';
 import { REGIONS_COMIT } from '../constants/regions';
-import { fetchTornei, fetchTorneoDettaglio, fetchTorneoGara } from '../services/api';
+import {
+  fetchTornei,
+  fetchTorneoDettaglio,
+  fetchTorneoGara,
+  fetchIscrittiCurrentPoints,
+} from '../services/api';
 import { AthleteAvatar } from './AthleteAvatar';
 import { MarqueeText } from './MarqueeText';
 import { TorneoBracket, BracketRoundData } from './TorneoBracket';
@@ -148,6 +153,9 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
   const [loadingGara, setLoadingGara] = useState<boolean>(false);
   const [garaPhaseTab, setGaraPhaseTab] = useState<GaraPhase | null>(null);
   const [garaSearchQuery, setGaraSearchQuery] = useState<string>('');
+  const [iscrittiSortField, setIscrittiSortField] = useState<'puntiIscrizione' | 'puntiClassificaAttuale' | 'posizione'>('puntiIscrizione');
+  const [iscrittiSortDir, setIscrittiSortDir] = useState<'desc' | 'asc'>('desc');
+  const [loadingCurrentPoints, setLoadingCurrentPoints] = useState<boolean>(false);
   const [bracketViewMode, setBracketViewMode] = useState<'bracket' | 'cards'>('bracket');
   const [bracketLoading, setBracketLoading] = useState<boolean>(false);
   const [fullBracketCache, setFullBracketCache] = useState<{ [garaKey: string]: BracketRoundData[] }>({});
@@ -352,7 +360,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
     }
   };
 
-  const centerTab = (_tab: TorneiPortalView, _targetBtn?: HTMLElement | null) => {};
+  const centerTab = (_tab: TorneiPortalView, _targetBtn?: HTMLElement | null) => { };
 
   const handlePortalViewChange = (view: TorneiPortalView, e?: React.MouseEvent<HTMLButtonElement>) => {
     if (view === portalView) return;
@@ -877,9 +885,81 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
 
   const handleOpenPhase = (phase: GaraPhase) => {
     setGaraPhaseTab(phase);
-    if (phase === 'iscritti') setGaraSearchQuery('');
+    if (phase === 'iscritti') {
+      setGaraSearchQuery('');
+      setIscrittiSortField('puntiIscrizione');
+      setIscrittiSortDir('desc');
+    }
     scrollToRoot();
   };
+
+  const handleToggleIscrittiSort = (field: 'puntiIscrizione' | 'puntiClassificaAttuale' | 'posizione') => {
+    if (iscrittiSortField === field) {
+      setIscrittiSortDir((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setIscrittiSortField(field);
+      setIscrittiSortDir(field === 'posizione' ? 'asc' : 'desc');
+    }
+  };
+
+  // Arricchimento progressivo dei punti dell'ultima classifica in vigore per gli iscritti non ancora risolti
+  useEffect(() => {
+    if (!garaData?.iscritti || garaData.iscritti.length === 0) {
+      setLoadingCurrentPoints(false);
+      return;
+    }
+
+    const missing = garaData.iscritti.filter(
+      (i) => i.puntiClassificaAttuale === null || i.puntiClassificaAttuale === undefined
+    );
+    if (missing.length === 0) {
+      setLoadingCurrentPoints(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingCurrentPoints(true);
+
+    (async () => {
+      const batchSize = 30;
+      for (let idx = 0; idx < missing.length; idx += batchSize) {
+        if (cancelled) break;
+        const batch = missing.slice(idx, idx + batchSize).map((m) => ({
+          nome: m.nome,
+          atletaId: m.atletaId,
+        }));
+        try {
+          const resolvedMap = await fetchIscrittiCurrentPoints(batch);
+          if (cancelled) break;
+          setGaraData((prev) => {
+            if (!prev) return prev;
+            const nextIscritti = prev.iscritti.map((item) => {
+              const found = resolvedMap[item.nome];
+              if (!found) return item;
+              return {
+                ...item,
+                atletaId: found.atletaId || item.atletaId,
+                puntiClassificaAttuale:
+                  found.puntiClassificaAttuale !== null
+                    ? found.puntiClassificaAttuale
+                    : item.puntiClassificaAttuale ?? 0,
+              };
+            });
+            return { ...prev, iscritti: nextIscritti };
+          });
+        } catch {
+          // Ignora errore singolo batch
+        }
+      }
+      if (!cancelled) {
+        setLoadingCurrentPoints(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [garaData?.idt, garaData?.garaId, garaData?.iscritti?.length]);
 
   const backToTornei = () => {
     setIsModalFullscreen(false);
@@ -942,17 +1022,45 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
       ? headerSubtitle
       : `${activeCategoryDef ? `${activeCategoryDef.label} • ` : ''}${selectedRegionName}`;
 
+  const getPointsIscrizioneNum = (item: { puntiIscrizione?: number; punti?: string }): number => {
+    if (typeof item.puntiIscrizione === 'number' && item.puntiIscrizione > 0) {
+      return item.puntiIscrizione;
+    }
+    return parseInt((item.punti || '').replace(/\./g, '').replace(/[^\d-]/g, ''), 10) || 0;
+  };
+
   const filteredIscritti = useMemo(() => {
     if (!garaData?.iscritti) return [];
     const q = garaSearchQuery.toLowerCase().trim();
-    if (!q) return garaData.iscritti;
-    return garaData.iscritti.filter(
-      (i) =>
-        i.nome.toLowerCase().includes(q) ||
-        i.societa.toLowerCase().includes(q) ||
-        i.statusLabel.toLowerCase().includes(q)
-    );
-  }, [garaData?.iscritti, garaSearchQuery]);
+    const filtered = !q
+      ? [...garaData.iscritti]
+      : garaData.iscritti.filter(
+        (i) =>
+          i.nome.toLowerCase().includes(q) ||
+          i.societa.toLowerCase().includes(q) ||
+          i.statusLabel.toLowerCase().includes(q)
+      );
+
+    filtered.sort((a, b) => {
+      const mul = iscrittiSortDir === 'desc' ? -1 : 1;
+      if (iscrittiSortField === 'posizione') {
+        return (a.posizione - b.posizione) * mul;
+      }
+      const ptsIscrA = getPointsIscrizioneNum(a);
+      const ptsIscrB = getPointsIscrizioneNum(b);
+
+      if (iscrittiSortField === 'puntiClassificaAttuale') {
+        const curA = a.puntiClassificaAttuale && a.puntiClassificaAttuale > 0 ? a.puntiClassificaAttuale : ptsIscrA;
+        const curB = b.puntiClassificaAttuale && b.puntiClassificaAttuale > 0 ? b.puntiClassificaAttuale : ptsIscrB;
+        if (curA !== curB) return (curA - curB) * mul;
+      }
+
+      if (ptsIscrA !== ptsIscrB) return (ptsIscrA - ptsIscrB) * mul;
+      return a.posizione - b.posizione;
+    });
+
+    return filtered;
+  }, [garaData?.iscritti, garaSearchQuery, iscrittiSortField, iscrittiSortDir]);
 
   const currentGaraKey = selectedGara
     ? `${selectedGara.idt}_${selectedGara.com}_${selectedGara.garaId}`
@@ -1642,7 +1750,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
 
           {garaPhaseTab === 'iscritti' && garaData && (
             <>
-              <div className="tornei-phase-toolbar">
+              <div className="tornei-phase-toolbar tornei-iscritti-toolbar">
                 <div className="tornei-search">
                   <i className="bi bi-search tornei-search-icon" aria-hidden="true"></i>
                   <input
@@ -1654,6 +1762,42 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                     aria-label="Cerca atleta o società"
                   />
                 </div>
+
+                <div className="tornei-iscritti-sort-group" role="group" aria-label="Ordina iscritti per">
+                  <button
+                    type="button"
+                    className={`tornei-sort-pill ${iscrittiSortField === 'puntiIscrizione' ? 'is-active' : ''}`}
+                    onClick={() => handleToggleIscrittiSort('puntiIscrizione')}
+                    title="Ordina per punteggio al momento dell'iscrizione"
+                  >
+                    <span>Punti Iscr.</span>
+                    <i
+                      className={`bi ${iscrittiSortField === 'puntiIscrizione'
+                        ? iscrittiSortDir === 'desc'
+                          ? 'bi-arrow-down'
+                          : 'bi-arrow-up'
+                        : 'bi-arrow-down-up'
+                        }`}
+                    ></i>
+                  </button>
+                  <button
+                    type="button"
+                    className={`tornei-sort-pill ${iscrittiSortField === 'puntiClassificaAttuale' ? 'is-active' : ''}`}
+                    onClick={() => handleToggleIscrittiSort('puntiClassificaAttuale')}
+                    title="Ordina per punti dell'ultima classifica in vigore (Teste di Serie)"
+                  >
+                    <span>Punti Attuali</span>
+                    <i
+                      className={`bi ${iscrittiSortField === 'puntiClassificaAttuale'
+                        ? iscrittiSortDir === 'desc'
+                          ? 'bi-arrow-down'
+                          : 'bi-arrow-up'
+                        : 'bi-arrow-down-up'
+                        }`}
+                    ></i>
+                  </button>
+                </div>
+
                 <span className="tornei-section-count">
                   {filteredIscritti.length} / {garaData.iscritti.length}
                 </span>
@@ -1665,15 +1809,62 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                     <table className="tornei-table">
                       <thead>
                         <tr>
-                          <th className="th-rank">#</th>
+                          <th
+                            className={`th-rank th-sortable ${iscrittiSortField === 'posizione' ? 'is-sorted' : ''}`}
+                            onClick={() => handleToggleIscrittiSort('posizione')}
+                            title="Clicca per ordinare per numero d'iscrizione originale"
+                          >
+                            <span>#</span>
+                          </th>
                           <th className="th-athlete">Atleta</th>
                           <th className="th-provincia hide-xs">Società</th>
-                          <th className="th-points text-end">Punti</th>
+                          <th
+                            className={`th-points text-end th-sortable ${iscrittiSortField === 'puntiIscrizione' ? 'is-sorted' : ''}`}
+                            onClick={() => handleToggleIscrittiSort('puntiIscrizione')}
+                            title="Clicca per ordinare per Punti Iscrizione"
+                          >
+                            <span className="th-sortable-inner">
+                              <span>Punti Iscr.</span>
+                              <i
+                                className={`bi ${iscrittiSortField === 'puntiIscrizione'
+                                  ? iscrittiSortDir === 'desc'
+                                    ? 'bi-arrow-down'
+                                    : 'bi-arrow-up'
+                                  : 'bi-arrow-down-up th-sort-idle'
+                                  }`}
+                              ></i>
+                            </span>
+                          </th>
+                          <th
+                            className={`th-points text-end th-sortable ${iscrittiSortField === 'puntiClassificaAttuale' ? 'is-sorted' : ''}`}
+                            onClick={() => handleToggleIscrittiSort('puntiClassificaAttuale')}
+                            title="Clicca per ordinare per Punti Ultima Classifica (Teste di Serie)"
+                          >
+                            <span className="th-sortable-inner">
+                              <span>Δ nuovi pt </span>
+                              {loadingCurrentPoints ? (
+                                <span
+                                  className="spinner-border spinner-border-sm ms-1"
+                                  role="status"
+                                  style={{ width: '0.7rem', height: '0.7rem', borderWidth: '0.12em' }}
+                                ></span>
+                              ) : (
+                                <i
+                                  className={`bi ${iscrittiSortField === 'puntiClassificaAttuale'
+                                    ? iscrittiSortDir === 'desc'
+                                      ? 'bi-arrow-down'
+                                      : 'bi-arrow-up'
+                                    : 'bi-arrow-down-up th-sort-idle'
+                                    }`}
+                                ></i>
+                              )}
+                            </span>
+                          </th>
                           <th className="th-cat text-center">Stato</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredIscritti.map((iscr) => {
+                        {filteredIscritti.map((iscr, rowIdx) => {
                           const statusCls = iscr.statusClass.includes('diritto')
                             ? 'is-diritto'
                             : iscr.statusClass.includes('no_ammessi')
@@ -1681,6 +1872,18 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                               : iscr.statusClass.includes('wd')
                                 ? 'is-wd'
                                 : '';
+
+                          const ptsIscrNum = getPointsIscrizioneNum(iscr);
+                          const ptsAttuali =
+                            typeof iscr.puntiClassificaAttuale === 'number' && iscr.puntiClassificaAttuale > 0
+                              ? iscr.puntiClassificaAttuale
+                              : null;
+                          const delta =
+                            ptsAttuali !== null && ptsIscrNum > 0 ? ptsAttuali - ptsIscrNum : null;
+
+                          const displayRank =
+                            iscrittiSortField === 'posizione' ? iscr.posizione : rowIdx + 1;
+
                           return (
                             <tr
                               key={`${iscr.posizione}-${iscr.nome}`}
@@ -1688,8 +1891,8 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                               onClick={() => handleAthleteClick(iscr.atletaId, iscr.nome)}
                             >
                               <td className="td-rank">
-                                <span className={`rank-badge rank-badge-${iscr.posizione <= 3 ? iscr.posizione : 'default'}`}>
-                                  {iscr.posizione}
+                                <span className={`rank-badge rank-badge-${displayRank <= 3 ? displayRank : 'default'}`}>
+                                  {displayRank}
                                 </span>
                               </td>
                               <td className="td-athlete">
@@ -1720,7 +1923,46 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                                 <span className="provincia-text">{iscr.societa}</span>
                               </td>
                               <td className="td-points text-end">
-                                <span className="badge-points-official">{iscr.punti || '-'}</span>
+                                <span className="badge-points-official">
+                                  {ptsIscrNum > 0 ? ptsIscrNum.toLocaleString('it-IT') : iscr.punti || '-'}
+                                </span>
+                              </td>
+                              <td className="td-points text-end">
+                                {ptsAttuali !== null ? (
+                                  <div className="iscritto-current-pts-wrap">
+                                    <span className="badge-points-official is-current-rank">
+                                      {(Number(ptsAttuali) - Number(iscr.punti)) > 0 ? '+' : '-'}
+                                       {(Number(ptsAttuali) - Number(iscr.punti)).toLocaleString('it-IT')}
+                                    </span>
+                                    {delta !== null && (
+                                      <span
+                                        className={`iscritto-delta-badge ${delta > 0
+                                          ? 'is-positive'
+                                          : delta < 0
+                                            ? 'is-negative'
+                                            : 'is-neutral'
+                                          }`}
+                                        title={
+                                          delta > 0
+                                            ? `Guadagnati +${delta} pt rispetto all'iscrizione`
+                                            : delta < 0
+                                              ? `Persi ${delta} pt rispetto all'iscrizione`
+                                              : 'Punteggio invariato rispetto all\'iscrizione'
+                                        }
+                                      >
+                                        {delta > 0 ? `▲ +${delta}` : delta < 0 ? `▼ ${delta}` : '='}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : loadingCurrentPoints ? (
+                                  <span className="iscritto-pts-loading" title="Caricamento classifica attuale...">
+                                    ···
+                                  </span>
+                                ) : (
+                                  <span className="text-muted" style={{ fontSize: '0.78rem' }}>
+                                    {ptsIscrNum > 0 ? ptsIscrNum.toLocaleString('it-IT') : '—'}
+                                  </span>
+                                )}
                               </td>
                               <td className="td-cat text-center">
                                 <span className={`torneo-iscritto-status ${statusCls}`}>

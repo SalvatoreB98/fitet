@@ -53,6 +53,10 @@
       "destination": "/api/index.js"
     },
     {
+      "source": "/regioni/:slug",
+      "destination": "/regioni/:slug/index.html"
+    },
+    {
       "source": "/player/(.*)",
       "destination": "/index.html"
     },

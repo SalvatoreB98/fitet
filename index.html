@@ -12,11 +12,11 @@
   <link rel="apple-touch-icon" href="/icon.png" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Portale Risultati FITeT | Classifiche, Gironi e Tennistavolo</title>
+  <title>Portale Risultati FITeT – Classifiche e Gironi Rapidi da Mobile</title>
   <meta name="description"
-    content="Portale Risultati FITeT non ufficiale: consulta calendari, classifiche campionati a squadre, statistiche atleti e schede ranking tennistavolo aggiornate in tempo reale." />
+    content="Consulta risultati, gironi, classifiche campionati, tornei e schede atleta FITeT in tempo reale. Interfaccia moderna, veloce e ottimizzata per smartphone. Web app indipendente." />
   <meta name="keywords"
-    content="portale risultati, portale risultati fitet, portale risultati ftet, risultati fitet, campionati fitet, classifiche tennistavolo, fitet portale, ranking fitet, calendario campionati tennistavolo, atleti fitet" />
+    content="portale risultati, portale risultati fitet, portale risultati ftet, risultati fitet, campionati fitet, classifiche tennistavolo, fitet portale, ranking fitet, calendario campionati tennistavolo, atleti fitet, fitet marche, fitet piemonte, fitet lombardia, fitet calabria, fitet lazio, fitet emilia romagna, fitet veneto, fitet toscana, fitet sicilia, fitet puglia, fitet campania" />
   <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
   <meta name="author" content="Salvatore Butera" />
   <link rel="canonical" href="https://portale-risultati-tt.it/" />    
@@ -25,16 +25,16 @@
   <meta property="og:site_name" content="Portale Risultati FITeT" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://portale-risultati-tt.it/" />
-  <meta property="og:title" content="Portale Risultati FITeT | Classifiche, Gironi e Tennistavolo" />
+  <meta property="og:title" content="Portale Risultati FITeT – Classifiche e Gironi Rapidi da Mobile" />
   <meta property="og:description"
-    content="Il portale moderno e reattivo per i risultati FITeT: calendari andata/ritorno, classifiche campionati, statistiche e schede ranking atleti con storico punti." />
+    content="Consulta risultati, gironi e schede atleta FITeT in tempo reale. Interfaccia moderna, veloce e ottimizzata per smartphone. Web app indipendente." />
   <meta property="og:image" content="/fitet-icon.png" />
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="Portale Risultati FITeT | Classifiche, Gironi e Tennistavolo" />
+  <meta name="twitter:title" content="Portale Risultati FITeT – Classifiche e Gironi Rapidi da Mobile" />
   <meta name="twitter:description"
-    content="Il portale moderno e reattivo per i risultati FITeT: calendari andata/ritorno, classifiche campionati, statistiche e schede ranking atleti con storico punti." />
+    content="Consulta risultati, gironi e schede atleta FITeT in tempo reale. Interfaccia moderna, veloce e ottimizzata per smartphone. Web app indipendente." />
   <meta name="twitter:image" content="/fitet-icon.png" />
   <meta name="google-site-verification" content="Ks5B1z02BINrwOtHxh4nBqMW-AC8KnV3aIw-Sn-Ftkw" />
   <!-- Schema.org Structured Data (JSON-LD) for Search Engines -->
@@ -54,8 +54,40 @@
           "FITeT Risultati",
           "Campionati FITeT"
         ],
-        "description": "Portale risultati non ufficiale della Federazione Italiana Tennistavolo: classifiche, calendari e ranking atleti.",
-        "inLanguage": "it-IT"
+        "description": "Consulta risultati, gironi e schede atleta FITeT in tempo reale. Interfaccia moderna, veloce e ottimizzata per smartphone. Web app indipendente.",
+        "inLanguage": "it-IT",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://portale-risultati-tt.it/?q={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        }
+      },
+      {
+        "@type": "WebApplication",
+        "@id": "https://portale-risultati-tt.it/#webapp",
+        "name": "Portale Risultati FITeT",
+        "url": "https://portale-risultati-tt.it/",
+        "applicationCategory": "SportsApplication",
+        "applicationSubCategory": "Table Tennis Results & Rankings",
+        "operatingSystem": "Android, iOS, Windows, macOS, Linux, Web",
+        "browserRequirements": "Richiede browser moderno con supporto HTML5. Ottimizzata mobile-first e installabile come PWA.",
+        "isAccessibleForFree": true,
+        "inLanguage": "it-IT",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "EUR"
+        },
+        "featureList": [
+          "Classifiche e gironi campionati FITeT nazionali e regionali in tempo reale",
+          "Calendari andata e ritorno con referti completi degli incontri",
+          "Ricerca rapida atleti e società, storico ranking e confronto testa a testa",
+          "Calendario, mappa e tabelloni tornei nazionali e regionali FITeT",
+          "Web App interattiva mobile-first e PWA con notifiche push"
+        ]
       },
       {
         "@type": "SportsOrganization",
@@ -63,7 +95,7 @@
         "name": "Portale Risultati FITeT",
         "url": "https://portale-risultati-tt.it/",
         "sport": "Table Tennis",
-        "description": "Dashboard consultazione risultati campionati e classifiche di tennistavolo FITeT"
+        "description": "Dashboard consultazione risultati campionati, gironi, tornei e classifiche di tennistavolo FITeT"
       }
     ]
   }
@@ -96,6 +128,30 @@
         <li><strong>Statistiche di Rendimento</strong>: percentuali di vittoria, partite giocate e rendimento atleti nei
           rispettivi gironi.</li>
       </ul>
+      <h2>Portali Regionali FITeT:</h2>
+      <p>
+        <a href="/regioni/abruzzo">FITeT Abruzzo</a> •
+        <a href="/regioni/alto-adige">FITeT Alto Adige</a> •
+        <a href="/regioni/basilicata">FITeT Basilicata</a> •
+        <a href="/regioni/calabria">FITeT Calabria</a> •
+        <a href="/regioni/campania">FITeT Campania</a> •
+        <a href="/regioni/emilia-romagna">FITeT Emilia Romagna</a> •
+        <a href="/regioni/friuli-venezia-giulia">FITeT Friuli Venezia Giulia</a> •
+        <a href="/regioni/lazio">FITeT Lazio</a> •
+        <a href="/regioni/liguria">FITeT Liguria</a> •
+        <a href="/regioni/lombardia">FITeT Lombardia</a> •
+        <a href="/regioni/marche">FITeT Marche</a> •
+        <a href="/regioni/molise">FITeT Molise</a> •
+        <a href="/regioni/piemonte">FITeT Piemonte</a> •
+        <a href="/regioni/puglia">FITeT Puglia</a> •
+        <a href="/regioni/sardegna">FITeT Sardegna</a> •
+        <a href="/regioni/sicilia">FITeT Sicilia</a> •
+        <a href="/regioni/toscana">FITeT Toscana</a> •
+        <a href="/regioni/trentino">FITeT Trentino</a> •
+        <a href="/regioni/umbria">FITeT Umbria</a> •
+        <a href="/regioni/valle-d-aosta">FITeT Valle d&apos;Aosta</a> •
+        <a href="/regioni/veneto">FITeT Veneto</a>
+      </p>
       <p>Per un&apos;esperienza interattiva completa, visualizzare grafici e filtri in tempo reale, abilita JavaScript
         nel browser.</p>
     </div>

@@ -8,6 +8,7 @@ import { CalendarioTab } from './components/CalendarioTab';
 import { StatisticheTab } from './components/StatisticheTab';
 import { AtletaModal } from './components/AtletaModal';
 import { ChampionshipModal } from './components/ChampionshipModal';
+import { RegioniModal } from './components/RegioniModal';
 import { SquadraModal } from './components/SquadraModal';
 import { IntroMotionGraphic } from './components/IntroMotionGraphic';
 import { HomeTab } from './components/HomeTab';
@@ -30,6 +31,12 @@ import {
   subscribeToMyProfile,
   getMyPlayerId,
 } from './utils/myProfile';
+import {
+  getRegionFromUrl,
+  getRegionSeoMeta,
+  regionToSlug,
+  setUserRegion,
+} from './utils/geolocation';
 
 const getAthleteFromUrl = (): { id: string; name: string } | null => {
   if (typeof window === 'undefined') return null;
@@ -85,35 +92,41 @@ export const App: React.FC = () => {
   const [loadingCampionati, setLoadingCampionati] = useState<boolean>(false);
   const [isChampionshipModalOpen, setIsChampionshipModalOpen] = useState<boolean>(false);
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState<boolean>(false);
-  const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
-  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
-
-  // Motion Graphic Intro on first access only (bypassed if landing directly on athlete link)
-  const [showIntro, setShowIntro] = useState<boolean>(() => {
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('intro') === '1') return true;
-      // URL di anteprima: ?paywall=true salta l'intro per mostrare subito il bannerino
-      const paywallParam = urlParams.get('paywall');
-      if (paywallParam === 'true' || paywallParam === '1') return false;
-      const isPlayerPath = /^\/(?:player|atleta)\//i.test(window.location.pathname) || urlParams.has('player') || urlParams.has('atleta');
-      if (isPlayerPath) return false;
-      const completed = localStorage.getItem('fitet_intro_completed');
-      return !completed;
+      const q = new URLSearchParams(window.location.search).get('q');
+      return Boolean(q && q.trim());
     }
     return false;
   });
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
+
+  // Pagina / Modale regionale SEO dedicata (/regioni/marche, /regioni/piemonte, /regioni/calabria, ecc.)
+  const [activeRegionPage, setActiveRegionPage] = useState<string | null>(() => {
+    const reg = getRegionFromUrl();
+    if (reg) {
+      setUserRegion(reg);
+    }
+    return reg;
+  });
+
+  const [isRegioniModalOpen, setIsRegioniModalOpen] = useState<boolean>(() => {
+    return Boolean(getRegionFromUrl());
+  });
+
+  // Rimossa la schermata intermedia "Entra nel nuovo portale" per azzerare il pogo-sticking
+  const [showIntro, setShowIntro] = useState<boolean>(false);
 
   const handleIntroComplete = () => {
     setShowIntro(false);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('fitet_intro_completed', 'true');
-    }
   };
 
   // Main 4-view navigation: 'home' | 'campionato' | 'tornei' | 'classifiche'
   const [mainView, setMainView] = useState<MainViewType>(() => {
     if (typeof window !== 'undefined') {
+      if (getRegionFromUrl()) {
+        return 'home';
+      }
       const urlParams = new URLSearchParams(window.location.search);
       const viewParam = urlParams.get('view');
       if (viewParam && ['home', 'campionato', 'tornei', 'classifiche'].includes(viewParam)) {
@@ -233,7 +246,7 @@ export const App: React.FC = () => {
         // Se lo stack è vuoto e non c'è cronologia valida a cui tornare,
         // puliamo l'URL e navighiamo direttamente alla home
         if (!hasInternalHistory && window.location.pathname !== '/') {
-          window.location.href = '/'; // oppure router.push('/') se usi Next.js / React Router
+          window.location.href = '/';
         } else {
           const url = new URL(window.location.href);
           url.pathname = '/';
@@ -383,7 +396,7 @@ export const App: React.FC = () => {
         registerTeamLogos(result.classifica);
       }
 
-      if (result.championship) {
+      if (result.championship && !getRegionFromUrl()) {
         document.title = `FITeT ${result.championship.nome} - ${result.championship.regione} | Risultati & Classifica`;
       }
     } catch (err: any) {
@@ -547,6 +560,8 @@ export const App: React.FC = () => {
 
   const handleSelectChampionship = (newCam: number, newAnno = 41) => {
     setSelectedTeamFilter(null);
+    setIsRegioniModalOpen(false);
+    setActiveRegionPage(null);
     if (newCam !== camId || !data) {
       setData(null);
       setLoading(true);
@@ -569,6 +584,7 @@ export const App: React.FC = () => {
 
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
+      url.pathname = '/';
       url.searchParams.set('cam', String(newCam));
       url.searchParams.set('view', 'campionato');
       url.searchParams.set('tab', championshipTab);
@@ -594,6 +610,7 @@ export const App: React.FC = () => {
 
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
+      url.pathname = '/';
       if (view === 'home') {
         url.searchParams.delete('view');
         url.searchParams.delete('tab');
@@ -640,9 +657,80 @@ export const App: React.FC = () => {
     scrollToNav();
   };
 
+  // Aggiorna dinamicamente Title, Meta Description e Canonical per le pagine regionali (/regioni/:slug) o Home
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const descMeta = document.querySelector('meta[name="description"]');
+    const canonicalLink = document.querySelector('link[rel="canonical"]');
+
+    if (activeRegionPage && isRegioniModalOpen) {
+      const seo = getRegionSeoMeta(activeRegionPage);
+      document.title = seo.title;
+      if (descMeta) descMeta.setAttribute('content', seo.description);
+      if (canonicalLink) canonicalLink.setAttribute('href', seo.canonical);
+    } else if (mainView === 'home' && !activeRegionPage) {
+      document.title = 'Portale Risultati FITeT – Classifiche e Gironi Rapidi da Mobile';
+      if (descMeta) {
+        descMeta.setAttribute(
+          'content',
+          'Consulta risultati, gironi, classifiche campionati, tornei e schede atleta FITeT in tempo reale. Interfaccia moderna, veloce e ottimizzata per smartphone. Web app indipendente.'
+        );
+      }
+      if (canonicalLink) canonicalLink.setAttribute('href', 'https://portale-risultati-tt.it/');
+    }
+  }, [activeRegionPage, isRegioniModalOpen, mainView]);
+
+  const handleSelectRegionPage = (region: string | null) => {
+    setActiveRegionPage(region);
+    if (region) {
+      setUserRegion(region);
+    }
+    setIsRegioniModalOpen(true);
+    if (typeof window !== 'undefined') {
+      const targetUrl = region ? `/regioni/${regionToSlug(region)}` : '/';
+      window.history.pushState(
+        { ...(window.history.state || {}), regionPage: region },
+        '',
+        targetUrl
+      );
+    }
+  };
+
+  // Se si clicca sul pulsante X della modale delle regioni si torna alla Home
+  const handleCloseRegioniModal = () => {
+    setIsRegioniModalOpen(false);
+    setActiveRegionPage(null);
+    setMainView('home');
+    localStorage.setItem('fitet_main_view', 'home');
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.pathname = '/';
+      url.searchParams.delete('view');
+      url.searchParams.delete('tab');
+      url.searchParams.delete('regione');
+      url.searchParams.delete('region');
+      window.history.pushState(
+        { ...(window.history.state || {}), regionPage: null, view: 'home' },
+        '',
+        url.toString()
+      );
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
   // Browser back / forward popstate handler
   useEffect(() => {
     const handlePopState = () => {
+      const regionFromPath = getRegionFromUrl();
+      setActiveRegionPage(regionFromPath);
+      if (regionFromPath) {
+        setUserRegion(regionFromPath);
+        setIsRegioniModalOpen(true);
+      } else {
+        setIsRegioniModalOpen(false);
+      }
+
       const urlParams = new URLSearchParams(window.location.search);
       const viewParam = urlParams.get('view');
       const tabParam = urlParams.get('tab');
@@ -727,6 +815,7 @@ export const App: React.FC = () => {
   const isAnyOverlayOpen =
     showIntro ||
     isChampionshipModalOpen ||
+    isRegioniModalOpen ||
     isFavoritesModalOpen ||
     isSearchModalOpen ||
     isInstallModalOpen ||
@@ -764,6 +853,7 @@ export const App: React.FC = () => {
         isConsulting={isConsulting}
         onReturnToMyChampionship={handleReturnToMyChampionship}
         onOpenChampionshipModal={() => setIsChampionshipModalOpen(true)}
+        onOpenRegioniModal={() => setIsRegioniModalOpen(true)}
         onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
         onOpenSearchModal={() => setIsSearchModalOpen(true)}
         onOpenInstallAppModal={() => setIsInstallModalOpen(true)}
@@ -1019,6 +1109,19 @@ export const App: React.FC = () => {
         isLoadingCampionati={loadingCampionati}
         onClose={() => setIsChampionshipModalOpen(false)}
         onSelectChampionship={handleSelectChampionship}
+      />
+
+      {/* Comitati Regionali Modal */}
+      <RegioniModal
+        isOpen={isRegioniModalOpen}
+        activeRegion={activeRegionPage}
+        currentCamId={camId || 0}
+        myCamId={myCamId}
+        campionati={campionati}
+        isLoadingCampionati={loadingCampionati}
+        onSelectRegion={handleSelectRegionPage}
+        onSelectChampionship={handleSelectChampionship}
+        onClose={handleCloseRegioniModal}
       />
 
       {/* Favorite Athletes Modal */}

@@ -28,6 +28,11 @@ import {
   cleanChampionshipCardName,
 } from '../utils/championshipUtils';
 import {
+  ITALIAN_REGIONS,
+  regionToSlug,
+  getRegionSeoMeta,
+} from '../utils/geolocation';
+import {
   preparePushNotifications,
   getPushNotificationStatus,
   isStandaloneMode,
@@ -67,6 +72,8 @@ interface HomeTabProps {
   onOpenInstallAppModal: () => void;
   onOpenAtletaModal: (id: string, name: string) => void;
   dashboardData?: DashboardData | null;
+  activeRegionPage?: string | null;
+  onSelectRegionPage?: (region: string | null) => void;
 }
 
 export const HomeTab: React.FC<HomeTabProps> = ({
@@ -85,6 +92,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   onOpenChampionshipModal,
   onOpenInstallAppModal,
   onOpenAtletaModal,
+  activeRegionPage = null,
+  onSelectRegionPage,
 }) => {
   const {
     favorites: favoriteAthletes,
@@ -419,8 +428,152 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     pushStatus.standalone ||
     (canEnablePushInBrowser() && pushStatus.supported);
 
+  // Campionati filtrati per la pagina regionale attiva (/regioni/:slug)
+  const regionalPageChampionships = useMemo(() => {
+    if (!activeRegionPage) return [];
+    const target = activeRegionPage.toLowerCase();
+    return campionati.filter((c) => (c.regione || '').toLowerCase() === target);
+  }, [campionati, activeRegionPage]);
+
+  const regionalPageSeo = useMemo(() => {
+    if (!activeRegionPage) return null;
+    return getRegionSeoMeta(activeRegionPage);
+  }, [activeRegionPage]);
+
   return (
     <div className="home-container">
+      {/* ───────────────────────────────────────────────────────────
+          BARRA DI ACCESSO RAPIDO MOBILE-FIRST (Anti Pogo-Sticking):
+          Ricerca immediata Atleta/Società + Selettore rapido Gironi e Regioni
+         ─────────────────────────────────────────────────────────── */}
+      <section className="home-quick-access-card" aria-label="Ricerca rapida e selezione regione">
+
+      </section>
+
+      {/* ───────────────────────────────────────────────────────────
+          PAGINA DEDICATA REGIONE (/regioni/:slug) - SEO & Accesso Diretto Gironi
+         ─────────────────────────────────────────────────────────── */}
+      {activeRegionPage && regionalPageSeo && (
+        <section className="home-section home-regional-landing" aria-labelledby="heading-region-seo">
+          <div className="home-regional-landing-header">
+            <div>
+              <div className="home-regional-kicker">
+                <i className="bi bi-geo-alt-fill me-1"></i>
+                Comitato Regionale FITeT {activeRegionPage}
+              </div>
+              <h1 id="heading-region-seo" className="home-regional-h1">
+                {regionalPageSeo.h1}
+              </h1>
+              <p className="home-regional-desc">
+                {regionalPageSeo.description}
+              </p>
+            </div>
+            <div className="home-regional-actions">
+              <span className="home-section-count">
+                {regionalPageChampionships.length}{' '}
+                {regionalPageChampionships.length === 1 ? 'girone attivo' : 'gironi attivi'}
+              </span>
+              <button
+                type="button"
+                className="home-section-btn"
+                onClick={() => onSelectRegionPage?.(null)}
+              >
+                <i className="bi bi-arrow-left me-1"></i>
+                Tutte le regioni
+              </button>
+            </div>
+          </div>
+
+          {regionalPageChampionships.length > 0 ? (
+            <div className="home-cards-grid home-cards-grid--compact">
+              {regionalPageChampionships.map((champ) => {
+                const isFav = isFavoriteChamp(champ.id);
+                const serieKey = getChampionshipSerieKey(champ);
+                const serieConfig = SERIE_CONFIGS[serieKey];
+                const cleanTitle = cleanChampionshipCardName(champ.nome, champ.categoria);
+
+                return (
+                  <div
+                    key={`reg-page-champ-${champ.id}`}
+                    className="home-borderless-card"
+                    onClick={() => handleOpenChampionship(champ.id, champ.anno || annoId, 'classifica')}
+                  >
+                    <div className="home-card-top">
+                      <div className="home-card-badges">
+                        <span
+                          className="home-soft-pill"
+                          style={{
+                            backgroundColor: `${serieConfig.accent}16`,
+                            color: serieConfig.accent,
+                          }}
+                        >
+                          <i className={`bi ${serieConfig.icon}`}></i>
+                          {champ.categoria || serieConfig.title}
+                        </span>
+                        <span className="home-soft-region">
+                          <i className="bi bi-geo-alt"></i>
+                          {champ.regione || activeRegionPage}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="home-card-fav-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleChampFavorite(champ.id, champ);
+                        }}
+                        title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                      >
+                        <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
+                      </button>
+                    </div>
+
+                    <div className="home-card-main">
+                      <h2 className="home-card-title" title={champ.nome}>
+                        {cleanTitle}
+                      </h2>
+                      {cleanTitle !== champ.nome && (
+                        <p className="home-card-sub">{champ.nome}</p>
+                      )}
+                    </div>
+
+                    <div className="home-card-actions">
+                      <button
+                        type="button"
+                        className="home-action-btn btn-main"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenChampionship(champ.id, champ.anno || annoId, 'classifica');
+                        }}
+                      >
+                        <i className="bi bi-trophy"></i>
+                        <span>Classifica</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="home-action-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenChampionship(champ.id, champ.anno || annoId, 'calendario');
+                        }}
+                      >
+                        <i className="bi bi-calendar3"></i>
+                        <span>Calendario</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="home-empty-simple">
+              Caricamento gironi FITeT {activeRegionPage} in corso...
+            </p>
+          )}
+        </section>
+      )}
+
       {/* ───────────────────────────────────────────────────────────
           IL MIO PROFILO (Scheda personale o invito alla configurazione)
          ─────────────────────────────────────────────────────────── */}

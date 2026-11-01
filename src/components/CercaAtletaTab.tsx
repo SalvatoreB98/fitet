@@ -21,7 +21,12 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
   hideFavorites = false,
 }) => {
   const { favorites, isFavorite, toggleFavorite } = useFavoriteAthletes();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return (new URLSearchParams(window.location.search).get('q') || '').trim();
+    }
+    return '';
+  });
   const [results, setResults] = useState<AthleteSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -50,6 +55,12 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (query.trim().length >= 2 && !hasSearched) {
+      performSearch(query);
+    }
+  }, [performSearch]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;

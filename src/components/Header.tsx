@@ -1,9 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
   getCachedUserRegion,
-  setUserRegion,
   subscribeToUserRegion,
-  ITALIAN_REGIONS,
 } from '../utils/geolocation';
 import { useFavoriteAthletes } from '../utils/favorites';
 
@@ -41,6 +39,7 @@ interface HeaderProps {
   isConsulting?: boolean;
   onReturnToMyChampionship?: () => void;
   onOpenChampionshipModal?: () => void;
+  onOpenRegioniModal?: () => void;
   onOpenFavoritesModal?: () => void;
   onOpenSearchModal?: () => void;
   onOpenInstallAppModal?: () => void;
@@ -68,6 +67,7 @@ export const Header: React.FC<HeaderProps> = ({
   isConsulting = false,
   onReturnToMyChampionship,
   onOpenChampionshipModal,
+  onOpenRegioniModal,
   onOpenFavoritesModal,
   onOpenSearchModal,
   onOpenInstallAppModal,
@@ -405,28 +405,6 @@ export const Header: React.FC<HeaderProps> = ({
                       </button>
                     )}
 
-                    {/* 7b. Salva per la Palestra (Offline Pre-cache) */}
-                    {/* {onPrecacheChampionship && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="burger-menu-item"
-                        onClick={() => {
-                          setIsMenuOpen(false);
-                          onPrecacheChampionship();
-                        }}
-                      >
-                        <div className="burger-item-icon-box" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#0284c7' }}>
-                          <i className="bi bi-cloud-arrow-down-fill"></i>
-                        </div>
-                        <div className="burger-item-content">
-                          <span className="burger-item-title">Salva per la Palestra</span>
-                          <span className="burger-item-desc">Scarica dati per consultazione offline</span>
-                        </div>
-                        <i className="bi bi-chevron-right burger-item-arrow"></i>
-                      </button>
-                    )} */}
-
                     {/* 8. Toggle Dark / Light Mode */}
                     {onToggleTheme && (
                       <div
@@ -476,37 +454,29 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                     )}
 
-                    {/* 9. Selezione Regione Manuale (Privacy GDPR, Zero GPS) */}
-                    <div className="burger-menu-item burger-menu-item-region" onClick={(e) => e.stopPropagation()}>
-                      <div className="burger-item-icon-box" style={{ background: 'rgba(2, 132, 199, 0.12)', color: '#0284c7' }}>
-                        <i className="bi bi-geo-alt-fill"></i>
-                      </div>
-                      <div className="burger-item-content">
-                        <span className="burger-item-title">Regione Preferita</span>
-                        <span className="burger-item-desc">
-                          {userRegion ? `Attiva: ${userRegion}` : 'Nessuna (Tutte)'}
-                        </span>
-                      </div>
-                      <div className="burger-item-action" onClick={(e) => e.stopPropagation()}>
-                        <select
-                          className="burger-region-select"
-                          value={userRegion}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setUserRegion(val);
-                            setUserRegionState(val);
-                          }}
-                          aria-label="Imposta regione preferita"
-                        >
-                          <option value="">Nessuna</option>
-                          {ITALIAN_REGIONS.map((r) => (
-                            <option key={r} value={r}>
-                              {r}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                    {/* 9. Comitati Regionali FITeT (Apre RegioniModal) */}
+                    {onOpenRegioniModal && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="burger-menu-item"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onOpenRegioniModal();
+                        }}
+                      >
+                        <div className="burger-item-icon-box" style={{ background: 'rgba(2, 132, 199, 0.12)', color: '#0284c7' }}>
+                          <i className="bi bi-geo-alt-fill"></i>
+                        </div>
+                        <div className="burger-item-content">
+                          <span className="burger-item-title">Comitati Regionali</span>
+                          <span className="burger-item-desc">
+                            {userRegion ? `Attivo: ${userRegion}` : 'Gironi e comitati regionali FITeT'}
+                          </span>
+                        </div>
+                        <i className="bi bi-chevron-right burger-item-arrow"></i>
+                      </button>
+                    )}
                   </div>
                 </div>
               </>

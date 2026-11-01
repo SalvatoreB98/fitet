@@ -730,6 +730,152 @@ app.get('/api/tornei/dettaglio', async (req, res) => {
     }
 });
 
+// Helper: risolve i punti della classifica attuale in vigore per un singolo iscritto a un torneo
+async function resolveSingleIscrittoCurrentPoints(item: {
+    nome: string;
+    atletaId?: string | null;
+}): Promise<{ atletaId: string | null; puntiClassificaAttuale: number | null }> {
+    const rawName = (item.nome || '').trim();
+    if (!rawName) return { atletaId: null, puntiClassificaAttuale: null };
+
+    const primaryName = rawName.includes('/') ? rawName.split('/')[0].trim() : rawName;
+    let atletaId = item.atletaId || null;
+
+    if (!atletaId || !/^\d+$/.test(atletaId)) {
+        atletaId = await athleteResolver.resolveAthleteId(primaryName);
+    }
+
+    if (!atletaId) {
+        return { atletaId: null, puntiClassificaAttuale: null };
+    }
+
+    const ptsCacheKey = `atleta_pts_${atletaId}`;
+    const cachedPts = cacheService.get<number>(ptsCacheKey);
+    if (typeof cachedPts === 'number' && cachedPts > 0) {
+        return { atletaId, puntiClassificaAttuale: cachedPts };
+    }
+
+    const cachedAtleta = cacheService.get<any>(`atleta_${atletaId}`);
+    if (cachedAtleta) {
+        const storico = cachedAtleta.storicoClassifica || [];
+        const lastSnap = storico.length > 0 ? storico[storico.length - 1] : null;
+        const pts = lastSnap?.punti
+            ? Math.round(lastSnap.punti)
+            : cachedAtleta.anagrafica?.punti
+                ? Math.round(cachedAtleta.anagrafica.punti)
+                : null;
+        if (pts && pts > 0) {
+            cacheService.set(ptsCacheKey, pts, TTL_ATLETA);
+            return { atletaId, puntiClassificaAttuale: pts };
+        }
+    }
+
+    try {
+        const html = await FitetClient.fetchSchedaAtleta(atletaId);
+        const parsed = parseDettaglioAtleta(html, atletaId);
+        const storico = parsed.storicoClassifica || [];
+        const lastSnap = storico.length > 0 ? storico[storico.length - 1] : null;
+        const pts = lastSnap?.punti
+            ? Math.round(lastSnap.punti)
+            : parsed.anagrafica?.punti
+                ? Math.round(parsed.anagrafica.punti)
+                : null;
+
+        if (pts && pts > 0) {
+            cacheService.set(ptsCacheKey, pts, TTL_ATLETA);
+            return { atletaId, puntiClassificaAttuale: pts };
+        }
+    } catch (err) {
+        console.warn(`[TorneiIscritti] Impossibile recuperare punti attuali per ${primaryName} (${atletaId}):`, err);
+    }
+
+    return { atletaId, puntiClassificaAttuale: null };
+}
+
+// Arricchisce l'elenco iscritti con i punti dell'ultima classifica in vigore (con budget temporale per non bloccare gare grandi)
+async function enrichIscrittiWithCurrentRankingPoints(
+    iscritti: Array<{ nome: string; atletaId?: string | null; puntiClassificaAttuale?: number | null }>,
+    timeBudgetMs = 2800,
+    concurrency = 12
+): Promise<void> {
+    if (!iscritti || iscritti.length === 0) return;
+
+    // 1. Popola subito da cache in-memory a costo 0ms
+    const pendingIndices: number[] = [];
+    for (let i = 0; i < iscritti.length; i++) {
+        const item = iscritti[i];
+        if (item.puntiClassificaAttuale && item.puntiClassificaAttuale > 0) continue;
+
+        if (item.atletaId) {
+            const cachedPts = cacheService.get<number>(`atleta_pts_${item.atletaId}`);
+            if (typeof cachedPts === 'number' && cachedPts > 0) {
+                item.puntiClassificaAttuale = cachedPts;
+                continue;
+            }
+        }
+        pendingIndices.push(i);
+    }
+
+    if (pendingIndices.length === 0) return;
+
+    let cursor = 0;
+    const workerPool = Promise.all(
+        Array.from({ length: Math.min(concurrency, pendingIndices.length) }, async () => {
+            while (cursor < pendingIndices.length) {
+                const idx = pendingIndices[cursor++];
+                const target = iscritti[idx];
+                const resolved = await resolveSingleIscrittoCurrentPoints(target);
+                if (resolved.atletaId) target.atletaId = resolved.atletaId;
+                if (resolved.puntiClassificaAttuale !== null) {
+                    target.puntiClassificaAttuale = resolved.puntiClassificaAttuale;
+                }
+            }
+        })
+    );
+
+    if (timeBudgetMs > 0) {
+        await Promise.race([
+            workerPool,
+            new Promise<void>((resolve) => setTimeout(resolve, timeBudgetMs)),
+        ]);
+    } else {
+        await workerPool;
+    }
+}
+
+// Endpoint batch per completare i punti classifica attuale degli iscritti a un torneo
+app.post('/api/tornei/iscritti-punti', async (req, res) => {
+    const items: Array<{ nome: string; atletaId?: string | null }> = Array.isArray(req.body?.iscritti)
+        ? req.body.iscritti.slice(0, 60)
+        : [];
+
+    if (items.length === 0) {
+        return res.json({ results: {} });
+    }
+
+    try {
+        const results: Record<string, { atletaId: string | null; puntiClassificaAttuale: number | null }> = {};
+        let cursor = 0;
+        const concurrency = 12;
+
+        await Promise.all(
+            Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+                while (cursor < items.length) {
+                    const item = items[cursor++];
+                    if (!item?.nome) continue;
+                    const resolved = await resolveSingleIscrittoCurrentPoints(item);
+                    results[item.nome] = resolved;
+                }
+            })
+        );
+
+        return res.json({ results });
+    } catch (error: any) {
+        console.error('Error in /api/tornei/iscritti-punti:', error);
+        return res.status(500).json({ error: error.message });
+    }
+});
+
 // 4e. Dettaglio Singola Gara di un Torneo (Iscritti, Gironi di qualificazione, Tabellone Eliminazione Diretta)
 app.get('/api/tornei/gara', async (req, res) => {
     const idt = parseInt(req.query.idt as string, 10);
@@ -764,6 +910,7 @@ app.get('/api/tornei/gara', async (req, res) => {
                 `${baseUrl}/iscrizioni_gara.php?GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}`
             ).catch(() => '');
             const parsedIscr = parseIscrizioniGara(iscrHtml, mapping);
+            await enrichIscrittiWithCurrentRankingPoints(parsedIscr.iscritti, 2800);
 
             const payload: TorneoGaraDettaglioResponse = {
                 idt,
@@ -799,6 +946,7 @@ app.get('/api/tornei/gara', async (req, res) => {
             ).catch(() => '');
             const parsedIscr = parseIscrizioniGara(iscrHtml, mapping);
             if (parsedIscr.iscritti.length > 0) {
+                await enrichIscrittiWithCurrentRankingPoints(parsedIscr.iscritti, 2800);
                 const fallbackPayload: TorneoGaraDettaglioResponse = {
                     idt,
                     com,
@@ -918,6 +1066,7 @@ app.get('/api/tornei/gara', async (req, res) => {
             ).catch(() => '');
             const parsedIscr = parseIscrizioniGara(iscrHtml, mapping);
             if (parsedIscr.iscritti.length > 0) {
+                await enrichIscrittiWithCurrentRankingPoints(parsedIscr.iscritti, 2800);
                 const fallbackPayload: TorneoGaraDettaglioResponse = {
                     idt,
                     com,
@@ -1798,6 +1947,17 @@ if (!process.env.VERCEL) {
         } catch {
             return next();
         }
+    });
+
+    // Dynamic OG & SEO tags for /regioni/:slug and /regione/:slug
+    app.get(['/regioni/:slug', '/regione/:slug'], async (req, res, next) => {
+        const { slug } = req.params;
+        const preRenderedFile = path.join(distPath, 'regioni', slug.toLowerCase(), 'index.html');
+        if (fs.existsSync(preRenderedFile)) {
+            res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            return res.sendFile(preRenderedFile);
+        }
+        return next();
     });
 
     // Dynamic OG tags for /campionato/:id and /cam/:id

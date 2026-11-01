@@ -405,6 +405,21 @@ export async function fetchTorneoGara(
   );
 }
 
+export async function fetchIscrittiCurrentPoints(
+  iscritti: Array<{ nome: string; atletaId?: string | null }>
+): Promise<Record<string, { atletaId: string | null; puntiClassificaAttuale: number | null }>> {
+  const response = await fetch(`${API_BASE}/tornei/iscritti-punti`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ iscritti }),
+  });
+  if (!response.ok) {
+    throw new Error('Impossibile recuperare i punti attuali degli iscritti');
+  }
+  const data = await response.json();
+  return data.results || {};
+}
+
 /**
  * Salva in anticipo tutti i dati del campionato e delle squadre per la consultazione offline in palestra
  */
