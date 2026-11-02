@@ -2012,12 +2012,12 @@ function parsePartiteRanking(html, atletaId) {
       return m ? parseItalianNumber(m[1]) : void 0;
     };
     result.dettaglioPunti = {
-      puntiIniziali: parseSubVal(/iniziali\s*<b>?([\d\.,]+)/i),
-      campionato: parseSubVal(/campionato\s*<b>?([\d\.,]+)/i),
-      tornei: parseSubVal(/tornei\s*<b>?([\d\.,]+)/i),
-      vittorieTornei: parseSubVal(/vittorie\s*tornei\s*<b>?([\d\.,]+)/i),
-      protezione: parseSubVal(/protezione\s*<b>?([\d\.,]+)/i),
-      finali: parseSubVal(/finali\s*<b>?([\d\.,]+)/i)
+      puntiIniziali: parseSubVal(/iniziali\s*(?:<b>)?\s*([\d\.,]+)/i),
+      campionato: parseSubVal(/campionato\s*(?:<b>)?\s*([\d\.,]+)/i),
+      tornei: parseSubVal(/tornei\s*(?:<b>)?\s*([\d\.,]+)/i),
+      vittorieTornei: parseSubVal(/vittorie\s*tornei\s*(?:<b>)?\s*([\d\.,]+)/i),
+      protezione: parseSubVal(/protezione\s*(?:<b>)?\s*([\d\.,]+)/i),
+      finali: parseSubVal(/finali\s*(?:<b>)?\s*([\d\.,]+)/i)
     };
     console.log("[parsePartiteRanking] Dettaglio punti parsato:", result.dettaglioPunti);
   }
@@ -2129,6 +2129,44 @@ function parsePartiteRanking(html, atletaId) {
       console.log(`[parsePartiteRanking] Partite tornei estratte: ${result.tornei.length}`);
     }
   });
+  const ptsPerVitMap = /* @__PURE__ */ new Map();
+  $p.find("h3").each((_, h3) => {
+    const text = $(h3).text().replace(/\s+/g, " ").toLowerCase();
+    if (!text.includes("vinti nei gironi")) return;
+    const table = $(h3).nextAll("table").first();
+    if (!table.length) return;
+    table.find("tbody tr").each((__, tr) => {
+      const cells = $(tr).find("td");
+      if (cells.length < 4) return;
+      const rowText = $(tr).text().trim();
+      if (rowText.toLowerCase().includes("totale")) return;
+      const torneoName = $(cells[0]).text().trim();
+      const rawData = $(cells[1]).text().trim();
+      const data = formatDateItalian(rawData);
+      const garaName = $(cells[2]).text().trim();
+      const ptsPerWin = parseItalianNumber($(cells[3]).text().trim());
+      if (ptsPerWin > 0) {
+        ptsPerVitMap.set(`${data}|${torneoName}|${garaName}`, ptsPerWin);
+        ptsPerVitMap.set(`${data}|${torneoName}`, ptsPerWin);
+      }
+    });
+  });
+  if (result.tornei.length > 0) {
+    for (const tm of result.tornei) {
+      if (tm.fase?.toUpperCase() === "GIR") {
+        if (tm.isVittoria) {
+          const pts = ptsPerVitMap.get(`${tm.data}|${tm.torneo}|${tm.gara}`) ?? ptsPerVitMap.get(`${tm.data}|${tm.torneo}`);
+          if (pts !== void 0) {
+            tm.punti = pts;
+          }
+        } else {
+          tm.punti = 0;
+        }
+      } else if (!tm.isVittoria) {
+        tm.punti = 0;
+      }
+    }
+  }
   return result;
 }
 function parseDettaglioAtleta(html, atletaId, partiteRanking) {
@@ -5913,10 +5951,10 @@ app.get("/api/atleta/:id", async (req, res) => {
       const isHollow2 = !cached || !cached.anagrafica || cached.anagrafica.nome?.startsWith("Atleta ") || cached.anagrafica.punti === 0 && (!cached.storicoClassifica || cached.storicoClassifica.length === 0);
       if (cached && !isHollow2 && cached.partiteRanking) return res.json(cached);
     }
-    const html = await FitetClient.fetchSchedaAtleta(id);
+    let resolvedIdClass = await getLatestIdClass();
+    const html = await FitetClient.fetchSchedaAtleta(id, resolvedIdClass);
     let partiteRanking = void 0;
     let iframeUrl = extractRankingIframeUrl(html);
-    let resolvedIdClass = await getLatestIdClass();
     if (iframeUrl) {
       try {
         const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);

@@ -1046,6 +1046,9 @@ nav {
   z-index: 9999;
 }
 
+.h2h-picker-results {
+  background: var(--bg-card);
+}
 
 /* Sub-Navigation Tabs */
 .portal-nav {
@@ -2303,14 +2306,13 @@ nav {
 }
 
 .badge-neutral {
-  background: var(--bg-th);
   color: var(--text-muted);
   border: 1px solid var(--border-color);
   font-weight: 600;
+  opacity: 0.5;
 }
 
 [data-theme="dark"] .badge-neutral {
-  background: rgba(255, 255, 255, 0.05);
   color: #94a3b8;
   border-color: rgba(255, 255, 255, 0.08);
 }

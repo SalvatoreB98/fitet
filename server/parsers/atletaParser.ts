@@ -126,12 +126,12 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
       return m ? parseItalianNumber(m[1]) : undefined;
     };
     result.dettaglioPunti = {
-      puntiIniziali: parseSubVal(/iniziali\s*<b>?([\d\.,]+)/i),
-      campionato: parseSubVal(/campionato\s*<b>?([\d\.,]+)/i),
-      tornei: parseSubVal(/tornei\s*<b>?([\d\.,]+)/i),
-      vittorieTornei: parseSubVal(/vittorie\s*tornei\s*<b>?([\d\.,]+)/i),
-      protezione: parseSubVal(/protezione\s*<b>?([\d\.,]+)/i),
-      finali: parseSubVal(/finali\s*<b>?([\d\.,]+)/i),
+      puntiIniziali: parseSubVal(/iniziali\s*(?:<b>)?\s*([\d\.,]+)/i),
+      campionato: parseSubVal(/campionato\s*(?:<b>)?\s*([\d\.,]+)/i),
+      tornei: parseSubVal(/tornei\s*(?:<b>)?\s*([\d\.,]+)/i),
+      vittorieTornei: parseSubVal(/vittorie\s*tornei\s*(?:<b>)?\s*([\d\.,]+)/i),
+      protezione: parseSubVal(/protezione\s*(?:<b>)?\s*([\d\.,]+)/i),
+      finali: parseSubVal(/finali\s*(?:<b>)?\s*([\d\.,]+)/i),
     };
     console.log('[parsePartiteRanking] Dettaglio punti parsato:', result.dettaglioPunti);
   }
@@ -255,6 +255,52 @@ export function parsePartiteRanking(html: string, atletaId: string): PartiteRank
       console.log(`[parsePartiteRanking] Partite tornei estratte: ${result.tornei.length}`);
     }
   });
+
+  // Estrae anche i punti per incontro vinto nei gironi dei tornei ("Tornei: punti per incontri vinti nei gironi")
+  const ptsPerVitMap = new Map<string, number>();
+  $p.find('h3').each((_, h3) => {
+    const text = $(h3).text().replace(/\s+/g, ' ').toLowerCase();
+    if (!text.includes('vinti nei gironi')) return;
+    const table = $(h3).nextAll('table').first();
+    if (!table.length) return;
+
+    table.find('tbody tr').each((__, tr) => {
+      const cells = $(tr).find('td');
+      if (cells.length < 4) return;
+      const rowText = $(tr).text().trim();
+      if (rowText.toLowerCase().includes('totale')) return;
+
+      const torneoName = $(cells[0]).text().trim();
+      const rawData = $(cells[1]).text().trim();
+      const data = formatDateItalian(rawData);
+      const garaName = $(cells[2]).text().trim();
+      const ptsPerWin = parseItalianNumber($(cells[3]).text().trim());
+
+      if (ptsPerWin > 0) {
+        ptsPerVitMap.set(`${data}|${torneoName}|${garaName}`, ptsPerWin);
+        ptsPerVitMap.set(`${data}|${torneoName}`, ptsPerWin);
+      }
+    });
+  });
+
+  if (result.tornei.length > 0) {
+    for (const tm of result.tornei) {
+      if (tm.fase?.toUpperCase() === 'GIR') {
+        if (tm.isVittoria) {
+          const pts =
+            ptsPerVitMap.get(`${tm.data}|${tm.torneo}|${tm.gara}`) ??
+            ptsPerVitMap.get(`${tm.data}|${tm.torneo}`);
+          if (pts !== undefined) {
+            tm.punti = pts;
+          }
+        } else {
+          tm.punti = 0;
+        }
+      } else if (!tm.isVittoria) {
+        tm.punti = 0;
+      }
+    }
+  }
 
   return result;
 }

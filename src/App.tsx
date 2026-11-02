@@ -9,6 +9,7 @@ import { StatisticheTab } from './components/StatisticheTab';
 import { AtletaModal } from './components/AtletaModal';
 import { ChampionshipModal } from './components/ChampionshipModal';
 import { RegioniModal } from './components/RegioniModal';
+import { EloCalculatorModal } from './components/EloCalculatorModal';
 import { SquadraModal } from './components/SquadraModal';
 import { IntroMotionGraphic } from './components/IntroMotionGraphic';
 import { HomeTab } from './components/HomeTab';
@@ -100,6 +101,7 @@ export const App: React.FC = () => {
     return false;
   });
   const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
+  const [isEloCalculatorOpen, setIsEloCalculatorOpen] = useState<boolean>(false);
 
   // Pagina / Modale regionale SEO dedicata (/regioni/marche, /regioni/piemonte, /regioni/calabria, ecc.)
   const [activeRegionPage, setActiveRegionPage] = useState<string | null>(() => {
@@ -816,6 +818,7 @@ export const App: React.FC = () => {
     showIntro ||
     isChampionshipModalOpen ||
     isRegioniModalOpen ||
+    isEloCalculatorOpen ||
     isFavoritesModalOpen ||
     isSearchModalOpen ||
     isInstallModalOpen ||
@@ -854,6 +857,7 @@ export const App: React.FC = () => {
         onReturnToMyChampionship={handleReturnToMyChampionship}
         onOpenChampionshipModal={() => setIsChampionshipModalOpen(true)}
         onOpenRegioniModal={() => setIsRegioniModalOpen(true)}
+        onOpenEloCalculatorModal={() => setIsEloCalculatorOpen(true)}
         onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
         onOpenSearchModal={() => setIsSearchModalOpen(true)}
         onOpenInstallAppModal={() => setIsInstallModalOpen(true)}
@@ -1122,6 +1126,12 @@ export const App: React.FC = () => {
         onSelectRegion={handleSelectRegionPage}
         onSelectChampionship={handleSelectChampionship}
         onClose={handleCloseRegioniModal}
+      />
+
+      {/* Calcolatore Ranking / EloTT FITeT Modal */}
+      <EloCalculatorModal
+        isOpen={isEloCalculatorOpen}
+        onClose={() => setIsEloCalculatorOpen(false)}
       />
 
       {/* Favorite Athletes Modal */}

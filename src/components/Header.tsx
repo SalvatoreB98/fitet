@@ -40,6 +40,7 @@ interface HeaderProps {
   onReturnToMyChampionship?: () => void;
   onOpenChampionshipModal?: () => void;
   onOpenRegioniModal?: () => void;
+  onOpenEloCalculatorModal?: () => void;
   onOpenFavoritesModal?: () => void;
   onOpenSearchModal?: () => void;
   onOpenInstallAppModal?: () => void;
@@ -68,6 +69,7 @@ export const Header: React.FC<HeaderProps> = ({
   onReturnToMyChampionship,
   onOpenChampionshipModal,
   onOpenRegioniModal,
+  onOpenEloCalculatorModal,
   onOpenFavoritesModal,
   onOpenSearchModal,
   onOpenInstallAppModal,
@@ -382,6 +384,28 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                       <i className="bi bi-chevron-right burger-item-arrow"></i>
                     </button>
+
+                    {/* 6b. Calcolatore Ranking / EloTT */}
+                    {onOpenEloCalculatorModal && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="burger-menu-item"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onOpenEloCalculatorModal();
+                        }}
+                      >
+                        <div className="burger-item-icon-box" style={{ background: 'rgba(16, 185, 129, 0.14)', color: '#059669' }}>
+                          <i className="bi bi-calculator-fill"></i>
+                        </div>
+                        <div className="burger-item-content">
+                          <span className="burger-item-title">Calcolatore Ranking / EloTT</span>
+                          <span className="burger-item-desc">Simula variazioni punti e bonus FITeT</span>
+                        </div>
+                        <i className="bi bi-chevron-right burger-item-arrow"></i>
+                      </button>
+                    )}
 
                     {/* 7. Scarica App */}
                     {onOpenInstallAppModal && (

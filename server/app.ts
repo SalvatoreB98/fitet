@@ -1150,12 +1150,12 @@ app.get('/api/atleta/:id', async (req, res) => {
             if (cached && !isHollow && cached.partiteRanking) return res.json(cached);
         }
 
-        const html = await FitetClient.fetchSchedaAtleta(id);
+        let resolvedIdClass = await getLatestIdClass();
+        const html = await FitetClient.fetchSchedaAtleta(id, resolvedIdClass);
 
         // Extract & parse official ranking matches from #fragment-3 iframe
         let partiteRanking: PartiteRankingAtleta | undefined = undefined;
         let iframeUrl = extractRankingIframeUrl(html);
-        let resolvedIdClass = await getLatestIdClass();
 
         if (iframeUrl) {
             try {

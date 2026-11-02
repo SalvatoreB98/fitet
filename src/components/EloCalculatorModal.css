@@ -1,0 +1,226 @@
+/* ==========================================================================
+   Calcolatore Punti FITeT — Minimal UI (riusa modal-*-simple & h2h-picker-*)
+   ========================================================================== */
+
+.elo-minimal-card {
+  max-width: 540px;
+}
+
+.elo-minimal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Barra risultato minimale */
+.elo-result-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-card, #f8fafc);
+}
+
+[data-theme="dark"] .elo-result-bar {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: #1e293b;
+}
+
+.elo-result-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.elo-result-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #64748b);
+}
+
+.elo-result-rating {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-dark, #0f172a);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+[data-theme="dark"] .elo-result-rating {
+  color: #f8fafc;
+}
+
+.elo-result-sub {
+  font-size: 11.5px;
+  color: var(--text-muted, #64748b);
+  font-variant-numeric: tabular-nums;
+}
+
+.elo-delta-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 11px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.elo-delta-tag.is-pos {
+  background: rgba(22, 163, 74, 0.14);
+  color: #16a34a;
+}
+
+.elo-delta-tag.is-neg {
+  background: rgba(220, 38, 38, 0.14);
+  color: #dc2626;
+}
+
+.elo-delta-tag.is-zero {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-muted, #64748b);
+}
+
+/* Select Manifestazione (mantenuta identica come richiesto) */
+.elo-select {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-container, #ffffff);
+  color: var(--text-dark, #0f172a);
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+[data-theme="dark"] .elo-select {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+/* Riga input Punti + Ricerca nome */
+.elo-compact-row {
+  display: grid;
+  grid-template-columns: 125px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.elo-pts-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.elo-pts-input {
+  width: 100%;
+  padding: 9px 28px 9px 10px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  background: var(--bg-container, #ffffff);
+  color: var(--text-main, #1e293b);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+
+.elo-pts-input:focus {
+  border-color: #0284c7;
+}
+
+[data-theme="dark"] .elo-pts-input {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+.elo-pts-unit {
+  position: absolute;
+  right: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted, #64748b);
+  pointer-events: none;
+}
+
+/* Bottoni Vittoria / Sconfitta minimali */
+.elo-vs-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.elo-vs-btn {
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-container, #ffffff);
+  color: var(--text-muted, #64748b);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+[data-theme="dark"] .elo-vs-btn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+.elo-vs-btn.is-win {
+  background: rgba(22, 163, 74, 0.14);
+  border-color: rgba(22, 163, 74, 0.45);
+  color: #16a34a;
+}
+
+.elo-vs-btn.is-loss {
+  background: rgba(220, 38, 38, 0.14);
+  border-color: rgba(220, 38, 38, 0.45);
+  color: #dc2626;
+}
+
+/* Riga opzione sesso diverso */
+.elo-mixed-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+}
+
+.elo-mixed-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.elo-bonus-grid-minimal {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+@media (max-width: 480px) {
+  .elo-compact-row {
+    grid-template-columns: 110px minmax(0, 1fr);
+  }
+  .elo-bonus-grid-minimal {
+    grid-template-columns: 1fr;
+  }
+}

@@ -201,6 +201,7 @@ export interface PartitaRankingTorneo {
   fase?: string;
   risultato: string;
   isVittoria: boolean;
+  punti?: number;
   stato?: string;
   isDiscarded?: boolean;
 }

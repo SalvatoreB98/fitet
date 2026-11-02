@@ -111,7 +111,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [viewMode, setViewMode] = useState<'slider' | 'list'>('slider');
   const [analyticsTab, setAnalyticsTab] = useState<'chart' | 'table'>('chart');
   const [h2hOpponent, setH2hOpponent] = useState<{ id?: string; name: string } | null>(null);
-  const [h2hScores, setH2hScores] = useState<Record<string, { punteggio: string }>>({});
+  const [h2hScores, setH2hScores] = useState<Record<string, { punteggio: string; data?: string }>>({});
   const [loadingH2h, setLoadingH2h] = useState<Record<string, boolean>>({});
 
   // Slider navigation
@@ -449,12 +449,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
               data.incontri.forEach((enc) => {
                 const dateKey = normDate(enc.data);
-                const scoreObj = { punteggio: enc.punteggio };
+                const scoreObj = { punteggio: enc.punteggio, data: enc.data };
                 if (idKey && dateKey) next[`${idKey}_${dateKey}`] = scoreObj;
                 if (nameKey && dateKey) next[`${nameKey}_${dateKey}`] = scoreObj;
               });
 
-              const firstEnc = { punteggio: data.incontri[0].punteggio };
+              const firstEnc = { punteggio: data.incontri[0].punteggio, data: data.incontri[0].data };
               if (idKey && !next[idKey]) next[idKey] = firstEnc;
               if (nameKey && !next[nameKey]) next[nameKey] = firstEnc;
               next[key] = firstEnc;
@@ -890,6 +890,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         fase: m.fase,
                         risultato: m.risultato,
                         isVittoria: m.isVittoria,
+                        punti: m.punti,
                         stato: m.stato,
                       });
                     });
@@ -1095,14 +1096,34 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         let matchesToDisplay: MatchCardItem[] = [];
 
                         if (activeTabResolved === 'girone' && campionatoPartite && campionatoPartite.length > 0) {
+                          const usedRankingIdx = new Set<number>();
+                          const normOpp = (s?: string) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
                           matchesToDisplay = campionatoPartite.map((m, idx) => {
-                            const matchingRanking = unifiedRankingMatches.find(
-                              (rm) => rm.avversario.toUpperCase().trim() === m.avversario.toUpperCase().trim()
+                            const targetOpp = normOpp(m.avversario);
+                            let matchIdx = rankingCampionato.findIndex(
+                              (rm, rIdx) =>
+                                !usedRankingIdx.has(rIdx) &&
+                                normOpp(rm.avversario) === targetOpp &&
+                                rm.isVittoria === m.isVittoria
                             );
+                            if (matchIdx === -1) {
+                              matchIdx = rankingCampionato.findIndex(
+                                (rm, rIdx) =>
+                                  !usedRankingIdx.has(rIdx) &&
+                                  (normOpp(rm.avversario) === targetOpp ||
+                                    (targetOpp.length >= 4 &&
+                                      (normOpp(rm.avversario).includes(targetOpp) ||
+                                        targetOpp.includes(normOpp(rm.avversario)))))
+                              );
+                            }
+                            const matchingRanking = matchIdx !== -1 ? rankingCampionato[matchIdx] : undefined;
+                            if (matchIdx !== -1) usedRankingIdx.add(matchIdx);
+
                             return {
                               id: `girone-${idx}`,
                               tipo: 'girone',
-                              data: `G${m.giornata}`,
+                              data: matchingRanking?.data || `G${m.giornata}`,
                               titolo: campionatoNome || 'Campionato Girone',
                               sottotitolo: squadraCampionato || undefined,
                               avversario: m.avversario,
@@ -1111,6 +1132,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               isVittoria: m.isVittoria,
                               risultatoSet: m.risultatoSet,
                               sets: m.sets,
+                              punti: matchingRanking?.punti,
                             };
                           });
                         } else if (activeTabResolved === 'ranking' && unifiedRankingMatches.length > 0) {
@@ -1224,29 +1246,84 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                                   const exactScore = m.risultatoSet || h2hMatch?.punteggio;
                                   const isFetchingScore = !exactScore && Boolean((oppIdKey && loadingH2h[oppIdKey]) || (oppNameKey && loadingH2h[oppNameKey]));
+                                  const displayDate =
+                                    m.data && !/^G\d+$/i.test(m.data)
+                                      ? m.data
+                                      : h2hMatch?.data || m.data;
 
                                   return (
                                     <div
                                       key={m.id || idx}
                                       className="atleta-match-card atleta-match-slider-card"
                                     >
-                                      {/* Top Row: Outcome badge, Date, and Match type */}
+                                      {/* Top Row: Outcome badge, Giornata/Fase, Punti Guadagnati, and Date */}
                                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                           <span className={`match-badge-outcome ${m.isVittoria ? 'is-win' : 'is-loss'}`}>
                                             {m.isVittoria ? 'VINTA' : 'PERSA'}
                                           </span>
+
+                                          {m.punti !== undefined && (
+                                            <span
+                                              style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                padding: '2px 7px',
+                                                borderRadius: '6px',
+                                                fontSize: '10.5px',
+                                                fontWeight: 800,
+                                                fontVariantNumeric: 'tabular-nums',
+                                                background:
+                                                  m.punti > 0
+                                                    ? 'rgba(22, 163, 74, 0.14)'
+                                                    : m.punti < 0
+                                                      ? 'rgba(220, 38, 38, 0.14)'
+                                                      : 'rgba(148, 163, 184, 0.15)',
+                                                color:
+                                                  m.punti > 0
+                                                    ? '#16a34a'
+                                                    : m.punti < 0
+                                                      ? '#dc2626'
+                                                      : 'var(--text-muted)',
+                                              }}
+                                              title="Punti guadagnati nella classifica ranking FITeT"
+                                            >
+                                              {m.punti > 0
+                                                ? `+${m.punti.toLocaleString('it-IT', { maximumFractionDigits: 1 })} pt`
+                                                : `${m.punti.toLocaleString('it-IT', { maximumFractionDigits: 1 })} pt`}
+                                            </span>
+                                          )}
+
+
+                                        </div>
+                                        <div>
+                                          {m.giornata !== undefined && (
+                                            <span className="badge badge-neutral me-2" style={{ fontSize: '10px' }}>
+                                              G{m.giornata}
+                                            </span>
+                                          )}
 
                                           {m.fase && (
                                             <span className="badge badge-neutral" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
                                               {m.fase}
                                             </span>
                                           )}
+                                          <span
+                                            style={{
+                                              fontSize: '11.5px',
+                                              color: 'var(--text-muted)',
+                                              fontVariantNumeric: 'tabular-nums',
+                                              flexShrink: 0,
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              gap: '4px',
+                                            }}
+                                          >
+                                            <i className="bi bi-calendar3" style={{ fontSize: '10px', opacity: 0.75 }}></i>
+                                            <span>{displayDate}</span>
+                                          </span>
                                         </div>
 
-                                        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-                                          {m.data}
-                                        </span>
                                       </div>
 
                                       {/* Middle Row: Opponent Name & Event Details */}
@@ -1364,6 +1441,10 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
                                   const exactScore = m.risultatoSet || h2hMatch?.punteggio;
                                   const isFetchingScore = !exactScore && Boolean((oppIdKey && loadingH2h[oppIdKey]) || (oppNameKey && loadingH2h[oppNameKey]));
+                                  const displayDate =
+                                    m.data && !/^G\d+$/i.test(m.data)
+                                      ? m.data
+                                      : h2hMatch?.data || m.data;
 
                                   return (
                                     <div
@@ -1384,6 +1465,36 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                         {m.fase && (
                                           <span className="badge badge-neutral" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
                                             {m.fase}
+                                          </span>
+                                        )}
+
+                                        {m.punti !== undefined && (
+                                          <span
+                                            style={{
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              padding: '2px 6px',
+                                              borderRadius: '6px',
+                                              fontSize: '10px',
+                                              fontWeight: 800,
+                                              fontVariantNumeric: 'tabular-nums',
+                                              background:
+                                                m.punti > 0
+                                                  ? 'rgba(22, 163, 74, 0.14)'
+                                                  : m.punti < 0
+                                                    ? 'rgba(220, 38, 38, 0.14)'
+                                                    : 'rgba(148, 163, 184, 0.15)',
+                                              color:
+                                                m.punti > 0
+                                                  ? '#16a34a'
+                                                  : m.punti < 0
+                                                    ? '#dc2626'
+                                                    : 'var(--text-muted)',
+                                            }}
+                                          >
+                                            {m.punti > 0
+                                              ? `+${m.punti.toLocaleString('it-IT', { maximumFractionDigits: 1 })} pt`
+                                              : `${m.punti.toLocaleString('it-IT', { maximumFractionDigits: 1 })} pt`}
                                           </span>
                                         )}
 
@@ -1443,7 +1554,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                         )}
 
                                         <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                                          {m.data}
+                                          {displayDate}
                                         </span>
 
                                         {/* Numeric Result */}
