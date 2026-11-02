@@ -250,8 +250,7 @@ export function calculateSingleMatchElo(input: SingleMatchInput): SingleMatchCal
         effectiveRatingB > effectiveRatingA
           ? Math.min(120, Math.max(0, Math.round(0.1 * (effectiveRatingB - effectiveRatingA))))
           : 0;
-      const rawTotal = puntiBaseCampionato + bonusInattesoCampionato;
-      const effectiveDelta = Math.round(rawTotal * mixedGenderMultiplier);
+      const effectiveDelta = puntiBaseCampionato + bonusInattesoCampionato;
 
       return {
         isChampionshipSerie: true,
@@ -262,9 +261,9 @@ export function calculateSingleMatchElo(input: SingleMatchInput): SingleMatchCal
         effectiveRatingB,
         ratingDiff,
         expectedScoreA,
-        baseDelta: rawTotal,
+        baseDelta: effectiveDelta,
         eventMultiplier: 1.0,
-        mixedGenderMultiplier,
+        mixedGenderMultiplier: 1.0,
         effectiveDelta,
       };
     } else {
@@ -279,7 +278,7 @@ export function calculateSingleMatchElo(input: SingleMatchInput): SingleMatchCal
         expectedScoreA,
         baseDelta: 0,
         eventMultiplier: 1.0,
-        mixedGenderMultiplier,
+        mixedGenderMultiplier: 1.0,
         effectiveDelta: 0,
       };
     }
@@ -435,12 +434,6 @@ export function detectAthleteGender(detail: DettaglioAtleta | null | undefined):
     }
   }
 
-  if (detail.partiteRanking?.campionato && detail.partiteRanking.campionato.length > 0) {
-    const firstSesso = detail.partiteRanking.campionato[0].sesso?.trim().toUpperCase();
-    if (firstSesso === 'F') return 'F';
-    if (firstSesso === 'M') return 'M';
-  }
-
   return null;
 }
 
@@ -450,7 +443,7 @@ export function detectAthleteGender(detail: DettaglioAtleta | null | undefined):
  */
 export function matchSerieCampionatoFromString(
   rawStr?: string | null,
-  genderHint?: 'M' | 'F' | null
+  _genderHint?: 'M' | 'F' | null
 ): string | null {
   if (!rawStr) return null;
   const trimmed = rawStr.trim();
@@ -485,10 +478,9 @@ export function matchSerieCampionatoFromString(
     return 'GIOV_REG';
   }
 
-  // Determina se è un campionato femminile
-  const isFemale =
-    /FEMMINIL|\bDONNE\b|\bSERIE\s+[ABC][12]?\s*F\b|\b[ABC][12]?\s*FEMM/.test(s) ||
-    (genderHint === 'F' && !/MASCHIL|\bUOMINI\b/.test(s));
+  // Determina se il nome del campionato indica esplicitamente una serie femminile
+  // (in un campionato misto/maschile anche l'atleta donna prende i punti base di quella serie)
+  const isFemale = /FEMMINIL|\bDONNE\b|\bSERIE\s+[ABC][12]?\s*F\b|\b[ABC][12]?\s*F\b|\b[ABC][12]?\s*FEMM/.test(s);
 
   if (isFemale) {
     if (/\bA\s*1\b/.test(s)) return 'A1_F';

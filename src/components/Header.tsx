@@ -479,7 +479,7 @@ export const Header: React.FC<HeaderProps> = ({
                     )}
 
                     {/* 9. Comitati Regionali FITeT (Apre RegioniModal) */}
-                    {onOpenRegioniModal && (
+                    {/* {onOpenRegioniModal && (
                       <button
                         type="button"
                         role="menuitem"
@@ -500,7 +500,7 @@ export const Header: React.FC<HeaderProps> = ({
                         </div>
                         <i className="bi bi-chevron-right burger-item-arrow"></i>
                       </button>
-                    )}
+                    )} */}
                   </div>
                 </div>
               </>
