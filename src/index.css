@@ -7817,6 +7817,8 @@ body.modal-open {
 .venue-connection-banner.is-weak {
   border-color: rgba(245, 158, 11, 0.45);
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(45, 33, 15, 0.95));
+  position: fixed;
+  z-index: 9000;
 }
 
 .venue-connection-banner.is-offline {
