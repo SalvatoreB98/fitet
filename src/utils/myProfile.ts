@@ -6,6 +6,7 @@ export const MY_CHAMPIONSHIP_ID_KEY = 'fitet_my_championship_id';
 
 const PROFILE_SNAPSHOT_KEY = 'fitet_my_profile_snapshot';
 const PROFILE_EVENT_NAME = 'fitet_my_profile_updated';
+export const PUSH_CONTEXT_CHANGED_EVENT = 'fitet_push_context_changed';
 
 export interface MyProfileFormMatch {
   esito: 'V' | 'S';
@@ -57,6 +58,12 @@ const emitProfileUpdate = (snapshot: MyProfileSnapshot | null) => {
       detail: snapshot,
     })
   );
+  window.dispatchEvent(new CustomEvent(PUSH_CONTEXT_CHANGED_EVENT));
+};
+
+const emitPushContextChange = () => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(PUSH_CONTEXT_CHANGED_EVENT));
 };
 
 const parseDateValue = (value?: string): number => {
@@ -108,6 +115,8 @@ export function saveMyProfileSnapshot(snapshot: MyProfileSnapshot): void {
   } catch {
     // The profile still works without the local cache.
   }
+
+  emitPushContextChange();
 }
 
 export function setMyPlayer(id: string, name?: string): void {
@@ -220,6 +229,7 @@ export function setMyChampionshipId(camId: number | null): void {
       localStorage.removeItem(MY_CHAMPIONSHIP_ID_KEY);
     }
   } catch {}
+  emitPushContextChange();
 }
 
 export function getMyPlayedChampionships(): CampionatoAttualeInfo[] {

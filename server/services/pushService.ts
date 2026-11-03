@@ -15,6 +15,17 @@ export interface PushSubscriptionPayload {
     };
 }
 
+export interface PushSubscriptionContext {
+    playerId?: string | null;
+    playerName?: string | null;
+    primaryCamId?: number | null;
+    camIds?: number[];
+    annoId?: number;
+    updatedAt?: string;
+}
+
+export const SUBSCRIPTION_CONTEXTS_STATE_KEY = 'push_subscription_contexts';
+
 export interface StoredPushSubscription {
     id?: string;
     endpoint: string;
@@ -204,6 +215,175 @@ class PushService {
         if (error) {
             console.error('[PushService] Errore rimozione subscription:', error.message);
         }
+
+        await this.removeSubscriptionContext(endpoint).catch(() => undefined);
+    }
+
+    // ---------------------------------------------------------------------
+    // Contesto atleta / campionato associato alle singole subscription
+    // ---------------------------------------------------------------------
+
+    async getSubscriptionContexts(): Promise<Record<string, PushSubscriptionContext>> {
+        const raw = await this.getState(SUBSCRIPTION_CONTEXTS_STATE_KEY);
+        if (!raw) return {};
+
+        try {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                return parsed as Record<string, PushSubscriptionContext>;
+            }
+        } catch (err) {
+            console.warn('[PushService] Formato JSON push_subscription_contexts non valido:', err);
+        }
+
+        return {};
+    }
+
+    async saveSubscriptionContext(
+        endpoint: string,
+        context: PushSubscriptionContext
+    ): Promise<void> {
+        if (!this.supabase || !endpoint) return;
+
+        const cleanCamIds = Array.from(
+            new Set(
+                [
+                    ...(Array.isArray(context.camIds) ? context.camIds : []),
+                    ...(typeof context.primaryCamId === 'number' ? [context.primaryCamId] : []),
+                ].filter((id): id is number => typeof id === 'number' && Number.isFinite(id) && id > 0)
+            )
+        );
+
+        const primaryCamId =
+            typeof context.primaryCamId === 'number' && context.primaryCamId > 0
+                ? context.primaryCamId
+                : cleanCamIds[0] ?? null;
+
+        const currentMap = await this.getSubscriptionContexts();
+        const existing = currentMap[endpoint] || {};
+
+        currentMap[endpoint] = {
+            playerId:
+                context.playerId !== undefined ? context.playerId : existing.playerId ?? null,
+            playerName:
+                context.playerName !== undefined ? context.playerName : existing.playerName ?? null,
+            primaryCamId: primaryCamId ?? existing.primaryCamId ?? null,
+            camIds: cleanCamIds.length > 0 ? cleanCamIds : existing.camIds || [],
+            annoId: context.annoId ?? existing.annoId ?? 41,
+            updatedAt: new Date().toISOString(),
+        };
+
+        await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
+    }
+
+    async removeSubscriptionContext(endpoint: string): Promise<void> {
+        if (!this.supabase || !endpoint) return;
+
+        const currentMap = await this.getSubscriptionContexts();
+        if (!(endpoint in currentMap)) return;
+
+        delete currentMap[endpoint];
+        await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
+    }
+
+    /**
+     * Restituisce l'elenco univoco dei campionati (camId) seguiti dai dispositivi attivi.
+     */
+    async getSubscribedChampionshipIds(): Promise<number[]> {
+        if (!this.supabase) return [];
+
+        const [{ data, error }, contexts] = await Promise.all([
+            this.supabase
+                .from('push_subscriptions')
+                .select('endpoint')
+                .eq('is_active', true),
+            this.getSubscriptionContexts(),
+        ]);
+
+        if (error || !data) return [];
+
+        const activeEndpoints = new Set(data.map((row: { endpoint: string }) => row.endpoint));
+        const camIds = new Set<number>();
+
+        for (const [endpoint, ctx] of Object.entries(contexts)) {
+            if (!activeEndpoints.has(endpoint) || !ctx) continue;
+            if (typeof ctx.primaryCamId === 'number' && ctx.primaryCamId > 0) {
+                camIds.add(ctx.primaryCamId);
+            }
+            if (Array.isArray(ctx.camIds)) {
+                for (const id of ctx.camIds) {
+                    if (typeof id === 'number' && Number.isFinite(id) && id > 0) {
+                        camIds.add(id);
+                    }
+                }
+            }
+        }
+
+        return Array.from(camIds);
+    }
+
+    /**
+     * Invia la notifica a tutti i dispositivi attivi iscritti a uno specifico campionato (camId).
+     */
+    async sendToChampionshipSubscribers(
+        camId: number,
+        payload: PushMessagePayload
+    ): Promise<BroadcastResult> {
+        if (!this.supabase || !this.vapidConfigured) {
+            return { total: 0, sent: 0, failed: 0, removed: 0 };
+        }
+
+        const [{ data, error }, contexts] = await Promise.all([
+            this.supabase
+                .from('push_subscriptions')
+                .select('*')
+                .eq('is_active', true),
+            this.getSubscriptionContexts(),
+        ]);
+
+        if (error) {
+            throw new Error(`Lettura subscription fallita: ${error.message}`);
+        }
+
+        const allSubscriptions = (data || []) as StoredPushSubscription[];
+        if (allSubscriptions.length === 0) {
+            return { total: 0, sent: 0, failed: 0, removed: 0 };
+        }
+
+        const matchingSubscriptions = allSubscriptions.filter((sub) => {
+            const ctx = contexts[sub.endpoint];
+            if (!ctx) return false;
+            if (ctx.primaryCamId === camId) return true;
+            if (Array.isArray(ctx.camIds) && ctx.camIds.includes(camId)) return true;
+            return false;
+        });
+
+        if (matchingSubscriptions.length === 0) {
+            return { total: 0, sent: 0, failed: 0, removed: 0 };
+        }
+
+        const result: BroadcastResult = {
+            total: matchingSubscriptions.length,
+            sent: 0,
+            failed: 0,
+            removed: 0,
+        };
+
+        const concurrency = 20;
+        for (let i = 0; i < matchingSubscriptions.length; i += concurrency) {
+            const batch = matchingSubscriptions.slice(i, i + concurrency);
+            const batchResults = await Promise.all(
+                batch.map((sub) => this.sendToSubscription(sub, payload))
+            );
+
+            for (const r of batchResults) {
+                if (r.sent) result.sent += 1;
+                else result.failed += 1;
+                if (r.removed) result.removed += 1;
+            }
+        }
+
+        return result;
     }
 
     /**

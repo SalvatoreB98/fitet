@@ -895,8 +895,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               ) : (
                 <>
                   Aggiungendo l&apos;app alla schermata Home potrai anche
-                  attivare le notifiche push e ricevere gli avvisi sulle nuove
-                  classifiche FITeT.
+                  attivare le notifiche push e ricevere gli avvisi su nuovi match
+                  del tuo campionato, classifiche e tornei FITeT.
                 </>
               )}
             </p>
@@ -935,7 +935,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               Notifiche push
             </h3>
             <p className="home-hero-subtitle">
-              Ricevi un avviso quando viene pubblicata una nuova classifica FITeT.
+              Ricevi un avviso quando ci sono nuovi match o cambi di classifica del tuo campionato, nuove classifiche FITeT e nuovi tornei.
             </p>
 
             {!pushStatus.supported && (

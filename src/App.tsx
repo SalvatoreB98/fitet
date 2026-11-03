@@ -31,6 +31,7 @@ import {
   getMyPlayedChampionships,
   subscribeToMyProfile,
   getMyPlayerId,
+  PUSH_CONTEXT_CHANGED_EVENT,
 } from './utils/myProfile';
 import {
   getRegionFromUrl,
@@ -481,6 +482,7 @@ export const App: React.FC = () => {
       else url.searchParams.delete('anno');
       window.history.replaceState({ ...(window.history.state || {}), cam: camId, anno: annoId }, '', url.toString());
       localStorage.setItem('fitet_selected_cam', String(camId));
+      window.dispatchEvent(new CustomEvent(PUSH_CONTEXT_CHANGED_EVENT));
     }
   }, [camId, annoId, showIntro]);
 

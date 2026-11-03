@@ -5,6 +5,14 @@
  * Il service worker `public/sw.js` gestisce gli eventi `push` e `notificationclick`.
  */
 
+import {
+  getMyPlayerId,
+  getMyPlayerName,
+  getMyChampionshipId,
+  getMyPlayedChampionships,
+  PUSH_CONTEXT_CHANGED_EVENT,
+} from '../utils/myProfile';
+
 export type PushPermissionState = NotificationPermission | 'unsupported';
 
 export interface PushNotificationStatus {
@@ -14,6 +22,13 @@ export interface PushNotificationStatus {
   standalone: boolean;
 }
 
+export interface ClientPushContext {
+  playerId: string | null;
+  playerName: string | null;
+  primaryCamId: number | null;
+  camIds: number[];
+}
+
 const SERVICE_WORKER_URL = '/sw.js';
 const PUBLIC_KEY_ENDPOINT = '/api/push/public-key';
 const SUBSCRIBE_ENDPOINT = '/api/push/subscribe';
@@ -21,7 +36,65 @@ const SUBSCRIBE_ENDPOINT = '/api/push/subscribe';
 let registrationPromise: Promise<ServiceWorkerRegistration | null> | null = null;
 let publicKeyPromise: Promise<string> | null = null;
 let cachedPublicKey: string | null = null;
-let syncedEndpointInSession: string | null = null;
+let syncedSignatureInSession: string | null = null;
+let contextListenerAttached = false;
+let contextSyncTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Raccoglie dal profilo e dalle impostazioni locali l'atleta e i campionati
+ * associati al dispositivo, così che il server possa inviare notifiche mirate
+ * quando ci sono nuovi match o aggiornamenti di classifica in quel campionato.
+ */
+export function getClientPushContext(): ClientPushContext {
+  if (typeof window === 'undefined') {
+    return { playerId: null, playerName: null, primaryCamId: null, camIds: [] };
+  }
+
+  const playerId = getMyPlayerId();
+  const playerName = getMyPlayerName();
+  const myCamId = getMyChampionshipId();
+  const playedCamps = getMyPlayedChampionships();
+
+  const camSet = new Set<number>();
+  if (typeof myCamId === 'number' && myCamId > 0) {
+    camSet.add(myCamId);
+  }
+  for (const c of playedCamps) {
+    if (typeof c?.camId === 'number' && c.camId > 0) {
+      camSet.add(c.camId);
+    }
+  }
+
+  // Fallback sul campionato selezionato se l'atleta non ha ancora un campionato associato
+  if (camSet.size === 0) {
+    try {
+      const savedCam = localStorage.getItem('fitet_selected_cam');
+      if (savedCam && /^\d+$/.test(savedCam)) {
+        const parsed = parseInt(savedCam, 10);
+        if (parsed > 0) camSet.add(parsed);
+      }
+    } catch {}
+  }
+
+  const camIds = Array.from(camSet);
+  const primaryCamId =
+    typeof myCamId === 'number' && myCamId > 0
+      ? myCamId
+      : camIds.length > 0
+        ? camIds[0]
+        : null;
+
+  return {
+    playerId,
+    playerName,
+    primaryCamId,
+    camIds,
+  };
+}
+
+function buildSyncSignature(endpoint: string, ctx: ClientPushContext): string {
+  return `${endpoint}|${ctx.playerId || ''}|${ctx.primaryCamId || ''}|${ctx.camIds.join(',')}`;
+}
 
 /**
  * Rileva se l'app è aperta come PWA installata.
@@ -106,6 +179,16 @@ export function isPushSupported(): boolean {
  */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
+
+  if (!contextListenerAttached) {
+    contextListenerAttached = true;
+    window.addEventListener(PUSH_CONTEXT_CHANGED_EVENT, () => {
+      if (contextSyncTimer) clearTimeout(contextSyncTimer);
+      contextSyncTimer = setTimeout(() => {
+        syncPushSubscriptionContext().catch(() => undefined);
+      }, 250);
+    });
+  }
 
   if (!registrationPromise) {
     registrationPromise = navigator.serviceWorker
@@ -225,13 +308,17 @@ export async function getPushNotificationStatus(): Promise<PushNotificationStatu
               userVisibleOnly: true,
               applicationServerKey: targetKeyBytes,
             });
-            syncedEndpointInSession = null;
+            syncedSignatureInSession = null;
           }
 
-          if (subscription && syncedEndpointInSession !== subscription.endpoint) {
-            const syncRes = await sendSubscriptionToBackend(subscription, true);
-            if (syncRes.ok) {
-              syncedEndpointInSession = subscription.endpoint;
+          if (subscription) {
+            const currentContext = getClientPushContext();
+            const expectedSig = buildSyncSignature(subscription.endpoint, currentContext);
+            if (syncedSignatureInSession !== expectedSig) {
+              const syncRes = await sendSubscriptionToBackend(subscription, true);
+              if (syncRes.ok) {
+                syncedSignatureInSession = expectedSig;
+              }
             }
           }
         } catch (syncErr) {
@@ -279,6 +366,7 @@ async function sendSubscriptionToBackend(
   silent = false
 ): Promise<BackendSubscriptionResult> {
   const json = subscription.toJSON();
+  const context = getClientPushContext();
 
   try {
     const res = await fetch(SUBSCRIBE_ENDPOINT, {
@@ -289,6 +377,7 @@ async function sendSubscriptionToBackend(
         expirationTime: subscription.expirationTime,
         keys: json.keys,
         silent,
+        context,
       }),
     });
 
@@ -301,13 +390,40 @@ async function sendSubscriptionToBackend(
       };
     }
 
-    syncedEndpointInSession = subscription.endpoint;
+    syncedSignatureInSession = buildSyncSignature(subscription.endpoint, context);
     return { ok: true, welcomeSent: Boolean(data?.welcomeSent) };
   } catch (err: any) {
     return {
       ok: false,
       error: err?.message || 'Impossibile contattare il server.',
     };
+  }
+}
+
+/**
+ * Sincronizza silenziosamente con il backend l'atleta e il campionato
+ * associati alla subscription push attiva (se presente).
+ */
+export async function syncPushSubscriptionContext(): Promise<boolean> {
+  if (!isPushSupported() || Notification.permission !== 'granted') {
+    return false;
+  }
+
+  try {
+    const registration = await getActiveRegistration();
+    const subscription = await registration?.pushManager.getSubscription();
+    if (!subscription) return false;
+
+    const currentContext = getClientPushContext();
+    const expectedSig = buildSyncSignature(subscription.endpoint, currentContext);
+    if (syncedSignatureInSession === expectedSig) {
+      return true;
+    }
+
+    const res = await sendSubscriptionToBackend(subscription, true);
+    return res.ok;
+  } catch {
+    return false;
   }
 }
 
@@ -420,5 +536,5 @@ export async function unsubscribeFromPush(): Promise<void> {
   await subscription.unsubscribe().catch((err) => {
     console.warn('[Push] unsubscribe locale fallito:', err);
   });
-  syncedEndpointInSession = null;
+  syncedSignatureInSession = null;
 }

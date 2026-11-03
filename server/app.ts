@@ -22,7 +22,13 @@ import {
     notifyObservedTorneiIfNeeded,
     startDailyTorneiScheduler,
 } from './services/torneiNotificationService';
-import type { PushSubscriptionPayload } from './services/pushService';
+import {
+    notifyObservedChampionshipIfNeeded,
+    ensureChampionshipBaseline,
+    checkChampionshipsAndNotify,
+    startChampionshipScheduler,
+} from './services/campionatoNotificationService';
+import type { PushSubscriptionPayload, PushSubscriptionContext } from './services/pushService';
 import { parseDettaglioSquadra } from './parsers/squadraParser';
 import { parseRefertoIncontro, parseDettaglioPartita } from './parsers/refertoParser';
 import { parseRankingHtml } from './parsers/rankingParser';
@@ -50,6 +56,7 @@ import {
     PartitaCampionatoAtleta,
     AtletaCampionatoPartiteResponse,
     PartiteRankingAtleta,
+    DettaglioAtleta,
     ChampionshipItem,
     AthleteSearchResult,
     TorneoSectionResult,
@@ -250,6 +257,18 @@ app.get('/api/dashboard', async (req, res) => {
                 regione: champMeta?.regione || 'Nazionale',
             },
         };
+
+        // Controllo passivo ("piggyback") su nuovi match disputati / cambi classifica / statistiche
+        notifyObservedChampionshipIfNeeded({
+            camId: cam,
+            annoId: anno,
+            championshipName: payload.championship.nome,
+            classifica,
+            calendario,
+            statisticheAtleti,
+        }).catch((err) => {
+            console.warn(`[CampionatoNotifier] Errore controllo passivo dashboard cam=${cam}:`, err);
+        });
 
         res.json(payload);
     } catch (error: any) {
@@ -1738,12 +1757,25 @@ app.post('/api/refresh', async (req, res) => {
     try {
         cacheService.clear();
         athleteResolver.reloadMapping();
-        const [rawClassifica, calendario, statisticheAtleti] = await Promise.all([
+        const [rawClassifica, calendario, statisticheAtleti, champMeta] = await Promise.all([
             getClassifica(cam, anno, true),
             getCalendario(cam, anno, true),
             getStatistiche(cam, true),
+            championshipCatalog.getChampionship(cam).catch(() => undefined),
         ]);
         const classifica = computeTeamForm(rawClassifica, calendario);
+
+        notifyObservedChampionshipIfNeeded({
+            camId: cam,
+            annoId: anno,
+            championshipName: champMeta?.nome || `Campionato ${cam}`,
+            classifica,
+            calendario,
+            statisticheAtleti,
+        }).catch((err) => {
+            console.warn(`[CampionatoNotifier] Errore controllo passivo refresh cam=${cam}:`, err);
+        });
+
         res.json({ success: true, timestamp: new Date().toISOString(), classifica, calendario, statisticheAtleti });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -1801,6 +1833,70 @@ app.post('/api/push/subscribe', async (req, res) => {
             req.headers['user-agent'] || null
         );
 
+        // Salva il contesto atleta / campionato associato alla subscription (se presente)
+        const rawCtx = req.body?.context || {};
+        const playerId =
+            typeof rawCtx.playerId === 'string' && rawCtx.playerId.trim()
+                ? rawCtx.playerId.trim()
+                : typeof req.body?.playerId === 'string' && req.body.playerId.trim()
+                  ? req.body.playerId.trim()
+                  : undefined;
+        const playerName =
+            typeof rawCtx.playerName === 'string' && rawCtx.playerName.trim()
+                ? rawCtx.playerName.trim()
+                : typeof req.body?.playerName === 'string' && req.body.playerName.trim()
+                  ? req.body.playerName.trim()
+                  : undefined;
+        const rawPrimaryCam = rawCtx.primaryCamId ?? req.body?.primaryCamId ?? req.body?.camId;
+        const primaryCamId =
+            typeof rawPrimaryCam === 'number' && Number.isFinite(rawPrimaryCam) && rawPrimaryCam > 0
+                ? rawPrimaryCam
+                : typeof rawPrimaryCam === 'string' && /^\d+$/.test(rawPrimaryCam)
+                  ? parseInt(rawPrimaryCam, 10)
+                  : undefined;
+
+        const rawCamIds = Array.isArray(rawCtx.camIds)
+            ? rawCtx.camIds
+            : Array.isArray(req.body?.camIds)
+              ? req.body.camIds
+              : [];
+        const parsedCamIds: number[] = rawCamIds
+            .map((v: unknown) => (typeof v === 'number' ? v : typeof v === 'string' && /^\d+$/.test(v) ? parseInt(v, 10) : 0))
+            .filter((n: number) => Number.isFinite(n) && n > 0);
+
+        if (primaryCamId && !parsedCamIds.includes(primaryCamId)) {
+            parsedCamIds.unshift(primaryCamId);
+        }
+
+        // Se abbiamo playerId ma nessun campionato ancora risolto, controlla la cache atleta
+        if (playerId && parsedCamIds.length === 0) {
+            const cachedAthlete = cacheService.get<DettaglioAtleta>(`atleta_${playerId}`);
+            if (cachedAthlete?.campionatiGiocati?.length) {
+                for (const c of cachedAthlete.campionatiGiocati) {
+                    if (c.camId && !parsedCamIds.includes(c.camId)) {
+                        parsedCamIds.push(c.camId);
+                    }
+                }
+            } else if (cachedAthlete?.campionatoAttuale?.camId) {
+                parsedCamIds.push(cachedAthlete.campionatoAttuale.camId);
+            }
+        }
+
+        if (playerId !== undefined || playerName !== undefined || parsedCamIds.length > 0 || primaryCamId !== undefined) {
+            const contextToSave: PushSubscriptionContext = {
+                playerId,
+                playerName,
+                primaryCamId: primaryCamId ?? parsedCamIds[0] ?? undefined,
+                camIds: parsedCamIds,
+            };
+            await pushService.saveSubscriptionContext(subscription.endpoint, contextToSave);
+
+            // Assicura in background che esista il baseline per ciascun campionato seguito
+            for (const cId of parsedCamIds) {
+                ensureChampionshipBaseline(cId).catch(() => undefined);
+            }
+        }
+
         if (silent) {
             return res.status(200).json({
                 success: true,
@@ -1811,7 +1907,7 @@ app.post('/api/push/subscribe', async (req, res) => {
 
         const welcome = await pushService.sendToSubscription(saved, {
             title: 'Notifiche attivate!',
-            body: "Da questo momento in poi riceverai delle notifiche su classifiche e nuovi tornei FITeT!",
+            body: "Da questo momento in poi riceverai notifiche su nuovi match del tuo campionato, classifiche e nuovi tornei FITeT!",
             icon: '/icon.png',
             badge: '/icon.png',
             tag: `fitet-welcome-${Date.now()}`,
@@ -1854,7 +1950,7 @@ app.delete('/api/push/subscribe', async (req, res) => {
 });
 
 // Endpoint per cron esterno / Vercel Cron: forza il controllo dell'ID_CLASS
-// e invia la notifica a tutti i dispositivi se è cambiato.
+// e dei campionati seguiti dagli iscritti, inviando le notifiche se sono cambiati.
 app.get('/api/push/check-ranking', async (req, res) => {
     if (!isPushCronAuthorized(req)) {
         return res.status(401).json({ error: 'Non autorizzato.' });
@@ -1862,12 +1958,51 @@ app.get('/api/push/check-ranking', async (req, res) => {
 
     try {
         const idClass = await getLatestIdClass(true, false);
-        const result = await notifyRankingChangeIfNeeded(idClass);
-        return res.json({ success: true, ...result });
+        const [result, championshipsResult] = await Promise.all([
+            notifyRankingChangeIfNeeded(idClass),
+            checkChampionshipsAndNotify().catch((err) => {
+                console.warn('[PushService] Errore controllo campionati durante check-ranking:', err);
+                return null;
+            }),
+        ]);
+        return res.json({
+            success: true,
+            ...result,
+            championships: championshipsResult,
+        });
     } catch (error: any) {
         console.error('[PushService] Errore controllo cambio ranking:', error);
         return res.status(500).json({
             error: 'Errore durante il controllo del cambio classifica.',
+            details: error.message,
+        });
+    }
+});
+
+// Endpoint per cron esterno / Vercel Cron: controlla se nei campionati seguiti dagli utenti
+// ci sono nuovi incontri disputati, variazioni di classifica o nuove statistiche.
+app.get('/api/push/check-campionati', async (req, res) => {
+    if (!isPushCronAuthorized(req)) {
+        return res.status(401).json({ error: 'Non autorizzato.' });
+    }
+
+    const dryRun = req.query.dryRun === 'true';
+    const init = req.query.init === 'true';
+    const rawCam = typeof req.query.cam === 'string' ? req.query.cam : '';
+    const camIds = rawCam
+        ? rawCam
+              .split(',')
+              .map((s) => parseInt(s.trim(), 10))
+              .filter((n) => Number.isFinite(n) && n > 0)
+        : undefined;
+
+    try {
+        const result = await checkChampionshipsAndNotify({ camIds, dryRun, init });
+        return res.json({ success: true, ...result });
+    } catch (error: any) {
+        console.error('[PushService] Errore controllo campionati:', error);
+        return res.status(500).json({
+            error: 'Errore durante il controllo dei campionati.',
             details: error.message,
         });
     }
@@ -1899,6 +2034,7 @@ app.get('/api/push/check-tornei', async (req, res) => {
 // Serve static frontend files in production only when running as standalone node server (not on Vercel)
 if (!process.env.VERCEL) {
     startDailyTorneiScheduler();
+    startChampionshipScheduler();
     const distPath = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distPath));
 

@@ -31,7 +31,7 @@ create table if not exists public.push_state (
   updated_at timestamptz not null default now()
 );
 
-comment on table public.push_state is 'Stato persistente per i trigger push (es. ultimo ID_CLASS notificato)';
+comment on table public.push_state is 'Stato persistente per i trigger push (ultimo ID_CLASS notificato, tornei noti, stato campionati e contesto subscription)';
 
 -- 3) Aggiornamento automatico di updated_at
 create or replace function public.set_push_subscriptions_updated_at()
