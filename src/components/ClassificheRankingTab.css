@@ -419,12 +419,6 @@
 }
 
 /* Points */
-.points-val {
-  font-family: var(--font-mono, monospace);
-  font-weight: 800;
-  font-size: 0.92rem;
-  color: #0284c7;
-}
 
 /* Settore & Categoria */
 .settore-badge {
@@ -562,28 +556,6 @@
     flex: 1;
     justify-content: center;
   }
-}
-
-.filtri-rapidi {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  color: var(--text-muted);
-  font-family: var(--font-sans);
-  font-size: 0.84rem;
-  font-weight: 600;
-  overflow: hidden;
-}
-
-.filtri-scroll-hint {
-  font-family: var(--font-sans);
-  font-size: 0.74rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  font-style: italic;
-  display: inline-flex;
-  align-items: center;
 }
 
 @media (max-width: 992px) {
@@ -737,10 +709,6 @@
   color: #8899b5;
 }
 
-[data-theme="dark"] .points-val {
-  color: #38bdf8;
-}
-
 /* Category pills in dark mode */
 [data-theme="dark"] .cat-pill-4 {
   background: rgba(2, 132, 199, 0.25);
@@ -837,52 +805,6 @@
   box-shadow: var(--shadow-container);
 }
 
-#rankingFiltersAccordion .accordion-item,
-.ranking-accordion .accordion-item {
-  background: var(--bg-container);
-  border: none;
-  border-bottom: 1px solid var(--border-color);
-  transition: background-color 0.2s ease;
-}
-
-#rankingFiltersAccordion .accordion-item:last-child,
-.ranking-accordion .accordion-item:last-child {
-  border-bottom: none;
-}
-
-#rankingFiltersAccordion .accordion-button,
-.ranking-accordion .accordion-button {
-  background: var(--bg-container);
-  color: var(--text-dark);
-  font-family: var(--font-serif);
-  font-weight: 600;
-  font-size: 0.7rem;
-  padding: 11px 16px;
-  box-shadow: none !important;
-  border: none;
-  transition: background-color 0.2s ease, color 0.2s ease;
-  opacity: 0.9;
-}
-
-#rankingFiltersAccordion .accordion-button:hover,
-.ranking-accordion .accordion-button:hover {
-  background: var(--bg-hover);
-  color: var(--text-dark);
-}
-
-#rankingFiltersAccordion .accordion-button:not(.collapsed),
-.ranking-accordion .accordion-button:not(.collapsed) {
-  background: none;
-  border-bottom: 1px solid var(--border-color);
-}
-
-#rankingFiltersAccordion .accordion-body,
-.ranking-accordion .accordion-body {
-  background: var(--bg-container);
-  color: var(--text-main);
-  padding: 14px 16px;
-}
-
 /* Bootstrap form elements inside #rankingFiltersAccordion */
 #rankingFiltersAccordion .form-label,
 .ranking-accordion .form-label {
@@ -892,19 +814,6 @@
   color: var(--text-muted);
   letter-spacing: 0.01em;
   margin-bottom: 4px;
-}
-
-#rankingFiltersAccordion .input-group-text,
-.ranking-accordion .input-group-text {
-  background: none;
-  border: 1px solid var(--border-input);
-  color: var(--color-primary-600);
-  font-size: 0.84rem;
-  border-radius: 8px 0 0 8px;
-}
-
-#rankingFiltersAccordion .input-group-text i {
-  color: var(--color-secondary);
 }
 
 #rankingFiltersAccordion .form-select,
@@ -1002,49 +911,6 @@
 }
 
 /* Stranieri Pill Special Glow */
-.ranking-macro-pill.pill-stranieri {
-  border-color: rgba(14, 165, 233, 0.45);
-}
-
-.ranking-macro-pill.pill-stranieri.is-active {
-  background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%);
-  border-color: #0d9488;
-  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.32);
-}
-
-.pill-highlight-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #10b981;
-  display: inline-block;
-  box-shadow: 0 0 6px #10b981;
-}
-
-.macro-badge {
-  font-size: 0.68rem;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.08);
-  color: inherit;
-}
-
-.ranking-macro-pill.is-active .macro-badge {
-  background: rgba(255, 255, 255, 0.22);
-}
-
-
-.subchips-label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted, #64748b);
-  display: inline-flex;
-  align-items: center;
-  white-space: nowrap;
-}
 
 .ranking-subchips-list {
   display: flex;
@@ -1188,12 +1054,6 @@
   margin-left: 4px;
 }
 
-.badge-cat-stranieri {
-  background: linear-gradient(135deg, rgba(13, 148, 136, 0.15), rgba(8, 145, 178, 0.15)) !important;
-  color: #0f766e !important;
-  border: 1px solid rgba(13, 148, 136, 0.3) !important;
-}
-
 .ranking-no-results-box {
   padding: 30px 20px;
   text-align: center;
@@ -1218,11 +1078,6 @@
   background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
   border-color: #38bdf8;
   color: #ffffff;
-}
-
-[data-theme="dark"] .ranking-macro-pill.pill-stranieri.is-active {
-  background: linear-gradient(135deg, #0f766e 0%, #0e7490 100%);
-  border-color: #2dd4bf;
 }
 
 [data-theme="dark"] .ranking-subchip-btn {
@@ -1258,17 +1113,7 @@
   color: #94a3b8;
 }
 
-[data-theme="dark"] .badge-cat-stranieri {
-  background: rgba(45, 212, 191, 0.15) !important;
-  color: #2dd4bf !important;
-  border-color: rgba(45, 212, 191, 0.35) !important;
-}
-
 /* Dark Mode Accordion Chevron Override */
-[data-theme="dark"] #rankingFiltersAccordion .accordion-button::after,
-[data-theme="dark"] .ranking-accordion .accordion-button::after {
-  filter: brightness(0) invert(1);
-}
 
 [data-theme="dark"] .mobile-stranieri-pill {
   background: rgba(45, 212, 191, 0.15);

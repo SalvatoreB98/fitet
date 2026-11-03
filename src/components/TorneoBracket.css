@@ -356,16 +356,3 @@
   margin-bottom: 12px;
   color: var(--color-primary-600);
 }
-
-.bracket-loading-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 420px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 40px 20px;
-  text-align: center;
-}

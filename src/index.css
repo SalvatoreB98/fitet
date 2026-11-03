@@ -351,60 +351,6 @@ nav {
 }
 
 /* Quick Favorite Star Button in Portal Header */
-.portal-quick-fav-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  background: none;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  outline: none;
-  color: #ffffff;
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-  font-size: 17px;
-}
-
-.portal-quick-fav-btn:hover {
-  background: rgba(255, 255, 255, 0.22);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.portal-quick-fav-btn:active {
-  transform: scale(0.94);
-}
-
-.portal-quick-fav-btn.has-favorites {
-  color: #fbbf24;
-}
-
-.portal-quick-fav-badge {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: #f59e0b;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-  border: 1.5px solid var(--color-primary-700);
-}
 
 /* Burger Button */
 .portal-burger-btn {
@@ -755,56 +701,11 @@ nav {
   align-items: center;
 }
 
-.burger-menu-item-region {
-  cursor: default;
-}
-
-.burger-menu-item-region:hover {
-  background: rgba(0, 0, 0, 0.03);
-}
-
-[data-theme="dark"] .burger-menu-item-region:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
 @media screen and (max-height: 780px) {
   .portal-burger-dropdown {
     max-height: 75vh;
     overflow-y: scroll;
   }
-}
-
-.burger-region-select {
-  padding: 5px 8px;
-  font-size: 11.5px;
-  font-weight: 500;
-  border-radius: 8px;
-  border: 1px solid var(--border-color, #cbd5e1);
-  background: var(--bg-container, #ffffff);
-  color: var(--text-dark, #0f172a);
-  cursor: pointer;
-  outline: none;
-  max-width: 120px;
-  text-overflow: ellipsis;
-  transition: all 0.18s ease;
-}
-
-.burger-region-select:hover,
-.burger-region-select:focus {
-  border-color: #01579b;
-  box-shadow: 0 0 0 2px rgba(1, 87, 155, 0.15);
-}
-
-[data-theme="dark"] .burger-region-select {
-  background: #1e293b;
-  border-color: #334155;
-  color: #f1f5f9;
-}
-
-[data-theme="dark"] .burger-region-select:hover,
-[data-theme="dark"] .burger-region-select:focus {
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
 }
 
 @keyframes burgerFadeIn {
@@ -834,36 +735,6 @@ nav {
     width: 285px;
     right: -2px;
   }
-}
-
-.btn-header {
-  background: #ffffff00;
-  color: #ffffff;
-  border: 0px;
-  backdrop-filter: blur(8px);
-  font-size: 12px;
-  font-weight: 500;
-  padding: 7px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  text-decoration: none;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.btn-header:hover {
-  background: rgba(255, 255, 255, 0.22);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.35);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-}
-
-.btn-header:active {
-  transform: translateY(0);
 }
 
 /* ==========================================================================
@@ -1161,16 +1032,6 @@ nav {
 
 .tab-panel:not([hidden]) {
   display: block;
-}
-
-@keyframes tabFadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
 }
 
 /* Controls Filter Bar */
@@ -1582,13 +1443,6 @@ nav {
   color: #f1f5f9;
 }
 
-.giornata-phase-text {
-  font-family: var(--font-sans);
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text-dark);
-}
-
 .giornata-meta-count {
   font-size: 12px;
   font-weight: 600;
@@ -1984,24 +1838,6 @@ nav {
   flex-wrap: wrap;
 }
 
-.badge-official-gold {
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fcd34d;
-  font-weight: 700;
-  font-size: 10.5px;
-  padding: 3px 8px;
-  border-radius: 9999px;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
-[data-theme="dark"] .badge-official-gold {
-  background: #2e1a05;
-  color: #fef08a;
-  border: 1px solid #b45309;
-}
-
 /* Points Badge in Primary Official Standings */
 .badge-points-official {
   background: #01579b;
@@ -2188,23 +2024,6 @@ nav {
   gap: 8px;
 }
 
-.secondary-tag {
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  padding: 1.5px 6px;
-  border-radius: 4px;
-  background: #e2e8f0;
-  color: #475569;
-  border: 1px solid #cbd5e1;
-}
-
-[data-theme="dark"] .secondary-tag {
-  background: #14223d;
-  color: #93a6c5;
-  border-color: #1e3358;
-}
-
 .ranking-section-header .section-badge {
   font-size: 11px;
   font-weight: 600;
@@ -2359,17 +2178,6 @@ nav {
 }
 
 /* Position Badges */
-.pos-num {
-  font-weight: 700;
-  font-size: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  transition: transform 0.15s ease;
-}
 
 .pos-gold {
   background: #fef3c7;
@@ -2389,21 +2197,6 @@ nav {
   border: 1px solid #fdba74;
 }
 
-.pos-medal {
-  font-size: 16px;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
-  transition: transform 0.15s ease;
-  user-select: none;
-}
-
-.pos-medal:hover {
-  transform: scale(1.2);
-}
-
 .pos-num-plain {
   font-size: 12.5px;
   font-weight: 700;
@@ -2412,24 +2205,6 @@ nav {
 }
 
 /* Score Box for Calendar */
-.score-box {
-  display: inline-block;
-  font-weight: 800;
-  font-size: 12.5px;
-  padding: 3.5px 9px;
-  border-radius: 5px;
-  background: #f1f5f9;
-  color: #0f172a;
-  min-width: 52px;
-  border: 1px solid #e2e8f0;
-  transition: all 0.15s ease;
-}
-
-.score-box.played {
-  background: #eff6ff;
-  color: var(--color-primary-700);
-  border: 1px solid #bfdbfe;
-}
 
 /* Clean Action Buttons */
 .btn-action {
@@ -2542,10 +2317,7 @@ body.modal-open {
 /* ==========================================================================
    UNIFIED CLEAN MINIMALIST MODAL CLOSE BUTTON ("X") - NOT RED
    ========================================================================== */
-.modal-close-btn,
-.modal-close-btn-red,
-.championship-modal-close,
-.modal-close-btn-simple {
+.modal-close-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2569,20 +2341,14 @@ body.modal-open {
   user-select: none;
 }
 
-.modal-header-simple .modal-close-btn,
-.modal-header-simple .modal-close-btn-red,
-.modal-header-simple .championship-modal-close,
-.modal-header-simple .modal-close-btn-simple {
+.modal-header-simple .modal-close-btn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #ffffff !important;
   box-shadow: none !important;
 }
 
-.modal-close-btn:hover,
-.modal-close-btn-red:hover,
-.championship-modal-close:hover,
-.modal-close-btn-simple:hover {
+.modal-close-btn:hover {
   background: rgba(255, 255, 255, 0.18) !important;
   border-color: rgba(255, 255, 255, 0.28) !important;
   color: #ffffff !important;
@@ -2590,24 +2356,19 @@ body.modal-open {
   box-shadow: none !important;
 }
 
-.modal-close-btn:active,
-.modal-close-btn-red:active,
-.championship-modal-close:active,
-.modal-close-btn-simple:active {
+.modal-close-btn:active {
   background: rgba(255, 255, 255, 0.25) !important;
   transform: scale(0.95) !important;
 }
 
 /* Light header close button adaptation (e.g. Championship modal) */
-.championship-modal-header .modal-close-btn,
-.championship-modal-header .championship-modal-close {
+.championship-modal-header .modal-close-btn {
   background: #f1f5f9;
   border: 1px solid #cbd5e1;
   color: #475569 !important;
 }
 
-.championship-modal-header .modal-close-btn:hover,
-.championship-modal-header .championship-modal-close:hover {
+.championship-modal-header .modal-close-btn:hover {
   background: #e2e8f0 !important;
   border-color: #94a3b8 !important;
   color: #0f172a !important;
@@ -2925,49 +2686,6 @@ body.modal-open {
 /* ==========================================================================
    MODAL STAT BOXES (Light & Dark Adaptive)
    ========================================================================== */
-.modal-stat-boxes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.modal-stat-box {
-  border-radius: 6px;
-  padding: 10px 14px;
-  text-align: center;
-  transition: transform 0.15s ease;
-}
-
-.stat-box-blue {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-}
-
-.stat-box-green {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-}
-
-.stat-box-amber {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-}
-
-[data-theme="dark"] .stat-box-blue {
-  background: #0f1f3d;
-  border: 1px solid #1e3d7a;
-}
-
-[data-theme="dark"] .stat-box-green {
-  background: #0d281a;
-  border: 1px solid #16532d;
-}
-
-[data-theme="dark"] .stat-box-amber {
-  background: #261b0a;
-  border: 1px solid #573a0a;
-}
 
 /* ==========================================================================
    COMPREHENSIVE DARK MODE (data-theme="dark") COMPONENT OVERRIDES
@@ -3110,18 +2828,6 @@ body.modal-open {
   border-color: #3b82f6;
 }
 
-[data-theme="dark"] .score-box {
-  background: #0e1932;
-  color: #e2e8f0;
-  border-color: #1c3258;
-}
-
-[data-theme="dark"] .score-box.played {
-  background: #132448;
-  color: #60a5fa;
-  border-color: #01579b;
-}
-
 [data-theme="dark"] .btn-action {
   background: var(--color-primary-600);
   color: #ffffff;
@@ -3243,10 +2949,6 @@ body.modal-open {
   border-color: #9a3412;
 }
 
-[data-theme="dark"] .bg-body {
-  background-color: #0b1426 !important;
-}
-
 [data-theme="dark"] .text-muted {
   color: #94a3b8 !important;
 }
@@ -3353,10 +3055,6 @@ body.modal-open {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-}
-
-.referto-logo-fallback {
-  font-size: 26px;
 }
 
 .referto-team-name-group {
@@ -3489,33 +3187,6 @@ body.modal-open {
   display: inline-flex;
   align-items: center;
   color: var(--color-primary-600);
-}
-
-.referto-section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.referto-legend {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.legend-dot.winner-dot {
-  width: 8px;
-  height: 8px;
-  background: #16a34a;
-  border-radius: 50%;
 }
 
 /* ==========================================================================
@@ -4272,13 +3943,6 @@ body.modal-open {
     gap: 6px;
     padding: 8px 12px;
     font-size: 11.5px;
-  }
-
-  .referto-section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-    margin-bottom: 10px;
   }
 
   /* Grid Table Container: Switch to Vertical Cards List (Zero Horizontal Scroll) */
@@ -5232,8 +4896,6 @@ body.modal-open {
   color: #93c5fd;
 }
 
-[data-theme="dark"] .championship-modal-close,
-[data-theme="dark"] .modal-close-btn-red,
 [data-theme="dark"] .modal-close-btn {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.16);
@@ -5241,8 +4903,6 @@ body.modal-open {
   box-shadow: none !important;
 }
 
-[data-theme="dark"] .championship-modal-close:hover,
-[data-theme="dark"] .modal-close-btn-red:hover,
 [data-theme="dark"] .modal-close-btn:hover {
   background: rgba(255, 255, 255, 0.18) !important;
   border-color: rgba(255, 255, 255, 0.28) !important;
@@ -5386,46 +5046,6 @@ body.modal-open {
   margin-bottom: 20px;
 }
 
-.overview-stats-header {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  margin-bottom: 10px;
-}
-
-.overview-title-main {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--text-dark, #ffffff);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  position: relative;
-  display: inline-block;
-  padding-bottom: 3.5px;
-}
-
-.overview-title-main::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  height: 2px;
-  background: var(--text-dark, #ffffff);
-  border-radius: 2px;
-}
-
-.overview-title-sub {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 700;
-  font-style: italic;
-  letter-spacing: 0.08em;
-  color: var(--text-muted, #94a3b8);
-  text-transform: uppercase;
-}
-
 .overview-stats-card {
   background: var(--bg-th, #f8fafc);
   border: 1px solid var(--border-color, #e2e8f0);
@@ -5447,24 +5067,6 @@ body.modal-open {
   border: 1px solid rgba(255, 255, 255, 0.07);
   color: #f8fafc;
   box-shadow: none;
-}
-
-.overview-season-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #94a3b8;
-  letter-spacing: 0.02em;
-  margin-bottom: 12px;
-  cursor: default;
-}
-
-.overview-season-badge i {
-  font-size: 9px;
-  color: #64748b;
-  transition: transform 0.2s ease;
 }
 
 .overview-stats-row {
@@ -5720,25 +5322,6 @@ body.modal-open {
   opacity: 0.5;
 }
 
-.championship-group-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--text-dark);
-}
-
-.championship-group-count {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-muted);
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-color);
-  padding: 2px 8px;
-  border-radius: 12px;
-}
-
 .champ-fav-btn {
   background: transparent;
   border: none;
@@ -5963,24 +5546,6 @@ body.modal-open {
   font-size: 14.5px;
   border-radius: 24px;
   margin-bottom: 32px;
-}
-
-.no-championship-search-section {
-  max-width: 800px;
-  margin: 0 auto;
-  text-align: left;
-  border-top: 1px solid var(--border-color, #e2e8f0);
-  padding-top: 28px;
-}
-
-.portal-loading-state {
-  text-align: center;
-  padding: 60px 20px;
-  min-height: 400px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
 }
 
 .portal-error-alert {
@@ -6291,25 +5856,6 @@ body.modal-open {
   transition: all 0.15s ease;
 }
 
-.h2h-badge-result {
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.h2h-badge-result.is-vinta {
-  background: rgba(34, 197, 94, 0.15);
-  color: #16a34a;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-.h2h-badge-result.is-persa {
-  background: rgba(239, 68, 68, 0.15);
-  color: #dc2626;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
 .h2h-match-score {
   font-size: 16px;
   font-weight: 900;
@@ -6585,28 +6131,6 @@ body.modal-open {
 }
 
 /* --- Favorite Star Toggle Button --- */
-.favorite-star-btn {
-  background: none;
-  border: none;
-  padding: 2px;
-  cursor: pointer;
-  font-size: 12.5px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-}
-
-.favorite-star-btn.is-fav {
-  color: #f59e0b;
-  opacity: 1;
-}
-
-.favorite-star-btn:not(.is-fav) {
-  color: var(--text-muted, #94a3b8);
-  opacity: 0.45;
-}
 
 /* --- Marquee Text Component --- */
 .marquee-text-wrapper {
@@ -7065,35 +6589,6 @@ body.modal-open {
 }
 
 /* --- Part 2: Referto Team Names Row --- */
-.part-2 {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.part-2-col {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  justify-content: center;
-}
-
-.part-2-spacer {
-  flex-shrink: 0;
-  width: 120px;
-}
-
-.part-2 .referto-team-name {
-  font-size: 14px;
-  text-align: center;
-  margin: 0;
-  font-family: var(--font-serif);
-  font-weight: 700;
-  color: var(--text-dark);
-  line-height: 1.3;
-  word-break: break-word;
-}
 
 @keyframes spin-icon-anim {
   from {
@@ -8240,16 +7735,6 @@ body.modal-open {
   transform: translateY(-1px);
 }
 
-.consultation-btn-ghost {
-  background: rgba(245, 158, 11, 0.16);
-  color: #92400e;
-  border: 1px solid rgba(245, 158, 11, 0.32);
-}
-
-.consultation-btn-ghost:hover {
-  background: rgba(245, 158, 11, 0.26);
-}
-
 [data-theme="dark"] .consultation-mode-bar {
   background: linear-gradient(135deg, rgba(30, 27, 20, 0.95) 0%, rgba(26, 24, 18, 0.95) 100%);
   border-color: rgba(245, 158, 11, 0.35);
@@ -8263,12 +7748,6 @@ body.modal-open {
 
 [data-theme="dark"] .consultation-mode-text {
   color: #fde68a;
-}
-
-[data-theme="dark"] .consultation-btn-ghost {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
-  border-color: rgba(245, 158, 11, 0.4);
 }
 
 @media (max-width: 640px) {

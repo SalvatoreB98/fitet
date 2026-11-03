@@ -29,43 +29,6 @@
 }
 
 /* Skip / Esc Button */
-.motion-intro-skip-btn {
-  position: absolute;
-  top: 24px;
-  right: 28px;
-  z-index: 10;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 30px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: all 0.2s ease;
-}
-
-.motion-intro-skip-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.28);
-  transform: translateY(-1px);
-}
-
-.motion-intro-skip-btn kbd {
-  font-family: inherit;
-  font-size: 10.5px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.85);
-}
 
 /* Center Stage Container */
 .motion-intro-stage {
@@ -90,15 +53,6 @@
 }
 
 /* Creative Graphic Canvas: Minimalist Table Tennis Kinetic Graphic */
-.motion-intro-graphic {
-  position: relative;
-  width: 240px;
-  height: 110px;
-  margin-bottom: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 
 /* Grand Hero Typography */
 .motion-intro-title {
@@ -156,7 +110,6 @@
   border-radius: 8px;
 }
 
-
 .motion-intro-cta:active {
   transform: translateY(0) scale(0.98);
 }
@@ -171,177 +124,12 @@
 }
 
 /* Minimalist Progress Loader Line */
-.motion-intro-progress-bar {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.motion-intro-progress-fill {
-  height: 100%;
-  width: 0%;
-  background: white;
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.7);
-  animation: progressFill 2.8s linear forwards;
-}
 
 /* Animations */
-@keyframes floatOrb {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-
-  100% {
-    transform: translate(30px, -20px) scale(1.15);
-  }
-}
-
-@keyframes shimmerSheen {
-  0% {
-    background-position: 100% 0%;
-  }
-
-  50% {
-    background-position: 0% 0%;
-  }
-
-  100% {
-    background-position: 100% 0%;
-  }
-}
-
-@keyframes badgeBlink {
-
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 0.4;
-    transform: scale(0.85);
-  }
-}
-
-@keyframes progressFill {
-  0% {
-    width: 0%;
-  }
-
-  100% {
-    width: 100%;
-  }
-}
 
 /* Table Tennis Kinetic Ball Bounce Animation */
-@keyframes kineticBallBounce {
-  0% {
-    left: 28px;
-    top: 50px;
-    transform: scale(1, 1);
-  }
-
-  24% {
-    left: 114px;
-    top: 72px;
-    /* impact on net table */
-    transform: scale(1.2, 0.75);
-  }
-
-  50% {
-    left: 200px;
-    top: 48px;
-    transform: scale(1, 1);
-  }
-
-  74% {
-    left: 114px;
-    top: 72px;
-    /* return impact */
-    transform: scale(1.2, 0.75);
-  }
-
-  100% {
-    left: 28px;
-    top: 50px;
-    transform: scale(1, 1);
-  }
-}
-
-@keyframes kineticRippleExpand {
-
-  0%,
-  20% {
-    opacity: 0;
-    transform: translateX(-50%) scale(0.2);
-  }
-
-  25% {
-    opacity: 1;
-    transform: translateX(-50%) scale(0.4);
-  }
-
-  42% {
-    opacity: 0;
-    transform: translateX(-50%) scale(1.8);
-  }
-
-  70% {
-    opacity: 0;
-    transform: translateX(-50%) scale(0.2);
-  }
-
-  75% {
-    opacity: 1;
-    transform: translateX(-50%) scale(0.4);
-  }
-
-  92%,
-  100% {
-    opacity: 0;
-    transform: translateX(-50%) scale(1.8);
-  }
-}
-
-@keyframes paddleLeftTilt {
-
-  0%,
-  100% {
-    transform: rotate(-10deg) scale(1);
-  }
-
-  2% {
-    transform: rotate(-18deg) scale(1.05);
-  }
-
-  15% {
-    transform: rotate(-10deg) scale(1);
-  }
-}
-
-@keyframes paddleRightTilt {
-  48% {
-    transform: rotate(10deg) scale(1);
-  }
-
-  52% {
-    transform: rotate(18deg) scale(1.05);
-  }
-
-  65% {
-    transform: rotate(10deg) scale(1);
-  }
-}
 
 @media (max-width: 640px) {
-  .motion-intro-graphic {
-    transform: scale(0.85);
-    margin-bottom: 16px;
-  }
 
   .motion-intro-title .title-fitet {
     font-size: 52px;
@@ -350,12 +138,5 @@
   .motion-intro-title .title-campionati {
     font-size: 16px;
     letter-spacing: 0.22em;
-  }
-
-  .motion-intro-skip-btn {
-    top: 16px;
-    right: 16px;
-    padding: 6px 12px;
-    font-size: 12px;
   }
 }
