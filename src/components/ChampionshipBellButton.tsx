@@ -132,10 +132,6 @@ export const ChampionshipBellButton: React.FC<ChampionshipBellButtonProps> = ({
             <i className="bi bi-bell-slash-fill" aria-hidden="true" />
           )}
         </span>
-        <span className="championship-bell-label">
-          {isSubscribed ? '' : 'Attiva notifiche'}
-        </span>
-        {isSubscribed && <span className="championship-bell-dot" aria-hidden="true" />}
       </button>
 
       {/* Snackbar / Toast visualizzato in Portal per sovrapporsi a tutta l'interfaccia */}
