@@ -45,6 +45,10 @@
     {
       "path": "/api/push/check-tornei",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/push/check-campionati",
+      "schedule": "0 18 * * *"
     }
   ],
   "rewrites": [
