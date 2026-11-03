@@ -970,31 +970,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         )}
                       </div>
 
-                      {/* Breakdown Pill for Ranking Points if viewing ranking matches */}
-                      {activeTabResolved === 'ranking' && atleta.partiteRanking?.dettaglioPunti && atleta.partiteRanking.dettaglioPunti?.puntiIniziali && (
-                        <div className="ranking-points-breakdown">
-                          <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
-                            <i className="bi bi-pie-chart-fill me-1 text-primary"></i>
-                            Punti Ranking:
-                          </span>
-                          {atleta.partiteRanking.dettaglioPunti.puntiIniziali !== undefined && (
-                            <span>Iniziali: <strong style={{ color: 'var(--text-dark)' }}>{atleta.partiteRanking.dettaglioPunti.puntiIniziali}</strong></span>
-                          )}
-                          {atleta.partiteRanking.dettaglioPunti.campionato !== undefined && (
-                            <span>Campionato: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.campionato}</strong></span>
-                          )}
-                          {atleta.partiteRanking.dettaglioPunti.tornei !== undefined && (
-                            <span>Tornei: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.tornei}</strong></span>
-                          )}
-                          {atleta.partiteRanking.dettaglioPunti.vittorieTornei !== undefined && (
-                            <span>Vittorie Tornei: <strong style={{ color: 'var(--text-dark)' }}>+{atleta.partiteRanking.dettaglioPunti.vittorieTornei}</strong></span>
-                          )}
-                          {atleta.partiteRanking.dettaglioPunti.finali !== undefined && (
-                            <span>Totale: <strong style={{ color: 'var(--color-primary-600)' }}>{atleta.partiteRanking.dettaglioPunti.finali} pt</strong></span>
-                          )}
-                        </div>
-                      )}
-
                       {/* Ranking Sub-Filter Buttons (Tutti / Campionato / Tornei) */}
                       {activeTabResolved === 'ranking' && (totalRankingCampionato > 0 || totalRankingTornei > 0) && (
                         <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
