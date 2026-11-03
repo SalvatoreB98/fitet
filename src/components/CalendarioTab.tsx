@@ -309,7 +309,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
         <ChampionshipBellButton camId={currentCamId} championshipName={championshipName} />
       </div>
       <div className='p-1 m-1 mt-3 text-left scrolldown'>
-        {isScrolledToCurrent && <button onClick={() => goToCurrent()} className='btn btn-primary rounded-pill'>↓</button>}
+        {!isScrolledToCurrent && <button onClick={() => goToCurrent()} className='btn btn-primary rounded-pill'>↓</button>}
       </div>
       {/* Calendario Match Cards Container */}
       <div className="calendario-cards-container">
