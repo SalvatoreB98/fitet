@@ -7779,3 +7779,19 @@ body.modal-open {
   background-color: var(--color-primary-600);
   color: #ffffff;
 }
+
+.scrolldown {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5000;
+  bottom: 100px;
+  width: 3em;
+  height: 3em;
+}
+
+.scrolldown button {
+  width: 100%;
+  height: 100%;
+  box-shadow: var(--shadow-container);
+}

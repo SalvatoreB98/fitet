@@ -32,6 +32,50 @@ export interface ClientPushContext {
 const SERVICE_WORKER_URL = '/sw.js';
 const PUBLIC_KEY_ENDPOINT = '/api/push/public-key';
 const SUBSCRIBE_ENDPOINT = '/api/push/subscribe';
+export const SUBSCRIBED_CAMS_STORAGE_KEY = 'fitet_subscribed_cams';
+export const SUBSCRIBED_CAMS_CHANGED_EVENT = 'fitet_subscribed_cams_changed';
+
+export function getSubscribedCams(): number[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(SUBSCRIBED_CAMS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map(Number).filter((n) => Number.isFinite(n) && n > 0);
+      }
+    }
+  } catch {}
+
+  const myCam = getMyChampionshipId();
+  const defaults: number[] = [];
+  if (typeof myCam === 'number' && myCam > 0) defaults.push(myCam);
+  return defaults;
+}
+
+export function saveSubscribedCams(camIds: number[]): void {
+  if (typeof window === 'undefined') return;
+  const clean = Array.from(new Set(camIds.filter((n) => typeof n === 'number' && Number.isFinite(n) && n > 0)));
+  try {
+    localStorage.setItem(SUBSCRIBED_CAMS_STORAGE_KEY, JSON.stringify(clean));
+  } catch {}
+  window.dispatchEvent(new CustomEvent(SUBSCRIBED_CAMS_CHANGED_EVENT, { detail: clean }));
+}
+
+export function isChampionshipPushSubscribed(camId: number | null | undefined): boolean {
+  if (!camId || camId <= 0) return false;
+  return getSubscribedCams().includes(camId);
+}
+
+export function subscribeToSubscribedCams(callback: (cams: number[]) => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const handler = (e: Event) => {
+    const detail = (e as CustomEvent<number[]>).detail || getSubscribedCams();
+    callback(detail);
+  };
+  window.addEventListener(SUBSCRIBED_CAMS_CHANGED_EVENT, handler);
+  return () => window.removeEventListener(SUBSCRIBED_CAMS_CHANGED_EVENT, handler);
+}
 
 let registrationPromise: Promise<ServiceWorkerRegistration | null> | null = null;
 let publicKeyPromise: Promise<string> | null = null;
@@ -63,6 +107,10 @@ export function getClientPushContext(): ClientPushContext {
     if (typeof c?.camId === 'number' && c.camId > 0) {
       camSet.add(c.camId);
     }
+  }
+  const explicitCams = getSubscribedCams();
+  for (const id of explicitCams) {
+    camSet.add(id);
   }
 
   // Fallback sul campionato selezionato se l'atleta non ha ancora un campionato associato
@@ -537,4 +585,82 @@ export async function unsubscribeFromPush(): Promise<void> {
     console.warn('[Push] unsubscribe locale fallito:', err);
   });
   syncedSignatureInSession = null;
+}
+
+
+/**
+ * Attiva o disattiva le notifiche push per un singolo campionato.
+ * Se il dispositivo non è ancora iscritto alle push, richiede il permesso al browser.
+ */
+export async function toggleChampionshipPush(
+  camId: number,
+  targetEnabled?: boolean
+): Promise<{ enabled: boolean; welcomeSent?: boolean }> {
+  if (!camId || camId <= 0) {
+    throw new Error('ID Campionato non valido.');
+  }
+
+  const status = await getPushNotificationStatus();
+  if (!status.supported) {
+    throw new Error('Questo dispositivo o browser non supporta le notifiche push.');
+  }
+  if (status.permission === 'denied') {
+    throw new Error('Permesso notifiche bloccato nel browser. Abilitalo dalle impostazioni del dispositivo.');
+  }
+
+  // Su iOS le push richiedono la PWA installata
+  if (!isStandaloneMode() && !canEnablePushInBrowser()) {
+    throw new Error("Per abilitare le notifiche su iPhone/iPad aggiungi l'app alla schermata Home.");
+  }
+
+  const currentlySubscribed = isChampionshipPushSubscribed(camId);
+  const nextEnabled = targetEnabled !== undefined ? targetEnabled : !currentlySubscribed;
+
+  // Se l'utente non ha ancora una subscription attiva, chiediamo il permesso e registriamo
+  if (!status.subscribed) {
+    const currentList = getSubscribedCams();
+    const updated = Array.from(new Set([...currentList, camId]));
+    saveSubscribedCams(updated);
+
+    const subResult = await subscribeToPush();
+    return { enabled: true, welcomeSent: subResult.welcomeSent };
+  }
+
+  // Se l'utente è già sottoscritto alle push, aggiorniamo il backend con l'endpoint
+  const reg = await getActiveRegistration();
+  const sub = await reg?.pushManager.getSubscription();
+  if (!sub) {
+    const currentList = getSubscribedCams();
+    if (nextEnabled) {
+      saveSubscribedCams(Array.from(new Set([...currentList, camId])));
+    }
+    const subResult = await subscribeToPush();
+    return { enabled: true, welcomeSent: subResult.welcomeSent };
+  }
+
+  const res = await fetch('/api/push/championship-subscription', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      endpoint: sub.endpoint,
+      camId,
+      enabled: nextEnabled,
+    }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data?.error || `Errore server (${res.status}) durante l'aggiornamento.`);
+  }
+
+  const currentList = getSubscribedCams();
+  let updatedList: number[];
+  if (nextEnabled) {
+    updatedList = Array.from(new Set([...currentList, camId]));
+  } else {
+    updatedList = currentList.filter((id) => id !== camId);
+  }
+  saveSubscribedCams(updatedList);
+
+  return { enabled: nextEnabled, welcomeSent: false };
 }

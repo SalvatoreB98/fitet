@@ -1,0 +1,227 @@
+/* ChampionshipBellButton.css */
+
+.championship-bell-btn {
+  margin-left: auto;
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  white-space: nowrap;
+  position: relative;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  outline: none;
+  background-color: var(--card-bg, #ffffff);
+}
+
+.championship-bell-btn:focus-visible {
+  outline: 2px solid var(--accent-color, #0d6efd);
+  outline-offset: 2px;
+}
+
+/* Stato inattivo (non iscritto) */
+.championship-bell-btn.is-inactive {
+  font-weight: 200;
+  background: #01579b;
+  color: #ffffff;
+  border-color: #3b82f6;
+}
+
+.championship-bell-btn.is-inactive:hover {
+  background: var(--surface-3, rgba(255, 255, 255, 0.14));
+  color: var(--text-primary, #212529);
+  border-color: rgba(140, 150, 170, 0.45);
+  transform: translateY(-1px);
+}
+
+/* Stato attivo (iscritto alle notifiche) - In risalto */
+.championship-bell-btn.is-active {
+  background: linear-gradient(135deg, var(--color-primary-600), var(--color-primary-500));
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.35);
+}
+
+.championship-bell-btn.is-active:hover {
+  background: linear-gradient(135deg, #0b5ed7, #0a58ca);
+  box-shadow: 0 6px 16px rgba(13, 110, 253, 0.48);
+  transform: translateY(-1px);
+}
+
+.championship-bell-btn.is-loading {
+  opacity: 0.75;
+  cursor: wait;
+  transform: none !important;
+}
+
+.championship-bell-icon-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.championship-bell-spinner {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-width: 0.15em;
+}
+
+.championship-bell-label {
+  letter-spacing: 0.015em;
+  line-height: 1.2;
+}
+
+.championship-bell-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #20c997;
+  display: inline-block;
+  box-shadow: 0 0 6px #20c997;
+  animation: pulse-dot 1.8s infinite;
+}
+
+@keyframes pulse-dot {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.7);
+  }
+
+  70% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 6px rgba(32, 201, 151, 0);
+  }
+
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0);
+  }
+}
+
+/* =========================================================
+   Snackbar / Floating Toast
+   ========================================================= */
+.championship-snackbar {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 10050;
+  max-width: 420px;
+  min-width: 300px;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.95rem 1.1rem;
+  border-radius: 14px;
+  background: rgba(22, 27, 34, 0.96);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #f0f6fc;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  animation: snackbarSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+
+@keyframes snackbarSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.championship-snackbar.is-success {
+  border-left: 4px solid #20c997;
+}
+
+.championship-snackbar.is-info {
+  border-left: 4px solid #6c757d;
+}
+
+.championship-snackbar.is-error {
+  border-left: 4px solid #dc3545;
+}
+
+.championship-snackbar-icon {
+  font-size: 1.25rem;
+  line-height: 1.2;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.championship-snackbar.is-success .championship-snackbar-icon {
+  color: #20c997;
+}
+
+.championship-snackbar.is-info .championship-snackbar-icon {
+  color: #adb5bd;
+}
+
+.championship-snackbar.is-error .championship-snackbar-icon {
+  color: #ff6b6b;
+}
+
+.championship-snackbar-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.championship-snackbar-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.25;
+}
+
+.championship-snackbar-message {
+  font-size: 0.8rem;
+  color: #c9d1d9;
+  line-height: 1.4;
+}
+
+.championship-snackbar-close {
+  background: transparent;
+  border: none;
+  color: #8b949e;
+  font-size: 0.85rem;
+  padding: 0.2rem;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.15s ease;
+  margin-left: auto;
+}
+
+.championship-snackbar-close:hover {
+  color: #ffffff;
+}
+
+@media (max-width: 576px) {
+  .championship-snackbar {
+    left: 14px;
+    right: 14px;
+    bottom: 20px;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .championship-bell-btn {
+    padding: 0.38rem 0.65rem;
+    font-size: 0.775rem;
+  }
+}

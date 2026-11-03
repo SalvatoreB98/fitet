@@ -1951,6 +1951,48 @@ app.delete('/api/push/subscribe', async (req, res) => {
     }
 });
 
+// Attiva o disattiva la ricezione delle notifiche push per un singolo campionato
+app.post('/api/push/championship-subscription', async (req, res) => {
+    const { endpoint, camId, enabled } = req.body || {};
+
+    if (!endpoint || typeof endpoint !== 'string' || typeof camId !== 'number' || typeof enabled !== 'boolean') {
+        return res.status(400).json({ error: 'Parametri endpoint, camId ed enabled obbligatori.' });
+    }
+
+    try {
+        const result = await pushService.toggleChampionshipSubscription(endpoint, camId, enabled);
+        invalidateSubscribedChampionshipsCache();
+
+        if (enabled) {
+            ensureChampionshipBaseline(camId).catch((err) => {
+                console.warn(`[PushService] Errore inizializzazione baseline cam=${camId}:`, err);
+            });
+        }
+
+        return res.json({ success: true, ...result });
+    } catch (error: any) {
+        console.error('[PushService] Errore toggle campionato:', error);
+        return res.status(500).json({
+            error: error.message || "Errore durante l'aggiornamento delle notifiche per il campionato.",
+        });
+    }
+});
+
+// Restituisce l'elenco dei campionati sottoscritti per un dato endpoint
+app.get('/api/push/championship-subscription', async (req, res) => {
+    const endpoint = typeof req.query.endpoint === 'string' ? req.query.endpoint : '';
+    if (!endpoint) {
+        return res.status(400).json({ error: 'Endpoint mancante.' });
+    }
+
+    try {
+        const result = await pushService.getSubscriptionChampionships(endpoint);
+        return res.json({ success: true, ...result });
+    } catch (error: any) {
+        return res.status(500).json({ error: error.message });
+    }
+});
+
 // Endpoint per cron esterno / Vercel Cron: forza il controllo dell'ID_CLASS
 // e dei campionati seguiti dagli iscritti, inviando le notifiche se sono cambiati.
 app.get('/api/push/check-ranking', async (req, res) => {

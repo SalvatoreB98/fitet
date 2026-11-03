@@ -1036,6 +1036,8 @@ export const App: React.FC = () => {
                 <ClassificaTab
                   classifica={data.classifica}
                   onSelectTeam={handleOpenSquadra}
+                  camId={camId ?? undefined}
+                  championshipName={headerChampionshipName}
                 />
               </div>
 
@@ -1049,6 +1051,7 @@ export const App: React.FC = () => {
               >
                 <CalendarioTab
                   calendario={data.calendario}
+                  championshipName={headerChampionshipName}
                   selectedTeamFilter={selectedTeamFilter}
                   statisticheAtleti={data.statisticheAtleti}
                   isSubmodalOpen={Boolean(selectedAthlete) || Boolean(selectedSquadra)}
@@ -1071,6 +1074,8 @@ export const App: React.FC = () => {
                 <StatisticheTab
                   statistiche={data.statisticheAtleti}
                   onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+                  camId={camId ?? undefined}
+                  championshipName={headerChampionshipName}
                 />
               </div>
             </>

@@ -3,10 +3,13 @@ import { StatisticaAtleta } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
 import { AthleteAvatar } from './AthleteAvatar';
 import { useFavoriteAthletes } from '../utils/favorites';
+import { ChampionshipBellButton } from './ChampionshipBellButton';
 
 interface StatisticheTabProps {
   statistiche: StatisticaAtleta[];
   onOpenAtletaModal: (atletaId: string, atletaNome: string) => void;
+  camId?: number | null;
+  championshipName?: string;
 }
 
 type SortField =
@@ -28,7 +31,7 @@ export interface AthleteWithRanking extends StatisticaAtleta {
 }
 
 
-export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onOpenAtletaModal }) => {
+export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onOpenAtletaModal, camId, championshipName }) => {
   const { isFavorite, toggleFavorite } = useFavoriteAthletes();
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -423,7 +426,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
 
         <div className="controls-right text-muted" style={{ fontSize: '12px' }}>
           {filteredAthletes.length} atleti • Clicca sulle intestazioni per ordinare le classifiche
-        </div>
+        </div>  <ChampionshipBellButton camId={camId} championshipName={championshipName} />
       </div>
 
       <div style={{ padding: '6px 0 16px 0' }}>

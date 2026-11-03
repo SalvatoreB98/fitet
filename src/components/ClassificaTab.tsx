@@ -2,13 +2,16 @@ import React, { useState, useMemo, useRef } from 'react';
 import { SquadraClassifica } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
 import { TeamLogo } from './TeamLogo';
+import { ChampionshipBellButton } from './ChampionshipBellButton';
 
 interface ClassificaTabProps {
   classifica: SquadraClassifica[];
   onSelectTeam: (teamName: string, squadraId?: string) => void;
+  camId?: number | null;
+  championshipName?: string;
 }
 
-export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSelectTeam }) => {
+export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSelectTeam, camId, championshipName }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -285,7 +288,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
           >
             <i className="bi bi-table me-1"></i> Tabellone Completo
           </button>
-        </div>
+        </div>  <ChampionshipBellButton camId={camId} championshipName={championshipName} />
       </div>
 
       {viewMode === 'responsive' ? (

@@ -3,6 +3,7 @@ import { GiornataCalendario, PartitaCalendario } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
 import { RefertoModal } from './RefertoModal';
 import { TeamLogo } from './TeamLogo';
+import { ChampionshipBellButton } from './ChampionshipBellButton';
 
 interface CalendarioTabProps {
   calendario: GiornataCalendario[];
@@ -14,6 +15,7 @@ interface CalendarioTabProps {
   onOpenAtletaModal?: (id: string, name: string) => void;
   onOpenSquadraModal?: (teamName: string) => void;
   currentCamId?: number;
+  championshipName?: string;
 }
 
 interface BloccoFaseGiornata {
@@ -69,9 +71,11 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
   onOpenAtletaModal,
   onOpenSquadraModal,
   currentCamId,
+  championshipName,
 }) => {
   const [selectedGiornata, setSelectedGiornata] = useState<number | 'all'>('all');
   const [faseFilter, setFaseFilter] = useState<'all' | 'andata' | 'ritorno'>('all');
+  const [isScrolledToCurrent, setIsScrolledToCurrent] = useState(false);
   const [selectedReferto, setSelectedReferto] = useState<{
     incontroId: string;
     camId?: string;
@@ -228,6 +232,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
         });
       }
     }
+    setIsScrolledToCurrent(true)
   };
   let totalDisplayedMatches = 0;
 
@@ -301,9 +306,10 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
           </div>
         </div>
 
+        <ChampionshipBellButton camId={currentCamId} championshipName={championshipName} />
       </div>
-      <div className='p-1 m-1 mt-3 text-right'>
-        <button onClick={() => goToCurrent()} className='btn btn-primary rounded-pill'>Vai alla giornata corrente ↓ </button>
+      <div className='p-1 m-1 mt-3 text-left scrolldown'>
+        {isScrolledToCurrent && <button onClick={() => goToCurrent()} className='btn btn-primary rounded-pill'>↓</button>}
       </div>
       {/* Calendario Match Cards Container */}
       <div className="calendario-cards-container">

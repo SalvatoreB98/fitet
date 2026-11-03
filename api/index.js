@@ -2706,15 +2706,71 @@ var PushService = class {
     const primaryCamId = typeof context.primaryCamId === "number" && context.primaryCamId > 0 ? context.primaryCamId : cleanCamIds[0] ?? null;
     const currentMap = await this.getSubscriptionContexts();
     const existing = currentMap[endpoint] || {};
+    const camIdsToSave = Array.isArray(context.camIds) ? cleanCamIds : cleanCamIds.length > 0 ? cleanCamIds : existing.camIds || [];
     currentMap[endpoint] = {
       playerId: context.playerId !== void 0 ? context.playerId : existing.playerId ?? null,
       playerName: context.playerName !== void 0 ? context.playerName : existing.playerName ?? null,
       primaryCamId: primaryCamId ?? existing.primaryCamId ?? null,
-      camIds: cleanCamIds.length > 0 ? cleanCamIds : existing.camIds || [],
+      camIds: camIdsToSave,
       annoId: context.annoId ?? existing.annoId ?? 41,
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
     };
     await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
+  }
+  /**
+   * Attiva o disattiva la ricezione delle notifiche per un singolo campionato
+   */
+  async toggleChampionshipSubscription(endpoint, camId, enabled) {
+    if (!this.supabase || !endpoint || !camId) {
+      throw new Error("Endpoint e camId validi sono obbligatori.");
+    }
+    const currentMap = await this.getSubscriptionContexts();
+    const existing = currentMap[endpoint] || {
+      playerId: null,
+      playerName: null,
+      primaryCamId: null,
+      camIds: [],
+      annoId: 41,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    const currentCamIds = Array.isArray(existing.camIds) ? existing.camIds.filter((id) => typeof id === "number" && Number.isFinite(id) && id > 0) : [];
+    let newCamIds;
+    if (enabled) {
+      newCamIds = Array.from(/* @__PURE__ */ new Set([...currentCamIds, camId]));
+    } else {
+      newCamIds = currentCamIds.filter((id) => id !== camId);
+    }
+    let newPrimaryCamId = existing.primaryCamId ?? null;
+    if (enabled && (!newPrimaryCamId || newPrimaryCamId <= 0)) {
+      newPrimaryCamId = camId;
+    } else if (!enabled && newPrimaryCamId === camId) {
+      newPrimaryCamId = newCamIds[0] ?? null;
+    }
+    currentMap[endpoint] = {
+      ...existing,
+      primaryCamId: newPrimaryCamId,
+      camIds: newCamIds,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
+    return {
+      enabled,
+      camIds: newCamIds,
+      primaryCamId: newPrimaryCamId
+    };
+  }
+  /**
+   * Restituisce i campionati sottoscritti per un singolo endpoint
+   */
+  async getSubscriptionChampionships(endpoint) {
+    if (!this.supabase || !endpoint) return { camIds: [], primaryCamId: null };
+    const currentMap = await this.getSubscriptionContexts();
+    const existing = currentMap[endpoint];
+    if (!existing) return { camIds: [], primaryCamId: null };
+    return {
+      camIds: Array.isArray(existing.camIds) ? existing.camIds : [],
+      primaryCamId: existing.primaryCamId ?? null
+    };
   }
   async removeSubscriptionContext(endpoint) {
     if (!this.supabase || !endpoint) return;
@@ -7226,6 +7282,39 @@ app.delete("/api/push/subscribe", async (req, res) => {
   } catch (error) {
     console.error("[PushService] Errore rimozione subscription:", error);
     return res.status(500).json({ error: "Errore durante la rimozione della subscription." });
+  }
+});
+app.post("/api/push/championship-subscription", async (req, res) => {
+  const { endpoint, camId, enabled } = req.body || {};
+  if (!endpoint || typeof endpoint !== "string" || typeof camId !== "number" || typeof enabled !== "boolean") {
+    return res.status(400).json({ error: "Parametri endpoint, camId ed enabled obbligatori." });
+  }
+  try {
+    const result = await pushService.toggleChampionshipSubscription(endpoint, camId, enabled);
+    invalidateSubscribedChampionshipsCache();
+    if (enabled) {
+      ensureChampionshipBaseline(camId).catch((err) => {
+        console.warn(`[PushService] Errore inizializzazione baseline cam=${camId}:`, err);
+      });
+    }
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error("[PushService] Errore toggle campionato:", error);
+    return res.status(500).json({
+      error: error.message || "Errore durante l'aggiornamento delle notifiche per il campionato."
+    });
+  }
+});
+app.get("/api/push/championship-subscription", async (req, res) => {
+  const endpoint = typeof req.query.endpoint === "string" ? req.query.endpoint : "";
+  if (!endpoint) {
+    return res.status(400).json({ error: "Endpoint mancante." });
+  }
+  try {
+    const result = await pushService.getSubscriptionChampionships(endpoint);
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 });
 app.get("/api/push/check-ranking", async (req, res) => {

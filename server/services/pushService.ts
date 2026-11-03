@@ -262,18 +262,96 @@ class PushService {
         const currentMap = await this.getSubscriptionContexts();
         const existing = currentMap[endpoint] || {};
 
+        const camIdsToSave = Array.isArray(context.camIds)
+            ? cleanCamIds
+            : cleanCamIds.length > 0
+              ? cleanCamIds
+              : existing.camIds || [];
+
         currentMap[endpoint] = {
             playerId:
                 context.playerId !== undefined ? context.playerId : existing.playerId ?? null,
             playerName:
                 context.playerName !== undefined ? context.playerName : existing.playerName ?? null,
             primaryCamId: primaryCamId ?? existing.primaryCamId ?? null,
-            camIds: cleanCamIds.length > 0 ? cleanCamIds : existing.camIds || [],
+            camIds: camIdsToSave,
             annoId: context.annoId ?? existing.annoId ?? 41,
             updatedAt: new Date().toISOString(),
         };
 
         await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
+    }
+
+    /**
+     * Attiva o disattiva la ricezione delle notifiche per un singolo campionato
+     */
+    async toggleChampionshipSubscription(
+        endpoint: string,
+        camId: number,
+        enabled: boolean
+    ): Promise<{ enabled: boolean; camIds: number[]; primaryCamId: number | null }> {
+        if (!this.supabase || !endpoint || !camId) {
+            throw new Error('Endpoint e camId validi sono obbligatori.');
+        }
+
+        const currentMap = await this.getSubscriptionContexts();
+        const existing = currentMap[endpoint] || {
+            playerId: null,
+            playerName: null,
+            primaryCamId: null,
+            camIds: [],
+            annoId: 41,
+            updatedAt: new Date().toISOString(),
+        };
+
+        const currentCamIds: number[] = Array.isArray(existing.camIds)
+            ? existing.camIds.filter((id): id is number => typeof id === 'number' && Number.isFinite(id) && id > 0)
+            : [];
+
+        let newCamIds: number[];
+        if (enabled) {
+            newCamIds = Array.from(new Set([...currentCamIds, camId]));
+        } else {
+            newCamIds = currentCamIds.filter((id) => id !== camId);
+        }
+
+        let newPrimaryCamId = existing.primaryCamId ?? null;
+        if (enabled && (!newPrimaryCamId || newPrimaryCamId <= 0)) {
+            newPrimaryCamId = camId;
+        } else if (!enabled && newPrimaryCamId === camId) {
+            newPrimaryCamId = newCamIds[0] ?? null;
+        }
+
+        currentMap[endpoint] = {
+            ...existing,
+            primaryCamId: newPrimaryCamId,
+            camIds: newCamIds,
+            updatedAt: new Date().toISOString(),
+        };
+
+        await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
+
+        return {
+            enabled,
+            camIds: newCamIds,
+            primaryCamId: newPrimaryCamId,
+        };
+    }
+
+    /**
+     * Restituisce i campionati sottoscritti per un singolo endpoint
+     */
+    async getSubscriptionChampionships(
+        endpoint: string
+    ): Promise<{ camIds: number[]; primaryCamId: number | null }> {
+        if (!this.supabase || !endpoint) return { camIds: [], primaryCamId: null };
+        const currentMap = await this.getSubscriptionContexts();
+        const existing = currentMap[endpoint];
+        if (!existing) return { camIds: [], primaryCamId: null };
+        return {
+            camIds: Array.isArray(existing.camIds) ? existing.camIds : [],
+            primaryCamId: existing.primaryCamId ?? null,
+        };
     }
 
     async removeSubscriptionContext(endpoint: string): Promise<void> {
