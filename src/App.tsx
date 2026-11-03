@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { flushSync } from 'react-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { DashboardData, ChampionshipItem } from './types/fitet';
 import { fetchDashboard, fetchCampionati } from './services/api';
 import { Header, MainViewType, ChampionshipTabType, TorneiPortalView } from './components/Header';
@@ -1189,6 +1190,7 @@ export const App: React.FC = () => {
           <span>{precacheStatus}</span>
         </div>
       )}
+      <SpeedInsights />
     </div>
   );
 };
