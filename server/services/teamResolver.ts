@@ -1,10 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import * as cheerio from 'cheerio';
+import { getRuntimeCacheDir } from './runtimeCacheDir';
 
 export class TeamResolver {
   private staticFilePath = path.resolve(process.cwd(), 'server', 'data', 'team_logos.json');
-  private runtimeFilePath = path.resolve(process.cwd(), 'node_modules', '.cache', 'fitet_cache', 'team_logos.json');
+  private runtimeFilePath = path.join(getRuntimeCacheDir(), 'team_logos.json');
   private logos: Record<string, string> = {
     'ASD TENNISTAVOLO NUOVA LUZZI': 'https://portale.fitet.org/images/societa/3260.jpg',
     'TENNISTAVOLO CASTROVILLARI': 'https://portale.fitet.org/images/societa/3164.jpg',

@@ -1,7 +1,7 @@
 // server/app.ts
 import express from "express";
 import cors from "cors";
-import path5 from "path";
+import path6 from "path";
 import fs5 from "fs";
 
 // server/services/fitetClient.ts
@@ -202,15 +202,23 @@ var FitetClient = class {
 
 // server/services/cacheService.ts
 import fs from "fs";
+import path2 from "path";
+
+// server/services/runtimeCacheDir.ts
 import path from "path";
+function getRuntimeCacheDir() {
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+  return isServerless ? path.join("/tmp", "fitet_cache") : path.resolve(process.cwd(), "node_modules", ".cache", "fitet_cache");
+}
+
+// server/services/cacheService.ts
 var CacheService = class {
   cacheDir;
   legacyCacheDir;
   memoryCache = /* @__PURE__ */ new Map();
   constructor() {
-    const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
-    this.cacheDir = isServerless ? path.join("/tmp", "fitet_cache") : path.resolve(process.cwd(), "node_modules", ".cache", "fitet_cache");
-    this.legacyCacheDir = path.resolve(process.cwd(), "server", "cache");
+    this.cacheDir = getRuntimeCacheDir();
+    this.legacyCacheDir = path2.resolve(process.cwd(), "server", "cache");
     try {
       if (!fs.existsSync(this.cacheDir)) {
         fs.mkdirSync(this.cacheDir, { recursive: true });
@@ -231,9 +239,9 @@ var CacheService = class {
       }
       this.memoryCache.delete(key);
     }
-    let filePath = path.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
+    let filePath = path2.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
     if (!fs.existsSync(filePath)) {
-      const legacyPath = path.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
+      const legacyPath = path2.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
       if (fs.existsSync(legacyPath)) {
         filePath = legacyPath;
       }
@@ -262,7 +270,7 @@ var CacheService = class {
       ttlMs
     };
     this.memoryCache.set(key, entry);
-    const filePath = path.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
+    const filePath = path2.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
     try {
       fs.writeFileSync(filePath, JSON.stringify(entry, null, 2), "utf8");
     } catch (err) {
@@ -274,14 +282,14 @@ var CacheService = class {
    */
   delete(key) {
     this.memoryCache.delete(key);
-    const filePath = path.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
+    const filePath = path2.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
     if (fs.existsSync(filePath)) {
       try {
         fs.unlinkSync(filePath);
       } catch {
       }
     }
-    const legacyPath = path.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
+    const legacyPath = path2.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
     if (fs.existsSync(legacyPath)) {
       try {
         fs.unlinkSync(legacyPath);
@@ -296,7 +304,7 @@ var CacheService = class {
       for (const file of files) {
         if (file.endsWith(".json")) {
           try {
-            fs.unlinkSync(path.join(this.cacheDir, file));
+            fs.unlinkSync(path2.join(this.cacheDir, file));
           } catch {
           }
         }
@@ -404,7 +412,7 @@ var viewsService = new ViewsService();
 
 // server/services/athleteResolver.ts
 import fs2 from "fs";
-import path2 from "path";
+import path3 from "path";
 import * as cheerio from "cheerio";
 
 // server/data/athlete_mapping.json
@@ -1240,8 +1248,8 @@ var AthleteResolver = class {
   mapping;
   constructor() {
     this.mapping = { ...athlete_mapping_default };
-    this.staticMappingFile = path2.resolve(process.cwd(), "server", "data", "athlete_mapping.json");
-    this.runtimeMappingFile = path2.resolve(process.cwd(), "node_modules", ".cache", "fitet_cache", "athlete_mapping.json");
+    this.staticMappingFile = path3.resolve(process.cwd(), "server", "data", "athlete_mapping.json");
+    this.runtimeMappingFile = path3.join(getRuntimeCacheDir(), "athlete_mapping.json");
     this.loadMapping();
   }
   loadMapping() {
@@ -1260,7 +1268,7 @@ var AthleteResolver = class {
   }
   saveMapping() {
     try {
-      const dir = path2.dirname(this.runtimeMappingFile);
+      const dir = path3.dirname(this.runtimeMappingFile);
       if (!fs2.existsSync(dir)) fs2.mkdirSync(dir, { recursive: true });
       fs2.writeFileSync(this.runtimeMappingFile, JSON.stringify(this.mapping, null, 2), "utf8");
     } catch {
@@ -1346,11 +1354,11 @@ var athleteResolver = new AthleteResolver();
 
 // server/services/teamResolver.ts
 import fs3 from "fs";
-import path3 from "path";
+import path4 from "path";
 import * as cheerio2 from "cheerio";
 var TeamResolver = class {
-  staticFilePath = path3.resolve(process.cwd(), "server", "data", "team_logos.json");
-  runtimeFilePath = path3.resolve(process.cwd(), "node_modules", ".cache", "fitet_cache", "team_logos.json");
+  staticFilePath = path4.resolve(process.cwd(), "server", "data", "team_logos.json");
+  runtimeFilePath = path4.join(getRuntimeCacheDir(), "team_logos.json");
   logos = {
     "ASD TENNISTAVOLO NUOVA LUZZI": "https://portale.fitet.org/images/societa/3260.jpg",
     "TENNISTAVOLO CASTROVILLARI": "https://portale.fitet.org/images/societa/3164.jpg",
@@ -1382,7 +1390,7 @@ var TeamResolver = class {
   }
   saveToDisk() {
     try {
-      const dir = path3.dirname(this.runtimeFilePath);
+      const dir = path4.dirname(this.runtimeFilePath);
       if (!fs3.existsSync(dir)) fs3.mkdirSync(dir, { recursive: true });
       fs3.writeFileSync(this.runtimeFilePath, JSON.stringify(this.logos, null, 2), "utf-8");
     } catch (e) {
@@ -1436,7 +1444,7 @@ var teamResolver = new TeamResolver();
 
 // server/services/championshipCatalog.ts
 import fs4 from "fs";
-import path4 from "path";
+import path5 from "path";
 import * as cheerio4 from "cheerio";
 
 // server/parsers/statisticheParser.ts
@@ -1523,8 +1531,8 @@ var NAZIONALI = [
   { cid: 7, nome: "Paralimpici Naz." }
 ];
 var ChampionshipCatalog = class {
-  staticCacheFilePath = path4.resolve(process.cwd(), "server", "data", "campionati.json");
-  runtimeCacheFilePath = path4.resolve(process.cwd(), "node_modules", ".cache", "fitet_cache", "campionati.json");
+  staticCacheFilePath = path5.resolve(process.cwd(), "server", "data", "campionati.json");
+  runtimeCacheFilePath = path5.join(getRuntimeCacheDir(), "campionati.json");
   memoryCache = null;
   lastFetched = 0;
   TTL = 24 * 60 * 60 * 1e3;
@@ -1550,7 +1558,7 @@ var ChampionshipCatalog = class {
   }
   saveToDisk(data) {
     try {
-      const dir = path4.dirname(this.runtimeCacheFilePath);
+      const dir = path5.dirname(this.runtimeCacheFilePath);
       if (!fs4.existsSync(dir)) fs4.mkdirSync(dir, { recursive: true });
       fs4.writeFileSync(this.runtimeCacheFilePath, JSON.stringify(data, null, 2), "utf-8");
     } catch (e) {
@@ -4582,8 +4590,28 @@ async function evaluateSnapshotAndNotify(currSnapshot, options = {}) {
     broadcastResult
   };
 }
+var SUBSCRIBED_CAMS_TTL_MS = 10 * 60 * 1e3;
+var subscribedCamsCache = null;
+function invalidateSubscribedChampionshipsCache() {
+  subscribedCamsCache = null;
+}
+async function isChampionshipFollowed(camId) {
+  if (!subscribedCamsCache || Date.now() - subscribedCamsCache.timestamp > SUBSCRIBED_CAMS_TTL_MS) {
+    const ids = await pushService.getSubscribedChampionshipIds();
+    subscribedCamsCache = { ids: new Set(ids), timestamp: Date.now() };
+  }
+  return subscribedCamsCache.ids.has(camId);
+}
 async function notifyObservedChampionshipIfNeeded(input) {
   if (!pushService.isSupabaseConfigured()) {
+    return null;
+  }
+  try {
+    if (!await isChampionshipFollowed(input.camId)) {
+      return null;
+    }
+  } catch (err) {
+    console.warn(`[CampionatoNotifier] Impossibile leggere le iscrizioni per cam=${input.camId}:`, err);
     return null;
   }
   const currSnapshot = buildChampionshipSnapshot(input);
@@ -7151,6 +7179,7 @@ app.post("/api/push/subscribe", async (req, res) => {
         camIds: parsedCamIds
       };
       await pushService.saveSubscriptionContext(subscription.endpoint, contextToSave);
+      invalidateSubscribedChampionshipsCache();
       for (const cId of parsedCamIds) {
         ensureChampionshipBaseline(cId).catch(() => void 0);
       }
@@ -7265,11 +7294,11 @@ app.get("/api/push/check-tornei", async (req, res) => {
 if (!process.env.VERCEL) {
   startDailyTorneiScheduler();
   startChampionshipScheduler();
-  const distPath = path5.resolve(process.cwd(), "dist");
+  const distPath = path6.resolve(process.cwd(), "dist");
   app.use(express.static(distPath));
   app.get(["/player/:id", "/atleta/:id"], async (req, res, next) => {
     const { id } = req.params;
-    const indexFile = path5.join(distPath, "index.html");
+    const indexFile = path6.join(distPath, "index.html");
     if (!fs5.existsSync(indexFile)) return next();
     try {
       let html = await fs5.promises.readFile(indexFile, "utf8");
@@ -7310,7 +7339,7 @@ if (!process.env.VERCEL) {
   });
   app.get(["/regioni/:slug", "/regione/:slug"], async (req, res, next) => {
     const { slug } = req.params;
-    const preRenderedFile = path5.join(distPath, "regioni", slug.toLowerCase(), "index.html");
+    const preRenderedFile = path6.join(distPath, "regioni", slug.toLowerCase(), "index.html");
     if (fs5.existsSync(preRenderedFile)) {
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       return res.sendFile(preRenderedFile);
@@ -7319,7 +7348,7 @@ if (!process.env.VERCEL) {
   });
   app.get(["/campionato/:id", "/cam/:id"], async (req, res, next) => {
     const { id } = req.params;
-    const indexFile = path5.join(distPath, "index.html");
+    const indexFile = path6.join(distPath, "index.html");
     if (!fs5.existsSync(indexFile)) return next();
     try {
       let html = await fs5.promises.readFile(indexFile, "utf8");
@@ -7350,7 +7379,7 @@ if (!process.env.VERCEL) {
     }
   });
   app.get("/sitemap.xml", (req, res) => {
-    const sitemapFile = path5.resolve(process.cwd(), "public", "sitemap.xml");
+    const sitemapFile = path6.resolve(process.cwd(), "public", "sitemap.xml");
     if (fs5.existsSync(sitemapFile)) {
       res.setHeader("Content-Type", "application/xml; charset=utf-8");
       return res.sendFile(sitemapFile);
@@ -7358,7 +7387,7 @@ if (!process.env.VERCEL) {
     res.status(404).send("Not Found");
   });
   app.get("/robots.txt", (req, res) => {
-    const robotsFile = path5.resolve(process.cwd(), "public", "robots.txt");
+    const robotsFile = path6.resolve(process.cwd(), "public", "robots.txt");
     if (fs5.existsSync(robotsFile)) {
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       return res.sendFile(robotsFile);
@@ -7367,7 +7396,7 @@ if (!process.env.VERCEL) {
   });
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
-    const indexFile = path5.join(distPath, "index.html");
+    const indexFile = path6.join(distPath, "index.html");
     res.sendFile(indexFile, (err) => {
       if (err) res.status(404).send("Not Found");
     });

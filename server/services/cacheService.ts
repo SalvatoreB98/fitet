@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getRuntimeCacheDir } from './runtimeCacheDir';
 
 interface CacheEntry<T> {
   data: T;
@@ -13,10 +14,7 @@ export class CacheService {
   private memoryCache: Map<string, CacheEntry<unknown>> = new Map();
 
   constructor() {
-    const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
-    this.cacheDir = isServerless
-      ? path.join('/tmp', 'fitet_cache')
-      : path.resolve(process.cwd(), 'node_modules', '.cache', 'fitet_cache');
+    this.cacheDir = getRuntimeCacheDir();
     this.legacyCacheDir = path.resolve(process.cwd(), 'server', 'cache');
 
     try {

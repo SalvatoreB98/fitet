@@ -5,6 +5,7 @@ import { cacheService } from './cacheService';
 import { FitetClient } from './fitetClient';
 import { parseStatisticheAtleti } from '../parsers/statisticheParser';
 import { athleteResolver } from './athleteResolver';
+import { getRuntimeCacheDir } from './runtimeCacheDir';
 import { StatisticaAtleta } from '../../src/types/fitet';
 
 export interface ChampionshipItem {
@@ -52,7 +53,7 @@ const NAZIONALI = [
 
 class ChampionshipCatalog {
   private staticCacheFilePath = path.resolve(process.cwd(), 'server', 'data', 'campionati.json');
-  private runtimeCacheFilePath = path.resolve(process.cwd(), 'node_modules', '.cache', 'fitet_cache', 'campionati.json');
+  private runtimeCacheFilePath = path.join(getRuntimeCacheDir(), 'campionati.json');
   private memoryCache: ChampionshipItem[] | null = null;
   private lastFetched = 0;
   private readonly TTL = 24 * 60 * 60 * 1000; // 24 hours

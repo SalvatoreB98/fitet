@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import * as cheerio from 'cheerio';
 import { FitetClient } from './fitetClient';
+import { getRuntimeCacheDir } from './runtimeCacheDir';
 import defaultMapping from '../data/athlete_mapping.json';
 
 export class AthleteResolver {
@@ -12,7 +13,7 @@ export class AthleteResolver {
   constructor() {
     this.mapping = { ...defaultMapping };
     this.staticMappingFile = path.resolve(process.cwd(), 'server', 'data', 'athlete_mapping.json');
-    this.runtimeMappingFile = path.resolve(process.cwd(), 'node_modules', '.cache', 'fitet_cache', 'athlete_mapping.json');
+    this.runtimeMappingFile = path.join(getRuntimeCacheDir(), 'athlete_mapping.json');
     this.loadMapping();
   }
 

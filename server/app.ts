@@ -24,6 +24,7 @@ import {
 } from './services/torneiNotificationService';
 import {
     notifyObservedChampionshipIfNeeded,
+    invalidateSubscribedChampionshipsCache,
     ensureChampionshipBaseline,
     checkChampionshipsAndNotify,
     startChampionshipScheduler,
@@ -1890,6 +1891,7 @@ app.post('/api/push/subscribe', async (req, res) => {
                 camIds: parsedCamIds,
             };
             await pushService.saveSubscriptionContext(subscription.endpoint, contextToSave);
+            invalidateSubscribedChampionshipsCache();
 
             // Assicura in background che esista il baseline per ciascun campionato seguito
             for (const cId of parsedCamIds) {

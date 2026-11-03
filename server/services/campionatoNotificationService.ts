@@ -590,10 +590,35 @@ async function evaluateSnapshotAndNotify(
  * (es. in /api/dashboard o /api/refresh): se sono usciti nuovi match o è cambiata la classifica,
  * invia automaticamente la notifica push ai giocatori iscritti a quel campionato.
  */
+const SUBSCRIBED_CAMS_TTL_MS = 10 * 60 * 1000; // 10 minuti
+let subscribedCamsCache: { ids: Set<number>; timestamp: number } | null = null;
+
+/** Da chiamare quando cambiano le iscrizioni, così la cache viene ricaricata al prossimo controllo. */
+export function invalidateSubscribedChampionshipsCache(): void {
+  subscribedCamsCache = null;
+}
+
+async function isChampionshipFollowed(camId: number): Promise<boolean> {
+  if (!subscribedCamsCache || Date.now() - subscribedCamsCache.timestamp > SUBSCRIBED_CAMS_TTL_MS) {
+    const ids = await pushService.getSubscribedChampionshipIds();
+    subscribedCamsCache = { ids: new Set(ids), timestamp: Date.now() };
+  }
+  return subscribedCamsCache.ids.has(camId);
+}
+
 export async function notifyObservedChampionshipIfNeeded(
   input: ObservedChampionshipInput
 ): Promise<SingleChampionshipCheckResult | null> {
   if (!pushService.isSupabaseConfigured()) {
+    return null;
+  }
+
+  try {
+    if (!(await isChampionshipFollowed(input.camId))) {
+      return null;
+    }
+  } catch (err) {
+    console.warn(`[CampionatoNotifier] Impossibile leggere le iscrizioni per cam=${input.camId}:`, err);
     return null;
   }
 
