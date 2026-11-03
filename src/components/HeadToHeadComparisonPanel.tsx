@@ -1084,7 +1084,7 @@ export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps>
           <i className="bi bi-bar-chart-line-fill"></i>
         </span>
         <span className="h2h-cmp-toggle-copy">
-          <span className="h2h-cmp-toggle-title">Confronto completo</span>
+          <span className="h2h-cmp-toggle-title">Confronto e pronostico IA</span>
           <span className="h2h-cmp-toggle-sub">{toggleSubtitle}</span>
         </span>
         <span className="h2h-cmp-toggle-chevron" aria-hidden="true">
