@@ -16,6 +16,8 @@ interface CalendarioTabProps {
   onOpenSquadraModal?: (teamName: string) => void;
   currentCamId?: number;
   championshipName?: string;
+  /** Indica se la scheda Calendario è quella attualmente visibile. */
+  isActive?: boolean;
 }
 
 interface BloccoFaseGiornata {
@@ -72,6 +74,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
   onOpenSquadraModal,
   currentCamId,
   championshipName,
+  isActive = true,
 }) => {
   const [selectedGiornata, setSelectedGiornata] = useState<number | 'all'>('all');
   const [faseFilter, setFaseFilter] = useState<'all' | 'andata' | 'ritorno'>('all');
@@ -347,7 +350,9 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
           </div>
         </div>
 
-        <ChampionshipBellButton camId={currentCamId} championshipName={championshipName} />
+        {isActive && (
+          <ChampionshipBellButton camId={currentCamId} championshipName={championshipName} />
+        )}
       </div>
       {/* <div className='p-1 m-1 mt-3 text-left scrolldown'>
         {!isScrolledToCurrent && <button onClick={() => goToCurrent()} className='btn btn-primary rounded-pill'>↓</button>}

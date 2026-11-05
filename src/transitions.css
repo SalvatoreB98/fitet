@@ -2,39 +2,37 @@
    Transizioni direzionali tra viste / sezioni / schede
    ========================================================= */
 
-.portal-main {
-  overflow-x: clip;
-}
-
-.tab-panel {
-  overflow-x: clip;
-}
-
-.tornei-view-container {
-  overflow-x: clip;
-}
+/*
+ * NOTA: non usare overflow-x: clip su .portal-main / .tab-panel /
+ * .tornei-view-container. Taglierebbe l'animazione ai bordi del pannello
+ * (il contenuto tradotto veniva tagliato a metà pagina).
+ * Il clipping a bordo viewport è già garantito da .portal-container.
+ */
 
 /* Animazioni da DESTRA verso SINISTRA (scorrimento in avanti) */
 .slide-from-right-1 {
-  animation: slideInFromRight1 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important;
-  will-change: transform, opacity;
+  animation: slideInFromRight1 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards !important;
 }
 
 .slide-from-right-2 {
-  animation: slideInFromRight2 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important;
-  will-change: transform, opacity;
+  animation: slideInFromRight2 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards !important;
 }
 
 /* Animazioni da SINISTRA verso DESTRA (scorrimento indietro) */
 .slide-from-left-1 {
-  animation: slideInFromLeft1 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important;
-  will-change: transform, opacity;
+  animation: slideInFromLeft1 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards !important;
 }
 
 .slide-from-left-2 {
-  animation: slideInFromLeft2 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important;
-  will-change: transform, opacity;
+  animation: slideInFromLeft2 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards !important;
 }
+
+/*
+ * Fill-mode "backwards" (non "both") e nessun will-change permanente:
+ * un transform o un will-change lasciato sull'elemento anche dopo
+ * l'animazione crea un containing block e rompe il position: fixed
+ * dei figli (es. ChampionshipBellButton).
+ */
 
 @keyframes slideInFromRight1 {
   0% {

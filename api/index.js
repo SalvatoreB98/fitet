@@ -7452,13 +7452,13 @@ if (!process.env.VERCEL) {
   <meta name="description" content="${description}" />
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${description}" />
-  <meta property="og:image" content="/fitet-icon.png" />
+  <meta property="og:image" content="/fitetun.png" />
   <meta property="og:url" content="${currentUrl}" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="${title}" />
   <meta name="twitter:description" content="${description}" />
-  <meta name="twitter:image" content="/fitet-icon.png" />
+  <meta name="twitter:image" content="/fitetun.png" />
 `;
       html = html.replace(/<title>.*?<\/title>/i, ogMeta);
       res.setHeader("Content-Type", "text/html; charset=utf-8");

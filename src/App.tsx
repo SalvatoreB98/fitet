@@ -181,7 +181,6 @@ export const App: React.FC = () => {
 
   const mainSlide = useSlideDirection<MainViewType>(mainView, ['home', 'tornei', 'campionato', 'classifiche']);
   const tabSlide = useSlideDirection<ChampionshipTabType>(championshipTab, ['classifica', 'calendario', 'statistiche']);
-  console.log('DEBUG mainView', mainView, 'mainSlide', JSON.stringify(mainSlide));
 
   const [torneiCounts, setTorneiCounts] = useState<{
     miei?: number;
@@ -1065,6 +1064,7 @@ export const App: React.FC = () => {
                   onSelectTeamFilter={(team) => setSelectedTeamFilter(team)}
                   onOpenSquadraModal={handleOpenSquadra}
                   onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: true })}
+                  isActive={mainView === 'campionato' && championshipTab === 'calendario'}
                 />
               </div>
 

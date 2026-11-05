@@ -195,9 +195,9 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
   const [myTorneiError, setMyTorneiError] = useState<string | null>(null);
   const [myMapSelection, setMyMapSelection] = useState<TorneiMapSelection>(EMPTY_MAP_SELECTION);
   const [expandedMyTorneoKeys, setExpandedMyTorneoKeys] = useState<Set<string>>(new Set());
-  const [expandedGironeKeys, setExpandedGironeKeys] = useState<Set<number>>(new Set());
+  const [expandedGironeKeys, setExpandedGironeKeys] = useState<Set<string>>(new Set());
 
-  const toggleGironeMatches = (girNumero: number) => {
+  const toggleGironeMatches = (girNumero: string) => {
     setExpandedGironeKeys((prev) => {
       const next = new Set(prev);
       if (next.has(girNumero)) next.delete(girNumero);
@@ -2734,22 +2734,6 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                         </span>
                       </div>
                     </div>
-                    {item.matchedTorneo && (
-                      <div className="miei-torneo-actions miei-torneo-actions--quick">
-                        <button
-                          type="button"
-                          className="btn-action btn-sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectTorneo(item.matchedTorneo!);
-                          }}
-                        >
-                          <i className="bi bi-diagram-3"></i>
-                          <span>Apri torneo</span>
-                        </button>
-                      </div>
-                    )}
-
                     {isExpanded && (
                       <div className="miei-torneo-body">
                         <div className="miei-matches-table-wrap">

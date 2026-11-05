@@ -1840,27 +1840,27 @@ app.post('/api/push/subscribe', async (req, res) => {
             typeof rawCtx.playerId === 'string' && rawCtx.playerId.trim()
                 ? rawCtx.playerId.trim()
                 : typeof req.body?.playerId === 'string' && req.body.playerId.trim()
-                  ? req.body.playerId.trim()
-                  : undefined;
+                    ? req.body.playerId.trim()
+                    : undefined;
         const playerName =
             typeof rawCtx.playerName === 'string' && rawCtx.playerName.trim()
                 ? rawCtx.playerName.trim()
                 : typeof req.body?.playerName === 'string' && req.body.playerName.trim()
-                  ? req.body.playerName.trim()
-                  : undefined;
+                    ? req.body.playerName.trim()
+                    : undefined;
         const rawPrimaryCam = rawCtx.primaryCamId ?? req.body?.primaryCamId ?? req.body?.camId;
         const primaryCamId =
             typeof rawPrimaryCam === 'number' && Number.isFinite(rawPrimaryCam) && rawPrimaryCam > 0
                 ? rawPrimaryCam
                 : typeof rawPrimaryCam === 'string' && /^\d+$/.test(rawPrimaryCam)
-                  ? parseInt(rawPrimaryCam, 10)
-                  : undefined;
+                    ? parseInt(rawPrimaryCam, 10)
+                    : undefined;
 
         const rawCamIds = Array.isArray(rawCtx.camIds)
             ? rawCtx.camIds
             : Array.isArray(req.body?.camIds)
-              ? req.body.camIds
-              : [];
+                ? req.body.camIds
+                : [];
         const parsedCamIds: number[] = rawCamIds
             .map((v: unknown) => (typeof v === 'number' ? v : typeof v === 'string' && /^\d+$/.test(v) ? parseInt(v, 10) : 0))
             .filter((n: number) => Number.isFinite(n) && n > 0);
@@ -2035,9 +2035,9 @@ app.get('/api/push/check-campionati', async (req, res) => {
     const rawCam = typeof req.query.cam === 'string' ? req.query.cam : '';
     const camIds = rawCam
         ? rawCam
-              .split(',')
-              .map((s) => parseInt(s.trim(), 10))
-              .filter((n) => Number.isFinite(n) && n > 0)
+            .split(',')
+            .map((s) => parseInt(s.trim(), 10))
+            .filter((n) => Number.isFinite(n) && n > 0)
         : undefined;
 
     try {
@@ -2160,13 +2160,13 @@ if (!process.env.VERCEL) {
   <meta name="description" content="${description}" />
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${description}" />
-  <meta property="og:image" content="/fitet-icon.png" />
+  <meta property="og:image" content="/fitetun.png" />
   <meta property="og:url" content="${currentUrl}" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="${title}" />
   <meta name="twitter:description" content="${description}" />
-  <meta name="twitter:image" content="/fitet-icon.png" />
+  <meta name="twitter:image" content="/fitetun.png" />
 `;
             html = html.replace(/<title>.*?<\/title>/i, ogMeta);
             res.setHeader('Content-Type', 'text/html; charset=utf-8');

@@ -112,7 +112,11 @@ export const ChampionshipBellButton: React.FC<ChampionshipBellButtonProps> = ({
     ? `Notifiche abilitate per ${cleanName} — Clicca per disabilitarle`
     : `Ricevi notifiche per ${cleanName}`;
 
-  return (
+  // Il bottone (position: fixed) viene montato direttamente nel body:
+  // così non può essere "intrappolato" da un antenato con transform/filter/
+  // will-change (es. i pannelli durante le animazioni slide), che creerebbe
+  // un containing block e lo posizionerebbe rispetto al pannello.
+  const bellContent = (
     <>
       <button
         type="button"
@@ -135,39 +139,42 @@ export const ChampionshipBellButton: React.FC<ChampionshipBellButtonProps> = ({
       </button>
 
       {/* Snackbar / Toast visualizzato in Portal per sovrapporsi a tutta l'interfaccia */}
-      {toast &&
-        typeof document !== 'undefined' &&
-        createPortal(
-          <aside
-            className={`championship-snackbar is-${toast.type}`}
-            role="status"
-            aria-live="polite"
-            onClick={() => setToast(null)}
+      {toast && (
+        <aside
+          className={`championship-snackbar is-${toast.type}`}
+          role="status"
+          aria-live="polite"
+          onClick={() => setToast(null)}
+        >
+          <div className="championship-snackbar-icon" aria-hidden="true">
+            {toast.type === 'success' && <i className="bi bi-bell-fill" />}
+            {toast.type === 'info' && <i className="bi bi-bell-slash-fill" />}
+            {toast.type === 'error' && <i className="bi bi-exclamation-triangle-fill" />}
+          </div>
+          <div className="championship-snackbar-body">
+            <strong className="championship-snackbar-title">{toast.title}</strong>
+            <span className="championship-snackbar-message">{toast.message}</span>
+          </div>
+          <button
+            type="button"
+            className="championship-snackbar-close"
+            onClick={(e) => {
+              e.stopPropagation();
+              setToast(null);
+            }}
+            aria-label="Chiudi avviso"
           >
-            <div className="championship-snackbar-icon" aria-hidden="true">
-              {toast.type === 'success' && <i className="bi bi-bell-fill" />}
-              {toast.type === 'info' && <i className="bi bi-bell-slash-fill" />}
-              {toast.type === 'error' && <i className="bi bi-exclamation-triangle-fill" />}
-            </div>
-            <div className="championship-snackbar-body">
-              <strong className="championship-snackbar-title">{toast.title}</strong>
-              <span className="championship-snackbar-message">{toast.message}</span>
-            </div>
-            <button
-              type="button"
-              className="championship-snackbar-close"
-              onClick={(e) => {
-                e.stopPropagation();
-                setToast(null);
-              }}
-              aria-label="Chiudi avviso"
-            >
-              <i className="bi bi-x-lg" aria-hidden="true" />
-            </button>
-          </aside>,
-          document.body
-        )}
+            <i className="bi bi-x-lg" aria-hidden="true" />
+          </button>
+        </aside>
+      )}
     </>
   );
+
+  if (typeof document === 'undefined') {
+    return bellContent;
+  }
+
+  return createPortal(bellContent, document.body);
 };
 
