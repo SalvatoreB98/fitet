@@ -329,12 +329,11 @@ nav {
 
 .portal-title-block small {
   font-size: 0.5rem;
-  color: var(--text-dark);
+  color: white;
 }
 
 [data-theme="light"] .portal-title-block small {
   font-size: 0.5rem;
-  color: var(--text-light);
 }
 
 /* ==========================================================================
@@ -1525,6 +1524,7 @@ nav {
     opacity: 0;
     transform: translateY(-4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
