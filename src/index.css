@@ -1023,6 +1023,7 @@ nav {
 .tab-panel {
   max-width: 1050px;
   margin: auto;
+  overflow: visible;
 }
 
 .tab-panel[hidden] {
