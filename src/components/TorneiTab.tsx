@@ -2686,7 +2686,6 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                   <article key={item.key} className="miei-torneo-card">
                     <div
                       className="miei-torneo-header"
-                      onClick={() => toggleTorneoExpanded(item.key)}
                     >
                       <div className="miei-torneo-top">
                         <span className="miei-torneo-date">
@@ -2707,13 +2706,34 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                           <i className="bi bi-geo-alt-fill text-primary"></i> {item.luogo}
                           {item.regione && item.regione !== 'Nazionale' ? ` (${item.regione})` : ''}
                         </span>
-                        <span className="miei-torneo-expand-hint">
-                          <span>{isExpanded ? 'Nascondi partite' : `${item.partite.length} partite`}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => goToTorneo(item)}
+                        className="btn btn-primary mt-2 w-100 d-flex align-items-center justify-content-center gap-2"
+                        disabled={loadingTorneoKey === item.key}
+                        title="Apri il tabellone e le gare di questo torneo"
+                      >
+                        {loadingTorneoKey === item.key ? (
+                          <>
+                            <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                            <span>Caricamento torneo in corso...</span>
+                          </>
+                        ) : (
+                          <>
+                            <i className="bi bi-diagram-3-fill" aria-hidden="true"></i>
+                            <span>Vai al torneo</span>
+                          </>
+                        )}
+                      </button>
+                      <div className='text-right' onClick={() => toggleTorneoExpanded(item.key)}
+                      >
+                        <span className="miei-torneo-expand-hint" >
+                          <span>{isExpanded ? 'Nascondi partite' : `Anteprima ${item.partite.length} partite`}</span>
                           <i className={`bi bi-chevron-${isExpanded ? 'up' : 'down'}`}></i>
                         </span>
                       </div>
                     </div>
-
                     {item.matchedTorneo && (
                       <div className="miei-torneo-actions miei-torneo-actions--quick">
                         <button
@@ -2780,25 +2800,6 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                             </tbody>
                           </table>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => goToTorneo(item)}
-                          className="btn btn-primary mt-2 w-100 d-flex align-items-center justify-content-center gap-2"
-                          disabled={loadingTorneoKey === item.key}
-                          title="Apri il tabellone e le gare di questo torneo"
-                        >
-                          {loadingTorneoKey === item.key ? (
-                            <>
-                              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                              <span>Caricamento torneo in corso...</span>
-                            </>
-                          ) : (
-                            <>
-                              <i className="bi bi-diagram-3-fill" aria-hidden="true"></i>
-                              <span>Vai al torneo</span>
-                            </>
-                          )}
-                        </button>
                       </div>
                     )}
                   </article>
