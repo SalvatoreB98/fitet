@@ -6015,7 +6015,7 @@ body.modal-open {
 
 .atleta-profile-photo-wrap {
   align-self: flex-start;
-  max-width: 120px;
+  max-width: 130px;
   height: 100%;
   border-radius: 8px;
   overflow: hidden;
@@ -7245,6 +7245,12 @@ body.modal-open {
   gap: 8px;
   margin-top: 10px;
   flex-wrap: wrap;
+}
+
+@media screen and (max-width: 500px) {
+  .atleta-profile-quick-actions {
+    display: none;
+  }
 }
 
 .atleta-quick-share-btn {
