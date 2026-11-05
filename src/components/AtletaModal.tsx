@@ -499,7 +499,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
             <div style={{ minWidth: 0, overflow: 'hidden' }}>
               <h3 style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                Scheda Ranking FITeT
+                {atleta?.anagrafica?.nome}
               </h3>
               <div className="modal-header-subtext">
                 Tessera / ID: {atleta?.id || (/^\d+$/.test(atletaId) ? atletaId : 'In risoluzione...')} • Classifica Unica Nazionale
@@ -693,27 +693,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     )}
                   </div>
 
-                  {/* Quick Share Buttons on profile card */}
-                  <div className="atleta-profile-quick-actions">
-                    <button
-                      type="button"
-                      className="atleta-quick-share-btn btn-quick-wa"
-                      onClick={handleShareWhatsApp}
-                      title="Condividi scheda direttamente su WhatsApp"
-                    >
-                      <i className="bi bi-whatsapp"></i>
-                      <span>Condividi su WhatsApp</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="atleta-quick-share-btn btn-quick-copy"
-                      onClick={handleCopyLink}
-                      title="Copia link profilo condivisibile"
-                    >
-                      <i className={`bi ${copied ? 'bi-check-lg text-success' : 'bi-link-45deg'}`}></i>
-                      <span>{copied ? 'Link Copiato!' : 'Copia Link'}</span>
-                    </button>
-                  </div>
                 </div>
               </div>
 
