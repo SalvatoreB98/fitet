@@ -6014,7 +6014,8 @@ body.modal-open {
 }
 
 .atleta-profile-photo-wrap {
-  max-width: 74px;
+  align-self: flex-start;
+  max-width: 120px;
   height: 100%;
   border-radius: 8px;
   overflow: hidden;
@@ -6024,6 +6025,12 @@ body.modal-open {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+@media screen and (max-width: 400px) {
+  .atleta-profile-photo-wrap {
+    max-width: 75px;
+  }
 }
 
 .atleta-profile-meta-sub {
