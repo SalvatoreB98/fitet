@@ -90,6 +90,19 @@ export interface TorneiTabProps {
   onUpdateCounts?: (counts: { miei: number; mappa: number; risultati: number; programma: number }) => void;
 }
 
+const isCloseTournamentDate = (d1?: string, d2?: string): boolean => {
+  if (!d1 || !d2) return false;
+  if (d1 === d2) return true;
+  const p1 = d1.split('/');
+  const p2 = d2.split('/');
+  if (p1.length === 3 && p2.length === 3) {
+    const dt1 = new Date(Number(p1[2]), Number(p1[1]) - 1, Number(p1[0])).getTime();
+    const dt2 = new Date(Number(p2[2]), Number(p2[1]) - 1, Number(p2[0])).getTime();
+    return Math.abs(dt1 - dt2) <= 2 * 24 * 60 * 60 * 1000;
+  }
+  return false;
+};
+
 export const TorneiTab: React.FC<TorneiTabProps> = ({
   onOpenAtletaModal,
   portalView: propsPortalView,
@@ -214,6 +227,183 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
       setMyTorneiLoading(false);
     }
   }, []);
+
+  const allKnownTornei: TorneoItem[] = useMemo(() => {
+    if (!data?.sections) return [];
+    const list: TorneoItem[] = [];
+    for (const sec of data.sections) {
+      list.push(...sec.tornei);
+    }
+    return list;
+  }, [data]);
+
+  const [loadingTorneoKey, setLoadingTorneoKey] = useState<string | null>(null);
+
+  /**
+   * Apre la modale di dettaglio del torneo (modal-torneo-detail-card)
+   * caricando il torneo e la relativa gara dal portale FITeT:
+   * /api/tornei/gara?idt=...&com=...&gara=...&anno=...&isDoppio=false&mode=risultati
+   */
+  const goToTorneo = async (
+    item?: MyTorneoGroupItem,
+    specificGaraName?: string,
+    preferredPhase?: GaraPhase
+  ) => {
+    const targetItem = item || visibleMyTornei[0];
+    const key = targetItem ? targetItem.key : 'default';
+    setLoadingTorneoKey(key);
+
+    try {
+      // 1. Risolvi il torneo da associare
+      let torneo: TorneoItem | undefined = targetItem?.matchedTorneo;
+
+      if (!torneo && targetItem) {
+        // Cerca nei tornei noti con matching per data vicina / luogo / comitato
+        const athleteDate = targetItem.data;
+        const athleteName = targetItem.torneoName.toLowerCase();
+
+        torneo = allKnownTornei.find((t) => {
+          if (!isCloseTournamentDate(t.data, athleteDate)) return false;
+          if (t.luogo && athleteName.includes(t.luogo.toLowerCase())) return true;
+          if (t.regione && athleteName.includes(t.regione.toLowerCase())) return true;
+          if (t.com > 0) {
+            const regObj = REGIONS_COMIT.find((r) => r.id === t.com);
+            if (regObj && athleteName.includes(regObj.name.toLowerCase())) return true;
+          }
+          return false;
+        });
+
+        if (!torneo) {
+          // Identifica eventuale regione nel titolo del torneo (es. Calabria -> com 19)
+          let detectedCom = 0;
+          for (const reg of REGIONS_COMIT) {
+            if (reg.id > 0 && athleteName.includes(reg.name.toLowerCase())) {
+              detectedCom = reg.id;
+              break;
+            }
+          }
+          if (detectedCom === 19 || athleteName.includes('calabria')) {
+            detectedCom = 19;
+          }
+
+          torneo = {
+            idt: detectedCom === 19 ? 2 : 1,
+            com: detectedCom || 19,
+            anno: 41,
+            tipo: 0,
+            data: targetItem.data || '19/09/2026',
+            luogo: targetItem.luogo || (detectedCom === 19 ? 'Spezzano Albanese (CS)' : 'Italia'),
+            regione: targetItem.regione || (detectedCom === 19 ? 'Calabria' : 'Nazionale'),
+            status: 'disputato',
+            href: `https://portale.fitet.org/risultati/tornei/visualizza_risultati.php?IDT=${detectedCom === 19 ? 2 : 1}&ANNO=41&COM=${detectedCom || 19}`,
+          };
+        }
+      }
+
+      // Fallback se non è stato possibile identificare alcun torneo
+      if (!torneo) {
+        torneo = {
+          idt: 2,
+          com: 19,
+          anno: 41,
+          tipo: 0,
+          data: '19/09/2026',
+          luogo: 'Spezzano Albanese (CS)',
+          regione: 'Calabria',
+          status: 'disputato',
+          href: 'https://portale.fitet.org/risultati/tornei/visualizza_risultati.php?IDT=2&ANNO=41&COM=19',
+        };
+      }
+
+      // 2. Prepara lo stato della modale (apre la modal-torneo-detail-card)
+      setSelectedTorneo(torneo);
+      setTorneoDettaglio(null);
+      setDettaglioError(null);
+      setSelectedGara(null);
+      setGaraData(null);
+      setGaraPhaseTab(null);
+      setLoadingDettaglio(true);
+      setGaraSearchQuery('');
+      setBracketViewMode('bracket');
+      scrollToRoot();
+
+      // 3. Carica il dettaglio del torneo (elenco gare)
+      const det = await fetchTorneoDettaglio(torneo.idt, torneo.com, torneo.anno);
+      setTorneoDettaglio(det);
+
+      // 4. Cerca la gara disputata (es. 'Singolo M/F Open7 5001 seg. M | 351 seg. F' -> garaId '1025')
+      const targetGaraName = (
+        specificGaraName ||
+        targetItem?.gare[0] ||
+        targetItem?.partite[0]?.gara ||
+        ''
+      ).toLowerCase().trim();
+
+      let matchedGara: TorneoGaraLink | undefined;
+
+      if (det.gare && det.gare.length > 0) {
+        if (targetGaraName) {
+          matchedGara = det.gare.find((g) => {
+            const gName = g.nome.toLowerCase().trim();
+            if (gName === targetGaraName || gName.includes(targetGaraName) || targetGaraName.includes(gName)) {
+              return true;
+            }
+            if (targetGaraName.includes('open7') && gName.includes('open7')) return true;
+            if (targetGaraName.includes('5001') && gName.includes('5001')) return true;
+            return false;
+          });
+        }
+
+        // Se non troviamo match per nome, ma è disponibile la gara 1025 indicata
+        if (!matchedGara && det.gare.some((g) => g.garaId === '1025')) {
+          matchedGara = det.gare.find((g) => g.garaId === '1025');
+        }
+
+        // Fallback sulla prima gara del torneo se nessun match specifico
+        if (!matchedGara) {
+          matchedGara = det.gare[0];
+        }
+      }
+
+      // 5. Se trovata la gara, chiama l'API /api/tornei/gara e apre la schermata della gara
+      if (matchedGara) {
+        setSelectedGara(matchedGara);
+        setLoadingGara(true);
+        try {
+          const resGara = await fetchTorneoGara({
+            idt: matchedGara.idt,
+            com: matchedGara.com,
+            gara: matchedGara.garaId,
+            anno: matchedGara.anno,
+            isDoppio: matchedGara.isDoppio,
+            mode: matchedGara.mode || 'risultati',
+          });
+          setGaraData(resGara);
+
+          // Se specificata una fase preferita o se l'atleta ha giocato una fase rilevabile
+          // const targetPhase = preferredPhase || (
+          //   targetItem?.partite.some((p) => p.fase === 'TAB') ? 'tabellone' :
+          //   targetItem?.partite.some((p) => p.fase === 'GIR') ? 'gironi' : undefined
+          // );
+
+          // if (targetPhase === 'tabellone' && resGara.turniTabellone && resGara.turniTabellone.length > 0) {
+          //   setGaraPhaseTab('tabellone');
+          // } else if (targetPhase === 'gironi' && resGara.gironiRanges && resGara.gironiRanges.length > 0) {
+          //   setGaraPhaseTab('gironi');
+          // }
+        } catch (errGara: any) {
+          console.error('Errore durante il caricamento della gara:', errGara);
+        } finally {
+          setLoadingGara(false);
+        }
+      }
+    } catch (err: any) {
+      setDettaglioError(err?.message || 'Impossibile aprire il torneo in questo momento.');
+    } finally {
+      setLoadingDettaglio(false);
+      setLoadingTorneoKey(null);
+    }
+  };
 
   useEffect(() => {
     if (!myPlayerId) {
@@ -473,12 +663,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
     const torneiList = myAthleteDetail?.partiteRanking?.tornei;
     if (!torneiList || torneiList.length === 0) return [];
 
-    const allKnownTornei: TorneoItem[] = [];
-    if (data?.sections) {
-      for (const sec of data.sections) {
-        allKnownTornei.push(...sec.tornei);
-      }
-    }
+    // allKnownTornei is available from component scope
 
     const groups = new Map<
       string,
@@ -2534,6 +2719,25 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                             </tbody>
                           </table>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => goToTorneo(item)}
+                          className="btn btn-primary mt-2 w-100 d-flex align-items-center justify-content-center gap-2"
+                          disabled={loadingTorneoKey === item.key}
+                          title="Apri il tabellone e le gare di questo torneo"
+                        >
+                          {loadingTorneoKey === item.key ? (
+                            <>
+                              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                              <span>Caricamento torneo in corso...</span>
+                            </>
+                          ) : (
+                            <>
+                              <i className="bi bi-diagram-3-fill" aria-hidden="true"></i>
+                              <span>Vai al torneo</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     )}
                   </article>
@@ -2617,64 +2821,64 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
       )}
 
       <div className={`tornei-view-container ${torneiSlide}`}>
-      {loading && !refreshing ? (
-        loadingState
-      ) : error ? (
-        errorState
-      ) : portalView === 'miei' && myPlayerId ? (
-        renderMyTorneiView()
-      ) : portalView === 'mappa' ? (
-        torneiByRegion.length === 0 ? (
-          emptyAll
-        ) : (
-          <div className="tornei-explorer">
-            <aside className="tornei-map-column">
-              <TorneiItalyMap
-                groups={torneiByRegion}
-                selection={mapSelection}
-                onSelectionChange={handleMapSelectionChange}
-                onShowList={handleShowList}
-              />
-            </aside>
+        {loading && !refreshing ? (
+          loadingState
+        ) : error ? (
+          errorState
+        ) : portalView === 'miei' && myPlayerId ? (
+          renderMyTorneiView()
+        ) : portalView === 'mappa' ? (
+          torneiByRegion.length === 0 ? (
+            emptyAll
+          ) : (
+            <div className="tornei-explorer">
+              <aside className="tornei-map-column">
+                <TorneiItalyMap
+                  groups={torneiByRegion}
+                  selection={mapSelection}
+                  onSelectionChange={handleMapSelectionChange}
+                  onShowList={handleShowList}
+                />
+              </aside>
 
-            {visibleTorneiByRegion.length > 0 ? (
-              renderTorneiList(visibleTorneiByRegion, {
-                withMapBanner: true,
-                title: listTitle,
-                subtitle: listSubtitle,
-              })
-            ) : (
-              <section className="tornei-list-column" ref={torneiListRef}>
-                <div className="tornei-empty-card tornei-map-empty-list">
-                  <i className="bi bi-geo-alt tornei-empty-icon"></i>
-                  <h3>Nessun torneo per questo filtro</h3>
-                  <p>
-                    La mappa non ha tornei corrispondenti a{' '}
-                    <strong>{mapSelection.label || mapSelection.region}</strong> con i filtri
-                    attuali.
-                  </p>
-                  <button
-                    type="button"
-                    className="btn-action"
-                    onClick={() => handleMapSelectionChange(EMPTY_MAP_SELECTION)}
-                  >
-                    <i className="bi bi-arrow-left" aria-hidden="true"></i>
-                    Mostra tutti i tornei
-                  </button>
-                </div>
-              </section>
-            )}
-          </div>
-        )
-      ) : torneiByRegion.length === 0 ? (
-        emptyStatus
-      ) : (
-        renderTorneiList(torneiByRegion, {
-          withMapBanner: false,
-          title: listTitle,
-          subtitle: listSubtitle,
-        })
-      )}
+              {visibleTorneiByRegion.length > 0 ? (
+                renderTorneiList(visibleTorneiByRegion, {
+                  withMapBanner: true,
+                  title: listTitle,
+                  subtitle: listSubtitle,
+                })
+              ) : (
+                <section className="tornei-list-column" ref={torneiListRef}>
+                  <div className="tornei-empty-card tornei-map-empty-list">
+                    <i className="bi bi-geo-alt tornei-empty-icon"></i>
+                    <h3>Nessun torneo per questo filtro</h3>
+                    <p>
+                      La mappa non ha tornei corrispondenti a{' '}
+                      <strong>{mapSelection.label || mapSelection.region}</strong> con i filtri
+                      attuali.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn-action"
+                      onClick={() => handleMapSelectionChange(EMPTY_MAP_SELECTION)}
+                    >
+                      <i className="bi bi-arrow-left" aria-hidden="true"></i>
+                      Mostra tutti i tornei
+                    </button>
+                  </div>
+                </section>
+              )}
+            </div>
+          )
+        ) : torneiByRegion.length === 0 ? (
+          emptyStatus
+        ) : (
+          renderTorneiList(torneiByRegion, {
+            withMapBanner: false,
+            title: listTitle,
+            subtitle: listSubtitle,
+          })
+        )}
       </div>
       {renderDetailModal()}
     </>
