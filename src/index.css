@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    FITeT Serie D/1 Girone Nord - Modern Federal Sports Portal
    Mathematical CSS Grid Architecture (Zero Legacy HTML Table/TR/TD)
    100% Responsive â€¢ Uniform 40px Row Heights â€¢ Symmetrical Grid Systems
@@ -1415,6 +1415,17 @@ nav {
   padding: 12px 18px;
   border-radius: 10px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.giornata-header-banner:hover {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.02));
+}
+
+[data-theme="dark"] .giornata-header-banner:hover {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .giornata-title-group {
@@ -1453,11 +1464,71 @@ nav {
   border: 1px solid var(--border-color);
 }
 
+/* Minimal Expansion Panel Hint & Controls */
+.miei-torneo-expand-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-primary-600, #01579b);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border: none;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  line-height: 1.2;
+}
+
+.miei-torneo-expand-hint:hover {
+  background: rgba(1, 87, 155, 0.08);
+  color: var(--color-primary-700, #0284c7);
+}
+
+[data-theme="dark"] .miei-torneo-expand-hint {
+  color: var(--color-primary-400, #38bdf8);
+}
+
+[data-theme="dark"] .miei-torneo-expand-hint:hover {
+  background: rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+}
+
+.miei-torneo-expand-hint i {
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.filter-btn--expand-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  padding: 5px 10px;
+}
+
 /* Responsive Grid of Match Cards */
 .match-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   gap: 16px;
+}
+
+.match-cards-grid--animated {
+  animation: matchCardsFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes matchCardsFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 640px) {
@@ -7769,14 +7840,14 @@ body.modal-open {
 }
 
 .giornata-section.giornata-prossima {
-  border: 2px solid var(--color-primary-500);
+  border: 2px solid #3b82f6;
   border-radius: 20px;
-  margin: 10px;
+  margin: 1px;
 
 }
 
 .giornata-section.giornata-prossima .actual-giornata-badge-pill {
-  background-color: var(--color-primary-600);
+  background-color: #3b82f6;
   color: #ffffff;
 }
 

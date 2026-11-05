@@ -84,6 +84,21 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
     ospite?: string;
   } | null>(null);
 
+  // Stato expansion panel per i blocchi giornata
+  const [collapsedGiornate, setCollapsedGiornate] = useState<Set<string>>(new Set());
+
+  const toggleGiornata = (key: string) => {
+    setCollapsedGiornate((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
   // Mappa dei ref per ogni blocco giornata
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const hasScrolledRef = useRef(false);
@@ -234,6 +249,22 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
     }
     setIsScrolledToCurrent(true)
   };
+  const allBlocchiKeys = useMemo(() => displayedBlocchi.map((b) => b.key), [displayedBlocchi]);
+
+  const toggleAllGiornate = () => {
+    if (collapsedGiornate.size > 0) {
+      setCollapsedGiornate(new Set());
+    } else {
+      setCollapsedGiornate(new Set(allBlocchiKeys));
+    }
+  };
+
+  useEffect(() => {
+    if (selectedTeamFilter || selectedGiornata !== 'all') {
+      setCollapsedGiornate(new Set());
+    }
+  }, [selectedTeamFilter, selectedGiornata]);
+
   let totalDisplayedMatches = 0;
 
   return (
@@ -275,6 +306,16 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
               </option>
             ))}
           </select>
+
+          <button
+            type="button"
+            className="filter-btn filter-btn--expand-toggle"
+            onClick={toggleAllGiornate}
+            title={collapsedGiornate.size === 0 ? 'Comprimi tutte le giornate' : 'Espandi tutte le giornate'}
+          >
+            <i className={`bi bi-${collapsedGiornate.size === 0 ? 'arrows-collapse' : 'arrows-expand'}`}></i>
+            <span className="d-none d-sm-inline">{collapsedGiornate.size === 0 ? 'Comprimi tutti' : 'Espandi tutti'}</span>
+          </button>
 
           <div className="select-clearable-wrapper">
             <select
@@ -327,6 +368,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
           totalDisplayedMatches += filteredMatches.length;
 
           const isClosest = blocco.key === closestKey;
+          const isExpanded = !collapsedGiornate.has(blocco.key);
 
           return (
             <section
@@ -334,8 +376,20 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
               ref={(el) => (sectionRefs.current[blocco.key] = el)}
               className={`giornata-section ${isClosest ? 'giornata-prossima' : ''}`}
             >
-              {/* Header Giornata con etichetta Andata/Ritorno separata */}
-              <div className="giornata-header-banner">
+              {/* Header Giornata con expansion panel trigger minimal */}
+              <div
+                className="giornata-header-banner"
+                onClick={() => toggleGiornata(blocco.key)}
+                role="button"
+                tabIndex={0}
+                aria-expanded={isExpanded}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleGiornata(blocco.key);
+                  }
+                }}
+              >
                 <div className="giornata-title-group">
                   <span className={`giornata-badge-pill ${isClosest ? 'actual-giornata-badge-pill' : ''}`}>
                     {blocco.numero}ª GIORNATA
@@ -344,13 +398,15 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                     {isClosest && <span className="badge-in-corso"> • </span>}
                   </span>
                 </div>
-                <div className="giornata-meta-count">
-                  {filteredMatches.length} {filteredMatches.length === 1 ? 'incontro' : 'incontri'}
-                </div>
+                <span className="miei-torneo-expand-hint">
+                  <span>{isExpanded ? 'Nascondi incontri' : `Mostra incontri (${filteredMatches.length})`}</span>
+                  <i className={`bi bi-chevron-${isExpanded ? 'up' : 'down'}`}></i>
+                </span>
               </div>
 
-              {/* Grid Partite */}
-              <div className="match-cards-grid">
+              {/* Grid Partite dentro expansion panel */}
+              {isExpanded && (
+                <div className="match-cards-grid match-cards-grid--animated">
                 {filteredMatches.map((m) => {
                   const isCasaWinner = m.vincitore === 'casa';
                   const isOspiteWinner = m.vincitore === 'ospite';
@@ -472,6 +528,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                   );
                 })}
               </div>
+            )}
             </section>
           );
         })}

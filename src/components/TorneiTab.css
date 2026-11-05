@@ -869,6 +869,23 @@
   white-space: nowrap;
 }
 
+.tornei-girone-expand-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 8px;
+  margin-bottom: 12px;
+  padding: 4px 0;
+}
+
+.tornei-gironi-global-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
 /* ==========================================================================
    Loading / error / empty states
    ========================================================================== */
@@ -1215,6 +1232,10 @@
     position: static;
     margin-top: 14px;
   }
+}
+
+.its-me {
+  border: 2px solid #3b82f6;
 }
 
 .miei-profile-banner {

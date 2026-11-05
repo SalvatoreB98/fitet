@@ -195,6 +195,25 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
   const [myTorneiError, setMyTorneiError] = useState<string | null>(null);
   const [myMapSelection, setMyMapSelection] = useState<TorneiMapSelection>(EMPTY_MAP_SELECTION);
   const [expandedMyTorneoKeys, setExpandedMyTorneoKeys] = useState<Set<string>>(new Set());
+  const [expandedGironeKeys, setExpandedGironeKeys] = useState<Set<number>>(new Set());
+
+  const toggleGironeMatches = (girNumero: number) => {
+    setExpandedGironeKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(girNumero)) next.delete(girNumero);
+      else next.add(girNumero);
+      return next;
+    });
+  };
+
+  const toggleAllGironiMatches = () => {
+    if (!garaData?.gironi) return;
+    if (expandedGironeKeys.size > 0) {
+      setExpandedGironeKeys(new Set());
+    } else {
+      setExpandedGironeKeys(new Set(garaData.gironi.map((g) => g.numero)));
+    }
+  };
   const [isChangingAthlete, setIsChangingAthlete] = useState<boolean>(false);
   const [athleteSearchQuery, setAthleteSearchQuery] = useState<string>('');
   const [athleteSearchResults, setAthleteSearchResults] = useState<AthleteSearchResult[]>([]);
@@ -1643,7 +1662,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
     if (selectedGara && garaPhaseTab) {
       modalContent = (
         <div className="tornei-detail">
-          {renderStepBar('Torna alla gara', 3, backToGara)}
+          {renderStepBar('Torna alle fasi', 3, backToGara)}
 
           <header className="tornei-detail-head">
             <div className="tornei-detail-head-main">
@@ -1819,114 +1838,156 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                   </div>
                 ) : garaData.gironi.length > 0 ? (
                   <div className="tornei-gironi-list">
-                    {garaData.gironi.map((gir) => (
-                      <section key={gir.numero} className="tornei-girone">
-                        <div className="tornei-girone-head">
-                          <div>
-                            <span className="tornei-girone-title">Girone {gir.numero}</span>
-                            <span className="tornei-girone-sub">Classifica e incontri</span>
+                    {garaData.gironi.map((gir) => {
+                      const isGironeExpanded = expandedGironeKeys.has(gir.numero);
+                      return (
+                        <section key={gir.numero} className="tornei-girone">
+                          <div
+                            className="tornei-girone-head"
+                            onClick={() => toggleGironeMatches(gir.numero)}
+                            style={{ cursor: 'pointer' }}
+                            role="button"
+                            tabIndex={0}
+                            aria-expanded={isGironeExpanded}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                toggleGironeMatches(gir.numero);
+                              }
+                            }}
+                          >
+                            <div>
+                              <span className="tornei-girone-title">Girone {gir.numero}</span>
+                              <span className="tornei-girone-sub">Classifica e incontri</span>
+                            </div>
                           </div>
-                          <span className="tornei-girone-count">{gir.partite.length} incontri</span>
-                        </div>
 
-                        {gir.classifica.length > 0 && (
-                          <div className="table-responsive tornei-table-wrap">
-                            <table className="tornei-table">
-                              <thead>
-                                <tr>
-                                  <th className="th-rank">#</th>
-                                  <th className="th-athlete">Atleta</th>
-                                  <th className="th-provincia hide-xs">Società</th>
-                                  <th className="text-center">Pt</th>
-                                  <th className="text-center">V-P</th>
-                                  <th className="text-center">Set</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {gir.classifica.map((row) => (
-                                  <tr
-                                    key={row.nome}
-                                    className="tornei-table-row"
-                                    onClick={() => handleAthleteClick(row.atletaId, row.nome)}
-                                  >
-                                    <td className="td-rank">
-                                      <span className={`rank-badge rank-badge-${row.posizione <= 2 ? row.posizione : 'default'}`}>
-                                        {row.posizione}
-                                      </span>
-                                    </td>
-                                    <td className="td-athlete">
-                                      <div className="athlete-row-cell">
-                                        <AthleteAvatar
-                                          atletaId={row.atletaId || undefined}
-                                          nome={row.nome}
-                                          size={26}
-                                          className="tornei-avatar"
-                                        />
-                                        <div className="athlete-name-cell">
-                                          <span className="athlete-link-btn">{row.nome}</span>
-                                          <span className="athlete-mobile-meta show-xs">{row.societa}</span>
-                                        </div>
-                                      </div>
-                                    </td>
-                                    <td className="hide-xs">
-                                      <span className="provincia-text">{row.societa}</span>
-                                    </td>
-                                    <td className="text-center">
-                                      <span className="badge-points-official">{row.punti}</span>
-                                    </td>
-                                    <td className="text-center">
-                                      <span className="settore-badge">{row.vinte}-{row.perse}</span>
-                                    </td>
-                                    <td className="text-center">
-                                      <span className="date-text">{row.setVinti}-{row.setPersi}</span>
-                                    </td>
+                          {gir.classifica.length > 0 && (
+                            <div className="table-responsive tornei-table-wrap">
+                              <table className="tornei-table">
+                                <thead>
+                                  <tr>
+                                    <th className="th-rank">#</th>
+                                    <th className="th-athlete">Atleta</th>
+                                    <th className="th-provincia hide-xs">Società</th>
+                                    <th className="text-center">Pt</th>
+                                    <th className="text-center">V-P</th>
+                                    <th className="text-center">Set</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
+                                </thead>
+                                <tbody>
+                                  {gir.classifica.map((row) => (
+                                    <tr
+                                      key={row.nome}
+                                      className={`tornei-table-row ${row.atletaId == myPlayerId ? 'its-me' : ''}`}
+                                      onClick={() => handleAthleteClick(row.atletaId, row.nome)}
+                                    >
+                                      <td className="td-rank">
+                                        <span className={`rank-badge rank-badge-${row.posizione <= 2 ? row.posizione : 'default'}`}>
+                                          {row.posizione}
+                                        </span>
+                                      </td>
+                                      <td className="td-athlete">
+                                        <div className="athlete-row-cell">
+                                          <AthleteAvatar
+                                            atletaId={row.atletaId || undefined}
+                                            nome={row.nome}
+                                            size={26}
+                                            className="tornei-avatar"
+                                          />
+                                          <div className="athlete-name-cell">
+                                            <span className="athlete-link-btn">{row.nome}</span>
+                                            <span className="athlete-mobile-meta show-xs">{row.societa}</span>
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="hide-xs">
+                                        <span className="provincia-text">{row.societa}</span>
+                                      </td>
+                                      <td className="text-center">
+                                        <span className="badge-points-official">{row.punti}</span>
+                                      </td>
+                                      <td className="text-center">
+                                        <span className="settore-badge">{row.vinte}-{row.perse}</span>
+                                      </td>
+                                      <td className="text-center">
+                                        <span className="date-text">{row.setVinti}-{row.setPersi}</span>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
 
-                        <div className="match-cards-grid">
-                          {gir.partite.map((m, mi) => (
-                            <div key={mi} className="match-card">
-                              {m.sets.length > 0 && (
-                                <div className="torneo-card-top">
-                                  <span className="athlete-mobile-meta">Incontro #{mi + 1}</span>
-                                  <div className="torneo-match-sets">
-                                    {m.sets.map((s, si) => (
-                                      <span key={si} className="torneo-set-chip">
-                                        {s.p1}-{s.p2}
-                                      </span>
-                                    ))}
-                                  </div>
+                          {gir.partite.length > 0 && (
+                            <div className="tornei-girone-expand-section">
+                              <div
+                                className="tornei-girone-expand-bar"
+                                onClick={() => toggleGironeMatches(gir.numero)}
+                              >
+                                <button
+                                  type="button"
+                                  className="miei-torneo-expand-hint"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleGironeMatches(gir.numero);
+                                  }}
+                                >
+                                  <span>
+                                    {isGironeExpanded
+                                      ? 'Nascondi incontri'
+                                      : `Mostra ${gir.partite.length} incontri`}
+                                  </span>
+                                  <i className={`bi bi-chevron-${isGironeExpanded ? 'up' : 'down'}`}></i>
+                                </button>
+                              </div>
+
+                              {isGironeExpanded && (
+                                <div className="match-cards-grid match-cards-grid--animated">
+                                  {gir.partite.map((m, mi) => (
+                                    <div key={mi} className="match-card">
+                                      {m.sets.length > 0 && (
+                                        <div className="torneo-card-top">
+                                          <span className="athlete-mobile-meta">Incontro #{mi + 1}</span>
+                                          <div className="torneo-match-sets">
+                                            {m.sets.map((s, si) => (
+                                              <span key={si} className="torneo-set-chip">
+                                                {s.p1}-{s.p2}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      <div className={`torneo-match-row ${m.vincitore === 1 ? 'is-winner' : ''}`}>
+                                        <button
+                                          type="button"
+                                          className="athlete-link-btn"
+                                          onClick={() => handleAthleteClick(m.atleta1Id, m.atleta1)}
+                                        >
+                                          <span>{m.atleta1}</span>
+                                        </button>
+                                        <strong>{m.set1}</strong>
+                                      </div>
+                                      <div className={`torneo-match-row ${m.vincitore === 2 ? 'is-winner' : ''}`}>
+                                        <button
+                                          type="button"
+                                          className="athlete-link-btn"
+                                          onClick={() => handleAthleteClick(m.atleta2Id, m.atleta2)}
+                                        >
+                                          <span>{m.atleta2}</span>
+                                        </button>
+                                        <strong>{m.set2}</strong>
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               )}
-                              <div className={`torneo-match-row ${m.vincitore === 1 ? 'is-winner' : ''}`}>
-                                <button
-                                  type="button"
-                                  className="athlete-link-btn"
-                                  onClick={() => handleAthleteClick(m.atleta1Id, m.atleta1)}
-                                >
-                                  <span>{m.atleta1}</span>
-                                </button>
-                                <strong>{m.set1}</strong>
-                              </div>
-                              <div className={`torneo-match-row ${m.vincitore === 2 ? 'is-winner' : ''}`}>
-                                <button
-                                  type="button"
-                                  className="athlete-link-btn"
-                                  onClick={() => handleAthleteClick(m.atleta2Id, m.atleta2)}
-                                >
-                                  <span>{m.atleta2}</span>
-                                </button>
-                                <strong>{m.set2}</strong>
-                              </div>
                             </div>
-                          ))}
-                        </div>
-                      </section>
-                    ))}
+                          )}
+                        </section>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="tornei-empty-box">Nessun girone trovato per questo intervallo.</div>
