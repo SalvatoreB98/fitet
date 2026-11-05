@@ -15,7 +15,7 @@
   }
 
   to {
-    opacity: 1; 
+    opacity: 1;
     transform: translateY(0);
   }
 }
@@ -910,7 +910,7 @@
   background: linear-gradient(0deg,
       rgba(255, 255, 255, 0.34) 0%,
       rgba(255, 255, 255, 0.06) 52%,
-      rgba(255, 255, 255, 0) 100%);
+      rgba(255, 255, 255, 0.024) 100%);
 }
 
 [data-theme="light"] .my-profile-hero-content {
@@ -1097,7 +1097,7 @@
         rgba(255, 255, 255, 0.08) 20%,
         rgba(255, 255, 255, 0.55) 36%,
         rgba(255, 255, 255, 0.94) 52%,
-        #ffffff 64%,
+        #ffffff90 64%,
         #ffffff 100%);
   }
 
@@ -1106,7 +1106,7 @@
         rgba(255, 255, 255, 0) 0%,
         rgba(255, 255, 255, 0.05) 42%,
         rgba(255, 255, 255, 0.5) 66%,
-        #ffffff 88%);
+        #ffffffad 88%);
   }
 
   .my-profile-hero-identity {
