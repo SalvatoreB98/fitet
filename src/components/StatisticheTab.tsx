@@ -3,7 +3,6 @@ import { StatisticaAtleta } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
 import { AthleteAvatar } from './AthleteAvatar';
 import { useFavoriteAthletes } from '../utils/favorites';
-import { ChampionshipBellButton } from './ChampionshipBellButton';
 
 interface StatisticheTabProps {
   statistiche: StatisticaAtleta[];
@@ -426,7 +425,7 @@ export const StatisticheTab: React.FC<StatisticheTabProps> = ({ statistiche, onO
 
         <div className="controls-right text-muted" style={{ fontSize: '12px' }}>
           {filteredAthletes.length} atleti • Clicca sulle intestazioni per ordinare le classifiche
-        </div>  <ChampionshipBellButton camId={camId} championshipName={championshipName} />
+        </div>
       </div>
 
       <div style={{ padding: '6px 0 16px 0' }}>

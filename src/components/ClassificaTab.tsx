@@ -2,7 +2,6 @@ import React, { useState, useMemo, useRef } from 'react';
 import { SquadraClassifica } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
 import { TeamLogo } from './TeamLogo';
-import { ChampionshipBellButton } from './ChampionshipBellButton';
 
 interface ClassificaTabProps {
   classifica: SquadraClassifica[];
@@ -288,7 +287,7 @@ export const ClassificaTab: React.FC<ClassificaTabProps> = ({ classifica, onSele
           >
             <i className="bi bi-table me-1"></i> Tabellone Completo
           </button>
-        </div>  <ChampionshipBellButton camId={camId} championshipName={championshipName} />
+        </div>
       </div>
 
       {viewMode === 'responsive' ? (
