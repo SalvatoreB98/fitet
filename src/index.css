@@ -6726,34 +6726,6 @@ body.modal-open {
   align-items: center;
 }
 
-.ping-pong-table-surface {
-  position: absolute;
-  bottom: 12px;
-  left: 0;
-  right: 0;
-  height: 10px;
-  background: linear-gradient(180deg, #1d4ed8 0%, #1e40af 100%);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-[data-theme="dark"] .ping-pong-table-surface {
-  background: linear-gradient(180deg, #01579b 0%, #1d4ed8 100%);
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
-}
-
-.ping-pong-table-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 8px;
-  right: 8px;
-  border-top: 1.5px solid rgba(255, 255, 255, 0.75);
-}
-
 .ping-pong-net {
   position: absolute;
   bottom: 10px;
@@ -6806,7 +6778,7 @@ body.modal-open {
   font-weight: 800;
   letter-spacing: -0.05em;
   user-select: none;
-  animation: pingPongBounce 0.85s cubic-bezier(0.28, 0.84, 0.42, 1) infinite;
+  animation: pingPongBounce 0.85s linear infinite;
 }
 
 /* White 3-Star Federal Celluloid Ball */
@@ -6818,16 +6790,16 @@ body.modal-open {
 
 /* Orange 40+ Tournament Ball */
 .ping-pong-ball.ball-orange {
-  background: radial-gradient(circle at 35% 28%, #fff7ed 0%, #ff8c00 45%, #ea580c 80%, #9a3412 100%);
-  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.35), inset -2px -2px 4px rgba(154, 52, 18, 0.3);
-  color: #ffffff;
+  background: radial-gradient(circle at 35% 28%, #ffffff 0%, #f8fafc 40%, #e2e8f0 75%, #94a3b8 100%);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18), inset -2px -2px 4px rgba(0, 0, 0, 0.2);
+  color: black;
 }
 
 /* Electric Cyan / Blue Modern Ball */
 .ping-pong-ball.ball-blue {
-  background: radial-gradient(circle at 35% 28%, #e0f2fe 0%, #0ea5e9 45%, #0284c7 80%, #0369a1 100%);
-  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.35), inset -2px -2px 4px rgba(3, 105, 161, 0.3);
-  color: #ffffff;
+  background: radial-gradient(circle at 35% 28%, #ffffff 0%, #f8fafc 40%, #e2e8f0 75%, #94a3b8 100%);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18), inset -2px -2px 4px rgba(0, 0, 0, 0.2);
+  color: black;
 }
 
 .ball-stamp {
@@ -6877,25 +6849,28 @@ body.modal-open {
 /* Squash and Stretch Bouncing Keyframe */
 @keyframes pingPongBounce {
 
-  0%,
-  100% {
-    transform: translateY(-46px) scale(1, 1);
+  0% {
+    transform: translateY(0);
   }
 
   42% {
-    transform: translateY(-6px) scale(0.92, 1.1);
+    transform: translateY(-30px);
   }
 
   50% {
-    transform: translateY(0px) scale(1.25, 0.75);
+    transform: translateY(-35px);
   }
 
   58% {
-    transform: translateY(-6px) scale(0.92, 1.1);
+    transform: translateY(-30px);
   }
 
   78% {
-    transform: translateY(-38px) scale(0.98, 1.02);
+    transform: translateY(-15px);
+  }
+
+  100% {
+    transform: translateY(0);
   }
 }
 

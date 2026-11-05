@@ -24,20 +24,13 @@ export const PingPongLoader: React.FC<PingPongLoaderProps> = ({
         {/* Hypnotic Table Tennis Balls Animation Arena */}
         <div className="ping-pong-arena">
           {/* Table Surface with center net and boundary line */}
-          <div className="ping-pong-table-surface">
-            <div className="ping-pong-table-line"></div>
-            <div className="ping-pong-net">
-              <div className="ping-pong-net-mesh"></div>
-              <div className="ping-pong-net-top"></div>
-            </div>
-          </div>
 
           {/* 3 Animated 3D Ping Pong Balls with Shadows */}
           <div className="ping-pong-balls-track">
             {/* Ball 1: Official White 3-Star Celluloid */}
             <div className="ping-pong-ball-column column-1">
               <div className="ping-pong-ball ball-white">
-                <span className="ball-stamp">★</span>
+                <span className="ball-stamp">★★★</span>
               </div>
               <div className="ping-pong-ball-shadow shadow-1"></div>
             </div>
