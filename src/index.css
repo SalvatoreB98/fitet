@@ -7855,3 +7855,10 @@ body.modal-open {
   height: 100%;
   box-shadow: var(--shadow-container);
 }
+
+.atleta-opponent-text {
+  img {
+    margin-right: 0.5em;
+    border-radius: 4px;
+  }
+}

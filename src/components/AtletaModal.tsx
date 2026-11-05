@@ -1312,7 +1312,11 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                             }}
                                             title={`Visualizza scheda rapida di ${m.avversario}`}
                                           >
-                                            <span className="atleta-opponent-text">vs {m.avversario}</span>
+                                            <span className="atleta-opponent-text">
+                                              <img width={'16px'} src={`https://portale.fitet.org/images/atleti/${m.avversarioId}.jpg`} alt="" />
+                                              <span></span>
+                                              <span>{m.avversario}</span>
+                                            </span>
                                             <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
                                           </button>
 
