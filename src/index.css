@@ -1775,7 +1775,7 @@ nav {
 
 /* 3. Statistiche Grid: Full 11-column master grid */
 .statistiche-grid {
-  min-width: 960px;
+  min-width: 986px;
 }
 
 .statistiche-grid .grid-header-row,
