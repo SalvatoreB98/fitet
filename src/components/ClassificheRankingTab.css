@@ -416,6 +416,7 @@
 .athlete-mobile-meta {
   font-size: 0.74rem;
   color: var(--text-muted, #64748b);
+  max-width: 200px;
 }
 
 /* Points */

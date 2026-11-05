@@ -1774,7 +1774,9 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                             >
                               <span>{m.atleta1 || 'Bye / —'}</span>
                             </button>
-                            {m.societa1 && <span className="athlete-mobile-meta">{m.societa1}</span>}
+                            {m.societa1 && <span className="athlete-mobile-meta">
+                              <MarqueeText>{m.societa1}</MarqueeText>
+                            </span>}
                           </div>
                           <span className="badge-points-official">{m.set1}</span>
                         </div>
