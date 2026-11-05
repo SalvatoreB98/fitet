@@ -648,7 +648,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   })()}
                 </div>
 
-                <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                <div style={{ flex: '1 1 200px', minWidth: 0, alignSelf: 'flex-start' }}>
                   <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-dark)', fontFamily: 'var(--font-serif)' }}>
                     {atleta.anagrafica.nome}
                   </div>
