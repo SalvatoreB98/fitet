@@ -1,7 +1,7 @@
-/* ==========================================================================
+﻿/* ==========================================================================
    FITeT Serie D/1 Girone Nord - Modern Federal Sports Portal
    Mathematical CSS Grid Architecture (Zero Legacy HTML Table/TR/TD)
-   100% Responsive • Uniform 40px Row Heights • Symmetrical Grid Systems
+   100% Responsive â€¢ Uniform 40px Row Heights â€¢ Symmetrical Grid Systems
    Dual Typography: Lora (Serif) for headings + Inter (Sans-serif) for data
    ========================================================================== */
 
@@ -739,7 +739,7 @@ nav {
 
 /* ==========================================================================
    COMPACT MOTION-GRAPHIC THEME TOGGLE PILL
-   Ultra-compact icon-only pill • Spring physics • Radial wave reveal
+   Ultra-compact icon-only pill â€¢ Spring physics â€¢ Radial wave reveal
    ========================================================================== */
 
 .theme-toggle-pill {
@@ -1202,7 +1202,7 @@ nav {
 
 /* ==========================================================================
    MATHEMATICAL CSS GRID SYSTEM (Replaces HTML table, tr, td)
-   Uniform 40px Row Heights • Symmetrical Grid • 100% Responsive
+   Uniform 40px Row Heights â€¢ Symmetrical Grid â€¢ 100% Responsive
    ========================================================================== */
 
 .grid-table-container {
@@ -1726,7 +1726,7 @@ nav {
   grid-template-columns: 34px minmax(130px, 1.4fr) minmax(85px, 1fr) 46px 90px 74px;
 }
 
-/* 3b-2: Più Vincenti (Partite) */
+/* 3b-2: PiÃ¹ Vincenti (Partite) */
 .stat-ranking-pav-grid .grid-header-row,
 .stat-ranking-pav-grid .grid-data-row {
   grid-template-columns: 34px minmax(130px, 1.4fr) minmax(85px, 1fr) 38px 38px 44px 74px;
@@ -7005,11 +7005,11 @@ body.modal-open {
     /* Spinta verso l'alto */
   }
 
-  /* Rimbalzo 1 (più alto) */
+  /* Rimbalzo 1 (piÃ¹ alto) */
   10% {
     transform: translateY(-25%) scale(0.95, 1.05);
     animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
-    /* Caduta per gravità */
+    /* Caduta per gravitÃ  */
   }
 
   /* Rimbalzo 2 */

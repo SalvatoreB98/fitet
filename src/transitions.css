@@ -1,0 +1,90 @@
+/* =========================================================
+   Transizioni direzionali tra viste / sezioni / schede
+   ========================================================= */
+
+.portal-main {
+  overflow-x: clip;
+}
+
+.tab-panel {
+  overflow-x: clip;
+}
+
+.tornei-view-container {
+  overflow-x: clip;
+}
+
+/* Animazioni da DESTRA verso SINISTRA (scorrimento in avanti) */
+.slide-from-right-1 {
+  animation: slideInFromRight1 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  will-change: transform, opacity;
+}
+
+.slide-from-right-2 {
+  animation: slideInFromRight2 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  will-change: transform, opacity;
+}
+
+/* Animazioni da SINISTRA verso DESTRA (scorrimento indietro) */
+.slide-from-left-1 {
+  animation: slideInFromLeft1 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  will-change: transform, opacity;
+}
+
+.slide-from-left-2 {
+  animation: slideInFromLeft2 0.28s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  will-change: transform, opacity;
+}
+
+@keyframes slideInFromRight1 {
+  0% {
+    opacity: 0.15;
+    transform: translate3d(45px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes slideInFromRight2 {
+  0% {
+    opacity: 0.15;
+    transform: translate3d(45px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes slideInFromLeft1 {
+  0% {
+    opacity: 0.15;
+    transform: translate3d(-45px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes slideInFromLeft2 {
+  0% {
+    opacity: 0.15;
+    transform: translate3d(-45px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide-from-right-1,
+  .slide-from-right-2,
+  .slide-from-left-1,
+  .slide-from-left-2 {
+    animation: none !important;
+  }
+}

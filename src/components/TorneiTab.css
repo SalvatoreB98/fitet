@@ -1527,6 +1527,13 @@
   border-top: 1px dashed var(--border-color);
 }
 
+.miei-torneo-actions--quick {
+  margin: 0 14px 12px;
+  padding: 0;
+  border-top: none;
+  justify-content: flex-start;
+}
+
 .miei-picker-card {
   padding: 24px 20px;
   text-align: center;

@@ -6,7 +6,6 @@
   max-width: 1240px;
   margin: 0 auto;
   padding: 24px 20px 48px;
-  animation: fadeInHome 0.25s ease-out;
 }
 
 @keyframes fadeInHome {

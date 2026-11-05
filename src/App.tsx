@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { DashboardData, ChampionshipItem } from './types/fitet';
 import { fetchDashboard, fetchCampionati } from './services/api';
 import { Header, MainViewType, ChampionshipTabType, TorneiPortalView } from './components/Header';
+import { useSlideDirection } from './utils/useSlideDirection';
 import { ClassificaTab } from './components/ClassificaTab';
 import { CalendarioTab } from './components/CalendarioTab';
 import { StatisticheTab } from './components/StatisticheTab';
@@ -177,6 +178,10 @@ export const App: React.FC = () => {
     }
     return getMyPlayerId() ? 'miei' : 'mappa';
   });
+
+  const mainSlide = useSlideDirection<MainViewType>(mainView, ['home', 'tornei', 'campionato', 'classifiche']);
+  const tabSlide = useSlideDirection<ChampionshipTabType>(championshipTab, ['classifica', 'calendario', 'statistiche']);
+  console.log('DEBUG mainView', mainView, 'mainSlide', JSON.stringify(mainSlide));
 
   const [torneiCounts, setTorneiCounts] = useState<{
     miei?: number;
@@ -891,7 +896,7 @@ export const App: React.FC = () => {
       <main className={`portal-main ${mainView !== 'campionato' && mainView !== 'tornei' ? 'without-portal-nav' : ''}`}>
         {/* VIEW 1: Home Dashboard */}
         <div
-          className="tab-panel"
+          className={`tab-panel ${mainView === 'home' ? mainSlide : ''}`}
           role="tabpanel"
           id="tabpanel-home"
           aria-labelledby="tab-home"
@@ -934,7 +939,7 @@ export const App: React.FC = () => {
 
         {/* VIEW 2: Classifiche FITeT (Nazionali e Regionali) */}
         <div
-          className="tab-panel"
+          className={`tab-panel ${mainView === 'classifiche' ? mainSlide : ''}`}
           role="tabpanel"
           id="tabpanel-classifiche"
           aria-labelledby="tab-classifiche"
@@ -948,7 +953,7 @@ export const App: React.FC = () => {
 
         {/* VIEW 2b: Tornei & Manifestazioni FITeT */}
         <div
-          className="tab-panel"
+          className={`tab-panel ${mainView === 'tornei' ? mainSlide : ''}`}
           role="tabpanel"
           id="tabpanel-tornei"
           aria-labelledby="tab-tornei"
@@ -964,7 +969,7 @@ export const App: React.FC = () => {
 
         {/* VIEW 3: Campionato (Classifica, Calendario, Statistiche) */}
         <div
-          className="tab-panel"
+          className={`tab-panel ${mainView === 'campionato' ? mainSlide : ''}`}
           role="tabpanel"
           id="tabpanel-campionato"
           aria-labelledby="tab-campionato"
@@ -1027,7 +1032,7 @@ export const App: React.FC = () => {
             <>
               {/* SubTab: Classifica */}
               <div
-                className="tab-panel"
+                className={`tab-panel ${championshipTab === 'classifica' ? tabSlide : ''}`}
                 role="tabpanel"
                 id="tabpanel-classifica"
                 aria-labelledby="tab-classifica"
@@ -1043,7 +1048,7 @@ export const App: React.FC = () => {
 
               {/* SubTab: Calendario */}
               <div
-                className="tab-panel"
+                className={`tab-panel ${championshipTab === 'calendario' ? tabSlide : ''}`}
                 role="tabpanel"
                 id="tabpanel-calendario"
                 aria-labelledby="tab-calendario"
@@ -1065,7 +1070,7 @@ export const App: React.FC = () => {
 
               {/* SubTab: Statistiche */}
               <div
-                className="tab-panel"
+                className={`tab-panel ${championshipTab === 'statistiche' ? tabSlide : ''}`}
                 role="tabpanel"
                 id="tabpanel-statistiche"
                 aria-labelledby="tab-statistiche"

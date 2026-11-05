@@ -53,6 +53,7 @@ import {
 } from '../data/italyGeo';
 import './ClassificheRankingTab.css';
 import './TorneiTab.css';
+import { useSlideDirection } from '../utils/useSlideDirection';
 
 type TorneiPortalView = 'mappa' | 'risultati' | 'programma' | 'miei';
 type GaraPhase = 'tabellone' | 'gironi' | 'iscritti';
@@ -126,6 +127,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
   });
 
   const portalView = propsPortalView !== undefined ? propsPortalView : internalPortalView;
+  const torneiSlide = useSlideDirection<TorneiPortalView>(portalView, ['miei', 'mappa', 'risultati', 'programma']);
   const setPortalView = (view: TorneiPortalView | ((prev: TorneiPortalView) => TorneiPortalView)) => {
     const next = typeof view === 'function' ? view(portalView) : view;
     setInternalPortalView(next);
@@ -2466,6 +2468,22 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                       </div>
                     </div>
 
+                    {item.matchedTorneo && (
+                      <div className="miei-torneo-actions miei-torneo-actions--quick">
+                        <button
+                          type="button"
+                          className="btn-action btn-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectTorneo(item.matchedTorneo!);
+                          }}
+                        >
+                          <i className="bi bi-diagram-3"></i>
+                          <span>Apri torneo</span>
+                        </button>
+                      </div>
+                    )}
+
                     {isExpanded && (
                       <div className="miei-torneo-body">
                         <div className="miei-matches-table-wrap">
@@ -2516,22 +2534,6 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
                             </tbody>
                           </table>
                         </div>
-
-                        {item.matchedTorneo && (
-                          <div className="miei-torneo-actions">
-                            <button
-                              type="button"
-                              className="btn-action btn-sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSelectTorneo(item.matchedTorneo!);
-                              }}
-                            >
-                              <i className="bi bi-diagram-3"></i>
-                              <span>Apri tabelloni e gare ufficiali</span>
-                            </button>
-                          </div>
-                        )}
                       </div>
                     )}
                   </article>
@@ -2614,6 +2616,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
         </div>
       )}
 
+      <div className={`tornei-view-container ${torneiSlide}`}>
       {loading && !refreshing ? (
         loadingState
       ) : error ? (
@@ -2672,6 +2675,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
           subtitle: listSubtitle,
         })
       )}
+      </div>
       {renderDetailModal()}
     </>
   );

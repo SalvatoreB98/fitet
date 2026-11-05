@@ -15,6 +15,7 @@ import '@fontsource/playfair-display/400.css';
 import '@fontsource/playfair-display/600.css';
 import '@fontsource/playfair-display/700.css';
 import './index.css';
+import './transitions.css';
 import { App } from './App';
 import { registerServiceWorker } from './services/pushNotifications';
 
