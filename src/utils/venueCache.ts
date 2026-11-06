@@ -117,6 +117,15 @@ export function getVenueCache<T>(key: string): VenueCacheEntry<T> | null {
 }
 
 /**
+ * Età in millisecondi di una voce di cache (Infinity se la data non è valida).
+ */
+export function getVenueCacheAgeMs(entry: VenueCacheEntry<unknown>): number {
+  const cachedAt = new Date(entry.cachedAt).getTime();
+  if (!Number.isFinite(cachedAt)) return Number.POSITIVE_INFINITY;
+  return Math.max(0, Date.now() - cachedAt);
+}
+
+/**
  * Verifica se una chiave è presente in cache
  */
 export function hasVenueCache(key: string): boolean {

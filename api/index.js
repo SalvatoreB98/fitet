@@ -5,17 +5,207 @@ import path6 from "path";
 import fs5 from "fs";
 
 // server/services/fitetClient.ts
+import { AsyncLocalStorage } from "async_hooks";
+import { createHash } from "crypto";
+
+// server/services/cacheService.ts
+import fs from "fs";
+import path2 from "path";
+
+// server/services/runtimeCacheDir.ts
+import path from "path";
+function getRuntimeCacheDir() {
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+  return isServerless ? path.join("/tmp", "fitet_cache") : path.resolve(process.cwd(), "node_modules", ".cache", "fitet_cache");
+}
+
+// server/services/cacheService.ts
+var CacheService = class {
+  cacheDir;
+  legacyCacheDir;
+  memoryCache = /* @__PURE__ */ new Map();
+  constructor() {
+    this.cacheDir = getRuntimeCacheDir();
+    this.legacyCacheDir = path2.resolve(process.cwd(), "server", "cache");
+    try {
+      if (!fs.existsSync(this.cacheDir)) {
+        fs.mkdirSync(this.cacheDir, { recursive: true });
+      }
+    } catch (err) {
+      console.warn("Cache directory initialization fallback to memory-only:", err);
+    }
+  }
+  /**
+   * Retrieves an item from memory or disk if not expired.
+   */
+  get(key) {
+    const now = Date.now();
+    const memEntry = this.memoryCache.get(key);
+    if (memEntry) {
+      if (now - memEntry.timestamp < memEntry.ttlMs) {
+        return memEntry.data;
+      }
+      this.memoryCache.delete(key);
+    }
+    let filePath = path2.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
+    if (!fs.existsSync(filePath)) {
+      const legacyPath = path2.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
+      if (fs.existsSync(legacyPath)) {
+        filePath = legacyPath;
+      }
+    }
+    if (fs.existsSync(filePath)) {
+      try {
+        const fileContent = fs.readFileSync(filePath, "utf8");
+        const fileEntry = JSON.parse(fileContent);
+        if (now - fileEntry.timestamp < fileEntry.ttlMs) {
+          this.memoryCache.set(key, fileEntry);
+          return fileEntry.data;
+        }
+      } catch (err) {
+        console.warn(`Error reading disk cache for key ${key}:`, err);
+      }
+    }
+    return null;
+  }
+  /**
+   * Stores an item with a given TTL in milliseconds in both memory and disk.
+   */
+  set(key, data, ttlMs) {
+    const entry = {
+      data,
+      timestamp: Date.now(),
+      ttlMs
+    };
+    this.memoryCache.set(key, entry);
+    const filePath = path2.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(entry, null, 2), "utf8");
+    } catch (err) {
+      console.warn(`Error saving disk cache for key ${key}:`, err);
+    }
+  }
+  /**
+   * Deletes a cache key or clears all cache
+   */
+  delete(key) {
+    this.memoryCache.delete(key);
+    const filePath = path2.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch {
+      }
+    }
+    const legacyPath = path2.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
+    if (fs.existsSync(legacyPath)) {
+      try {
+        fs.unlinkSync(legacyPath);
+      } catch {
+      }
+    }
+  }
+  clear() {
+    this.memoryCache.clear();
+    if (fs.existsSync(this.cacheDir)) {
+      const files = fs.readdirSync(this.cacheDir);
+      for (const file of files) {
+        if (file.endsWith(".json")) {
+          try {
+            fs.unlinkSync(path2.join(this.cacheDir, file));
+          } catch {
+          }
+        }
+      }
+    }
+  }
+};
+var cacheService = new CacheService();
+
+// server/services/fitetClient.ts
 var BASE_URL = "https://portale.fitet.org";
 var DEFAULT_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
   "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
   "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7"
 };
+var DEFAULT_UPSTREAM_TTL_MS = 20 * 60 * 1e3;
+var MINUTE_MS = 60 * 1e3;
+var HOUR_MS = 60 * MINUTE_MS;
+var cacheBypassContext = new AsyncLocalStorage();
+var inFlightFetches = /* @__PURE__ */ new Map();
+function withFitetCacheBypass(fn) {
+  return cacheBypassContext.run({ bypass: true }, fn);
+}
+function isCacheBypassed() {
+  return cacheBypassContext.getStore()?.bypass === true;
+}
+function resolveUpstreamTtlMs(url) {
+  const normalized = url.toLowerCase();
+  if (normalized.includes("dettaglioatleta_unica")) return 24 * HOUR_MS;
+  if (normalized.includes("menu.php")) return 4 * HOUR_MS;
+  if (normalized.includes("giornata.php") || normalized.includes("dettaglio_partita")) {
+    return 12 * HOUR_MS;
+  }
+  if (normalized.includes("classifica_squadre") || normalized.includes("calendario.asp")) {
+    return 30 * MINUTE_MS;
+  }
+  if (normalized.includes("statistiche_atleti") || normalized.includes("ranking_unica") || normalized.includes("percentuali.php")) {
+    return 60 * MINUTE_MS;
+  }
+  if (normalized.includes("ajax.php") || normalized.includes("scelta_atleta")) {
+    return 10 * MINUTE_MS;
+  }
+  if (normalized.includes("testa_tornei") || normalized.includes("elenco_tornei") || normalized.includes("elenco_gare") || normalized.includes("iscrizioni.php") || normalized.includes("iscrizioni_gara")) {
+    return 30 * MINUTE_MS;
+  }
+  if (normalized.includes("gestione_gare") || normalized.includes("risultati.php") || normalized.includes("risultati_tabellone")) {
+    return 15 * MINUTE_MS;
+  }
+  return DEFAULT_UPSTREAM_TTL_MS;
+}
+function buildUpstreamCacheKey(kind, url, extra = "") {
+  const hash = createHash("sha1").update(kind).update("\n").update(url).update("\n").update(extra).digest("hex");
+  return `upstream_${kind}_${hash}`;
+}
+async function withUpstreamCache(cacheKey, url, loader) {
+  if (isCacheBypassed()) {
+    return loader();
+  }
+  const cached = cacheService.get(cacheKey);
+  if (typeof cached === "string") {
+    return cached;
+  }
+  const existing = inFlightFetches.get(cacheKey);
+  if (existing) {
+    return existing;
+  }
+  const task = loader().then((html) => {
+    if (html) {
+      cacheService.set(cacheKey, html, resolveUpstreamTtlMs(url));
+    }
+    return html;
+  }).finally(() => {
+    if (inFlightFetches.get(cacheKey) === task) {
+      inFlightFetches.delete(cacheKey);
+    }
+  });
+  inFlightFetches.set(cacheKey, task);
+  return task;
+}
 var FitetClient = class {
   /**
    * Fetches raw ISO-8859-1 HTML content from a FITeT endpoint and decodes it safely
    */
   static async fetchHtml(url, isAjax = false, customReferer) {
+    const cacheKey = buildUpstreamCacheKey(
+      "html",
+      url,
+      isAjax ? `ajax:${customReferer || "default"}` : "page"
+    );
+    return withUpstreamCache(cacheKey, url, () => this.requestHtml(url, isAjax, customReferer));
+  }
+  static async requestHtml(url, isAjax = false, customReferer) {
     const headers = {
       ...DEFAULT_HEADERS
     };
@@ -44,6 +234,20 @@ var FitetClient = class {
    * Fetches a FITeT page through a POST form and decodes the ISO-8859-1 response.
    */
   static async postForm(url, formData, customReferer) {
+    const serializedBody = new URLSearchParams(formData).toString();
+    const cacheKey = buildUpstreamCacheKey(
+      "post",
+      url,
+      `${serializedBody}
+${customReferer || "default"}`
+    );
+    return withUpstreamCache(
+      cacheKey,
+      url,
+      () => this.requestPostForm(url, serializedBody, customReferer)
+    );
+  }
+  static async requestPostForm(url, serializedBody, customReferer) {
     const headers = {
       ...DEFAULT_HEADERS,
       "Content-Type": "application/x-www-form-urlencoded",
@@ -55,7 +259,7 @@ var FitetClient = class {
       const response = await fetch(url, {
         method: "POST",
         headers,
-        body: new URLSearchParams(formData).toString(),
+        body: serializedBody,
         signal: controller.signal
       });
       if (!response.ok) {
@@ -199,120 +403,6 @@ var FitetClient = class {
     return this.fetchHtml(url);
   }
 };
-
-// server/services/cacheService.ts
-import fs from "fs";
-import path2 from "path";
-
-// server/services/runtimeCacheDir.ts
-import path from "path";
-function getRuntimeCacheDir() {
-  const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
-  return isServerless ? path.join("/tmp", "fitet_cache") : path.resolve(process.cwd(), "node_modules", ".cache", "fitet_cache");
-}
-
-// server/services/cacheService.ts
-var CacheService = class {
-  cacheDir;
-  legacyCacheDir;
-  memoryCache = /* @__PURE__ */ new Map();
-  constructor() {
-    this.cacheDir = getRuntimeCacheDir();
-    this.legacyCacheDir = path2.resolve(process.cwd(), "server", "cache");
-    try {
-      if (!fs.existsSync(this.cacheDir)) {
-        fs.mkdirSync(this.cacheDir, { recursive: true });
-      }
-    } catch (err) {
-      console.warn("Cache directory initialization fallback to memory-only:", err);
-    }
-  }
-  /**
-   * Retrieves an item from memory or disk if not expired.
-   */
-  get(key) {
-    const now = Date.now();
-    const memEntry = this.memoryCache.get(key);
-    if (memEntry) {
-      if (now - memEntry.timestamp < memEntry.ttlMs) {
-        return memEntry.data;
-      }
-      this.memoryCache.delete(key);
-    }
-    let filePath = path2.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
-    if (!fs.existsSync(filePath)) {
-      const legacyPath = path2.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
-      if (fs.existsSync(legacyPath)) {
-        filePath = legacyPath;
-      }
-    }
-    if (fs.existsSync(filePath)) {
-      try {
-        const fileContent = fs.readFileSync(filePath, "utf8");
-        const fileEntry = JSON.parse(fileContent);
-        if (now - fileEntry.timestamp < fileEntry.ttlMs) {
-          this.memoryCache.set(key, fileEntry);
-          return fileEntry.data;
-        }
-      } catch (err) {
-        console.warn(`Error reading disk cache for key ${key}:`, err);
-      }
-    }
-    return null;
-  }
-  /**
-   * Stores an item with a given TTL in milliseconds in both memory and disk.
-   */
-  set(key, data, ttlMs) {
-    const entry = {
-      data,
-      timestamp: Date.now(),
-      ttlMs
-    };
-    this.memoryCache.set(key, entry);
-    const filePath = path2.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
-    try {
-      fs.writeFileSync(filePath, JSON.stringify(entry, null, 2), "utf8");
-    } catch (err) {
-      console.warn(`Error saving disk cache for key ${key}:`, err);
-    }
-  }
-  /**
-   * Deletes a cache key or clears all cache
-   */
-  delete(key) {
-    this.memoryCache.delete(key);
-    const filePath = path2.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
-    if (fs.existsSync(filePath)) {
-      try {
-        fs.unlinkSync(filePath);
-      } catch {
-      }
-    }
-    const legacyPath = path2.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
-    if (fs.existsSync(legacyPath)) {
-      try {
-        fs.unlinkSync(legacyPath);
-      } catch {
-      }
-    }
-  }
-  clear() {
-    this.memoryCache.clear();
-    if (fs.existsSync(this.cacheDir)) {
-      const files = fs.readdirSync(this.cacheDir);
-      for (const file of files) {
-        if (file.endsWith(".json")) {
-          try {
-            fs.unlinkSync(path2.join(this.cacheDir, file));
-          } catch {
-          }
-        }
-      }
-    }
-  }
-};
-var cacheService = new CacheService();
 
 // server/services/viewsService.ts
 import { createClient } from "@supabase/supabase-js";
@@ -3940,7 +4030,9 @@ function parseLuogo(luogo) {
 var TORNEI_KNOWN_KEYS_STATE_KEY = "known_tornei_keys";
 var cachedKnownKeys = null;
 var cachedKnownKeysTimestamp = 0;
-var KNOWN_KEYS_CACHE_TTL_MS = 15 * 60 * 1e3;
+var KNOWN_KEYS_CACHE_TTL_MS = 60 * 60 * 1e3;
+var PASSIVE_CHECK_MIN_INTERVAL_MS = 15 * 60 * 1e3;
+var lastPassiveCheckAt = 0;
 var isPassiveCheckRunning = false;
 var pendingObservedMap = /* @__PURE__ */ new Map();
 async function notifyObservedTorneiIfNeeded(observedTornei) {
@@ -3962,6 +4054,10 @@ async function notifyObservedTorneiIfNeeded(observedTornei) {
   if (pendingObservedMap.size === 0 || isPassiveCheckRunning) {
     return;
   }
+  if (cachedKnownKeys && Date.now() - lastPassiveCheckAt < PASSIVE_CHECK_MIN_INTERVAL_MS) {
+    return;
+  }
+  lastPassiveCheckAt = Date.now();
   isPassiveCheckRunning = true;
   try {
     await new Promise((resolve) => setTimeout(resolve, 300));
@@ -4298,7 +4394,7 @@ function getChampionshipStateKey(camId) {
   return `${CHAMPIONSHIP_STATE_KEY_PREFIX}${camId}`;
 }
 var cachedSnapshots = /* @__PURE__ */ new Map();
-var SNAPSHOT_CACHE_TTL_MS = 10 * 60 * 1e3;
+var SNAPSHOT_CACHE_TTL_MS = 30 * 60 * 1e3;
 var inFlightChecks = /* @__PURE__ */ new Set();
 function normKey(value) {
   return (value || "").trim().toUpperCase().replace(/\s+/g, " ");
@@ -4646,7 +4742,7 @@ async function evaluateSnapshotAndNotify(currSnapshot, options = {}) {
     broadcastResult
   };
 }
-var SUBSCRIBED_CAMS_TTL_MS = 10 * 60 * 1e3;
+var SUBSCRIBED_CAMS_TTL_MS = 30 * 60 * 1e3;
 var subscribedCamsCache = null;
 function invalidateSubscribedChampionshipsCache() {
   subscribedCamsCache = null;
@@ -4800,7 +4896,7 @@ async function checkChampionshipsAndNotify(options = {}) {
 var championshipSchedulerTimer = null;
 function startChampionshipScheduler() {
   if (championshipSchedulerTimer) return;
-  const intervalMs = 30 * 60 * 1e3;
+  const intervalMs = 60 * 60 * 1e3;
   championshipSchedulerTimer = setInterval(() => {
     checkChampionshipsAndNotify().catch((err) => {
       console.warn(
@@ -5835,6 +5931,75 @@ import * as cheerio14 from "cheerio";
 var app = express();
 app.use(cors());
 app.use(express.json());
+function cachePolicy(cdnTtlSeconds, browserTtlSeconds, staleWhileRevalidateSeconds = cdnTtlSeconds) {
+  return { cdnTtlSeconds, browserTtlSeconds, staleWhileRevalidateSeconds };
+}
+var EXACT_PUBLIC_API_CACHE_POLICIES = {
+  "/api/campionati": cachePolicy(30 * 60, 5 * 60, 60 * 60),
+  "/api/dashboard": cachePolicy(5 * 60, 60, 15 * 60),
+  "/api/classifica": cachePolicy(10 * 60, 2 * 60, 30 * 60),
+  "/api/calendario": cachePolicy(10 * 60, 2 * 60, 30 * 60),
+  "/api/statistiche": cachePolicy(15 * 60, 2 * 60, 45 * 60),
+  "/api/ranking": cachePolicy(15 * 60, 2 * 60, 45 * 60),
+  "/api/tornei": cachePolicy(10 * 60, 2 * 60, 30 * 60),
+  "/api/tornei/dettaglio": cachePolicy(5 * 60, 60, 15 * 60),
+  "/api/tornei/gara": cachePolicy(5 * 60, 60, 15 * 60),
+  "/api/head-to-head": cachePolicy(30 * 60, 5 * 60, 60 * 60),
+  "/api/search-atleta": cachePolicy(5 * 60, 60, 15 * 60),
+  "/api/search-atleta-scelta": cachePolicy(5 * 60, 60, 15 * 60),
+  "/api/atleta-campionato-partite": cachePolicy(10 * 60, 2 * 60, 30 * 60)
+};
+var PREFIX_PUBLIC_API_CACHE_POLICIES = [
+  { pattern: /^\/api\/atleta\/[^/]+$/, policy: cachePolicy(30 * 60, 5 * 60, 60 * 60) },
+  { pattern: /^\/api\/referto\/[^/]+$/, policy: cachePolicy(30 * 60, 5 * 60, 60 * 60) },
+  { pattern: /^\/api\/partita\/[^/]+$/, policy: cachePolicy(60 * 60, 10 * 60, 2 * 60 * 60) },
+  { pattern: /^\/api\/squadra\/[^/]+$/, policy: cachePolicy(30 * 60, 5 * 60, 60 * 60) }
+];
+function getPublicApiCachePolicy(pathname) {
+  const exact = EXACT_PUBLIC_API_CACHE_POLICIES[pathname];
+  if (exact) return exact;
+  for (const entry of PREFIX_PUBLIC_API_CACHE_POLICIES) {
+    if (entry.pattern.test(pathname)) return entry.policy;
+  }
+  return null;
+}
+function isForceRefreshRequest(req) {
+  if (req.query.refresh === "true" || req.query.force === "true") return true;
+  return req.method === "POST" && req.path === "/api/refresh";
+}
+app.use((req, _res, next) => {
+  if (isForceRefreshRequest(req)) {
+    return withFitetCacheBypass(next);
+  }
+  return next();
+});
+app.use((req, res, next) => {
+  if (req.method !== "GET") return next();
+  if (isForceRefreshRequest(req)) {
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Vercel-CDN-Cache-Control", "no-store");
+    return next();
+  }
+  const policy = getPublicApiCachePolicy(req.path);
+  if (!policy) return next();
+  const cdnHeader = `public, s-maxage=${policy.cdnTtlSeconds}, stale-while-revalidate=${policy.staleWhileRevalidateSeconds}`;
+  res.setHeader("Vercel-CDN-Cache-Control", cdnHeader);
+  res.setHeader("CDN-Cache-Control", cdnHeader);
+  res.setHeader(
+    "Cache-Control",
+    `public, max-age=${policy.browserTtlSeconds}, stale-while-revalidate=${policy.staleWhileRevalidateSeconds}`
+  );
+  const originalJson = res.json.bind(res);
+  res.json = ((body) => {
+    if (res.statusCode >= 400) {
+      res.removeHeader("Vercel-CDN-Cache-Control");
+      res.removeHeader("CDN-Cache-Control");
+      res.setHeader("Cache-Control", "no-store");
+    }
+    return originalJson(body);
+  });
+  return next();
+});
 var DEFAULT_CAM_ID = 794;
 var DEFAULT_ANNO_ID = 41;
 var TTL_CLASSIFICA = 30 * 60 * 1e3;

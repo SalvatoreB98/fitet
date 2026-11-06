@@ -947,6 +947,7 @@ export const App: React.FC = () => {
           <ClassificheRankingTab
             onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
             onOpenSearchModal={() => setIsSearchModalOpen(true)}
+            isActive={mainView === 'classifiche'}
           />
         </div>
 
@@ -963,6 +964,7 @@ export const App: React.FC = () => {
             portalView={torneiTab}
             onPortalViewChange={handleTorneiTabChange}
             onUpdateCounts={setTorneiCounts}
+            isActive={mainView === 'tornei'}
           />
         </div>
 

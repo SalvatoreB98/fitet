@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import { FitetClient } from './services/fitetClient';
+import { FitetClient, withFitetCacheBypass } from './services/fitetClient';
 import { cacheService } from './services/cacheService';
 import { viewsService } from './services/viewsService';
 import { athleteResolver } from './services/athleteResolver';
@@ -71,6 +71,112 @@ export const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+/**
+ * Cache HTTP per le risposte pubbliche.
+ *
+ * - `Vercel-CDN-Cache-Control` fa gestire la risposta dalla CDN Vercel senza
+ *   eseguire la funzione serverless a ogni richiesta.
+ * - `Cache-Control` è il fallback per il browser e per i deploy non-Vercel.
+ * - Le richieste con `refresh=true`/`force=true` bypassano sempre la cache.
+ */
+interface PublicApiCachePolicy {
+    cdnTtlSeconds: number;
+    browserTtlSeconds: number;
+    staleWhileRevalidateSeconds: number;
+}
+
+function cachePolicy(
+    cdnTtlSeconds: number,
+    browserTtlSeconds: number,
+    staleWhileRevalidateSeconds = cdnTtlSeconds
+): PublicApiCachePolicy {
+    return { cdnTtlSeconds, browserTtlSeconds, staleWhileRevalidateSeconds };
+}
+
+const EXACT_PUBLIC_API_CACHE_POLICIES: Record<string, PublicApiCachePolicy> = {
+    '/api/campionati': cachePolicy(30 * 60, 5 * 60, 60 * 60),
+    '/api/dashboard': cachePolicy(5 * 60, 60, 15 * 60),
+    '/api/classifica': cachePolicy(10 * 60, 2 * 60, 30 * 60),
+    '/api/calendario': cachePolicy(10 * 60, 2 * 60, 30 * 60),
+    '/api/statistiche': cachePolicy(15 * 60, 2 * 60, 45 * 60),
+    '/api/ranking': cachePolicy(15 * 60, 2 * 60, 45 * 60),
+    '/api/tornei': cachePolicy(10 * 60, 2 * 60, 30 * 60),
+    '/api/tornei/dettaglio': cachePolicy(5 * 60, 60, 15 * 60),
+    '/api/tornei/gara': cachePolicy(5 * 60, 60, 15 * 60),
+    '/api/head-to-head': cachePolicy(30 * 60, 5 * 60, 60 * 60),
+    '/api/search-atleta': cachePolicy(5 * 60, 60, 15 * 60),
+    '/api/search-atleta-scelta': cachePolicy(5 * 60, 60, 15 * 60),
+    '/api/atleta-campionato-partite': cachePolicy(10 * 60, 2 * 60, 30 * 60),
+};
+
+const PREFIX_PUBLIC_API_CACHE_POLICIES: Array<{
+    pattern: RegExp;
+    policy: PublicApiCachePolicy;
+}> = [
+    { pattern: /^\/api\/atleta\/[^/]+$/, policy: cachePolicy(30 * 60, 5 * 60, 60 * 60) },
+    { pattern: /^\/api\/referto\/[^/]+$/, policy: cachePolicy(30 * 60, 5 * 60, 60 * 60) },
+    { pattern: /^\/api\/partita\/[^/]+$/, policy: cachePolicy(60 * 60, 10 * 60, 2 * 60 * 60) },
+    { pattern: /^\/api\/squadra\/[^/]+$/, policy: cachePolicy(30 * 60, 5 * 60, 60 * 60) },
+];
+
+function getPublicApiCachePolicy(pathname: string): PublicApiCachePolicy | null {
+    const exact = EXACT_PUBLIC_API_CACHE_POLICIES[pathname];
+    if (exact) return exact;
+
+    for (const entry of PREFIX_PUBLIC_API_CACHE_POLICIES) {
+        if (entry.pattern.test(pathname)) return entry.policy;
+    }
+
+    return null;
+}
+
+function isForceRefreshRequest(req: express.Request): boolean {
+    if (req.query.refresh === 'true' || req.query.force === 'true') return true;
+    return req.method === 'POST' && req.path === '/api/refresh';
+}
+
+// Le richieste di refresh manuale devono ignorare anche la cache upstream FITeT.
+app.use((req, _res, next) => {
+    if (isForceRefreshRequest(req)) {
+        return withFitetCacheBypass(next);
+    }
+    return next();
+});
+
+app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
+
+    if (isForceRefreshRequest(req)) {
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
+        return next();
+    }
+
+    const policy = getPublicApiCachePolicy(req.path);
+    if (!policy) return next();
+
+    const cdnHeader = `public, s-maxage=${policy.cdnTtlSeconds}, stale-while-revalidate=${policy.staleWhileRevalidateSeconds}`;
+    res.setHeader('Vercel-CDN-Cache-Control', cdnHeader);
+    res.setHeader('CDN-Cache-Control', cdnHeader);
+    res.setHeader(
+        'Cache-Control',
+        `public, max-age=${policy.browserTtlSeconds}, stale-while-revalidate=${policy.staleWhileRevalidateSeconds}`
+    );
+
+    // Non lasciare che errori 4xx/5xx vengano memorizzati dalla CDN.
+    const originalJson = res.json.bind(res);
+    res.json = ((body: unknown) => {
+        if (res.statusCode >= 400) {
+            res.removeHeader('Vercel-CDN-Cache-Control');
+            res.removeHeader('CDN-Cache-Control');
+            res.setHeader('Cache-Control', 'no-store');
+        }
+        return originalJson(body);
+    }) as typeof res.json;
+
+    return next();
+});
 
 // Championship defaults
 const DEFAULT_CAM_ID = 794;

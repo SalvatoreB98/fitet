@@ -113,7 +113,7 @@ const cachedSnapshots = new Map<
   number,
   { snapshot: ChampionshipMonitorSnapshot; timestamp: number }
 >();
-const SNAPSHOT_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minuti
+const SNAPSHOT_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minuti
 const inFlightChecks = new Set<number>();
 
 function normKey(value?: string | null): string {
@@ -590,7 +590,7 @@ async function evaluateSnapshotAndNotify(
  * (es. in /api/dashboard o /api/refresh): se sono usciti nuovi match o è cambiata la classifica,
  * invia automaticamente la notifica push ai giocatori iscritti a quel campionato.
  */
-const SUBSCRIBED_CAMS_TTL_MS = 10 * 60 * 1000; // 10 minuti
+const SUBSCRIBED_CAMS_TTL_MS = 30 * 60 * 1000; // 30 minuti
 let subscribedCamsCache: { ids: Set<number>; timestamp: number } | null = null;
 
 /** Da chiamare quando cambiano le iscrizioni, così la cache viene ricaricata al prossimo controllo. */
@@ -802,7 +802,7 @@ let championshipSchedulerTimer: NodeJS.Timeout | null = null;
 export function startChampionshipScheduler(): void {
   if (championshipSchedulerTimer) return;
 
-  const intervalMs = 30 * 60 * 1000; // 30 minuti
+  const intervalMs = 60 * 60 * 1000; // 60 minuti
   championshipSchedulerTimer = setInterval(() => {
     checkChampionshipsAndNotify().catch((err) => {
       console.warn(

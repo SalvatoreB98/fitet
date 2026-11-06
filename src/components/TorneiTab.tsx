@@ -88,6 +88,8 @@ export interface TorneiTabProps {
   portalView?: TorneiPortalView;
   onPortalViewChange?: (view: TorneiPortalView) => void;
   onUpdateCounts?: (counts: { miei: number; mappa: number; risultati: number; programma: number }) => void;
+  /** Se false, la tab è montata ma non visibile: evita fetch inutili. */
+  isActive?: boolean;
 }
 
 const isCloseTournamentDate = (d1?: string, d2?: string): boolean => {
@@ -108,6 +110,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
   portalView: propsPortalView,
   onPortalViewChange,
   onUpdateCounts,
+  isActive = true,
 }) => {
   const [categoryKey, setCategoryKey] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -425,13 +428,14 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
   };
 
   useEffect(() => {
+    if (!isActive) return;
     if (!myPlayerId) {
       setMyAthleteDetail(null);
       setMyTorneiLoading(false);
       return;
     }
     loadMyAthlete(myPlayerId);
-  }, [myPlayerId, loadMyAthlete]);
+  }, [myPlayerId, loadMyAthlete, isActive]);
 
   useEffect(() => {
     const q = athleteSearchQuery.trim();
@@ -510,8 +514,9 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
   };
 
   useEffect(() => {
+    if (!isActive) return;
     loadTornei(categoryKey, comitId, regFilterId);
-  }, [categoryKey, comitId, regFilterId]);
+  }, [categoryKey, comitId, regFilterId, isActive]);
 
   const handleCategoryChange = (newKey: string) => {
     setSelectedTorneo(null);

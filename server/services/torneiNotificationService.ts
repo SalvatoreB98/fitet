@@ -8,7 +8,9 @@ export const TORNEI_KNOWN_KEYS_STATE_KEY = 'known_tornei_keys';
 
 let cachedKnownKeys: Set<string> | null = null;
 let cachedKnownKeysTimestamp = 0;
-const KNOWN_KEYS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minuti
+const KNOWN_KEYS_CACHE_TTL_MS = 60 * 60 * 1000; // 60 minuti
+const PASSIVE_CHECK_MIN_INTERVAL_MS = 15 * 60 * 1000; // 15 minuti
+let lastPassiveCheckAt = 0;
 let isPassiveCheckRunning = false;
 const pendingObservedMap = new Map<string, ScannedTorneoItem>();
 
@@ -41,6 +43,12 @@ export async function notifyObservedTorneiIfNeeded(observedTornei: TorneoItem[])
   if (pendingObservedMap.size === 0 || isPassiveCheckRunning) {
     return;
   }
+
+  // Esegue il controllo passivo al massimo ogni 15 minuti per istanza.
+  if (cachedKnownKeys && Date.now() - lastPassiveCheckAt < PASSIVE_CHECK_MIN_INTERVAL_MS) {
+    return;
+  }
+  lastPassiveCheckAt = Date.now();
 
   isPassiveCheckRunning = true;
   try {

@@ -16,6 +16,8 @@ import './ClassificheRankingTab.css';
 export interface ClassificheRankingTabProps {
   onOpenAtletaModal: (atletaId: string, nome: string) => void;
   onOpenSearchModal?: () => void;
+  /** Se false, la tab è montata ma non visibile: evita fetch inutili. */
+  isActive?: boolean;
 }
 
 import { REGIONS_COMIT } from '../constants/regions';
@@ -24,6 +26,7 @@ export { REGIONS_COMIT };
 export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
   onOpenAtletaModal,
   onOpenSearchModal,
+  isActive = true,
 }) => {
   // Read initial query params from URL if present
   const [sesso, setSesso] = useState<'M' | 'F'>(() => {
@@ -109,8 +112,9 @@ export const ClassificheRankingTab: React.FC<ClassificheRankingTabProps> = ({
   };
 
   useEffect(() => {
+    if (!isActive) return;
     loadRanking(page, sesso, comitId, category);
-  }, [page, sesso, comitId, category]);
+  }, [page, sesso, comitId, category, isActive]);
 
   const handleComitChange = (newComit: number) => {
     setComitId(newComit);

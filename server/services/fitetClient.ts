@@ -1,7 +1,14 @@
 /**
  * FITeT HTTP Client
  * Handles fetching with arrayBuffer response and iso-8859-1 decoding for accented Italian characters.
+ *
+ * Le risposte HTML vengono mantenute in una cache temporale (memoria + disco) per evitare
+ * di riscaricare la stessa pagina da portale.fitet.org a ogni esecuzione serverless.
  */
+
+import { AsyncLocalStorage } from 'async_hooks';
+import { createHash } from 'crypto';
+import { cacheService } from './cacheService';
 
 const BASE_URL = 'https://portale.fitet.org';
 
@@ -11,11 +18,136 @@ const DEFAULT_HEADERS = {
   'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
 };
 
+const DEFAULT_UPSTREAM_TTL_MS = 20 * 60 * 1000; // 20 minuti
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+
+interface CacheBypassContext {
+  bypass: boolean;
+}
+
+const cacheBypassContext = new AsyncLocalStorage<CacheBypassContext>();
+const inFlightFetches = new Map<string, Promise<string>>();
+
+/**
+ * Esegue `fn` (tipicamente `next` di Express) disabilitando la cache upstream per
+ * tutte le fetch FITeT avviate durante la richiesta. Usato per `?refresh=true`.
+ */
+export function withFitetCacheBypass<T>(fn: () => T): T {
+  return cacheBypassContext.run({ bypass: true }, fn);
+}
+
+function isCacheBypassed(): boolean {
+  return cacheBypassContext.getStore()?.bypass === true;
+}
+
+/**
+ * TTL differenziati in base alla velocità con cui cambiano i dati sul portale FITeT.
+ */
+function resolveUpstreamTtlMs(url: string): number {
+  const normalized = url.toLowerCase();
+
+  if (normalized.includes('dettaglioatleta_unica')) return 24 * HOUR_MS;
+  if (normalized.includes('menu.php')) return 4 * HOUR_MS;
+  if (normalized.includes('giornata.php') || normalized.includes('dettaglio_partita')) {
+    return 12 * HOUR_MS;
+  }
+  if (normalized.includes('classifica_squadre') || normalized.includes('calendario.asp')) {
+    return 30 * MINUTE_MS;
+  }
+  if (
+    normalized.includes('statistiche_atleti') ||
+    normalized.includes('ranking_unica') ||
+    normalized.includes('percentuali.php')
+  ) {
+    return 60 * MINUTE_MS;
+  }
+  if (normalized.includes('ajax.php') || normalized.includes('scelta_atleta')) {
+    return 10 * MINUTE_MS;
+  }
+  if (
+    normalized.includes('testa_tornei') ||
+    normalized.includes('elenco_tornei') ||
+    normalized.includes('elenco_gare') ||
+    normalized.includes('iscrizioni.php') ||
+    normalized.includes('iscrizioni_gara')
+  ) {
+    return 30 * MINUTE_MS;
+  }
+  if (
+    normalized.includes('gestione_gare') ||
+    normalized.includes('risultati.php') ||
+    normalized.includes('risultati_tabellone')
+  ) {
+    return 15 * MINUTE_MS;
+  }
+
+  return DEFAULT_UPSTREAM_TTL_MS;
+}
+
+function buildUpstreamCacheKey(kind: 'html' | 'post', url: string, extra = ''): string {
+  const hash = createHash('sha1')
+    .update(kind)
+    .update('\n')
+    .update(url)
+    .update('\n')
+    .update(extra)
+    .digest('hex');
+
+  return `upstream_${kind}_${hash}`;
+}
+
+async function withUpstreamCache(
+  cacheKey: string,
+  url: string,
+  loader: () => Promise<string>
+): Promise<string> {
+  if (isCacheBypassed()) {
+    return loader();
+  }
+
+  const cached = cacheService.get<string>(cacheKey);
+  if (typeof cached === 'string') {
+    return cached;
+  }
+
+  const existing = inFlightFetches.get(cacheKey);
+  if (existing) {
+    return existing;
+  }
+
+  const task = loader()
+    .then((html) => {
+      if (html) {
+        cacheService.set(cacheKey, html, resolveUpstreamTtlMs(url));
+      }
+      return html;
+    })
+    .finally(() => {
+      if (inFlightFetches.get(cacheKey) === task) {
+        inFlightFetches.delete(cacheKey);
+      }
+    });
+
+  inFlightFetches.set(cacheKey, task);
+  return task;
+}
+
 export class FitetClient {
   /**
    * Fetches raw ISO-8859-1 HTML content from a FITeT endpoint and decodes it safely
    */
   static async fetchHtml(url: string, isAjax = false, customReferer?: string): Promise<string> {
+    const cacheKey = buildUpstreamCacheKey(
+      'html',
+      url,
+      isAjax ? `ajax:${customReferer || 'default'}` : 'page'
+    );
+
+    return withUpstreamCache(cacheKey, url, () => this.requestHtml(url, isAjax, customReferer));
+  }
+
+  private static async requestHtml(url: string, isAjax = false, customReferer?: string): Promise<string> {
     const headers: Record<string, string> = {
       ...DEFAULT_HEADERS,
     };
@@ -55,6 +187,23 @@ export class FitetClient {
     formData: Record<string, string>,
     customReferer?: string
   ): Promise<string> {
+    const serializedBody = new URLSearchParams(formData).toString();
+    const cacheKey = buildUpstreamCacheKey(
+      'post',
+      url,
+      `${serializedBody}\n${customReferer || 'default'}`
+    );
+
+    return withUpstreamCache(cacheKey, url, () =>
+      this.requestPostForm(url, serializedBody, customReferer)
+    );
+  }
+
+  private static async requestPostForm(
+    url: string,
+    serializedBody: string,
+    customReferer?: string
+  ): Promise<string> {
     const headers: Record<string, string> = {
       ...DEFAULT_HEADERS,
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -68,7 +217,7 @@ export class FitetClient {
       const response = await fetch(url, {
         method: 'POST',
         headers,
-        body: new URLSearchParams(formData).toString(),
+        body: serializedBody,
         signal: controller.signal,
       });
 
