@@ -227,6 +227,26 @@ export const App: React.FC = () => {
   const closeTopAthlete = () => {
     if (typeof window === 'undefined') return;
 
+    const top = athleteStack[athleteStack.length - 1];
+
+    // Se la scheda atleta è stata aperta dalla modale del referto, chiudere la
+    // scheda deve riattivare la schermata del referto: svuota solo lo stack degli
+    // atleti e NON deve chiudere l'intero flusso (referto incluso).
+    if (top?.fromReferto) {
+      setAthleteStack((prev) => prev.slice(0, -1));
+      const url = new URL(window.location.href);
+      url.pathname = '/';
+      url.searchParams.delete('player');
+      url.searchParams.delete('atleta');
+      url.searchParams.delete('atletaId');
+      window.history.replaceState(
+        { ...(window.history.state || {}), athleteId: null },
+        '',
+        url.toString()
+      );
+      return;
+    }
+
     // Verifica se esiste uno storico all'interno della stessa origine
     const hasInternalHistory =
       window.history.length > 1 &&

@@ -463,7 +463,20 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                     </div>
                                     <div className="athlete-info">
                                       <div className="athlete-name-row">
-                                        <strong>{match.atletaCasa}</strong>
+                                        <strong
+                                          style={{ cursor: onOpenAtletaModal ? 'pointer' : 'default' }}
+                                          onClick={() => {
+                                            if (!onOpenAtletaModal) return;
+                                            if (isDoublesCasa) {
+                                              handleOpenAthlete(dettaglio?.atletaCasa.atletaId, casaPlayers[0]);
+                                            } else {
+                                              handleOpenAthlete(dettaglio?.atletaCasa.atletaId, match.atletaCasa);
+                                            }
+                                          }}
+                                          title={onOpenAtletaModal ? `Visualizza scheda di ${isDoublesCasa ? casaPlayers[0] : match.atletaCasa}` : undefined}
+                                        >
+                                          {match.atletaCasa}
+                                        </strong>
                                         {dettaglio?.atletaCasa.bandieraUrl && (
                                           <img
                                             src={dettaglio.atletaCasa.bandieraUrl}
@@ -488,7 +501,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                                 }
                                                 title={`Visualizza scheda ranking di ${player}`}
                                               >
-                                                Scheda {player.split(' ')[0]} <i className="bi bi-box-arrow-up-right ms-1"></i>
+                                                <i className="bi bi-box-arrow-up-right"></i>
                                               </button>
                                             ))}
                                           </div>
@@ -499,9 +512,10 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                             onClick={() =>
                                               handleOpenAthlete(dettaglio?.atletaCasa.atletaId, match.atletaCasa)
                                             }
-                                            title="Visualizza scheda atleta e storico punti"
+                                            title={`Visualizza scheda di ${match.atletaCasa}`}
+                                            aria-label={`Visualizza scheda di ${match.atletaCasa}`}
                                           >
-                                            Visualizza Scheda atleta <i className="bi bi-box-arrow-up-right ms-1"></i>
+                                            <i className="bi bi-box-arrow-up-right"></i>
                                           </button>
                                         ))}
                                     </div>
@@ -576,7 +590,20 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                     </div>
                                     <div className="athlete-info">
                                       <div className="athlete-name-row">
-                                        <strong>{match.atletaOspite}</strong>
+                                        <strong
+                                          style={{ cursor: onOpenAtletaModal ? 'pointer' : 'default' }}
+                                          onClick={() => {
+                                            if (!onOpenAtletaModal) return;
+                                            if (isDoublesOspite) {
+                                              handleOpenAthlete(dettaglio?.atletaOspite.atletaId, ospitePlayers[0]);
+                                            } else {
+                                              handleOpenAthlete(dettaglio?.atletaOspite.atletaId, match.atletaOspite);
+                                            }
+                                          }}
+                                          title={onOpenAtletaModal ? `Visualizza scheda di ${isDoublesOspite ? ospitePlayers[0] : match.atletaOspite}` : undefined}
+                                        >
+                                          {match.atletaOspite}
+                                        </strong>
                                         {dettaglio?.atletaOspite.bandieraUrl && (
                                           <img
                                             src={dettaglio.atletaOspite.bandieraUrl}
@@ -601,7 +628,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                                 }
                                                 title={`Visualizza scheda ranking di ${player}`}
                                               >
-                                                Scheda {player.split(' ')[0]} <i className="bi bi-box-arrow-up-right ms-1"></i>
+                                                <i className="bi bi-box-arrow-up-right"></i>
                                               </button>
                                             ))}
                                           </div>
@@ -612,9 +639,10 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                             onClick={() =>
                                               handleOpenAthlete(dettaglio?.atletaOspite.atletaId, match.atletaOspite)
                                             }
-                                            title="Visualizza scheda atleta e storico punti"
+                                            title={`Visualizza scheda di ${match.atletaOspite}`}
+                                            aria-label={`Visualizza scheda di ${match.atletaOspite}`}
                                           >
-                                            Visualizza scheda atleta <i className="bi bi-box-arrow-up-right ms-1"></i>
+                                            <i className="bi bi-box-arrow-up-right"></i>
                                           </button>
                                         ))}
                                     </div>
