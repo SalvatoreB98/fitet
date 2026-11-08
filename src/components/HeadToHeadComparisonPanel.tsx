@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useMemo, useState } from 'react';
 import { DettaglioAtleta, HeadToHeadData, PartitaCampionatoAtleta } from '../types/fitet';
 import { fetchAtleta, fetchAtletaCampionatoPartite } from '../services/api';
+import { aggregateAthleteMatchStats } from '../utils/aggregateAthleteStats';
 import './HeadToHeadComparisonPanel.css';
 
 type Tone = 'a' | 'b' | null;
@@ -237,26 +238,55 @@ const loadAthleteSnapshot = async (
   fallbackName: string
 ): Promise<AthleteSnapshot> => {
   const detail = await fetchAtleta(athleteId);
-  let form = extractRankingForm(detail);
-  let formSource: FormSource = form.length > 0 ? 'ranking' : null;
   let championshipMatches: PartitaCampionatoAtleta[] = [];
 
-  if (form.length === 0 && detail.campionatoAttuale?.camId) {
+  const knownCamIds = Array.from(
+    new Set([
+      ...(detail.campionatiGiocati || []).map((c) => String(c.camId)),
+      ...(detail.campionatoAttuale?.camId ? [String(detail.campionatoAttuale.camId)] : []),
+    ])
+  ).filter(Boolean);
+
+  if (knownCamIds.length > 0) {
     try {
-      const championship = await fetchAtletaCampionatoPartite(
-        athleteId,
-        detail.campionatoAttuale.camId,
-        undefined,
-        detail.anagrafica?.nome || fallbackName
+      const results = await Promise.all(
+        knownCamIds.map((cId) =>
+          fetchAtletaCampionatoPartite(
+            detail.id || athleteId,
+            cId,
+            undefined,
+            detail.anagrafica?.nome || fallbackName
+          ).catch(() => null)
+        )
       );
-      championshipMatches = championship.matches || [];
+      for (const res of results) {
+        if (res && res.matches && res.matches.length > 0) {
+          championshipMatches.push(...res.matches);
+        }
+      }
+    } catch {
+      // The panel can still compare ranking and season data without match-level form.
+    }
+  }
+
+  let form = extractRankingForm(detail);
+  let formSource: FormSource = form.length > 0 ? 'ranking' : null;
+
+  if (championshipMatches.length > 0) {
+    const aggregated = aggregateAthleteMatchStats(
+      detail,
+      championshipMatches,
+      detail.campionatoAttuale?.nome
+    );
+    if (aggregated.extraGironeMatches.length > 0 && form.length > 0) {
+      const extraForm = extractChampionshipForm(aggregated.extraGironeMatches);
+      form = [...form, ...extraForm].slice(-5);
+    } else if (form.length === 0) {
       const championshipForm = extractChampionshipForm(championshipMatches);
       if (championshipForm.length > 0) {
         form = championshipForm;
         formSource = 'campionato';
       }
-    } catch {
-      // The panel can still compare ranking and season data without match-level form.
     }
   }
 
@@ -350,21 +380,26 @@ const buildMetrics = (snapshot: AthleteSnapshot, fallbackName: string): AthleteM
       ? `${formWins}V · ${formLosses}S${formSourceLabel ? ` · ${formSourceLabel}` : ''}`
       : null;
 
-  const seasonPlayed = riepilogo?.partiteGiocate ?? 0;
-  const seasonWon = riepilogo?.partiteVinte ?? 0;
-  const seasonLost = riepilogo?.partitePerse ?? 0;
-  const seasonRate = seasonPlayed > 0 ? Math.round((seasonWon / seasonPlayed) * 100) : null;
+  const aggregatedStats = aggregateAthleteMatchStats(
+    detail,
+    snapshot.championshipMatches,
+    detail.campionatoAttuale?.nome
+  );
+  const seasonPlayed = aggregatedStats.partiteGiocate;
+  const seasonWon = aggregatedStats.partiteVinte;
+  const seasonLost = aggregatedStats.partitePerse;
+  const seasonRate = seasonPlayed > 0 ? aggregatedStats.percentualePositiva : null;
   const seasonRecord = seasonPlayed > 0 ? `${seasonWon}V · ${seasonLost}S` : null;
   const seasonSub =
     seasonPlayed > 0
       ? `${seasonRate}% su ${seasonPlayed} ${seasonPlayed === 1 ? 'partita' : 'partite'}`
       : null;
 
-  const championshipPlayed = snapshot.championshipMatches.length;
-  const championshipWon = snapshot.championshipMatches.filter((match) => match.isVittoria).length;
-  const championshipLost = championshipPlayed - championshipWon;
+  const championshipPlayed = aggregatedStats.campionatoGiocate;
+  const championshipWon = aggregatedStats.campionatoVinte;
+  const championshipLost = aggregatedStats.campionatoPerse;
   const championshipRate =
-    championshipPlayed > 0 ? Math.round((championshipWon / championshipPlayed) * 100) : null;
+    championshipPlayed > 0 ? aggregatedStats.campionatoPercentuale : null;
   const championshipRecord =
     championshipPlayed > 0 ? `${championshipWon}V · ${championshipLost}S` : null;
   const championshipRecordSub =

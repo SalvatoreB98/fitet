@@ -11,6 +11,7 @@ import { recordAndGetAthleteViews } from '../utils/athleteViews';
 import { useFavoriteAthletes, saveFavoriteAthlete } from '../utils/favorites';
 import { addRecentAthlete } from '../utils/history';
 import { TeamLogo } from './TeamLogo';
+import { aggregateAthleteMatchStats } from '../utils/aggregateAthleteStats';
 
 interface AtletaModalProps {
   atletaId: string;
@@ -56,6 +57,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [imgError, setImgError] = useState<boolean>(false);
+  const [isPhotoZoomOpen, setIsPhotoZoomOpen] = useState<boolean>(false);
   const [viewsCount, setViewsCount] = useState<number>(0);
   const [halfAtletaTarget, setHalfAtletaTarget] = useState<{ id?: string; name: string } | null>(null);
   const lastTrackedKeyRef = useRef<string | null>(null);
@@ -246,31 +248,61 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
     setCampionatoPartite(null);
     setSquadraCampionato(null);
 
-    // Funzione helper per recuperare le partite di campionato con fallback su campionatoAttuale
-    const loadMatchesForAthlete = async (id: string, name: string, preferredCamId?: string, actualCamId?: string) => {
+    // Funzione helper per recuperare le partite di campionato prioritizzando i campionati effettivamente giocati dall'atleta
+    const loadMatchesForAthlete = async (
+      id: string,
+      name: string,
+      preferredCamId?: string,
+      actualCamId?: string,
+      playedCamIds?: string[]
+    ) => {
       setLoadingPartite(true);
       try {
-        let matchesRes = null;
-        let effectiveCamId = preferredCamId;
+        const knownCamIds = Array.from(
+          new Set([
+            ...(playedCamIds || []).filter(Boolean),
+            ...(actualCamId ? [actualCamId] : []),
+          ])
+        );
 
-        // 1. Prova con il camId passato (se presente)
-        if (effectiveCamId) {
-          matchesRes = await fetchAtletaCampionatoPartite(id, effectiveCamId, undefined, name).catch(() => null);
+        let combinedMatches: PartitaCampionatoAtleta[] = [];
+        let resolvedSquadra: string | null = null;
+
+        if (knownCamIds.length > 0) {
+          // Ordina mettendo preferredCamId per primo se appartiene ai campionati giocati dall'atleta
+          const orderedKnown = preferredCamId && knownCamIds.includes(preferredCamId)
+            ? [preferredCamId, ...knownCamIds.filter((c) => c !== preferredCamId)]
+            : knownCamIds;
+
+          const results = await Promise.all(
+            orderedKnown.map((cId) =>
+              fetchAtletaCampionatoPartite(id, cId, undefined, name).catch(() => null)
+            )
+          );
+
+          for (const res of results) {
+            if (res && res.matches && res.matches.length > 0) {
+              combinedMatches.push(...res.matches);
+              if (!resolvedSquadra && res.squadra) {
+                resolvedSquadra = res.squadra;
+              }
+            }
+          }
         }
 
-        // 2. Se non ha trovato partite o non c'era camId, ma l'atleta ha un campionatoAttuale diverso, prova con quello
-        if ((!matchesRes || !matchesRes.matches || matchesRes.matches.length === 0) && actualCamId && actualCamId !== preferredCamId) {
-          const fallbackRes = await fetchAtletaCampionatoPartite(id, actualCamId, undefined, name).catch(() => null);
+        // Fallback su preferredCamId se non era tra i campionati noti nel ranking ma l'utente lo ha aperto da quel girone
+        if (combinedMatches.length === 0 && preferredCamId && !knownCamIds.includes(preferredCamId)) {
+          const fallbackRes = await fetchAtletaCampionatoPartite(id, preferredCamId, undefined, name).catch(() => null);
           if (fallbackRes && fallbackRes.matches && fallbackRes.matches.length > 0) {
-            matchesRes = fallbackRes;
-            effectiveCamId = actualCamId;
+            combinedMatches = fallbackRes.matches;
+            resolvedSquadra = fallbackRes.squadra || null;
           }
         }
 
         if (isMounted) {
-          if (matchesRes && matchesRes.matches && matchesRes.matches.length > 0) {
-            setCampionatoPartite(matchesRes.matches);
-            setSquadraCampionato(matchesRes.squadra || null);
+          if (combinedMatches.length > 0) {
+            setCampionatoPartite(combinedMatches);
+            setSquadraCampionato(resolvedSquadra);
             setMatchTab('girone');
           } else {
             setCampionatoPartite([]);
@@ -327,11 +359,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
         }
 
         const athleteActualCamId = data.campionatoAttuale ? String(data.campionatoAttuale.camId) : undefined;
+        const playedCamIds = (data.campionatiGiocati || []).map((c) => String(c.camId));
         const targetId = data.id || atletaId;
         const targetName = data.anagrafica?.nome || athleteName || '';
 
         // Carica partite gestendo il mismatch tra camId esterno e campionato reale dell'atleta
-        loadMatchesForAthlete(targetId, targetName, camId || undefined, athleteActualCamId);
+        loadMatchesForAthlete(targetId, targetName, camId || undefined, athleteActualCamId, playedCamIds);
       })
       .catch((err) => {
         if (isMounted) {
@@ -374,21 +407,45 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       }
 
       const actualCamId = freshData?.campionatoAttuale ? String(freshData.campionatoAttuale.camId) : undefined;
-      let effectiveCam = camId || actualCamId;
+      const playedCamIds = (freshData?.campionatiGiocati || []).map((c) => String(c.camId));
+      const knownCamIds = Array.from(
+        new Set([...playedCamIds.filter(Boolean), ...(actualCamId ? [actualCamId] : [])])
+      );
 
-      let freshMatchesRes = effectiveCam
-        ? await fetchAtletaCampionatoPartite(targetId, effectiveCam, undefined, targetName, true).catch(() => null)
-        : null;
+      let combinedMatches: PartitaCampionatoAtleta[] = [];
+      let resolvedSquadra: string | null = null;
 
-      // Se il camId esterno non dà risultati ma l'atleta ne ha un altro reale
-      if ((!freshMatchesRes || !freshMatchesRes.matches || freshMatchesRes.matches.length === 0) && actualCamId && actualCamId !== camId) {
-        effectiveCam = actualCamId;
-        freshMatchesRes = await fetchAtletaCampionatoPartite(targetId, actualCamId, undefined, targetName, true).catch(() => null);
+      if (knownCamIds.length > 0) {
+        const orderedKnown = camId && knownCamIds.includes(camId)
+          ? [camId, ...knownCamIds.filter((c) => c !== camId)]
+          : knownCamIds;
+
+        const results = await Promise.all(
+          orderedKnown.map((cId) =>
+            fetchAtletaCampionatoPartite(targetId, cId, undefined, targetName, true).catch(() => null)
+          )
+        );
+        for (const res of results) {
+          if (res && res.matches && res.matches.length > 0) {
+            combinedMatches.push(...res.matches);
+            if (!resolvedSquadra && res.squadra) {
+              resolvedSquadra = res.squadra;
+            }
+          }
+        }
       }
 
-      if (freshMatchesRes && freshMatchesRes.matches && freshMatchesRes.matches.length > 0) {
-        setCampionatoPartite(freshMatchesRes.matches);
-        setSquadraCampionato(freshMatchesRes.squadra || freshData?.campionatoAttuale?.squadra || null);
+      if (combinedMatches.length === 0 && camId && !knownCamIds.includes(camId)) {
+        const fallbackRes = await fetchAtletaCampionatoPartite(targetId, camId, undefined, targetName, true).catch(() => null);
+        if (fallbackRes && fallbackRes.matches && fallbackRes.matches.length > 0) {
+          combinedMatches = fallbackRes.matches;
+          resolvedSquadra = fallbackRes.squadra || null;
+        }
+      }
+
+      if (combinedMatches.length > 0) {
+        setCampionatoPartite(combinedMatches);
+        setSquadraCampionato(resolvedSquadra || freshData?.campionatoAttuale?.squadra || null);
         setMatchTab('girone');
       } else {
         setCampionatoPartite([]);
@@ -487,7 +544,13 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [onClose, isTopModal, h2hOpponent, halfAtletaTarget]);
+  }, [onClose, isTopModal, h2hOpponent, halfAtletaTarget, isPhotoZoomOpen]);
+
+  // Anteprima / zoom della foto dell'atleta
+  const zoomPhotoSrc = atleta?.anagrafica?.fotoUrl || (atleta?.id && /^\d+$/.test(atleta.id) ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg` : null);
+  const canOpenPhotoZoom = Boolean(zoomPhotoSrc) && !imgError;
+  const openPhotoZoom = () => setIsPhotoZoomOpen(true);
+  const closePhotoZoom = () => setIsPhotoZoomOpen(false);
 
   if (typeof document === 'undefined') return null;
 
@@ -637,8 +700,10 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         src={athletePhoto}
                         alt={atleta.anagrafica.nome}
                         referrerPolicy="no-referrer"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                        onClick={openPhotoZoom}
                         onError={() => setImgError(true)}
+                        title="Apri anteprima foto"
                       />
                     ) : (
                       <span style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-muted)' }}>
@@ -745,35 +810,31 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                 const posText = pos ? `#${pos.toLocaleString('it-IT')}` : (stato || 'Fuori Quadro');
                 const posSub = hasRecord ? `Record: ${record}` : (dataAgg ? `Al ${dataAgg}` : 'Nazionale');
 
-                // Fallback winrate & matches calculation if fragment-1 riepilogo has 0
-                const allRankingMatches = [
-                  ...(atleta.partiteRanking?.campionato || []),
-                  ...(atleta.partiteRanking?.tornei || []),
-                ];
-                let partiteGiocate = atleta.riepilogo.partiteGiocate;
-                let partiteVinte = atleta.riepilogo.partiteVinte;
-                let partitePerse = atleta.riepilogo.partitePerse;
-                let percPositiva = atleta.riepilogo.percentualePositiva;
+                // Aggregazione deduplicata tra partite ranking (#fragment-1/#fragment-3) e partite live del campionato
+                const aggregatedStats = aggregateAthleteMatchStats(
+                  atleta,
+                  campionatoPartite,
+                  campionatoNome || atleta.campionatoAttuale?.nome
+                );
+                const partiteGiocate = aggregatedStats.partiteGiocate;
+                const partiteVinte = aggregatedStats.partiteVinte;
+                const partitePerse = aggregatedStats.partitePerse;
+                const percPositiva = aggregatedStats.percentualePositiva;
                 let puntiNetto = atleta.riepilogo.puntiTotali;
-
-                if (partiteGiocate === 0 && allRankingMatches.length > 0) {
-                  partiteGiocate = allRankingMatches.length;
-                  partiteVinte = allRankingMatches.filter((m) => m.isVittoria).length;
-                  partitePerse = partiteGiocate - partiteVinte;
-                  percPositiva = Math.round((partiteVinte / partiteGiocate) * 100);
-                } else if (partiteGiocate === 0 && campionatoPartite && campionatoPartite.length > 0) {
-                  partiteGiocate = campionatoPartite.length;
-                  partiteVinte = campionatoPartite.filter((m) => m.isVittoria).length;
-                  partitePerse = partiteGiocate - partiteVinte;
-                  percPositiva = Math.round((partiteVinte / partiteGiocate) * 100);
-                } else if (percPositiva === 0 && partiteGiocate > 0 && partiteVinte > 0) {
-                  percPositiva = Math.round((partiteVinte / partiteGiocate) * 100);
-                }
 
                 if (puntiNetto === 0 && atleta.partiteRanking?.dettaglioPunti) {
                   const diff = (atleta.partiteRanking.dettaglioPunti.campionato || 0) + (atleta.partiteRanking.dettaglioPunti.tornei || 0);
                   if (diff !== 0) puntiNetto = diff;
                 }
+
+                const hasBothCampAndTornei =
+                  aggregatedStats.campionatoGiocate > 0 && aggregatedStats.torneiGiocate > 0;
+                const partiteSubText = hasBothCampAndTornei
+                  ? `Perse: ${partitePerse} · Camp: ${aggregatedStats.campionatoVinte}V-${aggregatedStats.campionatoPerse}P`
+                  : `Perse: ${partitePerse}`;
+                const partiteTitleText = hasBothCampAndTornei
+                  ? `Totale aggiornato: ${partiteVinte} vinte, ${partitePerse} perse su ${partiteGiocate} giocate (Campionato: ${aggregatedStats.campionatoVinte}V-${aggregatedStats.campionatoPerse}P, Tornei: ${aggregatedStats.torneiVinte}V-${aggregatedStats.torneiPerse}P)`
+                  : `Partite vinte: ${partiteVinte}, giocate: ${partiteGiocate}, perse: ${partitePerse}`;
 
                 return (
                   <div className="overview-stats-section" style={{ paddingBottom: '18px', borderBottom: '1px solid var(--border-light, #f1f5f9)', marginBottom: '18px' }}>
@@ -798,12 +859,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         <div className="overview-stat-divider" aria-hidden="true" />
 
                         {/* 3. Partite V/G */}
-                        <div className="overview-stat-col" title={`Partite vinte: ${partiteVinte}, giocate: ${partiteGiocate}, perse: ${partitePerse}`}>
+                        <div className="overview-stat-col" title={partiteTitleText}>
                           <span className="overview-stat-label">Partite V/G</span>
                           <MarqueeText className="overview-stat-value">
                             {partiteVinte} <span className="overview-stat-slash">/</span> {partiteGiocate}
                           </MarqueeText>
-                          <MarqueeText className="overview-stat-sub" text={`Perse: ${partitePerse}`} />
+                          <MarqueeText className="overview-stat-sub" text={partiteSubText} />
                         </div>
 
                         <div className="overview-stat-divider" aria-hidden="true" />
@@ -833,17 +894,26 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     if (parts.length === 3) {
                       return new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10)).getTime();
                     }
+                    const gMatch = str.match(/^G(\d+)$/i);
+                    if (gMatch) {
+                      return Date.now() + parseInt(gMatch[1], 10) * 1000;
+                    }
                     return 0;
                   };
 
-                  const rankingCampionato = atleta.partiteRanking?.campionato || [];
+                  const aggregatedMatches = aggregateAthleteMatchStats(
+                    atleta,
+                    campionatoPartite,
+                    campionatoNome || atleta.campionatoAttuale?.nome
+                  );
+                  const rankingCampionato = aggregatedMatches.mergedCampionatoMatches;
                   const rankingTornei = atleta.partiteRanking?.tornei || [];
                   const totalRankingCampionato = rankingCampionato.length;
                   const totalRankingTornei = rankingTornei.length;
                   const totalRankingMatches = totalRankingCampionato + totalRankingTornei;
                   const hasGironeMatches = Boolean(campionatoPartite && campionatoPartite.length > 0);
 
-                  // Build unified ranking matches array
+                  // Build unified ranking matches array (deduplicated campionato + tornei)
                   const unifiedRankingMatches: Array<{
                     tipo: 'campionato' | 'torneo';
                     data: string;
@@ -852,6 +922,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     avversario: string;
                     avversarioId?: string;
                     risultatoSet?: string;
+                    sets?: string[];
+                    giornata?: number;
                     fase?: string;
                     risultato: string;
                     isVittoria: boolean;
@@ -868,6 +940,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         avversario: m.avversario,
                         avversarioId: m.avversarioId,
                         risultatoSet: m.risultatoSet,
+                        sets: m.sets,
+                        giornata: m.giornata,
                         risultato: m.risultato,
                         isVittoria: m.isVittoria,
                         punti: m.punti,
@@ -1070,35 +1144,14 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         let matchesToDisplay: MatchCardItem[] = [];
 
                         if (activeTabResolved === 'girone' && campionatoPartite && campionatoPartite.length > 0) {
-                          const usedRankingIdx = new Set<number>();
-                          const normOpp = (s?: string) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-
                           matchesToDisplay = campionatoPartite.map((m, idx) => {
-                            const targetOpp = normOpp(m.avversario);
-                            let matchIdx = rankingCampionato.findIndex(
-                              (rm, rIdx) =>
-                                !usedRankingIdx.has(rIdx) &&
-                                normOpp(rm.avversario) === targetOpp &&
-                                rm.isVittoria === m.isVittoria
-                            );
-                            if (matchIdx === -1) {
-                              matchIdx = rankingCampionato.findIndex(
-                                (rm, rIdx) =>
-                                  !usedRankingIdx.has(rIdx) &&
-                                  (normOpp(rm.avversario) === targetOpp ||
-                                    (targetOpp.length >= 4 &&
-                                      (normOpp(rm.avversario).includes(targetOpp) ||
-                                        targetOpp.includes(normOpp(rm.avversario)))))
-                              );
-                            }
-                            const matchingRanking = matchIdx !== -1 ? rankingCampionato[matchIdx] : undefined;
-                            if (matchIdx !== -1) usedRankingIdx.add(matchIdx);
+                            const matchingRanking = aggregatedMatches.matchedRankingByGironeIndex[idx];
 
                             return {
                               id: `girone-${idx}`,
                               tipo: 'girone',
-                              data: matchingRanking?.data || `G${m.giornata}`,
-                              titolo: campionatoNome || 'Campionato Girone',
+                              data: matchingRanking?.data || m.data || `G${m.giornata}`,
+                              titolo: campionatoNome || atleta.campionatoAttuale?.nome || 'Campionato Girone',
                               sottotitolo: squadraCampionato || undefined,
                               avversario: m.avversario,
                               avversarioId: matchingRanking?.avversarioId,
@@ -1123,10 +1176,11 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               sottotitolo: m.sottotitolo,
                               avversario: m.avversario,
                               avversarioId: m.avversarioId,
+                              giornata: m.giornata,
                               fase: m.fase,
                               isVittoria: m.isVittoria,
                               risultatoSet: m.risultatoSet || matchingGirone?.risultatoSet,
-                              sets: matchingGirone?.sets,
+                              sets: m.sets || matchingGirone?.sets,
                               punti: m.punti,
                               rawRisultato: m.risultato,
                             };
@@ -1134,6 +1188,9 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         }
 
                         if (matchesToDisplay.length === 0) return null;
+
+                        const activeWins = matchesToDisplay.filter((m) => m.isVittoria).length;
+                        const activeLosses = matchesToDisplay.length - activeWins;
 
                         return (
                           <div style={{ marginTop: '8px', minHeight: '180px' }}>
@@ -1148,10 +1205,14 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                 gap: '8px',
                               }}
                             >
-                              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                 <span style={{ fontWeight: 700, color: 'var(--text-dark)' }}>
                                   {matchesToDisplay.length} {matchesToDisplay.length === 1 ? 'partita' : 'partite'}
                                 </span>
+                                <span>·</span>
+                                <span style={{ color: '#16a34a', fontWeight: 600 }}>{activeWins} Vinte</span>
+                                <span>·</span>
+                                <span style={{ color: '#dc2626', fontWeight: 600 }}>{activeLosses} Perse</span>
                               </div>
 
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1638,6 +1699,38 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Athlete Photo Zoom / Preview Modal */}
+      {isPhotoZoomOpen && canOpenPhotoZoom && zoomPhotoSrc ? (
+        <div
+          className="athlete-photo-zoom-backdrop"
+          onClick={(e) => {
+            e.stopPropagation();
+            closePhotoZoom();
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Anteprima foto atleta ${atleta?.anagrafica?.nome || athleteName || ''}`}
+        >
+          <div className="athlete-photo-zoom-card" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={zoomPhotoSrc}
+              alt={atleta?.anagrafica?.nome || athleteName || ''}
+              referrerPolicy="no-referrer"
+              className="athlete-photo-zoom-img"
+            />
+            <button
+              type="button"
+              className="modal-close-btn athlete-photo-zoom-close"
+              onClick={closePhotoZoom}
+              title="Chiudi anteprima (ESC)"
+              aria-label="Chiudi anteprima foto"
+            >
+              <i className="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* Modal Testa a Testa con l'avversario selezionato */}
       {h2hOpponent && (

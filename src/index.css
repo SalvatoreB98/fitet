@@ -6043,6 +6043,46 @@ body.modal-open {
   flex-wrap: wrap;
 }
 
+/* Athlete Photo Zoom / Preview Modal */
+.athlete-photo-zoom-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overscroll-behavior: contain;
+}
+
+.athlete-photo-zoom-card {
+  position: relative;
+  max-width: 90vh;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+}
+
+.athlete-photo-zoom-img {
+  display: block;
+  max-width: 90vh;
+  max-height: 90vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.athlete-photo-zoom-close {
+  position: fixed;
+  top: 1em;
+  right: 1em;
+  z-index: 3;
+}
+
 .pill-switcher-container {
   display: inline-flex;
   background: var(--bg-th);

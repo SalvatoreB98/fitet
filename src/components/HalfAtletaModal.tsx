@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { DettaglioAtleta } from '../types/fitet';
-import { fetchAtleta } from '../services/api';
+import { DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
+import { fetchAtleta, fetchAtletaCampionatoPartite } from '../services/api';
 import { MarqueeText } from './MarqueeText';
 import { recordAndGetAthleteViews } from '../utils/athleteViews';
 import { useFavoriteAthletes, saveFavoriteAthlete } from '../utils/favorites';
+import { aggregateAthleteMatchStats } from '../utils/aggregateAthleteStats';
 
 export interface HalfAtletaModalProps {
   atletaKey: string;
@@ -20,6 +21,7 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
   onOpenFullModal,
 }) => {
   const [atleta, setAtleta] = useState<DettaglioAtleta | null>(null);
+  const [campionatoPartite, setCampionatoPartite] = useState<PartitaCampionatoAtleta[] | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [imgError, setImgError] = useState<boolean>(false);
@@ -38,12 +40,37 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
     setLoading(true);
     setError(null);
     setImgError(false);
+    setCampionatoPartite(null);
 
     fetchAtleta(atletaKey)
       .then((data) => {
         if (isMounted) {
           setAtleta(data);
           setLoading(false);
+
+          const knownCamIds = Array.from(
+            new Set([
+              ...(data.campionatiGiocati || []).map((c) => String(c.camId)),
+              ...(data.campionatoAttuale?.camId ? [String(data.campionatoAttuale.camId)] : []),
+            ])
+          ).filter(Boolean);
+
+          if (knownCamIds.length > 0) {
+            Promise.all(
+              knownCamIds.map((cId) =>
+                fetchAtletaCampionatoPartite(data.id || atletaKey, cId, undefined, data.anagrafica?.nome).catch(() => null)
+              )
+            ).then((results) => {
+              if (!isMounted) return;
+              const merged: PartitaCampionatoAtleta[] = [];
+              for (const res of results) {
+                if (res && res.matches && res.matches.length > 0) {
+                  merged.push(...res.matches);
+                }
+              }
+              setCampionatoPartite(merged);
+            });
+          }
 
           if (isFavorite(data.id) || isFavorite(data.anagrafica.nome)) {
             const storico = data.storicoClassifica || [];
@@ -151,24 +178,16 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
   const posText = pos ? `#${pos.toLocaleString('it-IT')}` : (stato || 'Fuori Quadro');
   const posSub = hasRecord ? `Record: ${record}` : (dataAgg ? `Al ${dataAgg}` : 'Nazionale');
 
-  const allRankingMatches = [
-    ...(atleta?.partiteRanking?.campionato || []),
-    ...(atleta?.partiteRanking?.tornei || []),
-  ];
-  let partiteGiocate = atleta?.riepilogo.partiteGiocate ?? 0;
-  let partiteVinte = atleta?.riepilogo.partiteVinte ?? 0;
-  let partitePerse = atleta?.riepilogo.partitePerse ?? 0;
-  let percPositiva = atleta?.riepilogo.percentualePositiva ?? 0;
+  const aggregatedStats = aggregateAthleteMatchStats(
+    atleta,
+    campionatoPartite,
+    atleta?.campionatoAttuale?.nome
+  );
+  const partiteGiocate = aggregatedStats.partiteGiocate;
+  const partiteVinte = aggregatedStats.partiteVinte;
+  const partitePerse = aggregatedStats.partitePerse;
+  const percPositiva = aggregatedStats.percentualePositiva;
   let puntiNetto = atleta?.riepilogo.puntiTotali ?? 0;
-
-  if (partiteGiocate === 0 && allRankingMatches.length > 0) {
-    partiteGiocate = allRankingMatches.length;
-    partiteVinte = allRankingMatches.filter((m) => m.isVittoria).length;
-    partitePerse = partiteGiocate - partiteVinte;
-    percPositiva = Math.round((partiteVinte / partiteGiocate) * 100);
-  } else if (percPositiva === 0 && partiteGiocate > 0 && partiteVinte > 0) {
-    percPositiva = Math.round((partiteVinte / partiteGiocate) * 100);
-  }
 
   if (puntiNetto === 0 && atleta?.partiteRanking?.dettaglioPunti) {
     const diff = (atleta.partiteRanking.dettaglioPunti.campionato || 0) + (atleta.partiteRanking.dettaglioPunti.tornei || 0);

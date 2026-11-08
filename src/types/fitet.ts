@@ -293,6 +293,7 @@ export interface AthleteSearchResult {
 
 export interface PartitaCampionatoAtleta {
   giornata: number;
+  data?: string;
   avversario: string;
   squadra: string;
   setVinti: number;
