@@ -1060,25 +1060,54 @@ nav {
   align-items: center;
 }
 
+.calendario-selects-row {
+  display: contents;
+}
+
 @media screen and (max-width: 768px) {
 
-  .controls-left.calendario,
   .controls-left.classifiche,
   .controls-left.tornei {
     display: grid;
     width: 100%;
   }
 
+  .controls-left.calendario {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .calendario-selects-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    width: 100%;
+  }
+
   .select-clearable-wrapper select,
   .controls-left.classifiche select,
-  .controls-left.tornei select {
+  .controls-left.tornei select,
+  .controls-left.calendario select {
     width: 100%;
   }
 
   .calendario .filter-btn-group,
   .tornei .filter-btn-group {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    display: flex;
+    width: 100%;
+  }
+
+  .calendario .filter-btn-group .filter-btn,
+  .tornei .filter-btn-group .filter-btn {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+    text-align: center;
+    padding: 7px 4px;
+    font-size: 11.5px;
+    white-space: nowrap;
   }
 
   .classifiche .filter-btn-group {
@@ -1183,6 +1212,10 @@ nav {
   cursor: pointer;
   border-right: 1px solid var(--border-color);
   transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 
 .filter-btn:last-child {
@@ -1397,14 +1430,14 @@ nav {
 }
 
 .giornata-section {
-  margin-bottom: 38px;
-  padding-bottom: 18px;
+  margin-bottom: 24px;
+  padding-bottom: 14px;
   border-bottom: 1px dashed var(--border-color);
 }
 
 .giornata-section:last-child {
   border-bottom: none;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   padding-bottom: 0;
 }
 
@@ -1513,7 +1546,8 @@ nav {
 .match-cards-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-  gap: 16px;
+  gap: 14px;
+  margin-top: 10px;
 }
 
 .match-cards-grid--animated {
@@ -1533,9 +1567,19 @@ nav {
 }
 
 @media (max-width: 640px) {
+  .giornata-section {
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+  }
+
+  .giornata-header-banner {
+    padding: 8px 12px;
+  }
+
   .match-cards-grid {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 10px;
+    margin-top: 8px;
   }
 }
 
@@ -1555,7 +1599,15 @@ nav {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   position: relative;
-  margin: 0.5em;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .match-card {
+    padding: 10px 12px;
+    gap: 7px;
+    border-radius: 8px;
+  }
 }
 
 .match-card:hover {
@@ -1619,6 +1671,40 @@ nav {
 .match-status-label.status-programmato {
   font-weight: 400;
   color: var(--text-muted, #94a3b8);
+}
+
+.match-status-label.status-in-corso {
+  font-weight: 700;
+  color: #16a34a;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.match-status-label.status-in-corso::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #16a34a;
+  box-shadow: 0 0 6px rgba(22, 163, 74, 0.6);
+  animation: pulseInCorso 1.5s infinite;
+}
+
+@keyframes pulseInCorso {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+[data-theme="dark"] .match-status-label.status-in-corso {
+  color: #4ade80;
+}
+
+[data-theme="dark"] .match-status-label.status-in-corso::before {
+  background-color: #4ade80;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.8);
 }
 
 /* Teams Container */
@@ -7870,9 +7956,162 @@ body.modal-open {
 
 .giornata-section.giornata-prossima {
   border: 2px solid #3b82f6;
-  border-radius: 20px;
-  margin: 1px;
+  border-radius: 14px;
+  padding: 10px 10px 14px;
+  margin-bottom: 24px;
+  background: rgba(59, 130, 246, 0.03);
+}
 
+[data-theme="dark"] .giornata-section.giornata-prossima {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+@media (max-width: 640px) {
+  .giornata-section.giornata-prossima {
+    padding: 8px 8px 12px;
+    margin-bottom: 18px;
+    border-radius: 12px;
+  }
+}
+
+.actual-giornata-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.giornata-date-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-muted, #64748b);
+  background: var(--bg-hover, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--border-color, #e2e8f0);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+[data-theme="dark"] .giornata-date-badge {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+.badge-in-corso-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #15803d;
+  background: #dcfce7;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid #bbf7d0;
+}
+
+[data-theme="dark"] .badge-in-corso-live {
+  color: #86efac;
+  background: rgba(22, 163, 74, 0.2);
+  border-color: rgba(74, 222, 128, 0.3);
+}
+
+.badge-in-corso-live .live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16a34a;
+  animation: pulseInCorso 1.4s infinite;
+}
+
+[data-theme="dark"] .badge-in-corso-live .live-dot {
+  background: #4ade80;
+}
+
+.badge-prossima-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #1d4ed8;
+  background: #dbeafe;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid #bfdbfe;
+}
+
+[data-theme="dark"] .badge-prossima-pill {
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+.calendario-past-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  background: var(--bg-card, #f8fafc);
+  border: 1px dashed var(--border-color, #e2e8f0);
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+}
+
+.btn-show-past-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-primary-600, #01579b);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.btn-show-past-toggle:hover {
+  background: rgba(1, 87, 155, 0.08);
+}
+
+.badge-filter-count {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  background: var(--color-primary-100, #e0f2fe);
+  color: var(--color-primary-700, #0369a1);
+  margin-left: 4px;
+}
+
+[data-theme="dark"] .badge-filter-count {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+.filter-btn--hide-past.active {
+  background: var(--color-primary-600, #01579b);
+  color: #ffffff;
+  border-color: var(--color-primary-600, #01579b);
+}
+
+.filter-btn--hide-past.active .badge-filter-count {
+  background: #ffffff;
+  color: var(--color-primary-600, #01579b);
 }
 
 .giornata-section.giornata-prossima .actual-giornata-badge-pill {
