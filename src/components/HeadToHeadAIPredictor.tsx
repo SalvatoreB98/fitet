@@ -185,7 +185,7 @@ export const HeadToHeadAIPredictor: React.FC<HeadToHeadAIPredictorProps> = ({
     >
       {/* Intestazione Sezione */}
       <div>
-        <div className="d-flex align-items-center gap-2">
+        <div className="d-flex align-items-center gap-2 mb-2">
           <span
             className="d-inline-flex align-items-center justify-content-center rounded"
             style={{ width: '1.5rem', height: '1.5rem' }}
@@ -193,23 +193,23 @@ export const HeadToHeadAIPredictor: React.FC<HeadToHeadAIPredictorProps> = ({
             <Sparkles style={{ width: '0.875rem', height: '0.875rem' }} />
           </span>
           <span className="small fw-bold text-uppercase" style={{ letterSpacing: '0.05em' }}>
-            Pronostico IA Matchup
           </span>
+          {prediction && !loading && (
+            <span
+              className={`badge rounded-pill fw-bold border ${isEven
+                ? 'bg-secondary-subtle text-secondary-emphasis border-secondary-subtle'
+                : isLeaderA
+                  ? 'bg-success-subtle text-success-emphasis border-success-subtle'
+                  : 'bg-warning-subtle text-warning-emphasis border-warning-subtle'
+                }`}
+              style={{ fontSize: '0.7rem' }}
+            >
+              {isEven ? 'Equilibrio' : `Favorito: ${shortenName(leaderName)} (${leaderProb}%)`}
+            </span>
+          )}
         </div>
 
-        {prediction && !loading && (
-          <span
-            className={`badge rounded-pill fw-bold border ${isEven
-              ? 'bg-secondary-subtle text-secondary-emphasis border-secondary-subtle'
-              : isLeaderA
-                ? 'bg-success-subtle text-success-emphasis border-success-subtle'
-                : 'bg-warning-subtle text-warning-emphasis border-warning-subtle'
-              }`}
-            style={{ fontSize: '0.7rem' }}
-          >
-            {isEven ? 'Equilibrio' : `Favorito: ${shortenName(leaderName)} (${leaderProb}%)`}
-          </span>
-        )}
+
       </div>
 
       {/* Stato: Loading */}
@@ -328,7 +328,7 @@ export const HeadToHeadAIPredictor: React.FC<HeadToHeadAIPredictorProps> = ({
 
           {/* Barra di Probabilità Bicolore */}
           <div
-            className="progress-stacked rounded-pill"
+            className="progress-stacked rounded-pill mb-3"
             style={{ height: '12px' }}
             aria-label={`Probabilità di vittoria: ${athleteA.name} ${probA}%, ${athleteB.name} ${probB}%`}
           >
@@ -355,7 +355,7 @@ export const HeadToHeadAIPredictor: React.FC<HeadToHeadAIPredictorProps> = ({
           </div>
 
           {/* Callout Sintesi Tattica AI */}
-          <div>
+          <div className='mb-3'>
             <div className="d-flex align-items-start gap-2">
               <Quote
                 className="flex-shrink-0 mt-1"
@@ -366,23 +366,9 @@ export const HeadToHeadAIPredictor: React.FC<HeadToHeadAIPredictorProps> = ({
               </p>
             </div>
           </div>
-
-          {/* Info Cache & Ricalcola */}
-          <div className="d-flex align-items-center justify-content-between pt-1" style={{ fontSize: '0.7rem' }}>
-            <span>Cache locale attiva (nessun consumo token)</span>
-            <button
-              type="button"
-              onClick={handleRecalculate}
-              className="btn btn-link btn-sm text-decoration-none p-0 d-inline-flex align-items-center gap-1 fw-semibold  "
-              style={{ fontSize: '0.7rem' }}
-              title="Invalida la cache locale e ricalcola il pronostico con IA"
-            >
-              <RefreshCw style={{ width: '0.75rem', height: '0.75rem' }} />
-              <span>Ricalcola con IA</span>
-            </button>
-          </div>
         </div>
       )}
+      <hr />
     </div>
   );
 };
