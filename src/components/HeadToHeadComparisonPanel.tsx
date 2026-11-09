@@ -8,6 +8,7 @@ import {
   getMyProfileSnapshot,
 } from '../utils/myProfile';
 import { EloCalculatorModal } from './EloCalculatorModal';
+import { HeadToHeadAIPredictor } from './HeadToHeadAIPredictor';
 import {
   SerieCampionato,
   SingleMatchCalculationResult,
@@ -104,27 +105,6 @@ interface ComparisonGroup {
   label: string;
   icon: string;
   rows: ComparisonRow[];
-}
-
-interface FavoriteVerdict {
-  key: 'points' | 'form';
-  label: string;
-  side: 'a' | 'b' | 'even' | null;
-  name: string;
-  fullName?: string;
-  margin: string | null;
-}
-
-interface FavoriteResult {
-  probA: number;
-  probB: number;
-  leader: 'a' | 'b';
-  isEven: boolean;
-  label: string;
-  name: string;
-  leaderProb: number;
-  verdicts: FavoriteVerdict[];
-  note: string;
 }
 
 const parseDateValue = (value?: string): number => {
@@ -770,267 +750,6 @@ const buildComparisonGroups = (
   ].filter((group) => group.rows.length > 0);
 };
 
-const buildPointsVerdict = (
-  athleteA: AthleteMetrics,
-  athleteB: AthleteMetrics
-): FavoriteVerdict => {
-  if (athleteA.points == null || athleteB.points == null) {
-    return {
-      key: 'points',
-      label: 'Punti ranking',
-      side: null,
-      name: 'Dati non disponibili',
-      margin: null,
-    };
-  }
-
-  if (athleteA.points === athleteB.points) {
-    return {
-      key: 'points',
-      label: 'Punti ranking',
-      side: 'even',
-      name: 'Parità',
-      margin: `${formatNumber(athleteA.points)} pt`,
-    };
-  }
-
-  const side = athleteA.points > athleteB.points ? 'a' : 'b';
-  const leader = side === 'a' ? athleteA : athleteB;
-  const margin = Math.abs(athleteA.points - athleteB.points);
-
-  return {
-    key: 'points',
-    label: 'Punti ranking',
-    side,
-    name: shortenName(leader.name),
-    fullName: leader.name,
-    margin: `+${formatCompactNumber(margin)} pt`,
-  };
-};
-
-const buildFormVerdict = (
-  athleteA: AthleteMetrics,
-  athleteB: AthleteMetrics
-): FavoriteVerdict => {
-  if (athleteA.form.length === 0 || athleteB.form.length === 0) {
-    return {
-      key: 'form',
-      label: 'Stato di forma',
-      side: null,
-      name: 'Dati non disponibili',
-      margin: null,
-    };
-  }
-
-  if (athleteA.formRate === athleteB.formRate) {
-    return {
-      key: 'form',
-      label: 'Stato di forma',
-      side: 'even',
-      name: 'Parità',
-      margin: `${athleteA.formRate ?? 0}% · ${athleteA.formWins}V-${athleteA.formLosses}S`,
-    };
-  }
-
-  const side = (athleteA.formRate ?? 0) > (athleteB.formRate ?? 0) ? 'a' : 'b';
-  const leader = side === 'a' ? athleteA : athleteB;
-  const chaser = side === 'a' ? athleteB : athleteA;
-
-  return {
-    key: 'form',
-    label: 'Stato di forma',
-    side,
-    name: shortenName(leader.name),
-    fullName: leader.name,
-    margin: `${leader.formRate}% vs ${chaser.formRate}%`,
-  };
-};
-
-const buildFavorite = (
-  athleteA: AthleteMetrics | null,
-  athleteB: AthleteMetrics | null,
-  h2h?: HeadToHeadData | null
-): FavoriteResult | null => {
-  if (!athleteA || !athleteB) return null;
-
-  // 1. Calcolo distanza categorie (0 = stessa cat, 1 = 1 scarto, >=2 altrimenti)
-  const getCategoryDistance = (): number => {
-    if (athleteA.categoryRank != null && athleteB.categoryRank != null) {
-      return Math.abs(athleteA.categoryRank - athleteB.categoryRank);
-    }
-    if (athleteA.rank != null && athleteB.rank != null) {
-      const diff = Math.abs(athleteA.rank - athleteB.rank);
-      if (diff <= 20) return 0;
-      if (diff <= 45) return 1;
-      return 2;
-    }
-    return 2;
-  };
-
-  const catDistance = getCategoryDistance();
-  const isCloseCategory = catDistance <= 1;
-
-  // 2. Analisi H2H (pesano da 0.20 a 0.35 in base al volume di incontri)
-  const directWinsA = h2h?.atleta1.vittorie ?? 0;
-  const directWinsB = h2h?.atleta2.vittorie ?? 0;
-  const directTotal = directWinsA + directWinsB;
-  const hasHistory = directTotal > 0;
-
-  const h2hWeight = hasHistory
-    ? Math.min(0.35, 0.20 + Math.min(directTotal, 5) * 0.03)
-    : 0;
-
-  // 3. Pesi dinamici per categoria
-  let formWeight = 0.25;
-  let rankWeight = 0.30;
-  let pointsWeight = 0.35;
-
-  if (isCloseCategory) {
-    formWeight = catDistance === 0 ? 0.45 : 0.38;
-    rankWeight = 0.12;
-    pointsWeight = 0.20;
-  }
-
-  // Ribilanciamento pesi se ci sono precedenti diretti
-  if (hasHistory) {
-    rankWeight = Math.max(0.08, rankWeight - h2hWeight * 0.5);
-    pointsWeight = Math.max(0.12, pointsWeight - h2hWeight * 0.5);
-  }
-
-  const metrics: Array<{
-    key: string;
-    label: string;
-    weight: number;
-    a: number;
-    b: number;
-  }> = [];
-
-  // METRICA 1: PUNTI RANKING STABILIZZATI
-  if (athleteA.points != null && athleteB.points != null) {
-    const STABILIZER = 150;
-    const logPtsA = Math.log10(Math.max(0, athleteA.points) + STABILIZER);
-    const logPtsB = Math.log10(Math.max(0, athleteB.points) + STABILIZER);
-    const totalLogPts = logPtsA + logPtsB;
-
-    if (totalLogPts > 0) {
-      metrics.push({
-        key: 'points',
-        label: 'punti ranking',
-        weight: pointsWeight,
-        a: logPtsA / totalLogPts,
-        b: logPtsB / totalLogPts,
-      });
-    }
-  }
-
-  // METRICA 2: STATO DI FORMA (Laplace Smoothing)
-  if (athleteA.form?.length > 0 && athleteB.form?.length > 0) {
-    const formA = (athleteA.formWins + 0.5) / (athleteA.form.length + 1);
-    const formB = (athleteB.formWins + 0.5) / (athleteB.form.length + 1);
-    const totalForm = formA + formB;
-
-    if (totalForm > 0) {
-      metrics.push({
-        key: 'form',
-        label: isCloseCategory ? 'stato di forma (prioritario)' : 'forma recente',
-        weight: formWeight,
-        a: formA / totalForm,
-        b: formB / totalForm,
-      });
-    }
-  }
-
-  // METRICA 3: DISTANZA LOGARITMICA + MOLTIPLICATORE ÉLITE
-  if (athleteA.rank != null && athleteB.rank != null && athleteA.rank > 0 && athleteB.rank > 0) {
-    const rA = athleteA.rank;
-    const rB = athleteB.rank;
-    const logDiff = Math.log10(rB) - Math.log10(rA);
-    const bestRank = Math.min(rA, rB);
-    const eliteMultiplier = 1 + 2.5 / (1 + Math.pow(bestRank / 12, 1.2));
-    const effectiveDiff = logDiff * eliteMultiplier;
-    const rankProbA = 1 / (1 + Math.pow(10, -effectiveDiff * 0.9));
-
-    metrics.push({
-      key: 'rank',
-      label: bestRank <= 10 ? 'ranking (fattore élite)' : 'posizione ranking',
-      weight: rankWeight,
-      a: rankProbA,
-      b: 1 - rankProbA,
-    });
-  }
-
-  // METRICA 4: H2H (Scontri Diretti)
-  if (hasHistory) {
-    const h2hA = (directWinsA + 0.5) / (directTotal + 1);
-    const h2hB = (directWinsB + 0.5) / (directTotal + 1);
-    const sumH2H = h2hA + h2hB;
-
-    metrics.push({
-      key: 'h2h',
-      label: `trascorsi diretti (${directWinsA}-${directWinsB})`,
-      weight: h2hWeight,
-      a: h2hA / sumH2H,
-      b: h2hB / sumH2H,
-    });
-  }
-
-  if (metrics.length < 2) return null;
-
-  const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
-  let weightedDifference =
-    metrics.reduce((sum, m) => sum + m.weight * (m.a - m.b), 0) / totalWeight;
-
-  // 4. FATTORE GENERE (Incontri Misti M vs F)
-  const genderA = athleteA.gender?.toUpperCase();
-  const genderB = athleteB.gender?.toUpperCase();
-  if (genderA && genderB && genderA !== genderB) {
-    const GENDER_HANDICAP = 0.10;
-    if (genderA === 'M' && genderB === 'F') {
-      weightedDifference += GENDER_HANDICAP;
-    } else if (genderA === 'F' && genderB === 'M') {
-      weightedDifference -= GENDER_HANDICAP;
-    }
-  }
-
-  // 5. Sigmoide finale (k = 5.0)
-  const k = 5.0;
-  const logisticProbA = 1 / (1 + Math.exp(-k * weightedDifference));
-
-  const exactA = Math.min(0.99, Math.max(0.01, logisticProbA));
-  const probA = Math.round(exactA * 100);
-  const probB = 100 - probA;
-
-  const leader: 'a' | 'b' = probA >= probB ? 'a' : 'b';
-  const leaderProb = Math.max(probA, probB);
-  const isEven = leaderProb < 53;
-  const label = isEven
-    ? 'Equilibrio'
-    : leaderProb < 60
-      ? 'Leggero vantaggio'
-      : leaderProb < 75
-        ? 'Favorito'
-        : 'Netto favorito';
-
-  const leaderName = leader === 'a' ? athleteA.name : athleteB.name;
-  const indicatorLabels = metrics.map((m) => m.label);
-  const note =
-    metrics.length >= 4
-      ? 'Indice calcolato su punti ranking stabilizzati, forma recente, ranking élite e precedenti diretti.'
-      : `Indice basato su ${indicatorLabels.join(', ')}. Gli indicatori non disponibili per entrambi sono esclusi.`;
-
-  return {
-    probA,
-    probB,
-    leader,
-    isEven,
-    label,
-    name: isEven ? 'Nessun favorito netto' : leaderName,
-    leaderProb,
-    verdicts: [buildPointsVerdict(athleteA, athleteB), buildFormVerdict(athleteA, athleteB)],
-    note,
-  };
-};
-
 interface HeadToHeadEloEntry {
   key: string;
   name: string;
@@ -1218,82 +937,6 @@ const buildEloSimulation = (
   };
 };
 
-const FavoriteCard: React.FC<{
-  favorite: FavoriteResult;
-  athleteAName: string;
-  athleteBName: string;
-}> = ({ favorite, athleteAName, athleteBName }) => {
-  const favoriteClass = `h2h-cmp-favorite is-lead-${favorite.leader}${
-    favorite.isEven ? ' is-even' : ''
-  }`;
-
-  return (
-    <div className={favoriteClass}>
-      <div className="h2h-cmp-favorite-kicker">
-        <span>Pronostico</span>
-      </div>
-
-      <div className="h2h-cmp-favorite-main">
-        <span className="h2h-cmp-favorite-icon" aria-hidden="true">
-          <i className={favorite.isEven ? 'bi bi-activity' : 'bi bi-trophy-fill'}></i>
-        </span>
-        <span className="h2h-cmp-favorite-copy">
-          <span className="h2h-cmp-favorite-label">{favorite.label}</span>
-          <span className="h2h-cmp-favorite-name" title={favorite.name}>
-            {favorite.name}
-          </span>
-        </span>
-        <span
-          className="h2h-cmp-favorite-pct"
-          title={`${favorite.probA}% ${athleteAName} · ${favorite.probB}% ${athleteBName}`}
-        >
-          {favorite.leaderProb}
-          <small>%</small>
-        </span>
-      </div>
-
-      <div
-        className="h2h-cmp-favorite-bar"
-        role="img"
-        aria-label={`${athleteAName} ${favorite.probA}%, ${athleteBName} ${favorite.probB}%`}
-      >
-        <span className="h2h-cmp-favorite-bar-a" style={{ width: `${favorite.probA}%` }}></span>
-        <span className="h2h-cmp-favorite-bar-b" style={{ width: `${favorite.probB}%` }}></span>
-      </div>
-
-      <div className="h2h-cmp-favorite-legend">
-        <span title={athleteAName}>
-          <i className="h2h-cmp-legend-dot is-a" aria-hidden="true"></i>
-          <span className="h2h-cmp-favorite-legend-name">{shortenName(athleteAName)}</span>
-          <b>{favorite.probA}%</b>
-        </span>
-        <span title={athleteBName}>
-          <b>{favorite.probB}%</b>
-          <span className="h2h-cmp-favorite-legend-name">{shortenName(athleteBName)}</span>
-          <i className="h2h-cmp-legend-dot is-b" aria-hidden="true"></i>
-        </span>
-      </div>
-
-      <div className="h2h-cmp-verdicts">
-        {favorite.verdicts.map((verdict) => (
-          <div key={verdict.key} className="h2h-cmp-verdict">
-            <span className="h2h-cmp-verdict-label">{verdict.label}</span>
-            <strong
-              className={`h2h-cmp-verdict-name is-${verdict.side || 'none'}`}
-              title={verdict.fullName || verdict.name}
-            >
-              {verdict.name}
-            </strong>
-            {verdict.margin && <span className="h2h-cmp-verdict-margin">{verdict.margin}</span>}
-          </div>
-        ))}
-      </div>
-
-      <p className="h2h-cmp-favorite-note">{favorite.note}</p>
-    </div>
-  );
-};
-
 export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps> = ({
   atleta1Id,
   atleta1Nome,
@@ -1372,10 +1015,6 @@ export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps>
     () => buildComparisonGroups(metricsA, metricsB, h2h),
     [metricsA, metricsB, h2h]
   );
-  const favorite = useMemo(
-    () => buildFavorite(metricsA, metricsB, h2h),
-    [metricsA, metricsB, h2h]
-  );
   const eloSim = useMemo(
     () => buildEloSimulation(profiles.a?.detail, profiles.b?.detail, metricsA, metricsB),
     [profiles.a, profiles.b, metricsA, metricsB]
@@ -1388,11 +1027,7 @@ export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps>
     ? 'Recupero ranking, forma e statistiche...'
     : error
       ? 'Dati di confronto non disponibili'
-      : favorite
-        ? favorite.isEven
-          ? `Equilibrio · ${favorite.probA}% - ${favorite.probB}%`
-          : `${favorite.label}: ${shortenName(favorite.name)} · ${favorite.leaderProb}%`
-        : 'Ranking, forma, punti e pronostico';
+      : 'Ranking, forma, punti e pronostico IA';
 
   const eloSubtitle = showLoading
     ? 'Calcolo punti in palio...'
@@ -1686,13 +1321,25 @@ export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps>
                   </div>
                 )}
 
-                {favorite && (
-                  <FavoriteCard
-                    favorite={favorite}
-                    athleteAName={atleta1Nome}
-                    athleteBName={atleta2Nome}
-                  />
-                )}
+                <HeadToHeadAIPredictor
+                  athleteA={{
+                    id: atleta1Id,
+                    name: atleta1Nome,
+                    rank: metricsA?.rank ?? 0,
+                    points: metricsA?.points ?? undefined,
+                    recentForm: metricsA?.formSummary ?? (metricsA ? `${metricsA.formWins}V-${metricsA.formLosses}S` : undefined),
+                    h2hWins: h2h?.atleta1.vittorie ?? 0,
+                  }}
+                  athleteB={{
+                    id: atleta2Id,
+                    name: atleta2Nome,
+                    rank: metricsB?.rank ?? 0,
+                    points: metricsB?.points ?? undefined,
+                    recentForm: metricsB?.formSummary ?? (metricsB ? `${metricsB.formWins}V-${metricsB.formLosses}S` : undefined),
+                    h2hWins: h2h?.atleta2.vittorie ?? 0,
+                  }}
+                  className="mb-3"
+                />
 
                 <div className="h2h-cmp-table-head">
                   <span className="h2h-cmp-table-name is-a" title={atleta1Nome}>

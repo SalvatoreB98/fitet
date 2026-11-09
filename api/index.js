@@ -2648,6 +2648,122 @@ var HeadToHeadService = class {
 };
 var headToHeadService = new HeadToHeadService();
 
+// api/predict-h2h.ts
+import { GoogleGenAI } from "@google/genai";
+async function handlePredictH2H(req, res) {
+  if (req.method && req.method.toUpperCase() !== "POST") {
+    return res.status(405).json({ error: "Metodo non consentito. Usa POST." });
+  }
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || !apiKey.trim()) {
+    return res.status(500).json({
+      error: "GEMINI_API_KEY non configurata sul server."
+    });
+  }
+  const { athleteA, athleteB } = req.body || {};
+  if (!athleteA || !athleteB) {
+    return res.status(400).json({
+      error: "Dati atleti mancanti nel corpo della richiesta (athleteA e athleteB richiesti)."
+    });
+  }
+  if (typeof athleteA.name !== "string" || !athleteA.name.trim() || typeof athleteB.name !== "string" || !athleteB.name.trim()) {
+    return res.status(400).json({ error: "Nomi atleti non validi." });
+  }
+  if (typeof athleteA.rank !== "number" || typeof athleteB.rank !== "number") {
+    return res.status(400).json({ error: "Ranking atleti non valido o mancante (fornire un valore numerico)." });
+  }
+  try {
+    const ai = new GoogleGenAI({
+      apiKey
+      // Se l'SDK supporta le apiClientOptions:
+      // apiClientOptions: { apiVersion: 'v1beta' }
+    });
+    const nameA = athleteA.name.trim();
+    const nameB = athleteB.name.trim();
+    const rankA = athleteA.rank > 0 ? `#${athleteA.rank}` : "Non classificato";
+    const rankB = athleteB.rank > 0 ? `#${athleteB.rank}` : "Non classificato";
+    const pointsA = athleteA.points != null ? `${athleteA.points}` : "N/D";
+    const pointsB = athleteB.points != null ? `${athleteB.points}` : "N/D";
+    const formA = athleteA.recentForm?.trim() || "N/D";
+    const formB = athleteB.recentForm?.trim() || "N/D";
+    const h2hWinsA = athleteA.h2hWins ?? 0;
+    const h2hWinsB = athleteB.h2hWins ?? 0;
+    const prompt = `Sei un analista esperto di tennistavolo/sportivo. Analizza questo matchup testa a testa:
+- Atleta A: 
+${nameA}, Ranking: ${rankA}, Punti: ${pointsA}, Forma recente: ${formA}.
+- Atleta B: 
+${nameB}, Ranking: ${rankB}, Punti: ${pointsB}, Forma recente: ${formB}.
+- Scontri diretti: 
+${h2hWinsA} vittorie A vs ${h2hWinsB} vittorie B.
+
+Restituisci ESCLUSIVAMENTE un JSON valido in questo formato:
+{
+  "probA": <intero da 1 a 99>,
+  "probB": <intero da 1 a 99, con probA + probB = 100>,
+  "analysis": "<massimo 2-3 frasi evidenziando il matchup tattico e il fattore decisivo>"
+}`;
+    const preferredModel = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+    const candidateModels = Array.from(
+      /* @__PURE__ */ new Set([
+        preferredModel,
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash"
+      ])
+    );
+    let response = null;
+    let lastError = null;
+    for (const model of candidateModels) {
+      try {
+        response = await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            temperature: 0.3
+          }
+        });
+        if (response && response.text && response.text.trim()) {
+          break;
+        }
+      } catch (err) {
+        lastError = err;
+        console.warn(`[predict-h2h] Modello ${model} non disponibile o errore:`, err?.message || err);
+      }
+    }
+    if (!response || !response.text || !response.text.trim()) {
+      throw lastError || new Error("Nessun modello Gemini ha restituito una risposta valida.");
+    }
+    const responseText = response.text;
+    const cleanedText = responseText.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
+    const raw = JSON.parse(cleanedText);
+    let probA = Math.round(Number(raw.probA));
+    let probB = Math.round(Number(raw.probB));
+    if (isNaN(probA) && isNaN(probB)) {
+      probA = 50;
+      probB = 50;
+    } else if (isNaN(probA)) {
+      probA = 100 - probB;
+    } else if (isNaN(probB)) {
+      probB = 100 - probA;
+    }
+    probA = Math.max(1, Math.min(99, probA));
+    probB = 100 - probA;
+    const analysis = typeof raw.analysis === "string" && raw.analysis.trim().length > 0 ? raw.analysis.trim() : "Matchup equilibrato analizzato sulla base dei parametri di ranking e stato di forma recente.";
+    return res.status(200).json({
+      probA,
+      probB,
+      analysis
+    });
+  } catch (err) {
+    console.error("[predict-h2h] Errore invocazione Gemini API:", err);
+    return res.status(500).json({
+      error: `Errore durante l'elaborazione del pronostico con IA: ${err.message || "Errore interno"}`
+    });
+  }
+}
+
 // server/services/pushService.ts
 import webpush from "web-push";
 import { createClient as createClient2 } from "@supabase/supabase-js";
@@ -6920,6 +7036,7 @@ app.get("/api/head-to-head", async (req, res) => {
     res.status(500).json({ error: "Errore nel recupero del testa a testa", details: error.message });
   }
 });
+app.post("/api/predict-h2h", handlePredictH2H);
 app.post("/api/atleta/:id/view", async (req, res) => {
   const { id } = req.params;
   if (!id) return res.status(400).json({ error: "ID atleta mancante" });

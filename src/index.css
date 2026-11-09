@@ -7955,7 +7955,6 @@ body.modal-open {
 }
 
 .giornata-section.giornata-prossima {
-  border: 2px solid #3b82f6;
   border-radius: 14px;
   padding: 10px 10px 14px;
   margin-bottom: 24px;
@@ -7963,7 +7962,6 @@ body.modal-open {
 }
 
 [data-theme="dark"] .giornata-section.giornata-prossima {
-  border-color: rgba(59, 130, 246, 0.5);
   background: rgba(59, 130, 246, 0.05);
 }
 

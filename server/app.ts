@@ -13,6 +13,7 @@ import { parseCalendario } from './parsers/calendarioParser';
 import { parseStatisticheAtleti } from './parsers/statisticheParser';
 import { parseDettaglioAtleta, extractRankingIframeUrl, parsePartiteRanking } from './parsers/atletaParser';
 import { headToHeadService } from './services/headToHeadService';
+import { handlePredictH2H } from '../api/predict-h2h';
 import {
     pushService,
     notifyRankingChangeIfNeeded,
@@ -1381,6 +1382,9 @@ app.get('/api/head-to-head', async (req, res) => {
         res.status(500).json({ error: 'Errore nel recupero del testa a testa', details: error.message });
     }
 });
+
+// 5c. Head-to-Head AI Prediction
+app.post('/api/predict-h2h', handlePredictH2H);
 
 // 5c. Athlete Real Views tracking
 app.post("/api/atleta/:id/view", async (req, res) => {
