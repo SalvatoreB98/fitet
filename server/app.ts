@@ -19,6 +19,7 @@ import {
     pushService,
     notifyRankingChangeIfNeeded,
 } from './services/pushService';
+import { youtubeSyncService } from './services/youtubeSyncService';
 import {
     checkNewTorneiAndNotify,
     notifyObservedTorneiIfNeeded,
@@ -295,6 +296,68 @@ async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, f
 }
 
 /**
+ * Arricchisce gli incontri di calendario con eventuali video YouTube associati
+ */
+async function enrichCalendarioWithVideos(
+    calendario: GiornataCalendario[],
+    camId: number,
+    championshipName?: string
+): Promise<GiornataCalendario[]> {
+    try {
+        const videos = await youtubeSyncService.getAllVideos();
+        if (!videos || videos.length === 0) return calendario;
+
+        return calendario.map((giornata) => ({
+            ...giornata,
+            partite: giornata.partite.map((partita) => {
+                const matched = youtubeSyncService.matchVideosForMatch(videos, {
+                    giornata: partita.giornata,
+                    squadraCasa: partita.squadraCasa,
+                    squadraOspite: partita.squadraOspite,
+                    camId,
+                    championshipName,
+                });
+
+                if (matched.length > 0) {
+                    const primary = matched[0];
+                    return {
+                        ...partita,
+                        youtubeVideoId: primary.video_id,
+                        video: {
+                            videoId: primary.video_id,
+                            channelName: primary.channel_name,
+                            channelUrl: primary.channel_url,
+                            title: primary.title,
+                            publishedAt: primary.published_at,
+                            league: primary.league,
+                            matchDay: primary.match_day,
+                            teamHome: primary.team_home,
+                            teamAway: primary.team_away,
+                        },
+                        videos: matched.map((v) => ({
+                            videoId: v.video_id,
+                            channelName: v.channel_name,
+                            channelUrl: v.channel_url,
+                            title: v.title,
+                            publishedAt: v.published_at,
+                            league: v.league,
+                            matchDay: v.match_day,
+                            teamHome: v.team_home,
+                            teamAway: v.team_away,
+                        })),
+                    };
+                }
+
+                return partita;
+            }),
+        }));
+    } catch (err) {
+        console.warn('[EnrichCalendario] Errore associazione video YouTube:', err);
+        return calendario;
+    }
+}
+
+/**
  * Fetch and parse Statistiche Atleti with auto athlete ID resolution
  */
 async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squadraIds: string[] = []): Promise<StatisticaAtleta[]> {
@@ -353,10 +416,11 @@ app.get('/api/dashboard', async (req, res) => {
         const statisticheAtleti = await getStatistiche(cam, forceRefresh, squadraIds);
 
         const classifica = computeTeamForm(rawClassifica, calendario);
+        const enrichedCalendario = await enrichCalendarioWithVideos(calendario, cam, champMeta?.nome);
 
         const payload: DashboardData = {
             classifica,
-            calendario,
+            calendario: enrichedCalendario,
             statisticheAtleti,
             lastUpdated: new Date().toISOString(),
             championship: {
@@ -407,7 +471,9 @@ app.get('/api/calendario', async (req, res) => {
     const forceRefresh = req.query.refresh === 'true';
     try {
         const data = await getCalendario(cam, anno, forceRefresh);
-        res.json(data);
+        const champMeta = await championshipCatalog.getChampionship(cam);
+        const enriched = await enrichCalendarioWithVideos(data, cam, champMeta?.nome);
+        res.json(enriched);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -2219,6 +2285,76 @@ app.get('/api/push/check-tornei', async (req, res) => {
             error: 'Errore durante il controllo dei nuovi tornei.',
             details: error.message,
         });
+    }
+});
+
+// ---------------------------------------------------------------------------
+// YouTube Match Videos Sync & Lookup API
+// ---------------------------------------------------------------------------
+
+// Sincronizza i video dei canali YouTube (@GiacomoCerea, @Fitetofficial, @FilippoCantellaTT)
+app.all(['/api/videos/sync', '/api/sync-youtube'], async (req, res) => {
+    try {
+        const result = await youtubeSyncService.syncAllChannels();
+        return res.json({
+            success: true,
+            totalFetched: result.total,
+            upserted: result.upserted,
+            videosCount: result.videos.length,
+            timestamp: new Date().toISOString(),
+        });
+    } catch (error: any) {
+        console.error('Error in YouTube sync endpoint:', error);
+        return res.status(500).json({ error: error.message || 'Errore durante la sincronizzazione video YouTube' });
+    }
+});
+
+// Restituisce l'elenco dei video archiviati, con filtri opzionali per cam, league o giornata
+app.get('/api/videos', async (req, res) => {
+    const forceRefresh = req.query.refresh === 'true';
+    const league = typeof req.query.league === 'string' ? req.query.league.toUpperCase() : undefined;
+    const day = req.query.day ? parseInt(req.query.day as string, 10) : undefined;
+
+    try {
+        let videos = await youtubeSyncService.getAllVideos(forceRefresh);
+
+        if (league) {
+            videos = videos.filter((v) => v.league && v.league.toUpperCase().startsWith(league));
+        }
+        if (day !== undefined && !isNaN(day)) {
+            videos = videos.filter((v) => v.match_day === day);
+        }
+
+        const formatted = videos.map((v) => ({
+            videoId: v.video_id,
+            channelName: v.channel_name,
+            channelId: v.channel_id,
+            channelUrl: v.channel_url,
+            title: v.title,
+            publishedAt: v.published_at,
+            league: v.league,
+            matchDay: v.match_day,
+            teamHome: v.team_home,
+            teamAway: v.team_away,
+            videoUrl: v.video_url,
+            video_id: v.video_id,
+            channel_name: v.channel_name,
+            channel_id: v.channel_id,
+            channel_url: v.channel_url,
+            published_at: v.published_at,
+            match_day: v.match_day,
+            team_home: v.team_home,
+            team_away: v.team_away,
+            video_url: v.video_url,
+        }));
+
+        return res.json({
+            success: true,
+            count: formatted.length,
+            videos: formatted,
+        });
+    } catch (error: any) {
+        return res.status(500).json({ error: error.message });
     }
 });
 

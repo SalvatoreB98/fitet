@@ -51,6 +51,18 @@ export interface DettaglioSquadra {
 }
 
 
+export interface MatchVideoInfo {
+  videoId: string;
+  channelName: string;
+  channelUrl?: string;
+  title: string;
+  publishedAt?: string;
+  league?: string | null;
+  matchDay?: number | null;
+  teamHome?: string | null;
+  teamAway?: string | null;
+}
+
 export interface PartitaCalendario {
   id: string;
   giornata: number;
@@ -67,6 +79,9 @@ export interface PartitaCalendario {
   incontroId: string | null;
   vincitore: 'casa' | 'ospite' | 'pareggio' | null;
   formula?: number;
+  youtubeVideoId?: string | null;
+  video?: MatchVideoInfo | null;
+  videos?: MatchVideoInfo[];
 }
 
 export interface ChampionshipItem {

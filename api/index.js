@@ -3669,6 +3669,259 @@ async function notifyRankingChangeIfNeeded(idClass) {
   };
 }
 
+// server/services/youtubeSyncService.ts
+import { createClient as createClient3 } from "@supabase/supabase-js";
+import dotenv3 from "dotenv";
+dotenv3.config();
+var YOUTUBE_CHANNELS = [
+  {
+    name: "Giacomo Cerea",
+    handle: "@GiacomoCerea",
+    channelId: "UCcA-SldiAGIwc2ymdU0XZ0A",
+    channelUrl: "https://www.youtube.com/@GiacomoCerea"
+  },
+  {
+    name: "FITeT Official",
+    handle: "@Fitetofficial",
+    channelId: "UCEMruyCuhXSrAqkA-LkLUSg",
+    channelUrl: "https://www.youtube.com/@Fitetofficial"
+  },
+  {
+    name: "Filippo Cantella TT",
+    handle: "@FilippoCantellaTT",
+    channelId: "UC1rRzhu89B1x25cgAWdLOxw",
+    channelUrl: "https://www.youtube.com/@FilippoCantellaTT"
+  }
+];
+function normalizeTeamName(name) {
+  if (!name) return "";
+  return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\b(a\.?s\.?d\.?|asd|t\.?t\.?|tt|tennistavolo|polisportiva|pol\.?|u\.?s\.?|us|dilettantistica|1999)\b/gi, " ").replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
+}
+function parseMatchTitle(title) {
+  const clean = title.replace(/\s+/g, " ").trim();
+  let league = null;
+  const leagueMatch = clean.match(/\b(?:Serie\s+)?([ABCD][1-2])(?:\s*([FM]|Femminile|Maschile))?\b/i);
+  if (leagueMatch) {
+    league = leagueMatch[1].toUpperCase();
+    if (leagueMatch[2]) {
+      const g = leagueMatch[2].toUpperCase().startsWith("F") ? "F" : "M";
+      league += ` ${g}`;
+    }
+  }
+  let matchDay = null;
+  const dayMatch = clean.match(/(?:recupero\s+)?(\d+)\s*[ªa°\^e]?\s*giornata/i) || clean.match(/giornata\s*(\d+)/i);
+  if (dayMatch) {
+    matchDay = parseInt(dayMatch[1], 10);
+  }
+  let teamHome = null;
+  let teamAway = null;
+  const parenMatch = clean.match(/\(([^()]+?)\s*(?:-|–|vs\.?)\s*([^()]+?)\)/i);
+  if (parenMatch) {
+    teamHome = parenMatch[1].trim();
+    teamAway = parenMatch[2].trim();
+  } else {
+    const delimiterMatch = clean.match(/(?:[,|]\s*)([A-Za-z0-9À-ÿ\s.'’]+?)\s*(?:-|–|vs\.?)\s*([A-Za-z0-9À-ÿ\s.'’]+?)(?:\s+\d+\s*[-–:]\s*\d+.*)?$/i);
+    if (delimiterMatch) {
+      teamHome = delimiterMatch[1].trim();
+      teamAway = delimiterMatch[2].trim().replace(/\s+\d+\s*[-–:]\s*\d+.*$/, "").trim();
+    } else {
+      const vsMatch = clean.match(/([A-Za-z0-9À-ÿ\s.'’]+?)\s+(?:vs\.?)\s+([A-Za-z0-9À-ÿ\s.'’]+?)(?:\s*[|,]|$)/i);
+      if (vsMatch) {
+        teamHome = vsMatch[1].trim();
+        teamAway = vsMatch[2].trim();
+      }
+    }
+  }
+  return { league, matchDay, teamHome, teamAway };
+}
+var YouTubeSyncService = class {
+  supabase = null;
+  CACHE_KEY = "youtube_match_videos_all";
+  CACHE_TTL_MS = 60 * 60 * 1e3;
+  // 1 ora in cache RAM/disco
+  constructor() {
+    this.initSupabase();
+  }
+  initSupabase() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (!url || !key) {
+      console.warn("\u26A0\uFE0F [YouTubeSyncService] Supabase URL o KEY non configurate: operativit\xE0 solo in locale/cache.");
+      return;
+    }
+    try {
+      this.supabase = createClient3(url, key, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      });
+      console.log("\u2705 [YouTubeSyncService] Supabase connesso.");
+    } catch (err) {
+      console.error("\u274C [YouTubeSyncService] Errore inizializzazione Supabase:", err);
+    }
+  }
+  /**
+   * Effettua il fetch e parsing del feed RSS Atom di un canale YouTube
+   */
+  async fetchChannelFeed(channel) {
+    const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channel.channelId}`;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; PingPongPortal/1.0; +https://portale-risultati-tt.it)"
+        }
+      });
+      if (!res.ok) {
+        console.warn(`[YouTubeSyncService] Risposta HTTP ${res.status} per canale ${channel.name}`);
+        return [];
+      }
+      const xml = await res.text();
+      const entries = [];
+      const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
+      let match;
+      while ((match = entryRegex.exec(xml)) !== null) {
+        const entryXml = match[1];
+        const videoIdMatch = entryXml.match(/<yt:videoId>(.*?)<\/yt:videoId>/);
+        const titleMatch = entryXml.match(/<title>(.*?)<\/title>/);
+        const publishedMatch = entryXml.match(/<published>(.*?)<\/published>/);
+        if (videoIdMatch && titleMatch) {
+          const rawTitle = titleMatch[1].replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+          const parsed = parseMatchTitle(rawTitle);
+          const videoId = videoIdMatch[1];
+          entries.push({
+            video_id: videoId,
+            channel_name: channel.name,
+            channel_id: channel.channelId,
+            channel_url: channel.channelUrl,
+            title: rawTitle,
+            published_at: publishedMatch ? publishedMatch[1] : (/* @__PURE__ */ new Date()).toISOString(),
+            league: parsed.league,
+            match_day: parsed.matchDay,
+            team_home: parsed.teamHome,
+            team_away: parsed.teamAway,
+            video_url: `https://www.youtube.com/watch?v=${videoId}`
+          });
+        }
+      }
+      return entries;
+    } catch (err) {
+      console.error(`[YouTubeSyncService] Errore durante il recupero del feed per ${channel.name}:`, err);
+      return [];
+    }
+  }
+  /**
+   * Sincronizza tutti i canali configurati in parallelo e aggiorna Supabase
+   */
+  async syncAllChannels() {
+    console.log("\u{1F504} [YouTubeSyncService] Avvio sincronizzazione feed YouTube...");
+    const fetchPromises = YOUTUBE_CHANNELS.map((ch) => this.fetchChannelFeed(ch));
+    const channelResults = await Promise.all(fetchPromises);
+    const allVideos = channelResults.flat();
+    console.log(`\u{1F4F9} [YouTubeSyncService] Recuperati ${allVideos.length} video totali dai feed.`);
+    cacheService.set(this.CACHE_KEY, allVideos, this.CACHE_TTL_MS);
+    let upsertedCount = 0;
+    if (this.supabase && allVideos.length > 0) {
+      try {
+        const rows = allVideos.map((v) => ({
+          video_id: v.video_id,
+          channel_name: v.channel_name,
+          channel_id: v.channel_id,
+          channel_url: v.channel_url,
+          title: v.title,
+          published_at: v.published_at,
+          league: v.league,
+          match_day: v.match_day,
+          team_home: v.team_home,
+          team_away: v.team_away,
+          video_url: v.video_url
+        }));
+        const { data, error } = await this.supabase.from("match_videos").upsert(rows, { onConflict: "video_id" }).select();
+        if (error) {
+          console.error("\u274C [YouTubeSyncService] Errore upsert su Supabase:", error);
+        } else {
+          upsertedCount = data ? data.length : rows.length;
+          console.log(`\u2705 [YouTubeSyncService] Upsert completato su Supabase: ${upsertedCount} record aggiornati.`);
+        }
+      } catch (err) {
+        console.error("\u274C [YouTubeSyncService] Eccezione durante upsert Supabase:", err);
+      }
+    }
+    return {
+      total: allVideos.length,
+      upserted: upsertedCount,
+      videos: allVideos
+    };
+  }
+  /**
+   * Restituisce tutti i video memorizzati (da Supabase con fallback su cache)
+   */
+  async getAllVideos(forceRefresh = false) {
+    if (!forceRefresh) {
+      const cached = cacheService.get(this.CACHE_KEY);
+      if (cached && cached.length > 0) {
+        return cached;
+      }
+    }
+    if (this.supabase) {
+      try {
+        const { data, error } = await this.supabase.from("match_videos").select("*").order("published_at", { ascending: false });
+        if (!error && data && data.length > 0) {
+          cacheService.set(this.CACHE_KEY, data, this.CACHE_TTL_MS);
+          return data;
+        }
+      } catch (err) {
+        console.warn("[YouTubeSyncService] Lettura da Supabase non riuscita, eseguo fallback su sync diretta:", err);
+      }
+    }
+    const syncRes = await this.syncAllChannels();
+    return syncRes.videos;
+  }
+  /**
+   * Cerca e associa uno o più video a una partita di calendario
+   */
+  matchVideosForMatch(videos, params) {
+    const { giornata, squadraCasa, squadraOspite, championshipName } = params;
+    const normCasa = normalizeTeamName(squadraCasa);
+    const normOspite = normalizeTeamName(squadraOspite);
+    let champLeague = null;
+    if (championshipName) {
+      const lm = championshipName.match(/\b([ABCD][1-2])\b/i);
+      if (lm) champLeague = lm[1].toUpperCase();
+    }
+    return videos.filter((v) => {
+      if (v.match_day !== null && v.match_day !== void 0 && v.match_day !== giornata) {
+        return false;
+      }
+      if (champLeague && v.league) {
+        const vLeagueBase = v.league.split(" ")[0].toUpperCase();
+        if (vLeagueBase !== champLeague) {
+          return false;
+        }
+      }
+      if (v.team_home && v.team_away) {
+        const vHome = normalizeTeamName(v.team_home);
+        const vAway = normalizeTeamName(v.team_away);
+        const directMatch = (normCasa.includes(vHome) || vHome.includes(normCasa) || vHome.length >= 4 && normCasa.includes(vHome.slice(0, 5))) && (normOspite.includes(vAway) || vAway.includes(normOspite) || vAway.length >= 4 && normOspite.includes(vAway.slice(0, 5)));
+        const invertedMatch = (normCasa.includes(vAway) || vAway.includes(normCasa) || vAway.length >= 4 && normCasa.includes(vAway.slice(0, 5))) && (normOspite.includes(vHome) || vHome.includes(normHome) || vHome.length >= 4 && normOspite.includes(vHome.slice(0, 5)));
+        if (directMatch || invertedMatch) {
+          return true;
+        }
+      }
+      const normTitle = normalizeTeamName(v.title);
+      const casaTokens = normCasa.split(" ").filter((t) => t.length >= 4);
+      const ospiteTokens = normOspite.split(" ").filter((t) => t.length >= 4);
+      const hasCasaToken = casaTokens.some((token) => normTitle.includes(token));
+      const hasOspiteToken = ospiteTokens.some((token) => normTitle.includes(token));
+      if (hasCasaToken && hasOspiteToken && v.match_day === giornata) {
+        return true;
+      }
+      return false;
+    });
+  }
+};
+var youtubeSyncService = new YouTubeSyncService();
+
 // server/parsers/torneiParser.ts
 import * as cheerio9 from "cheerio";
 var COMIT_NAMES = {
@@ -6803,6 +7056,57 @@ async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, f
   cacheService.set(cacheKey, data, TTL_CALENDARIO);
   return data;
 }
+async function enrichCalendarioWithVideos(calendario, camId, championshipName) {
+  try {
+    const videos = await youtubeSyncService.getAllVideos();
+    if (!videos || videos.length === 0) return calendario;
+    return calendario.map((giornata) => ({
+      ...giornata,
+      partite: giornata.partite.map((partita) => {
+        const matched = youtubeSyncService.matchVideosForMatch(videos, {
+          giornata: partita.giornata,
+          squadraCasa: partita.squadraCasa,
+          squadraOspite: partita.squadraOspite,
+          camId,
+          championshipName
+        });
+        if (matched.length > 0) {
+          const primary = matched[0];
+          return {
+            ...partita,
+            youtubeVideoId: primary.video_id,
+            video: {
+              videoId: primary.video_id,
+              channelName: primary.channel_name,
+              channelUrl: primary.channel_url,
+              title: primary.title,
+              publishedAt: primary.published_at,
+              league: primary.league,
+              matchDay: primary.match_day,
+              teamHome: primary.team_home,
+              teamAway: primary.team_away
+            },
+            videos: matched.map((v) => ({
+              videoId: v.video_id,
+              channelName: v.channel_name,
+              channelUrl: v.channel_url,
+              title: v.title,
+              publishedAt: v.published_at,
+              league: v.league,
+              matchDay: v.match_day,
+              teamHome: v.team_home,
+              teamAway: v.team_away
+            }))
+          };
+        }
+        return partita;
+      })
+    }));
+  } catch (err) {
+    console.warn("[EnrichCalendario] Errore associazione video YouTube:", err);
+    return calendario;
+  }
+}
 async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squadraIds = []) {
   const cacheKey = `statistiche_${camId}`;
   if (!forceRefresh) {
@@ -6845,9 +7149,10 @@ app.get("/api/dashboard", async (req, res) => {
     const squadraIds = rawClassifica.map((s) => s.squadraId).filter(Boolean);
     const statisticheAtleti = await getStatistiche(cam, forceRefresh, squadraIds);
     const classifica = computeTeamForm(rawClassifica, calendario);
+    const enrichedCalendario = await enrichCalendarioWithVideos(calendario, cam, champMeta?.nome);
     const payload = {
       classifica,
-      calendario,
+      calendario: enrichedCalendario,
       statisticheAtleti,
       lastUpdated: (/* @__PURE__ */ new Date()).toISOString(),
       championship: {
@@ -6891,7 +7196,9 @@ app.get("/api/calendario", async (req, res) => {
   const forceRefresh = req.query.refresh === "true";
   try {
     const data = await getCalendario(cam, anno, forceRefresh);
-    res.json(data);
+    const champMeta = await championshipCatalog.getChampionship(cam);
+    const enriched = await enrichCalendarioWithVideos(data, cam, champMeta?.nome);
+    res.json(enriched);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -8293,6 +8600,64 @@ app.get("/api/push/check-tornei", async (req, res) => {
       error: "Errore durante il controllo dei nuovi tornei.",
       details: error.message
     });
+  }
+});
+app.all(["/api/videos/sync", "/api/sync-youtube"], async (req, res) => {
+  try {
+    const result = await youtubeSyncService.syncAllChannels();
+    return res.json({
+      success: true,
+      totalFetched: result.total,
+      upserted: result.upserted,
+      videosCount: result.videos.length,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (error) {
+    console.error("Error in YouTube sync endpoint:", error);
+    return res.status(500).json({ error: error.message || "Errore durante la sincronizzazione video YouTube" });
+  }
+});
+app.get("/api/videos", async (req, res) => {
+  const forceRefresh = req.query.refresh === "true";
+  const league = typeof req.query.league === "string" ? req.query.league.toUpperCase() : void 0;
+  const day = req.query.day ? parseInt(req.query.day, 10) : void 0;
+  try {
+    let videos = await youtubeSyncService.getAllVideos(forceRefresh);
+    if (league) {
+      videos = videos.filter((v) => v.league && v.league.toUpperCase().startsWith(league));
+    }
+    if (day !== void 0 && !isNaN(day)) {
+      videos = videos.filter((v) => v.match_day === day);
+    }
+    const formatted = videos.map((v) => ({
+      videoId: v.video_id,
+      channelName: v.channel_name,
+      channelId: v.channel_id,
+      channelUrl: v.channel_url,
+      title: v.title,
+      publishedAt: v.published_at,
+      league: v.league,
+      matchDay: v.match_day,
+      teamHome: v.team_home,
+      teamAway: v.team_away,
+      videoUrl: v.video_url,
+      video_id: v.video_id,
+      channel_name: v.channel_name,
+      channel_id: v.channel_id,
+      channel_url: v.channel_url,
+      published_at: v.published_at,
+      match_day: v.match_day,
+      team_home: v.team_home,
+      team_away: v.team_away,
+      video_url: v.video_url
+    }));
+    return res.json({
+      success: true,
+      count: formatted.length,
+      videos: formatted
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
 });
 async function getOrFetchAthlete(id) {

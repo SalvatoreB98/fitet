@@ -54,6 +54,10 @@
     {
       "path": "/api/push/check-matchday",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/videos/sync",
+      "schedule": "0 */6 * * *"
     }
   ],
   "rewrites": [

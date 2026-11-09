@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { GiornataCalendario, PartitaCalendario } from '../types/fitet';
+import { GiornataCalendario, PartitaCalendario, MatchVideoInfo } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
 import { RefertoModal } from './RefertoModal';
+import { MatchVideoModal } from './MatchVideoModal';
 import { TeamLogo } from './TeamLogo';
 import { ChampionshipBellButton } from './ChampionshipBellButton';
 
@@ -117,6 +118,124 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
     casa?: string;
     ospite?: string;
   } | null>(null);
+
+  const [selectedVideoData, setSelectedVideoData] = useState<{
+    videos: MatchVideoInfo[];
+    initialVideoId?: string;
+    squadraCasa?: string;
+    squadraOspite?: string;
+    giornata?: number;
+  } | null>(null);
+
+  const [matchVideos, setMatchVideos] = useState<MatchVideoInfo[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch('/api/videos')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data && Array.isArray(data.videos)) {
+          const sanitized: MatchVideoInfo[] = data.videos
+            .map((v: any) => ({
+              videoId: String(v?.videoId || v?.video_id || '').trim(),
+              channelName: v?.channelName || v?.channel_name || 'YouTube',
+              channelUrl: v?.channelUrl || v?.channel_url || '',
+              title: v?.title || '',
+              publishedAt: v?.publishedAt || v?.published_at || '',
+              league: v?.league || null,
+              matchDay: v?.matchDay ?? v?.match_day ?? null,
+              teamHome: v?.teamHome || v?.team_home || null,
+              teamAway: v?.teamAway || v?.team_away || null,
+            }))
+            .filter((v: MatchVideoInfo) => Boolean(v.videoId) && v.videoId !== 'undefined' && v.videoId !== 'null');
+          setMatchVideos(sanitized);
+        }
+      })
+      .catch(() => { });
+    return () => {
+      isMounted = false;
+    };
+  }, [currentCamId]);
+
+  const getVideosForMatch = (m: PartitaCalendario): MatchVideoInfo[] => {
+    let rawList: any[] = [];
+    if (m.videos && m.videos.length > 0) {
+      rawList = m.videos;
+    } else if (m.video) {
+      rawList = [m.video];
+    } else if (m.youtubeVideoId && m.youtubeVideoId !== 'undefined' && m.youtubeVideoId !== 'null') {
+      rawList = [
+        {
+          videoId: m.youtubeVideoId,
+          channelName: 'YouTube',
+          title: `${m.squadraCasa} vs ${m.squadraOspite}`,
+        },
+      ];
+    } else if (matchVideos && matchVideos.length > 0) {
+      const norm = (str?: string | null) =>
+        (str || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\b(a\.?s\.?d\.?|asd|t\.?t\.?|tt|tennistavolo|polisportiva|pol\.?|u\.?s\.?|us|dilettantistica|1999)\b/gi, ' ')
+          .replace(/[^a-z0-9]/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      const casa = norm(m.squadraCasa);
+      const ospite = norm(m.squadraOspite);
+
+      rawList = matchVideos.filter((v: any) => {
+        const vDay = v.matchDay ?? v.match_day;
+        if (vDay !== undefined && vDay !== null && vDay !== m.giornata) {
+          return false;
+        }
+        const vHome = norm(v.teamHome || v.team_home);
+        const vAway = norm(v.teamAway || v.team_away);
+        if (vHome && vAway) {
+          const matchesDirect =
+            (casa.includes(vHome) || vHome.includes(casa)) &&
+            (ospite.includes(vAway) || vAway.includes(ospite));
+          const matchesInverted =
+            (casa.includes(vAway) || vAway.includes(casa)) &&
+            (ospite.includes(vHome) || vHome.includes(ospite));
+          if (matchesDirect || matchesInverted) return true;
+        }
+        const titleNorm = norm(v.title);
+        const casaTokens = casa.split(' ').filter((t) => t.length >= 4);
+        const ospiteTokens = ospite.split(' ').filter((t) => t.length >= 4);
+        return (
+          casaTokens.some((t) => titleNorm.includes(t)) &&
+          ospiteTokens.some((t) => titleNorm.includes(t))
+        );
+      });
+    }
+
+    return rawList
+      .map((v: any) => ({
+        videoId: String(v?.videoId || v?.video_id || '').trim(),
+        channelName: v?.channelName || v?.channel_name || 'YouTube',
+        channelUrl: v?.channelUrl || v?.channel_url || '',
+        title: v?.title || `${m.squadraCasa} vs ${m.squadraOspite}`,
+        publishedAt: v?.publishedAt || v?.published_at || '',
+        league: v?.league || null,
+        matchDay: v?.matchDay ?? v?.match_day ?? null,
+        teamHome: v?.teamHome || v?.team_home || null,
+        teamAway: v?.teamAway || v?.team_away || null,
+      }))
+      .filter((v) => Boolean(v.videoId) && v.videoId !== 'undefined' && v.videoId !== 'null');
+  };
+
+  const handleOpenVideo = (m: PartitaCalendario, vids: MatchVideoInfo[]) => {
+    if (!vids || vids.length === 0) return;
+    setSelectedVideoData({
+      videos: vids,
+      initialVideoId: vids[0].videoId,
+      squadraCasa: m.squadraCasa,
+      squadraOspite: m.squadraOspite,
+      giornata: m.giornata,
+    });
+  };
 
   // Stato per nascondere le giornate precedenti all'ultima giocata (di default true all'atterraggio su mobile)
   const [hidePastGiornate, setHidePastGiornate] = useState<boolean>(() => {
@@ -651,6 +770,8 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                     const isOspiteWinner = m.vincitore === 'ospite';
                     const isDraw = m.vincitore === 'pareggio';
                     const hasReferto = Boolean(m.refertoUrl && shouldShowReferto(m));
+                    const matchVideosList = getVideosForMatch(m);
+                    const hasVideo = matchVideosList.length > 0;
 
                     return (
                       <article
@@ -671,7 +792,21 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                             </span>
                           </div>
 
-                          <div className="match-card-status">
+                          <div className="match-card-status flex items-center gap-1.5">
+                            {hasVideo && (
+                              <button
+                                type="button"
+                                className="match-video-badge me-2"
+                                title="Guarda il video dell'incontro su YouTube"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleOpenVideo(m, matchVideosList);
+                                }}
+                              >
+                                <i className="bi bi-play-fill"></i>
+                              </button>
+                            )}
                             {m.disputato ? (
                               <span className="match-status-label status-disputato">Finale</span>
                             ) : isMatchToday(m.data) ? (
@@ -746,9 +881,26 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                           </div>
                         </div>
 
-                        {(hasReferto || isDraw) && (
+                        {(hasReferto || isDraw || hasVideo) && (
                           <div className="match-card-bottom">
-                            {isDraw ? <span className="match-card-draw-label">Pareggio</span> : <span />}
+                            <div className="match-card-bottom-left flex items-center gap-2">
+                              {isDraw && <span className="match-card-draw-label">Pareggio</span>}
+                              {hasVideo && (
+                                <button
+                                  type="button"
+                                  className="btn-video-link"
+                                  title="Guarda il video della partita su YouTube"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleOpenVideo(m, matchVideosList);
+                                  }}
+                                >
+                                  <i className="bi bi-play-circle-fill"></i>
+                                  <span>Guarda Video</span>
+                                </button>
+                              )}
+                            </div>
                             {hasReferto && (
                               <button
                                 type="button"
@@ -800,6 +952,18 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
           isSubmodalOpen={isSubmodalOpen}
           onClose={() => setSelectedReferto(null)}
           onOpenAtletaModal={onOpenAtletaModal}
+        />
+      )}
+
+      {selectedVideoData && (
+        <MatchVideoModal
+          isOpen={Boolean(selectedVideoData)}
+          onClose={() => setSelectedVideoData(null)}
+          videos={selectedVideoData.videos}
+          initialVideoId={selectedVideoData.initialVideoId}
+          squadraCasa={selectedVideoData.squadraCasa}
+          squadraOspite={selectedVideoData.squadraOspite}
+          giornata={selectedVideoData.giornata}
         />
       )}
     </div>
