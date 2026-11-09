@@ -4,6 +4,7 @@ import { HeadToHeadData } from '../types/fitet';
 import { fetchHeadToHead } from '../services/api';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { HeadToHeadComparisonPanel } from './HeadToHeadComparisonPanel';
+import { HeadToHeadPickerModal, HeadToHeadPlayer } from './HeadToHeadPickerModal';
 
 interface HeadToHeadModalProps {
   isOpen: boolean;
@@ -28,14 +29,33 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
 }) => {
   useBodyScrollLock(isOpen);
 
+  const [activePlayer1, setActivePlayer1] = useState<HeadToHeadPlayer>({
+    id: atleta1Id,
+    name: atleta1Nome,
+  });
+  const [activePlayer2, setActivePlayer2] = useState<HeadToHeadPlayer>({
+    id: atleta2Id || '',
+    name: atleta2Nome,
+  });
+
+  const [isPickerOpen, setIsPickerOpen] = useState<boolean>(false);
+  const [pickerInitialP1, setPickerInitialP1] = useState<HeadToHeadPlayer | null>(null);
+  const [pickerInitialP2, setPickerInitialP2] = useState<HeadToHeadPlayer | null>(null);
+
   const [data, setData] = useState<HeadToHeadData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [img1Error, setImg1Error] = useState<boolean>(false);
   const [img2Error, setImg2Error] = useState<boolean>(false);
 
+  // Sync state if props change from outside
   useEffect(() => {
-    if (!isOpen || !atleta1Id || (!atleta2Id && !atleta2Nome)) return;
+    setActivePlayer1({ id: atleta1Id, name: atleta1Nome });
+    setActivePlayer2({ id: atleta2Id || '', name: atleta2Nome });
+  }, [atleta1Id, atleta1Nome, atleta2Id, atleta2Nome]);
+
+  useEffect(() => {
+    if (!isOpen || !activePlayer1.id || (!activePlayer2.id && !activePlayer2.name)) return;
 
     let isMounted = true;
     setLoading(true);
@@ -43,9 +63,9 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
     setImg1Error(false);
     setImg2Error(false);
 
-    const oppParam = atleta2Id || atleta2Nome;
+    const oppParam = activePlayer2.id || activePlayer2.name;
 
-    fetchHeadToHead(atleta1Id, oppParam)
+    fetchHeadToHead(activePlayer1.id, oppParam)
       .then((res) => {
         if (isMounted) {
           setData(res);
@@ -62,11 +82,11 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, atleta1Id, atleta2Id, atleta2Nome]);
+  }, [isOpen, activePlayer1.id, activePlayer2.id, activePlayer2.name]);
 
   // Close on Escape
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || isPickerOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
@@ -75,29 +95,65 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, onClose]);
+  }, [isOpen, isPickerOpen, onClose]);
 
   if (!isOpen || typeof document === 'undefined') return null;
 
   const player1 = data?.atleta1 || {
-    id: atleta1Id,
-    nome: atleta1Nome,
+    id: activePlayer1.id,
+    nome: activePlayer1.name,
     vittorie: 0,
-    fotoUrl: `https://portale.fitet.org/images/atleti/${atleta1Id}.jpg`,
+    fotoUrl: activePlayer1.id ? `https://portale.fitet.org/images/atleti/${activePlayer1.id}.jpg` : undefined,
   };
 
   const player2 = data?.atleta2 || {
-    id: atleta2Id || '',
-    nome: atleta2Nome,
+    id: activePlayer2.id || '',
+    nome: activePlayer2.name,
     vittorie: 0,
-    fotoUrl: atleta2Id ? `https://portale.fitet.org/images/atleti/${atleta2Id}.jpg` : undefined,
+    fotoUrl: activePlayer2.id ? `https://portale.fitet.org/images/atleti/${activePlayer2.id}.jpg` : undefined,
   };
 
   const totalMatches = data?.totaleIncontri ?? (player1.vittorie + player2.vittorie);
   const p1Rate = totalMatches > 0 ? Math.round((player1.vittorie / totalMatches) * 100) : 50;
   const p2Rate = 100 - p1Rate;
-  const player1Id = player1.id || atleta1Id;
-  const player2Id = player2.id || atleta2Id;
+  const player1Id = player1.id || activePlayer1.id;
+  const player2Id = player2.id || activePlayer2.id;
+
+  const handleChangePlayer1 = () => {
+    setPickerInitialP1(null);
+    setPickerInitialP2({
+      id: player2Id,
+      name: player2.nome,
+    });
+    setIsPickerOpen(true);
+  };
+
+  const handleChangePlayer2 = () => {
+    setPickerInitialP1({
+      id: player1Id,
+      name: player1.nome,
+    });
+    setPickerInitialP2(null);
+    setIsPickerOpen(true);
+  };
+
+  const handleAnotherComparison = () => {
+    setPickerInitialP1({
+      id: player1Id,
+      name: player1.nome,
+    });
+    setPickerInitialP2({
+      id: player2Id,
+      name: player2.nome,
+    });
+    setIsPickerOpen(true);
+  };
+
+  const handlePickerCompare = (p1: HeadToHeadPlayer, p2: HeadToHeadPlayer) => {
+    setActivePlayer1(p1);
+    setActivePlayer2(p2);
+    setIsPickerOpen(false);
+  };
 
   return createPortal(
     <div className="modal-backdrop-simple modal-h2h-backdrop" onClick={onClose} style={{ zIndex: 1600 }}>
@@ -107,11 +163,11 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
       >
         {/* Modal Header */}
         <div className="h2h-modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className="h2h-header-icon">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+            <span className="h2h-header-icon" aria-hidden="true">
               <i className="bi bi-arrow-left-right"></i>
             </span>
-            <div>
+            <div style={{ minWidth: 0 }}>
               <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-dark)' }}>
                 Testa a Testa Storico
               </h3>
@@ -121,25 +177,24 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-            {onNewSearch && (
-              <button
-                type="button"
-                onClick={onNewSearch}
-                aria-label="Nuovo confronto"
-                title="Scegli altri due atleti"
-                className="h2h-close-button"
-              >
-                <i className="bi bi-search"></i>
-              </button>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={handleAnotherComparison}
+              aria-label="Fai un altro confronto"
+              title="Fai un altro confronto"
+              className="h2h-header-action-btn"
+            >
+              <i className="bi bi-arrow-left-right" aria-hidden="true"></i>
+              <span className="h2h-header-btn-text">Altro confronto</span>
+            </button>
             <button
               type="button"
               onClick={onClose}
               aria-label="Chiudi"
-              className="h2h-close-button"
+              className="modal-close-btn"
             >
-              <i className="bi bi-x-lg"></i>
+              <i className="bi bi-x-lg" aria-hidden="true"></i>
             </button>
           </div>
         </div>
@@ -164,32 +219,47 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
             <>
               {/* Versus Showcase Banner */}
               <div className="h2h-versus-banner">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                  {/* Player 1 Card */}
-                  <div style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center' }}>
-                    <div className="h2h-player-avatar-circle is-p1">
-                      {player1.fotoUrl && !img1Error ? (
-                        <img
-                          src={player1.fotoUrl}
-                          alt={player1.nome}
-                          referrerPolicy="no-referrer"
-                          onError={() => setImg1Error(true)}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <i className="bi bi-person-fill" style={{ fontSize: '28px', color: '#94a3b8' }}></i>
-                      )}
-                    </div>
-                    <div className="h2h-player-name-text" title={player1.nome}>
-                      {player1.nome}
-                    </div>
-                    <div className='subtitle'>
-                      {player1.vittorie} {player1.vittorie === 1 ? 'vittoria' : 'vittorie'}
-                    </div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+                  {/* Player 1 Column */}
+                  <div className="h2h-player-column">
+                    <button
+                      type="button"
+                      className="h2h-player-change-trigger"
+                      onClick={handleChangePlayer1}
+                      title={`Clicca per cambiare ${player1.nome}`}
+                      aria-label={`Clicca per cambiare ${player1.nome}`}
+                    >
+                      <div className="h2h-player-avatar-circle is-p1">
+                        {player1.fotoUrl && !img1Error ? (
+                          <img
+                            src={player1.fotoUrl}
+                            alt={player1.nome}
+                            referrerPolicy="no-referrer"
+                            onError={() => setImg1Error(true)}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <i className="bi bi-person-fill" style={{ fontSize: '28px', color: '#94a3b8' }}></i>
+                        )}
+                        <div className="h2h-avatar-change-overlay" aria-hidden="true">
+                          <i className="bi bi-arrow-repeat"></i>
+                        </div>
+                      </div>
+                      <div className="h2h-player-name-text" title={player1.nome}>
+                        {player1.nome}
+                      </div>
+                      <div className="subtitle">
+                        {player1.vittorie} {player1.vittorie === 1 ? 'vittoria' : 'vittorie'}
+                      </div>
+                      <span className="h2h-change-pill-btn">
+                        <i className="bi bi-arrow-repeat" aria-hidden="true"></i>
+                        <span>Cambia</span>
+                      </span>
+                    </button>
                   </div>
 
                   {/* Central Score */}
-                  <div style={{ flexShrink: 0, textAlign: 'center', padding: '0 8px' }}>
+                  <div style={{ flexShrink: 0, textAlign: 'center', padding: '0 8px', marginTop: '10px' }}>
                     <div className="h2h-central-score">
                       <span>
                         {player1.vittorie}
@@ -204,37 +274,42 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Player 2 Card */}
-                  <div style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center' }}>
-                    <div className="h2h-player-avatar-circle">
-                      {player2.fotoUrl && !img2Error ? (
-                        <img
-                          src={player2.fotoUrl}
-                          alt={player2.nome}
-                          referrerPolicy="no-referrer"
-                          onError={() => setImg2Error(true)}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                      ) : (
-                        <i className="bi bi-person-fill" style={{ fontSize: '28px', color: '#94a3b8' }}></i>
-                      )}
-                    </div>
-                    <div className="h2h-player-name-text" title={player2.nome}>
-                      {onSelectAthlete && player2.id ? (
-                        <button
-                          type="button"
-
-                          className="h2h-player-link-inline"
-                        >
-                          {player2.nome}
-                        </button>
-                      ) : (
-                        player2.nome
-                      )}
-                    </div>
-                    <div className='subtitle'>
-                      {player2.vittorie} {player2.vittorie === 1 ? 'vittoria' : 'vittorie'}
-                    </div>
+                  {/* Player 2 Column */}
+                  <div className="h2h-player-column">
+                    <button
+                      type="button"
+                      className="h2h-player-change-trigger"
+                      onClick={handleChangePlayer2}
+                      title={`Clicca per cambiare ${player2.nome}`}
+                      aria-label={`Clicca per cambiare ${player2.nome}`}
+                    >
+                      <div className="h2h-player-avatar-circle">
+                        {player2.fotoUrl && !img2Error ? (
+                          <img
+                            src={player2.fotoUrl}
+                            alt={player2.nome}
+                            referrerPolicy="no-referrer"
+                            onError={() => setImg2Error(true)}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                        ) : (
+                          <i className="bi bi-person-fill" style={{ fontSize: '28px', color: '#94a3b8' }}></i>
+                        )}
+                        <div className="h2h-avatar-change-overlay" aria-hidden="true">
+                          <i className="bi bi-arrow-repeat"></i>
+                        </div>
+                      </div>
+                      <div className="h2h-player-name-text" title={player2.nome}>
+                        {player2.nome}
+                      </div>
+                      <div className="subtitle">
+                        {player2.vittorie} {player2.vittorie === 1 ? 'vittoria' : 'vittorie'}
+                      </div>
+                      <span className="h2h-change-pill-btn">
+                        <i className="bi bi-arrow-repeat" aria-hidden="true"></i>
+                        <span>Cambia</span>
+                      </span>
+                    </button>
                   </div>
                 </div>
 
@@ -293,11 +368,9 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
                         <div key={idx} className="h2h-match-item">
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
-
                               <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
                                 {enc.data}
                               </span>
-
                               {enc.anno && (
                                 <span className="badge badge-neutral" style={{ fontSize: '9.5px' }}>
                                   {enc.anno}
@@ -328,6 +401,17 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
             </>
           )}
         </div>
+
+        {/* Modal Picker for switching players */}
+        {isPickerOpen && (
+          <HeadToHeadPickerModal
+            isOpen={isPickerOpen}
+            onClose={() => setIsPickerOpen(false)}
+            onCompare={handlePickerCompare}
+            initialPlayer1={pickerInitialP1}
+            initialPlayer2={pickerInitialP2}
+          />
+        )}
       </div>
     </div>,
     document.body

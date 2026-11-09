@@ -17,6 +17,8 @@ interface HeadToHeadPickerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCompare: (player1: HeadToHeadPlayer, player2: HeadToHeadPlayer) => void;
+  initialPlayer1?: HeadToHeadPlayer | null;
+  initialPlayer2?: HeadToHeadPlayer | null;
 }
 
 interface PlayerSlotProps {
@@ -117,7 +119,7 @@ const PlayerSlot: React.FC<PlayerSlotProps> = ({
     if (!isTouchOrMobile) {
       inputRef.current.focus();
     }
-  }, [autoFocus]);
+  }, [autoFocus, player]);
 
   const handleSelect = (athlete: HeadToHeadPlayer) => {
     onSelect(athlete);
@@ -331,11 +333,13 @@ export const HeadToHeadPickerModal: React.FC<HeadToHeadPickerModalProps> = ({
   isOpen,
   onClose,
   onCompare,
+  initialPlayer1,
+  initialPlayer2,
 }) => {
   useBodyScrollLock(isOpen);
 
-  const [player1, setPlayer1] = useState<HeadToHeadPlayer | null>(null);
-  const [player2, setPlayer2] = useState<HeadToHeadPlayer | null>(null);
+  const [player1, setPlayer1] = useState<HeadToHeadPlayer | null>(initialPlayer1 ?? null);
+  const [player2, setPlayer2] = useState<HeadToHeadPlayer | null>(initialPlayer2 ?? null);
   const [selfPlayer, setSelfPlayer] = useState<HeadToHeadPlayer | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -345,10 +349,10 @@ export const HeadToHeadPickerModal: React.FC<HeadToHeadPickerModalProps> = ({
     const id = getMyPlayerId();
     const name = getMyPlayerName();
     setSelfPlayer(id && name ? { id, name } : null);
-    setPlayer1(null);
-    setPlayer2(null);
+    setPlayer1(initialPlayer1 ?? null);
+    setPlayer2(initialPlayer2 ?? null);
     setValidationError(null);
-  }, [isOpen]);
+  }, [isOpen, initialPlayer1, initialPlayer2]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -405,6 +409,7 @@ export const HeadToHeadPickerModal: React.FC<HeadToHeadPickerModalProps> = ({
   return createPortal(
     <div
       className="modal-backdrop-simple modal-h2h-backdrop h2h-picker-backdrop"
+      style={{ zIndex: 1700 }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -459,7 +464,7 @@ export const HeadToHeadPickerModal: React.FC<HeadToHeadPickerModalProps> = ({
               otherPlayer={player2}
               selfPlayer={selfPlayer}
               onSelect={(athlete) => handleSelect(1, athlete)}
-              autoFocus
+              autoFocus={!player1}
             />
 
             <div className="h2h-picker-middle" aria-hidden={!player1 || !player2}>
@@ -488,6 +493,7 @@ export const HeadToHeadPickerModal: React.FC<HeadToHeadPickerModalProps> = ({
               otherPlayer={player1}
               selfPlayer={selfPlayer}
               onSelect={(athlete) => handleSelect(2, athlete)}
+              autoFocus={Boolean(player1 && !player2)}
             />
           </div>
 

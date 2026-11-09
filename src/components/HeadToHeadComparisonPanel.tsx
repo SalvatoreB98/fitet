@@ -406,9 +406,8 @@ const buildMetrics = (snapshot: AthleteSnapshot, fallbackName: string): AthleteM
     championshipPlayed > 0 ? `${championshipWon}V · ${championshipLost}S` : null;
   const championshipRecordSub =
     championshipPlayed > 0
-      ? `${championshipRate}% su ${championshipPlayed} ${
-          championshipPlayed === 1 ? 'partita' : 'partite'
-        }`
+      ? `${championshipRate}% su ${championshipPlayed} ${championshipPlayed === 1 ? 'partita' : 'partite'
+      }`
       : null;
 
   const pointsEarned =
@@ -429,9 +428,8 @@ const buildMetrics = (snapshot: AthleteSnapshot, fallbackName: string): AthleteM
     ? formatDate(lastMatch.date) || text(lastMatch.event) || 'Ultimo match'
     : null;
   const lastMatchSub = lastMatch
-    ? `${lastMatch.outcome === 'V' ? 'Vittoria' : 'Sconfitta'}${
-        lastMatch.opponent ? ` vs ${shortenName(lastMatch.opponent)}` : ''
-      }`
+    ? `${lastMatch.outcome === 'V' ? 'Vittoria' : 'Sconfitta'}${lastMatch.opponent ? ` vs ${shortenName(lastMatch.opponent)}` : ''
+    }`
     : null;
 
   return {
@@ -505,12 +503,10 @@ const FormBadges: React.FC<{ form: AthleteFormMatch[]; side: 'a' | 'b' }> = ({ f
     {form.map((match, index) => (
       <span
         key={`${match.date || 'nd'}-${match.opponent || ''}-${index}`}
-        className={`h2h-cmp-form-badge ${
-          match.outcome === 'V' ? 'is-win' : 'is-loss'
-        }${index === form.length - 1 ? ' is-latest' : ''}`}
-        title={`${match.outcome === 'V' ? 'Vittoria' : 'Sconfitta'}${
-          match.opponent ? ` vs ${match.opponent}` : ''
-        }${match.date ? ` · ${match.date}` : ''}`}
+        className={`h2h-cmp-form-badge ${match.outcome === 'V' ? 'is-win' : 'is-loss'
+          }${index === form.length - 1 ? ' is-latest' : ''}`}
+        title={`${match.outcome === 'V' ? 'Vittoria' : 'Sconfitta'}${match.opponent ? ` vs ${match.opponent}` : ''
+          }${match.date ? ` · ${match.date}` : ''}`}
       >
         {match.outcome}
       </span>
@@ -708,10 +704,10 @@ const buildComparisonGroups = (
   const lastEncounter =
     encounters.length > 0
       ? encounters.reduce(
-          (latest, encounter) =>
-            parseDateValue(encounter.data) >= parseDateValue(latest.data) ? encounter : latest,
-          encounters[0]
-        )
+        (latest, encounter) =>
+          parseDateValue(encounter.data) >= parseDateValue(latest.data) ? encounter : latest,
+        encounters[0]
+      )
       : null;
   const lastEncounterSub = lastEncounter
     ? `${formatDate(lastEncounter.data) || 'Data n.d.'} · ${lastEncounter.punteggio}`
@@ -720,25 +716,25 @@ const buildComparisonGroups = (
   const h2hRows = compactRows([
     total > 0
       ? {
-          key: 'h2h-balance',
-          label: 'Bilancio H2H',
-          a: String(winsA),
-          b: String(winsB),
-          aSub: `su ${total} ${total === 1 ? 'incontro' : 'incontri'}`,
-          bSub: `su ${total} ${total === 1 ? 'incontro' : 'incontri'}`,
-          tone: toneHigher(winsA, winsB),
-        }
+        key: 'h2h-balance',
+        label: 'Bilancio H2H',
+        a: String(winsA),
+        b: String(winsB),
+        aSub: `su ${total} ${total === 1 ? 'incontro' : 'incontri'}`,
+        bSub: `su ${total} ${total === 1 ? 'incontro' : 'incontri'}`,
+        tone: toneHigher(winsA, winsB),
+      }
       : null,
     lastEncounter
       ? {
-          key: 'h2h-last',
-          label: 'Ultimo incontro',
-          a: lastEncounter.isVittoriaAtleta1 ? 'Vittoria' : 'Sconfitta',
-          b: lastEncounter.isVittoriaAtleta1 ? 'Sconfitta' : 'Vittoria',
-          aSub: lastEncounterSub,
-          bSub: lastEncounterSub,
-          tone: lastEncounter.isVittoriaAtleta1 ? ('a' as Tone) : ('b' as Tone),
-        }
+        key: 'h2h-last',
+        label: 'Ultimo incontro',
+        a: lastEncounter.isVittoriaAtleta1 ? 'Vittoria' : 'Sconfitta',
+        b: lastEncounter.isVittoriaAtleta1 ? 'Sconfitta' : 'Vittoria',
+        aSub: lastEncounterSub,
+        bSub: lastEncounterSub,
+        tone: lastEncounter.isVittoriaAtleta1 ? ('a' as Tone) : ('b' as Tone),
+      }
       : null,
   ]);
 
@@ -820,8 +816,8 @@ const buildEloSimulation = (
 
   const sharedSerieId = isSameChampionship
     ? (sharedCam ? detectAthleteSerieCampionato(null, [sharedCam]) : null) ||
-      serieIdA ||
-      serieIdB
+    serieIdA ||
+    serieIdB
     : null;
 
   let sameChampionship: HeadToHeadEloSimulation['sameChampionship'] = null;
@@ -944,8 +940,8 @@ export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps>
   atleta2Nome,
   h2h,
 }) => {
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [isEloOpen, setIsEloOpen] = useState<boolean>(false);
+  const [isOpen, setIsOpen] = useState<boolean>(true);
+  const [isEloOpen, setIsEloOpen] = useState<boolean>(true);
   const [isEloModalOpen, setIsEloModalOpen] = useState<boolean>(false);
   const [eloWinner, setEloWinner] = useState<'a' | 'b'>('a');
   const [profiles, setProfiles] = useState<{
@@ -1045,39 +1041,39 @@ export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps>
 
   const activePlayerForModal = eloWinner === 'a'
     ? {
-        id: atleta1Id,
-        name: atleta1Nome,
-        points: eloSim?.pointsA,
-        gender: eloSim?.genderA,
-        serieKey: eloSim?.entryA.key,
-        campionatiGiocati: profiles.a?.detail.campionatiGiocati,
-      }
+      id: atleta1Id,
+      name: atleta1Nome,
+      points: eloSim?.pointsA,
+      gender: eloSim?.genderA,
+      serieKey: eloSim?.entryA.key,
+      campionatiGiocati: profiles.a?.detail.campionatiGiocati,
+    }
     : {
-        id: atleta2Id,
-        name: atleta2Nome,
-        points: eloSim?.pointsB,
-        gender: eloSim?.genderB,
-        serieKey: eloSim?.entryB.key,
-        campionatiGiocati: profiles.b?.detail.campionatiGiocati,
-      };
+      id: atleta2Id,
+      name: atleta2Nome,
+      points: eloSim?.pointsB,
+      gender: eloSim?.genderB,
+      serieKey: eloSim?.entryB.key,
+      campionatiGiocati: profiles.b?.detail.campionatiGiocati,
+    };
 
   const activeOpponentForModal = eloWinner === 'a'
     ? {
-        id: atleta2Id,
-        name: atleta2Nome,
-        points: eloSim?.pointsB,
-        gender: eloSim?.genderB,
-        serieKey: eloSim?.entryB.key,
-        campionatiGiocati: profiles.b?.detail.campionatiGiocati,
-      }
+      id: atleta2Id,
+      name: atleta2Nome,
+      points: eloSim?.pointsB,
+      gender: eloSim?.genderB,
+      serieKey: eloSim?.entryB.key,
+      campionatiGiocati: profiles.b?.detail.campionatiGiocati,
+    }
     : {
-        id: atleta1Id,
-        name: atleta1Nome,
-        points: eloSim?.pointsA,
-        gender: eloSim?.genderA,
-        serieKey: eloSim?.entryA.key,
-        campionatiGiocati: profiles.a?.detail.campionatiGiocati,
-      };
+      id: atleta1Id,
+      name: atleta1Nome,
+      points: eloSim?.pointsA,
+      gender: eloSim?.genderA,
+      serieKey: eloSim?.entryA.key,
+      campionatiGiocati: profiles.a?.detail.campionatiGiocati,
+    };
 
   return (
     <>

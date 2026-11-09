@@ -2,6 +2,10 @@
    Head to Head Picker Modal
    ========================================================================== */
 
+.h2h-picker-backdrop {
+  z-index: 1700 !important;
+}
+
 .h2h-picker-card {
   display: flex;
   flex-direction: column;
