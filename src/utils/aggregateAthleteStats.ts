@@ -11,6 +11,16 @@ export interface EnrichedRankingCampionatoMatch extends PartitaRankingCampionato
   isFromLiveGirone?: boolean;
 }
 
+export interface AthleteFormBadge {
+  esito: 'V' | 'S';
+  data: string;
+  avversario: string;
+  evento?: string;
+  isVittoria: boolean;
+  risultatoSet?: string;
+  giornata?: number;
+}
+
 export interface AggregatedAthleteStats {
   partiteGiocate: number;
   partiteVinte: number;
@@ -26,6 +36,7 @@ export interface AggregatedAthleteStats {
   matchedRankingByGironeIndex: Array<PartitaRankingCampionato | undefined>;
   extraGironeMatches: PartitaCampionatoAtleta[];
   mergedCampionatoMatches: EnrichedRankingCampionatoMatch[];
+  badges: AthleteFormBadge[];
 }
 
 const normOpp = (s?: string): string =>
@@ -47,6 +58,30 @@ const isSameOpponent = (aRaw?: string, bRaw?: string): boolean => {
  * ranking FITeT (#fragment-1 / #fragment-3) e le partite live del campionato
  * (/api/atleta-campionato-partite), ricalcolando il totale aggiornato.
  */
+export const parseMatchDateValue = (value?: string): number => {
+  if (!value) return 0;
+  const s = value.trim();
+
+  const dmyMatch = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    let year = parseInt(dmyMatch[3], 10);
+    if (year < 100) year += 2000;
+    return new Date(year, month, day).getTime();
+  }
+
+  const ymdMatch = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    return new Date(year, month, day).getTime();
+  }
+
+  return 0;
+};
+
 export function aggregateAthleteMatchStats(
   atleta: DettaglioAtleta | null | undefined,
   campionatoPartite?: PartitaCampionatoAtleta[] | null,
@@ -180,6 +215,64 @@ export function aggregateAthleteMatchStats(
       ? Math.round((partiteVinte / partiteGiocate) * 100)
       : atleta?.riepilogo?.percentualePositiva ?? 0;
 
+  // Calcolo badges forma recente (le ultime 5 di tutte le partite, dal meno recente al più recente)
+  let maxRankingDateTs = 0;
+  for (const rm of rankingCampionato) {
+    const ts = parseMatchDateValue(rm.data);
+    if (ts > maxRankingDateTs) maxRankingDateTs = ts;
+  }
+  for (const tm of rankingTornei) {
+    const ts = parseMatchDateValue(tm.data);
+    if (ts > maxRankingDateTs) maxRankingDateTs = ts;
+  }
+
+  interface MatchWithScore extends AthleteFormBadge {
+    sortScore: number;
+  }
+
+  const allMatchesWithScore: MatchWithScore[] = [];
+  let seqOrder = 0;
+
+  for (const m of mergedCampionatoMatches) {
+    let ts = parseMatchDateValue(m.data);
+    if (ts === 0 || m.isFromLiveGirone) {
+      // Le partite live del girone non ancora a ranking sono cronologicamente successive
+      const base = maxRankingDateTs > 0 ? maxRankingDateTs : Date.now() - 30 * 86400000;
+      ts = base + (m.giornata || 1) * 86400000 + seqOrder;
+    }
+    allMatchesWithScore.push({
+      esito: m.isVittoria ? 'V' : 'S',
+      data: m.data || (m.giornata ? `G${m.giornata}` : ''),
+      avversario: m.avversario,
+      evento: m.campionato,
+      isVittoria: Boolean(m.isVittoria),
+      risultatoSet: m.risultatoSet,
+      giornata: m.giornata,
+      sortScore: ts,
+    });
+    seqOrder++;
+  }
+
+  for (const m of rankingTornei) {
+    const ts = parseMatchDateValue(m.data) || seqOrder;
+    allMatchesWithScore.push({
+      esito: m.isVittoria ? 'V' : 'S',
+      data: m.data,
+      avversario: m.avversario,
+      evento: m.torneo || m.gara || 'Torneo',
+      isVittoria: Boolean(m.isVittoria),
+      risultatoSet: m.risultatoSet,
+      sortScore: ts,
+    });
+    seqOrder++;
+  }
+
+  allMatchesWithScore.sort((a, b) => a.sortScore - b.sortScore);
+
+  const badges: AthleteFormBadge[] = allMatchesWithScore
+    .slice(-5)
+    .map(({ sortScore, ...badge }) => badge);
+
   return {
     partiteGiocate,
     partiteVinte,
@@ -195,6 +288,7 @@ export function aggregateAthleteMatchStats(
     matchedRankingByGironeIndex,
     extraGironeMatches,
     mergedCampionatoMatches,
+    badges,
   };
 }
 

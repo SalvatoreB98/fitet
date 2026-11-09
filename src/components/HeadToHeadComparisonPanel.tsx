@@ -296,15 +296,15 @@ const loadAthleteSnapshot = async (
       championshipMatches,
       detail.campionatoAttuale?.nome
     );
-    if (aggregated.extraGironeMatches.length > 0 && form.length > 0) {
-      const extraForm = extractChampionshipForm(aggregated.extraGironeMatches);
-      form = [...form, ...extraForm].slice(-5);
-    } else if (form.length === 0) {
-      const championshipForm = extractChampionshipForm(championshipMatches);
-      if (championshipForm.length > 0) {
-        form = championshipForm;
-        formSource = 'campionato';
-      }
+    if (aggregated.badges.length > 0) {
+      form = aggregated.badges.map((b) => ({
+        outcome: b.esito,
+        date: b.data,
+        opponent: b.avversario,
+        event: b.evento,
+        score: b.risultatoSet,
+      }));
+      formSource = aggregated.extraGironeMatches.length > 0 ? 'campionato' : 'ranking';
     }
   }
 

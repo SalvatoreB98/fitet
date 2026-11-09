@@ -213,6 +213,9 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
         const freshSnapshot = buildMyProfileSnapshot(data);
         setSnapshot(freshSnapshot);
         saveMyProfileSnapshot(freshSnapshot);
+        if (freshSnapshot.form && freshSnapshot.form.length > 0) {
+          setRecentForm(freshSnapshot.form);
+        }
 
         // Forma recente aggiornata con i dati AggregatedAthleteStats
         // (partite ranking campionato/tornei + partite live del girone).
@@ -247,25 +250,16 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
         }
         setCampionatoPartite(matches);
 
+        // Aggiorna badges prendendo le ultime 5 di tutte le partite tramite aggregateAthleteMatchStats
         const aggregated = aggregateAthleteMatchStats(data, matches, data.campionatoAttuale?.nome);
-        const computedForm: MyProfileFormMatch[] = [
-          ...aggregated.mergedCampionatoMatches.map((m) => ({
-            esito: (m.isVittoria ? 'V' : 'S') as 'V' | 'S',
-            data: m.data || '',
-            avversario: m.avversario,
-            evento: m.campionato,
-          })),
-          ...(data.partiteRanking?.tornei || []).map((m) => ({
-            esito: (m.isVittoria ? 'V' : 'S') as 'V' | 'S',
-            data: m.data,
-            avversario: m.avversario,
-            evento: m.torneo,
-          })),
-        ]
-          .filter((m) => Boolean(m.data))
-          .sort((a, b) => parseDateValue(a.data) - parseDateValue(b.data))
-          .slice(-5);
-        setRecentForm(computedForm);
+        setRecentForm(aggregated.badges);
+
+        const updatedSnapshot: MyProfileSnapshot = {
+          ...freshSnapshot,
+          form: aggregated.badges,
+        };
+        setSnapshot(updatedSnapshot);
+        saveMyProfileSnapshot(updatedSnapshot);
 
         onProfileStatusChangeRef.current?.({
           playerId: data.id || playerId,

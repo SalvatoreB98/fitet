@@ -1,4 +1,5 @@
 import { DettaglioAtleta, CampionatoAttualeInfo } from '../types/fitet';
+import { aggregateAthleteMatchStats } from './aggregateAthleteStats';
 
 export const MY_PLAYER_ID_KEY = 'my_player_id';
 export const MY_PLAYER_NAME_KEY = 'my_player_name';
@@ -172,24 +173,8 @@ export function buildMyProfileSnapshot(data: DettaglioAtleta): MyProfileSnapshot
     punti = ultimoSnapshot.punti;
   }
 
-  const rankingMatches: MyProfileFormMatch[] = [
-    ...(data.partiteRanking?.campionato || []).map((match) => ({
-      esito: match.isVittoria ? ('V' as const) : ('S' as const),
-      data: match.data,
-      avversario: match.avversario,
-      evento: match.campionato,
-    })),
-    ...(data.partiteRanking?.tornei || []).map((match) => ({
-      esito: match.isVittoria ? ('V' as const) : ('S' as const),
-      data: match.data,
-      avversario: match.avversario,
-      evento: match.torneo,
-    })),
-  ]
-    .filter((match) => Boolean(match.data))
-    .sort((a, b) => parseDateValue(a.data) - parseDateValue(b.data));
-
-  const form = rankingMatches.slice(-5);
+  const aggregated = aggregateAthleteMatchStats(data);
+  const form: MyProfileFormMatch[] = aggregated.badges;
   const playedCamps = data.campionatiGiocati || (data.campionatoAttuale ? [data.campionatoAttuale] : []);
   const champId = data.campionatoAttuale?.camId || (playedCamps.length > 0 ? playedCamps[0].camId : null);
   const hasChampionship = typeof champId === 'number' && champId > 0;
