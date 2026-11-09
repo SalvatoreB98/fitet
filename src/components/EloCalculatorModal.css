@@ -86,6 +86,53 @@
   color: var(--text-muted, #64748b);
 }
 
+/* Bottone Inverti Atleta A / Atleta B */
+.elo-swap-players-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: -4px 0;
+}
+
+.elo-swap-players-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-container, #ffffff);
+  color: var(--text-dark, #0f172a);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+.elo-swap-players-btn:hover {
+  border-color: #0284c7;
+  color: #0284c7;
+  background: rgba(2, 132, 199, 0.06);
+}
+
+.elo-swap-players-btn:active {
+  transform: scale(0.97);
+}
+
+[data-theme="dark"] .elo-swap-players-btn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .elo-swap-players-btn:hover {
+  border-color: #38bdf8;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+}
+
 /* Select Manifestazione (mantenuta identica come richiesto) */
 .elo-select {
   width: 100%;

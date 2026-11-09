@@ -2,6 +2,22 @@ import React, { useEffect, useId, useMemo, useState } from 'react';
 import { DettaglioAtleta, HeadToHeadData, PartitaCampionatoAtleta } from '../types/fitet';
 import { fetchAtleta, fetchAtletaCampionatoPartite } from '../services/api';
 import { aggregateAthleteMatchStats } from '../utils/aggregateAthleteStats';
+import {
+  getMyPlayedChampionships,
+  getMyPlayerId,
+  getMyProfileSnapshot,
+} from '../utils/myProfile';
+import { EloCalculatorModal } from './EloCalculatorModal';
+import {
+  SerieCampionato,
+  SingleMatchCalculationResult,
+  applySafeguardRating,
+  calculateSingleMatchElo,
+  detectAthleteGender,
+  detectAthleteSerieCampionato,
+  extractAthleteCurrentPoints,
+  getSerieCampionatoById,
+} from '../utils/eloCalculator';
 import './HeadToHeadComparisonPanel.css';
 
 type Tone = 'a' | 'b' | null;
@@ -43,6 +59,8 @@ interface AthleteMetrics {
   bestPoints: number | null;
   bestPointsLabel: string | null;
   category: string | null;
+  categoryRank?: number | null;
+  gender?: 'M' | 'F' | string | null;
   society: string | null;
   societySub: string | null;
   championship: string | null;
@@ -353,7 +371,11 @@ const buildMetrics = (snapshot: AthleteSnapshot, fallbackName: string): AthleteM
     .filter((value) => Number.isFinite(value));
   const bestPoints = snapshotPoints.length > 0 ? Math.max(...snapshotPoints) : null;
 
-  const category = formatCategory(anagrafica?.categoria || latest?.categoria);
+  const rawCatStr = anagrafica?.categoria || latest?.categoria;
+  const category = formatCategory(rawCatStr);
+  const catRankMatch = rawCatStr?.match(/(\d+)/);
+  const categoryRank = catRankMatch ? parseInt(catRankMatch[1], 10) : null;
+  const gender = detectAthleteGender(detail);
   const championshipTeam = text(detail.campionatoAttuale?.squadra);
   const society = text(anagrafica?.societa) || championshipTeam;
   const societySub =
@@ -445,6 +467,8 @@ const buildMetrics = (snapshot: AthleteSnapshot, fallbackName: string): AthleteM
     bestPoints,
     bestPointsLabel: bestPoints != null ? formatNumber(bestPoints) : null,
     category,
+    categoryRank,
+    gender,
     society,
     societySub,
     championship,
@@ -829,6 +853,50 @@ const buildFavorite = (
 ): FavoriteResult | null => {
   if (!athleteA || !athleteB) return null;
 
+  // 1. Calcolo distanza categorie (0 = stessa cat, 1 = 1 scarto, >=2 altrimenti)
+  const getCategoryDistance = (): number => {
+    if (athleteA.categoryRank != null && athleteB.categoryRank != null) {
+      return Math.abs(athleteA.categoryRank - athleteB.categoryRank);
+    }
+    if (athleteA.rank != null && athleteB.rank != null) {
+      const diff = Math.abs(athleteA.rank - athleteB.rank);
+      if (diff <= 20) return 0;
+      if (diff <= 45) return 1;
+      return 2;
+    }
+    return 2;
+  };
+
+  const catDistance = getCategoryDistance();
+  const isCloseCategory = catDistance <= 1;
+
+  // 2. Analisi H2H (pesano da 0.20 a 0.35 in base al volume di incontri)
+  const directWinsA = h2h?.atleta1.vittorie ?? 0;
+  const directWinsB = h2h?.atleta2.vittorie ?? 0;
+  const directTotal = directWinsA + directWinsB;
+  const hasHistory = directTotal > 0;
+
+  const h2hWeight = hasHistory
+    ? Math.min(0.35, 0.20 + Math.min(directTotal, 5) * 0.03)
+    : 0;
+
+  // 3. Pesi dinamici per categoria
+  let formWeight = 0.25;
+  let rankWeight = 0.30;
+  let pointsWeight = 0.35;
+
+  if (isCloseCategory) {
+    formWeight = catDistance === 0 ? 0.45 : 0.38;
+    rankWeight = 0.12;
+    pointsWeight = 0.20;
+  }
+
+  // Ribilanciamento pesi se ci sono precedenti diretti
+  if (hasHistory) {
+    rankWeight = Math.max(0.08, rankWeight - h2hWeight * 0.5);
+    pointsWeight = Math.max(0.12, pointsWeight - h2hWeight * 0.5);
+  }
+
   const metrics: Array<{
     key: string;
     label: string;
@@ -837,84 +905,117 @@ const buildFavorite = (
     b: number;
   }> = [];
 
+  // METRICA 1: PUNTI RANKING STABILIZZATI
   if (athleteA.points != null && athleteB.points != null) {
-    const pointsA = Math.log1p(Math.max(0, athleteA.points));
-    const pointsB = Math.log1p(Math.max(0, athleteB.points));
-    const total = pointsA + pointsB;
-    if (total > 0) {
+    const STABILIZER = 150;
+    const logPtsA = Math.log10(Math.max(0, athleteA.points) + STABILIZER);
+    const logPtsB = Math.log10(Math.max(0, athleteB.points) + STABILIZER);
+    const totalLogPts = logPtsA + logPtsB;
+
+    if (totalLogPts > 0) {
       metrics.push({
         key: 'points',
         label: 'punti ranking',
-        weight: 0.4,
-        a: pointsA / total,
-        b: pointsB / total,
+        weight: pointsWeight,
+        a: logPtsA / totalLogPts,
+        b: logPtsB / totalLogPts,
       });
     }
   }
 
-  if (athleteA.form.length > 0 && athleteB.form.length > 0) {
-    const formA = (athleteA.formWins + 1) / (athleteA.form.length + 2);
-    const formB = (athleteB.formWins + 1) / (athleteB.form.length + 2);
-    const total = formA + formB;
-    if (total > 0) {
+  // METRICA 2: STATO DI FORMA (Laplace Smoothing)
+  if (athleteA.form?.length > 0 && athleteB.form?.length > 0) {
+    const formA = (athleteA.formWins + 0.5) / (athleteA.form.length + 1);
+    const formB = (athleteB.formWins + 0.5) / (athleteB.form.length + 1);
+    const totalForm = formA + formB;
+
+    if (totalForm > 0) {
       metrics.push({
         key: 'form',
-        label: 'forma recente',
-        weight: 0.35,
-        a: formA / total,
-        b: formB / total,
+        label: isCloseCategory ? 'stato di forma (prioritario)' : 'forma recente',
+        weight: formWeight,
+        a: formA / totalForm,
+        b: formB / totalForm,
       });
     }
   }
 
-  if (athleteA.rank != null || athleteB.rank != null) {
-    const rankA = athleteA.rank != null ? 1 / Math.log2(athleteA.rank + 2) : 0;
-    const rankB = athleteB.rank != null ? 1 / Math.log2(athleteB.rank + 2) : 0;
-    const total = rankA + rankB;
-    if (total > 0) {
-      metrics.push({
-        key: 'rank',
-        label: 'posizione ranking',
-        weight: 0.15,
-        a: rankA / total,
-        b: rankB / total,
-      });
-    }
+  // METRICA 3: DISTANZA LOGARITMICA + MOLTIPLICATORE ÉLITE
+  if (athleteA.rank != null && athleteB.rank != null && athleteA.rank > 0 && athleteB.rank > 0) {
+    const rA = athleteA.rank;
+    const rB = athleteB.rank;
+    const logDiff = Math.log10(rB) - Math.log10(rA);
+    const bestRank = Math.min(rA, rB);
+    const eliteMultiplier = 1 + 2.5 / (1 + Math.pow(bestRank / 12, 1.2));
+    const effectiveDiff = logDiff * eliteMultiplier;
+    const rankProbA = 1 / (1 + Math.pow(10, -effectiveDiff * 0.9));
+
+    metrics.push({
+      key: 'rank',
+      label: bestRank <= 10 ? 'ranking (fattore élite)' : 'posizione ranking',
+      weight: rankWeight,
+      a: rankProbA,
+      b: 1 - rankProbA,
+    });
   }
 
-  const directWinsA = h2h?.atleta1.vittorie ?? 0;
-  const directWinsB = h2h?.atleta2.vittorie ?? 0;
-  const directTotal = directWinsA + directWinsB;
-  if (directTotal > 0) {
-    const h2hA = (directWinsA + 1) / (directTotal + 2);
-    const h2hB = (directWinsB + 1) / (directTotal + 2);
+  // METRICA 4: H2H (Scontri Diretti)
+  if (hasHistory) {
+    const h2hA = (directWinsA + 0.5) / (directTotal + 1);
+    const h2hB = (directWinsB + 0.5) / (directTotal + 1);
+    const sumH2H = h2hA + h2hB;
+
     metrics.push({
       key: 'h2h',
-      label: 'precedenti diretti',
-      weight: 0.1,
-      a: h2hA,
-      b: h2hB,
+      label: `trascorsi diretti (${directWinsA}-${directWinsB})`,
+      weight: h2hWeight,
+      a: h2hA / sumH2H,
+      b: h2hB / sumH2H,
     });
   }
 
   if (metrics.length < 2) return null;
 
-  const totalWeight = metrics.reduce((sum, metric) => sum + metric.weight, 0);
-  const weightedDifference =
-    metrics.reduce((sum, metric) => sum + metric.weight * (metric.a - metric.b), 0) / totalWeight;
-  const exactA = Math.min(0.95, Math.max(0.05, 0.5 + weightedDifference / 2));
+  const totalWeight = metrics.reduce((sum, m) => sum + m.weight, 0);
+  let weightedDifference =
+    metrics.reduce((sum, m) => sum + m.weight * (m.a - m.b), 0) / totalWeight;
+
+  // 4. FATTORE GENERE (Incontri Misti M vs F)
+  const genderA = athleteA.gender?.toUpperCase();
+  const genderB = athleteB.gender?.toUpperCase();
+  if (genderA && genderB && genderA !== genderB) {
+    const GENDER_HANDICAP = 0.10;
+    if (genderA === 'M' && genderB === 'F') {
+      weightedDifference += GENDER_HANDICAP;
+    } else if (genderA === 'F' && genderB === 'M') {
+      weightedDifference -= GENDER_HANDICAP;
+    }
+  }
+
+  // 5. Sigmoide finale (k = 5.0)
+  const k = 5.0;
+  const logisticProbA = 1 / (1 + Math.exp(-k * weightedDifference));
+
+  const exactA = Math.min(0.99, Math.max(0.01, logisticProbA));
   const probA = Math.round(exactA * 100);
   const probB = 100 - probA;
+
   const leader: 'a' | 'b' = probA >= probB ? 'a' : 'b';
   const leaderProb = Math.max(probA, probB);
   const isEven = leaderProb < 53;
-  const label = isEven ? 'Equilibrio' : leaderProb < 60 ? 'Leggero vantaggio' : 'Favorito';
-  const leaderName = leader === 'a' ? athleteA.name : athleteB.name;
+  const label = isEven
+    ? 'Equilibrio'
+    : leaderProb < 60
+      ? 'Leggero vantaggio'
+      : leaderProb < 75
+        ? 'Favorito'
+        : 'Netto favorito';
 
-  const indicatorLabels = metrics.map((metric) => metric.label);
+  const leaderName = leader === 'a' ? athleteA.name : athleteB.name;
+  const indicatorLabels = metrics.map((m) => m.label);
   const note =
-    metrics.length === 4
-      ? 'Indice calcolato su punti ranking, forma recente, posizione e precedenti diretti.'
+    metrics.length >= 4
+      ? 'Indice calcolato su punti ranking stabilizzati, forma recente, ranking élite e precedenti diretti.'
       : `Indice basato su ${indicatorLabels.join(', ')}. Gli indicatori non disponibili per entrambi sono esclusi.`;
 
   return {
@@ -927,6 +1028,193 @@ const buildFavorite = (
     leaderProb,
     verdicts: [buildPointsVerdict(athleteA, athleteB), buildFormVerdict(athleteA, athleteB)],
     note,
+  };
+};
+
+interface HeadToHeadEloEntry {
+  key: string;
+  name: string;
+  badgeLabel: string;
+  calc: SingleMatchCalculationResult;
+  gain: number;
+  finalRating: number;
+}
+
+interface HeadToHeadEloSimulation {
+  pointsA: number;
+  pointsB: number;
+  genderA: 'M' | 'F';
+  genderB: 'M' | 'F';
+  hasValidPoints: boolean;
+  isSameChampionship: boolean;
+  sameChampionship: {
+    serie: SerieCampionato;
+    campionatoName: string;
+    winA: SingleMatchCalculationResult;
+    winB: SingleMatchCalculationResult;
+    finalRatingA: number;
+    finalRatingB: number;
+  } | null;
+  entryA: HeadToHeadEloEntry;
+  entryB: HeadToHeadEloEntry;
+}
+
+const buildEloSimulation = (
+  detailA?: DettaglioAtleta | null,
+  detailB?: DettaglioAtleta | null,
+  metricsA?: AthleteMetrics | null,
+  metricsB?: AthleteMetrics | null
+): HeadToHeadEloSimulation | null => {
+  if (!detailA && !detailB) return null;
+
+  const extractedA = extractAthleteCurrentPoints(detailA);
+  const extractedB = extractAthleteCurrentPoints(detailB);
+  const pointsA = Math.round(extractedA > 0 ? extractedA : metricsA?.points ?? 0);
+  const pointsB = Math.round(extractedB > 0 ? extractedB : metricsB?.points ?? 0);
+  const hasValidPoints = pointsA > 0 && pointsB > 0;
+
+  const genderA = detectAthleteGender(detailA) || 'M';
+  const genderB = detectAthleteGender(detailB) || 'M';
+  const isMixedGender = genderA !== genderB;
+  const femalePlayerA: 'A' | 'B' = genderA === 'F' ? 'A' : 'B';
+  const femalePlayerB: 'A' | 'B' = genderB === 'F' ? 'A' : 'B';
+
+  const camsA = [
+    ...(detailA?.campionatiGiocati || []),
+    ...(detailA?.campionatoAttuale ? [detailA.campionatoAttuale] : []),
+  ];
+  const camsB = [
+    ...(detailB?.campionatiGiocati || []),
+    ...(detailB?.campionatoAttuale ? [detailB.campionatoAttuale] : []),
+  ];
+
+  const sharedCam = camsA.find((ca) =>
+    camsB.some((cb) => ca.camId && cb.camId && String(ca.camId) === String(cb.camId))
+  );
+
+  const serieIdA = detectAthleteSerieCampionato(detailA);
+  const serieIdB = detectAthleteSerieCampionato(detailB);
+
+  const isSameChampionship = Boolean(
+    sharedCam || (serieIdA && serieIdB && serieIdA === serieIdB)
+  );
+
+  const sharedSerieId = isSameChampionship
+    ? (sharedCam ? detectAthleteSerieCampionato(null, [sharedCam]) : null) ||
+      serieIdA ||
+      serieIdB
+    : null;
+
+  let sameChampionship: HeadToHeadEloSimulation['sameChampionship'] = null;
+  if (isSameChampionship && sharedSerieId) {
+    const serie = getSerieCampionatoById(sharedSerieId);
+    if (serie) {
+      const winA = calculateSingleMatchElo({
+        ratingA: pointsA,
+        ratingB: pointsB,
+        isWin: true,
+        eventKey: serie.id,
+        isMixedGender,
+        femalePlayer: femalePlayerA,
+      });
+      const winB = calculateSingleMatchElo({
+        ratingA: pointsB,
+        ratingB: pointsA,
+        isWin: true,
+        eventKey: serie.id,
+        isMixedGender,
+        femalePlayer: femalePlayerB,
+      });
+      sameChampionship = {
+        serie,
+        campionatoName: sharedCam?.nome || serie.label,
+        winA,
+        winB,
+        finalRatingA: applySafeguardRating(pointsA, winA.effectiveDelta).finalRating,
+        finalRatingB: applySafeguardRating(pointsB, winB.effectiveDelta).finalRating,
+      };
+    }
+  }
+
+  // Serie del giocatore salvato nel localStorage (usata come fallback identico a EloCalculatorModal)
+  const myId = getMyPlayerId();
+  const mySnap = getMyProfileSnapshot(myId);
+  const myPlayedCamps =
+    mySnap?.campionatiGiocati && mySnap.campionatiGiocati.length > 0
+      ? mySnap.campionatiGiocati
+      : getMyPlayedChampionships();
+
+  const myMatchedDetail =
+    myId && detailA?.id === myId ? detailA : myId && detailB?.id === myId ? detailB : null;
+
+  const localSerieId = detectAthleteSerieCampionato(myMatchedDetail, myPlayedCamps);
+
+  // Stessa identica logica di EloCalculatorModal: usa la serie dell'atleta attivo,
+  // altrimenti quella dal localStorage, altrimenti quella dell'avversario, altrimenti 'D1_M'
+  const serieKeyForA = sharedSerieId || serieIdA || localSerieId || serieIdB || 'D1_M';
+  const serieKeyForB = sharedSerieId || serieIdB || localSerieId || serieIdA || 'D1_M';
+
+  const serieForA = getSerieCampionatoById(serieKeyForA) || getSerieCampionatoById('D1_M')!;
+  const serieForB = getSerieCampionatoById(serieKeyForB) || getSerieCampionatoById('D1_M')!;
+
+  const calcA = calculateSingleMatchElo({
+    ratingA: pointsA,
+    ratingB: pointsB,
+    isWin: true,
+    eventKey: serieForA.id,
+    isMixedGender,
+    femalePlayer: femalePlayerA,
+  });
+
+  const calcB = calculateSingleMatchElo({
+    ratingA: pointsB,
+    ratingB: pointsA,
+    isWin: true,
+    eventKey: serieForB.id,
+    isMixedGender,
+    femalePlayer: femalePlayerB,
+  });
+
+  const campNameA =
+    sharedCam?.nome ||
+    (serieIdA && detailA?.campionatoAttuale?.nome) ||
+    (localSerieId && myPlayedCamps?.[0]?.nome) ||
+    serieForA.label;
+
+  const campNameB =
+    sharedCam?.nome ||
+    (serieIdB && detailB?.campionatoAttuale?.nome) ||
+    (localSerieId && myPlayedCamps?.[0]?.nome) ||
+    serieForB.label;
+
+  const entryA: HeadToHeadEloEntry = {
+    key: serieForA.id,
+    name: campNameA,
+    badgeLabel: `Base ${serieForA.puntiBase} pt`,
+    calc: calcA,
+    gain: calcA.effectiveDelta,
+    finalRating: applySafeguardRating(pointsA, calcA.effectiveDelta).finalRating,
+  };
+
+  const entryB: HeadToHeadEloEntry = {
+    key: serieForB.id,
+    name: campNameB,
+    badgeLabel: `Base ${serieForB.puntiBase} pt`,
+    calc: calcB,
+    gain: calcB.effectiveDelta,
+    finalRating: applySafeguardRating(pointsB, calcB.effectiveDelta).finalRating,
+  };
+
+  return {
+    pointsA,
+    pointsB,
+    genderA,
+    genderB,
+    hasValidPoints,
+    isSameChampionship: Boolean(sameChampionship),
+    sameChampionship,
+    entryA,
+    entryB,
   };
 };
 
@@ -1014,6 +1302,9 @@ export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps>
   h2h,
 }) => {
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isEloOpen, setIsEloOpen] = useState<boolean>(false);
+  const [isEloModalOpen, setIsEloModalOpen] = useState<boolean>(false);
+  const [eloWinner, setEloWinner] = useState<'a' | 'b'>('a');
   const [profiles, setProfiles] = useState<{
     a: AthleteSnapshot | null;
     b: AthleteSnapshot | null;
@@ -1023,6 +1314,7 @@ export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps>
   const [partialName, setPartialName] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState<number>(0);
   const panelId = useId();
+  const eloPanelId = useId();
 
   const pairKey = `${atleta1Id}::${atleta2Id}`;
 
@@ -1031,10 +1323,11 @@ export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps>
     setLoadedKey(null);
     setError(null);
     setPartialName(null);
+    setEloWinner('a');
   }, [pairKey]);
 
   useEffect(() => {
-    if (!isOpen || !atleta1Id || !atleta2Id || loadedKey === pairKey) return;
+    if (!atleta1Id || !atleta2Id || loadedKey === pairKey) return;
 
     let active = true;
 
@@ -1065,7 +1358,7 @@ export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps>
     return () => {
       active = false;
     };
-  }, [isOpen, atleta1Id, atleta1Nome, atleta2Id, atleta2Nome, pairKey, loadedKey, retryNonce]);
+  }, [atleta1Id, atleta1Nome, atleta2Id, atleta2Nome, pairKey, loadedKey, retryNonce]);
 
   const metricsA = useMemo(
     () => (profiles.a ? buildMetrics(profiles.a, atleta1Nome) : null),
@@ -1083,9 +1376,13 @@ export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps>
     () => buildFavorite(metricsA, metricsB, h2h),
     [metricsA, metricsB, h2h]
   );
+  const eloSim = useMemo(
+    () => buildEloSimulation(profiles.a?.detail, profiles.b?.detail, metricsA, metricsB),
+    [profiles.a, profiles.b, metricsA, metricsB]
+  );
 
   const isReady = loadedKey === pairKey;
-  const showLoading = isOpen && !isReady && !error;
+  const showLoading = !isReady && !error;
 
   const toggleSubtitle = showLoading
     ? 'Recupero ranking, forma e statistiche...'
@@ -1097,6 +1394,12 @@ export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps>
           : `${favorite.label}: ${shortenName(favorite.name)} · ${favorite.leaderProb}%`
         : 'Ranking, forma, punti e pronostico';
 
+  const eloSubtitle = showLoading
+    ? 'Calcolo punti in palio...'
+    : eloSim && eloSim.hasValidPoints
+      ? `${eloSim.entryA.name}: +${eloSim.entryA.gain} pt (${shortenName(atleta1Nome)}) · +${eloSim.entryB.gain} pt (${shortenName(atleta2Nome)})`
+      : 'Simula i punti in palio nello scontro diretto';
+
   const handleRetry = () => {
     setError(null);
     setPartialName(null);
@@ -1105,104 +1408,325 @@ export const HeadToHeadComparisonPanel: React.FC<HeadToHeadComparisonPanelProps>
     setRetryNonce((value) => value + 1);
   };
 
+  const activePlayerForModal = eloWinner === 'a'
+    ? {
+        id: atleta1Id,
+        name: atleta1Nome,
+        points: eloSim?.pointsA,
+        gender: eloSim?.genderA,
+        serieKey: eloSim?.entryA.key,
+        campionatiGiocati: profiles.a?.detail.campionatiGiocati,
+      }
+    : {
+        id: atleta2Id,
+        name: atleta2Nome,
+        points: eloSim?.pointsB,
+        gender: eloSim?.genderB,
+        serieKey: eloSim?.entryB.key,
+        campionatiGiocati: profiles.b?.detail.campionatiGiocati,
+      };
+
+  const activeOpponentForModal = eloWinner === 'a'
+    ? {
+        id: atleta2Id,
+        name: atleta2Nome,
+        points: eloSim?.pointsB,
+        gender: eloSim?.genderB,
+        serieKey: eloSim?.entryB.key,
+        campionatiGiocati: profiles.b?.detail.campionatiGiocati,
+      }
+    : {
+        id: atleta1Id,
+        name: atleta1Nome,
+        points: eloSim?.pointsA,
+        gender: eloSim?.genderA,
+        serieKey: eloSim?.entryA.key,
+        campionatiGiocati: profiles.a?.detail.campionatiGiocati,
+      };
+
   return (
-    <div className={`h2h-cmp-panel${isOpen ? ' is-open' : ''}`}>
-      <button
-        type="button"
-        className="h2h-cmp-toggle"
-        onClick={() => setIsOpen((value) => !value)}
-        aria-expanded={isOpen}
-        aria-controls={panelId}
-        title={isOpen ? 'Chiudi il confronto completo' : 'Apri il confronto completo'}
-      >
-        <span className="h2h-cmp-toggle-icon" aria-hidden="true">
-          <i className="bi bi-bar-chart-line-fill"></i>
-        </span>
-        <span className="h2h-cmp-toggle-copy">
-          <span className="h2h-cmp-toggle-title">Confronto e pronostico IA</span>
-          <span className="h2h-cmp-toggle-sub">{toggleSubtitle}</span>
-        </span>
-        <span className="h2h-cmp-toggle-chevron" aria-hidden="true">
-          <i className="bi bi-chevron-down"></i>
-        </span>
-      </button>
-
-      {isOpen && (
-        <div
-          id={panelId}
-          className="h2h-cmp-body"
-          role="region"
-          aria-label={`Confronto completo tra ${atleta1Nome} e ${atleta2Nome}`}
-        >
-          {showLoading && (
-            <div className="h2h-cmp-state">
-              <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-              <p>Recupero ranking, forma e statistiche...</p>
-            </div>
-          )}
-
-          {!showLoading && error && (
-            <div className="h2h-cmp-state is-error">
-              <span className="h2h-cmp-state-icon" aria-hidden="true">
-                <i className="bi bi-exclamation-triangle"></i>
+    <>
+      {/* Sezione Punti in Palio (ELO): Card diretta se stesso campionato, altrimenti Accordion */}
+      {isReady && eloSim && eloSim.sameChampionship ? (
+        <div className="h2h-elo-camp-card">
+          <div className="h2h-elo-camp-header">
+            <div className="h2h-elo-camp-title-wrap">
+              <span className="h2h-elo-camp-icon" aria-hidden="true">
+                <i className="bi bi-lightning-charge-fill"></i>
               </span>
-              <p>{error}</p>
-              <button type="button" className="h2h-cmp-retry" onClick={handleRetry}>
-                <i className="bi bi-arrow-clockwise" aria-hidden="true"></i>
-                Riprova
+              <div className="h2h-elo-camp-copy">
+                <span className="h2h-elo-camp-kicker">Punti in palio · Stesso Campionato</span>
+                <span className="h2h-elo-camp-name" title={eloSim.sameChampionship.campionatoName}>
+                  {eloSim.sameChampionship.campionatoName}
+                </span>
+              </div>
+            </div>
+            <span className="h2h-elo-camp-base-badge">
+              Base {eloSim.sameChampionship.serie.puntiBase} pt
+            </span>
+          </div>
+
+          <div className="h2h-elo-camp-grid">
+            {/* Giocatore 1 */}
+            <div className="h2h-elo-camp-box is-a">
+              <span className="h2h-elo-camp-player" title={atleta1Nome}>
+                Se vince {shortenName(atleta1Nome)}
+              </span>
+              <span className="h2h-elo-camp-pts">
+                +{eloSim.sameChampionship.winA.effectiveDelta} <small>pt</small>
+              </span>
+              <span className="h2h-elo-camp-sub">
+                {eloSim.sameChampionship.winA.bonusInattesoCampionato > 0
+                  ? `${eloSim.sameChampionship.winA.puntiBaseCampionato} base + ${eloSim.sameChampionship.winA.bonusInattesoCampionato} bonus`
+                  : `${eloSim.sameChampionship.winA.puntiBaseCampionato} pt base`}
+              </span>
+            </div>
+
+            {/* Giocatore 2 */}
+            <div className="h2h-elo-camp-box is-b">
+              <span className="h2h-elo-camp-player" title={atleta2Nome}>
+                Se vince {shortenName(atleta2Nome)}
+              </span>
+              <span className="h2h-elo-camp-pts">
+                +{eloSim.sameChampionship.winB.effectiveDelta} <small>pt</small>
+              </span>
+              <span className="h2h-elo-camp-sub">
+                {eloSim.sameChampionship.winB.bonusInattesoCampionato > 0
+                  ? `${eloSim.sameChampionship.winB.puntiBaseCampionato} base + ${eloSim.sameChampionship.winB.bonusInattesoCampionato} bonus`
+                  : `${eloSim.sameChampionship.winB.puntiBaseCampionato} pt base`}
+              </span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="h2h-elo-open-calc-btn"
+            onClick={() => setIsEloModalOpen(true)}
+          >
+            <i className="bi bi-calculator" aria-hidden="true"></i>
+            <span>Apri Calcolatore ELO</span>
+            <i className="bi bi-chevron-right" aria-hidden="true"></i>
+          </button>
+        </div>
+      ) : (
+        <div className={`h2h-cmp-panel h2h-elo-panel${isEloOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="h2h-cmp-toggle"
+            onClick={() => setIsEloOpen((v) => !v)}
+            aria-expanded={isEloOpen}
+            aria-controls={eloPanelId}
+            title={isEloOpen ? 'Chiudi simulatore punti ELO' : 'Apri simulatore punti ELO'}
+          >
+            <span className="h2h-cmp-toggle-icon is-elo" aria-hidden="true">
+              <i className="bi bi-lightning-charge-fill"></i>
+            </span>
+            <span className="h2h-cmp-toggle-copy">
+              <span className="h2h-cmp-toggle-title">Punti in palio · Simulatore ELO</span>
+              <span className="h2h-cmp-toggle-sub">{eloSubtitle}</span>
+            </span>
+            <span className="h2h-cmp-toggle-chevron" aria-hidden="true">
+              <i className="bi bi-chevron-down"></i>
+            </span>
+          </button>
+
+          {isEloOpen && (
+            <div
+              id={eloPanelId}
+              className="h2h-cmp-body"
+              role="region"
+              aria-label={`Simulazione punti tra ${atleta1Nome} e ${atleta2Nome}`}
+            >
+              {showLoading && (
+                <div className="h2h-cmp-state">
+                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  <p>Calcolo punti ranking in palio...</p>
+                </div>
+              )}
+
+              {!showLoading && (!eloSim || !eloSim.hasValidPoints) && (
+                <div className="h2h-cmp-note">
+                  <i className="bi bi-info-circle" aria-hidden="true"></i>
+                  <span>Punti ranking attuali non disponibili per entrambi gli atleti.</span>
+                </div>
+              )}
+
+              {!showLoading && eloSim && eloSim.hasValidPoints && (
+                <>
+                  {/* Toggle sulla vittoria di uno o dell'altro */}
+                  <div className="h2h-elo-winner-toggle" role="tablist" aria-label="Seleziona vincitore">
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={eloWinner === 'a'}
+                      className={`h2h-elo-winner-btn ${eloWinner === 'a' ? 'is-active is-a' : ''}`}
+                      onClick={() => setEloWinner('a')}
+                    >
+                      <span className="h2h-elo-winner-label">
+                        Vince {shortenName(atleta1Nome)}
+                      </span>
+                      <span className="h2h-elo-winner-pts">{formatNumber(eloSim.pointsA)} pt</span>
+                    </button>
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={eloWinner === 'b'}
+                      className={`h2h-elo-winner-btn ${eloWinner === 'b' ? 'is-active is-b' : ''}`}
+                      onClick={() => setEloWinner('b')}
+                    >
+                      <span className="h2h-elo-winner-label">
+                        Vince {shortenName(atleta2Nome)}
+                      </span>
+                      <span className="h2h-elo-winner-pts">{formatNumber(eloSim.pointsB)} pt</span>
+                    </button>
+                  </div>
+
+                  {/* 1 sola voce in base al campionato del giocatore dal localStorage */}
+                  <div className="h2h-elo-tournaments-list">
+                    {(() => {
+                      const entry = eloWinner === 'a' ? eloSim.entryA : eloSim.entryB;
+                      return (
+                        <div className="h2h-elo-tournament-row">
+                          <div className="h2h-elo-tournament-info">
+                            <span className="h2h-elo-mult-badge">{entry.badgeLabel}</span>
+                            <span className="h2h-elo-tournament-name" title={entry.name}>
+                              {entry.name}
+                            </span>
+                          </div>
+                          <div className="h2h-elo-tournament-gain">
+                            <span className="h2h-elo-gain-pill">+{entry.gain} pt</span>
+                            <span className="h2h-elo-new-total">
+                              → {formatNumber(entry.finalRating)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </>
+              )}
+
+              <button
+                type="button"
+                className="h2h-elo-open-calc-btn"
+                onClick={() => setIsEloModalOpen(true)}
+              >
+                <i className="bi bi-calculator" aria-hidden="true"></i>
+                <span>Apri Calcolatore ELO</span>
+                <i className="bi bi-chevron-right" aria-hidden="true"></i>
               </button>
             </div>
           )}
-
-          {!showLoading && !error && isReady && (
-            <>
-              {partialName && (
-                <div className="h2h-cmp-note is-warning">
-                  <i className="bi bi-exclamation-circle" aria-hidden="true"></i>
-                  <span>Dati non disponibili per {partialName}. Il confronto mostra solo le informazioni recuperate.</span>
-                </div>
-              )}
-
-              {favorite && (
-                <FavoriteCard
-                  favorite={favorite}
-                  athleteAName={atleta1Nome}
-                  athleteBName={atleta2Nome}
-                />
-              )}
-
-              <div className="h2h-cmp-table-head">
-                <span className="h2h-cmp-table-name is-a" title={atleta1Nome}>
-                  {atleta1Nome}
-                </span>
-                <span className="h2h-cmp-table-vs">vs</span>
-                <span className="h2h-cmp-table-name is-b" title={atleta2Nome}>
-                  {atleta2Nome}
-                </span>
-              </div>
-
-              {groups.map((group) => (
-                <section className="h2h-cmp-group" key={group.key}>
-                  <div className="h2h-cmp-group-title">
-                    <i className={`bi ${group.icon}`} aria-hidden="true"></i>
-                    <span>{group.label}</span>
-                  </div>
-                  {group.rows.map((row) => (
-                    <ComparisonRowView key={row.key} row={row} />
-                  ))}
-                </section>
-              ))}
-
-              {groups.length === 0 && (
-                <div className="h2h-cmp-note">
-                  <i className="bi bi-info-circle" aria-hidden="true"></i>
-                  <span>Nessun dato di confronto disponibile per questi atleti.</span>
-                </div>
-              )}
-            </>
-          )}
         </div>
       )}
-    </div>
+
+      {isEloModalOpen && (
+        <EloCalculatorModal
+          isOpen={isEloModalOpen}
+          onClose={() => setIsEloModalOpen(false)}
+          initialPlayerA={activePlayerForModal}
+          initialOpponent={activeOpponentForModal}
+        />
+      )}
+
+      <div className={`h2h-cmp-panel${isOpen ? ' is-open' : ''}`}>
+        <button
+          type="button"
+          className="h2h-cmp-toggle"
+          onClick={() => setIsOpen((value) => !value)}
+          aria-expanded={isOpen}
+          aria-controls={panelId}
+          title={isOpen ? 'Chiudi il confronto completo' : 'Apri il confronto completo'}
+        >
+          <span className="h2h-cmp-toggle-icon" aria-hidden="true">
+            <i className="bi bi-bar-chart-line-fill"></i>
+          </span>
+          <span className="h2h-cmp-toggle-copy">
+            <span className="h2h-cmp-toggle-title">Confronto e pronostico IA</span>
+            <span className="h2h-cmp-toggle-sub">{toggleSubtitle}</span>
+          </span>
+          <span className="h2h-cmp-toggle-chevron" aria-hidden="true">
+            <i className="bi bi-chevron-down"></i>
+          </span>
+        </button>
+
+        {isOpen && (
+          <div
+            id={panelId}
+            className="h2h-cmp-body"
+            role="region"
+            aria-label={`Confronto completo tra ${atleta1Nome} e ${atleta2Nome}`}
+          >
+            {showLoading && (
+              <div className="h2h-cmp-state">
+                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <p>Recupero ranking, forma e statistiche...</p>
+              </div>
+            )}
+
+            {!showLoading && error && (
+              <div className="h2h-cmp-state is-error">
+                <span className="h2h-cmp-state-icon" aria-hidden="true">
+                  <i className="bi bi-exclamation-triangle"></i>
+                </span>
+                <p>{error}</p>
+                <button type="button" className="h2h-cmp-retry" onClick={handleRetry}>
+                  <i className="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                  Riprova
+                </button>
+              </div>
+            )}
+
+            {!showLoading && !error && isReady && (
+              <>
+                {partialName && (
+                  <div className="h2h-cmp-note is-warning">
+                    <i className="bi bi-exclamation-circle" aria-hidden="true"></i>
+                    <span>Dati non disponibili per {partialName}. Il confronto mostra solo le informazioni recuperate.</span>
+                  </div>
+                )}
+
+                {favorite && (
+                  <FavoriteCard
+                    favorite={favorite}
+                    athleteAName={atleta1Nome}
+                    athleteBName={atleta2Nome}
+                  />
+                )}
+
+                <div className="h2h-cmp-table-head">
+                  <span className="h2h-cmp-table-name is-a" title={atleta1Nome}>
+                    {atleta1Nome}
+                  </span>
+                  <span className="h2h-cmp-table-vs">vs</span>
+                  <span className="h2h-cmp-table-name is-b" title={atleta2Nome}>
+                    {atleta2Nome}
+                  </span>
+                </div>
+
+                {groups.map((group) => (
+                  <section className="h2h-cmp-group" key={group.key}>
+                    <div className="h2h-cmp-group-title">
+                      <i className={`bi ${group.icon}`} aria-hidden="true"></i>
+                      <span>{group.label}</span>
+                    </div>
+                    {group.rows.map((row) => (
+                      <ComparisonRowView key={row.key} row={row} />
+                    ))}
+                  </section>
+                ))}
+
+                {groups.length === 0 && (
+                  <div className="h2h-cmp-note">
+                    <i className="bi bi-info-circle" aria-hidden="true"></i>
+                    <span>Nessun dato di confronto disponibile per questi atleti.</span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 };

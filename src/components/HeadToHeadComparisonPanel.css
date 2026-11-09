@@ -851,3 +851,347 @@
     transition: none;
   }
 }
+
+/* ==========================================================================
+   ELO Points Simulation (Same Championship Card & Tournaments Accordion)
+   ========================================================================== */
+
+.h2h-cmp-toggle-icon.is-elo {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.h2h-elo-camp-card {
+  margin-bottom: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 14px;
+  background: var(--bg-card, #ffffff);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.h2h-elo-camp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.h2h-elo-camp-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.h2h-elo-camp-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 8px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  font-size: 13px;
+}
+
+.h2h-elo-camp-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.h2h-elo-camp-kicker {
+  color: var(--text-muted, #64748b);
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.h2h-elo-camp-name {
+  overflow: hidden;
+  color: var(--text-dark, #0f172a);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h2h-elo-camp-base-badge {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.08);
+  color: #047857;
+  font-size: 9.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.h2h-elo-camp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.h2h-elo-camp-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 8px;
+  border: 1px solid var(--border-light, #f1f5f9);
+  border-radius: 10px;
+  background: var(--bg-th, #f8fafc);
+  text-align: center;
+}
+
+.h2h-elo-camp-player {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-muted, #64748b);
+  font-size: 9.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h2h-elo-camp-pts {
+  margin-top: 2px;
+  color: #16a34a;
+  font-size: 18px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.h2h-elo-camp-pts small {
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.h2h-elo-camp-sub {
+  margin-top: 2px;
+  color: var(--text-muted, #64748b);
+  font-size: 8.8px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Toggle Vincitore nei Tornei */
+.h2h-elo-winner-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+  padding: 4px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  background: var(--bg-th, #f1f5f9);
+}
+
+.h2h-elo-winner-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted, #64748b);
+  font-family: var(--font-sans, sans-serif);
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.h2h-elo-winner-btn:hover {
+  color: var(--text-dark, #0f172a);
+}
+
+.h2h-elo-winner-btn.is-active {
+  border-color: var(--border-color, #e2e8f0);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-dark, #0f172a);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.h2h-elo-winner-btn.is-active.is-a .h2h-elo-winner-label {
+  color: #1d4ed8;
+}
+
+.h2h-elo-winner-btn.is-active.is-b .h2h-elo-winner-label {
+  color: #b45309;
+}
+
+.h2h-elo-winner-label {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h2h-elo-winner-pts {
+  color: var(--text-muted, #64748b);
+  font-size: 8.8px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Elenco Tornei uno sotto l'altro */
+.h2h-elo-tournaments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.h2h-elo-tournament-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-light, #f1f5f9);
+  border-radius: 9px;
+  background: var(--bg-th, #f8fafc);
+}
+
+.h2h-elo-tournament-info {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.h2h-elo-mult-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 2px 5px;
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--color-primary-600, #1d538e);
+  font-size: 9px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.h2h-elo-tournament-name {
+  overflow: hidden;
+  color: var(--text-main, #1e293b);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.h2h-elo-tournament-gain {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.h2h-elo-gain-pill {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.h2h-elo-new-total {
+  color: var(--text-muted, #64748b);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.h2h-elo-open-calc-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 9px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 9px;
+  background: var(--bg-card, #ffffff);
+  color: var(--color-primary-600, #1d538e);
+  font-family: var(--font-sans, sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.h2h-elo-open-calc-btn:hover {
+  background: var(--bg-hover, #f8fafc);
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.h2h-elo-open-calc-btn i:last-child {
+  font-size: 9.5px;
+  opacity: 0.75;
+}
+
+[data-theme='dark'] .h2h-elo-open-calc-btn {
+  color: #93c5fd;
+}
+
+[data-theme='dark'] .h2h-cmp-toggle-icon.is-elo,
+[data-theme='dark'] .h2h-elo-camp-icon {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+}
+
+[data-theme='dark'] .h2h-elo-camp-base-badge {
+  border-color: rgba(52, 211, 153, 0.25);
+  background: rgba(16, 185, 129, 0.12);
+  color: #6ee7b7;
+}
+
+[data-theme='dark'] .h2h-elo-camp-pts {
+  color: #4ade80;
+}
+
+[data-theme='dark'] .h2h-elo-winner-btn.is-active.is-a .h2h-elo-winner-label {
+  color: #93c5fd;
+}
+
+[data-theme='dark'] .h2h-elo-winner-btn.is-active.is-b .h2h-elo-winner-label {
+  color: #fbbf24;
+}
+
+[data-theme='dark'] .h2h-elo-mult-badge {
+  background: rgba(96, 165, 250, 0.14);
+  color: #93c5fd;
+}
+
+[data-theme='dark'] .h2h-elo-gain-pill {
+  background: rgba(34, 197, 94, 0.16);
+  color: #4ade80;
+}
+
+@media (max-width: 430px) {
+  .h2h-elo-new-total {
+    display: none;
+  }
+
+  .h2h-elo-tournament-name {
+    font-size: 10.2px;
+  }
+}

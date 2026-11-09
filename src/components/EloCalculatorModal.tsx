@@ -26,6 +26,22 @@ import './EloCalculatorModal.css';
 interface EloCalculatorModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialPlayerA?: {
+    id: string;
+    name: string;
+    points?: number | null;
+    gender?: 'M' | 'F' | null;
+    serieKey?: string | null;
+    campionatiGiocati?: CampionatoAttualeInfo[] | null;
+  } | null;
+  initialOpponent?: {
+    id: string;
+    name: string;
+    points?: number | null;
+    gender?: 'M' | 'F' | null;
+    serieKey?: string | null;
+    campionatiGiocati?: CampionatoAttualeInfo[] | null;
+  } | null;
 }
 
 interface SimulatedMatchItem {
@@ -33,6 +49,7 @@ interface SimulatedMatchItem {
   opponentName: string;
   opponentId?: string;
   opponentGender: 'M' | 'F';
+  opponentSerie?: string | null;
   ratingB: string;
   isWin: boolean;
   isMixedGender: boolean;
@@ -58,8 +75,14 @@ const MinimalPlayerSearch: React.FC<MinimalPlayerSearchProps> = ({
   const [results, setResults] = useState<AthleteSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const timerRef = useRef<number | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    if (selectedName) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
     if (timerRef.current) window.clearTimeout(timerRef.current);
     const term = query.trim();
     if (term.length < 2) {
@@ -83,44 +106,68 @@ const MinimalPlayerSearch: React.FC<MinimalPlayerSearchProps> = ({
     return () => {
       if (timerRef.current) window.clearTimeout(timerRef.current);
     };
-  }, [query, excludeId]);
+  }, [query, excludeId, selectedName]);
 
-  if (selectedName) {
-    return (
-      <div className="h2h-picker-search" style={{ marginTop: 0 }}>
-        <input
-          type="text"
-          className="h2h-picker-input"
-          value={selectedName}
-          readOnly
-          style={{ paddingLeft: '12px', fontWeight: 600 }}
-        />
-        <button
-          type="button"
-          className="h2h-picker-clear"
-          onClick={onClear}
-          title="Rimuovi atleta"
-          aria-label="Rimuovi atleta"
-        >
-          <i className="bi bi-x-circle-fill" aria-hidden="true"></i>
-        </button>
-      </div>
-    );
-  }
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (selectedName && (e.key === 'Backspace' || e.key === 'Delete')) {
+      e.preventDefault();
+      setQuery('');
+      setResults([]);
+      onClear();
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (selectedName) {
+      onClear();
+      if (val.length < selectedName.length) {
+        setQuery('');
+      } else {
+        const diff = val.startsWith(selectedName)
+          ? val.slice(selectedName.length)
+          : val;
+        setQuery(diff);
+      }
+      setResults([]);
+      return;
+    }
+    setQuery(val);
+  };
 
   return (
     <div style={{ position: 'relative', minWidth: 0 }}>
       <div className="h2h-picker-search" style={{ marginTop: 0 }}>
-        <i className="bi bi-search h2h-picker-search-icon" aria-hidden="true"></i>
+        {!selectedName && (
+          <i className="bi bi-search h2h-picker-search-icon" aria-hidden="true"></i>
+        )}
         <input
-          type="search"
+          ref={inputRef}
+          type="text"
           className="h2h-picker-input"
           placeholder={placeholder}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          value={selectedName ? selectedName : query}
+          onKeyDown={handleKeyDown}
+          onChange={handleChange}
           autoComplete="off"
+          style={selectedName ? { paddingLeft: '12px', fontWeight: 600 } : undefined}
         />
-        {loading ? (
+        {selectedName ? (
+          <button
+            type="button"
+            className="h2h-picker-clear"
+            onClick={() => {
+              setQuery('');
+              setResults([]);
+              onClear();
+              inputRef.current?.focus();
+            }}
+            title="Rimuovi atleta (oppure premi Backspace)"
+            aria-label="Rimuovi atleta"
+          >
+            <i className="bi bi-x-circle-fill" aria-hidden="true"></i>
+          </button>
+        ) : loading ? (
           <span className="h2h-picker-inline-spinner">
             <span className="spinner-border spinner-border-sm" aria-hidden="true"></span>
           </span>
@@ -132,6 +179,7 @@ const MinimalPlayerSearch: React.FC<MinimalPlayerSearchProps> = ({
               onClick={() => {
                 setQuery('');
                 setResults([]);
+                inputRef.current?.focus();
               }}
               aria-label="Cancella"
             >
@@ -141,7 +189,7 @@ const MinimalPlayerSearch: React.FC<MinimalPlayerSearchProps> = ({
         )}
       </div>
 
-      {results.length > 0 && (
+      {!selectedName && results.length > 0 && (
         <div
           className="h2h-picker-results-wrap"
           style={{
@@ -179,7 +227,12 @@ const MinimalPlayerSearch: React.FC<MinimalPlayerSearchProps> = ({
   );
 };
 
-export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({ isOpen, onClose }) => {
+export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({
+  isOpen,
+  onClose,
+  initialPlayerA,
+  initialOpponent,
+}) => {
   useBodyScrollLock(isOpen);
 
   // Atleta A (inizializzato subito col proprio atleta salvato se presente)
@@ -190,6 +243,20 @@ export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({ isOpen, 
     return snap?.name || getMyPlayerName() || '';
   });
   const [playerAGender, setPlayerAGender] = useState<'M' | 'F'>('M');
+  const playerAGenderRef = useRef<'M' | 'F'>('M');
+  useEffect(() => {
+    playerAGenderRef.current = playerAGender;
+  }, [playerAGender]);
+
+  const [playerASerie, setPlayerASerie] = useState<string | null>(() => {
+    const id = getMyPlayerId();
+    const snap = getMyProfileSnapshot(id);
+    if (snap?.campionatiGiocati && snap.campionatiGiocati.length > 0) {
+      return detectAthleteSerieCampionato(null, snap.campionatiGiocati);
+    }
+    return null;
+  });
+
   const [ratingAInput, setRatingAInput] = useState<string>(() => {
     const id = getMyPlayerId();
     const snap = getMyProfileSnapshot(id);
@@ -213,6 +280,7 @@ export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({ isOpen, 
       id: 'm-1',
       opponentName: '',
       opponentGender: 'M',
+      opponentSerie: null,
       ratingB: '5000',
       isWin: true,
       isMixedGender: false,
@@ -220,6 +288,7 @@ export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({ isOpen, 
     },
   ]);
   const counterRef = useRef(1);
+  const playerAReqRef = useRef(0);
 
   // Bonus / Malus opzionali
   const [showBonus, setShowBonus] = useState<boolean>(false);
@@ -229,34 +298,70 @@ export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({ isOpen, 
   const [weightFactor, setWeightFactor] = useState<number>(1.0);
   const [forfeitsCount, setForfeitsCount] = useState<number>(0);
 
+  // Mantiene sincronizzato il flag incontro misto al variare del sesso di Atleta A
+  useEffect(() => {
+    setMatches((prev) =>
+      prev.map((m) =>
+        m.opponentId
+          ? {
+              ...m,
+              isMixedGender: playerAGender !== m.opponentGender,
+              femalePlayer: playerAGender === 'F' ? 'A' : 'B',
+            }
+          : m
+      )
+    );
+  }, [playerAGender]);
+
   const loadPlayerA = useCallback(
     async (
       id: string,
       name: string,
       fallbackPts?: number | null,
-      fallbackCampionati?: CampionatoAttualeInfo[] | null
+      fallbackCampionati?: CampionatoAttualeInfo[] | null,
+      fallbackGender?: 'M' | 'F' | null,
+      fallbackSerieKey?: string | null
     ) => {
+      const reqId = ++playerAReqRef.current;
       setPlayerAId(id);
       if (name) setPlayerAName(name);
-      if (fallbackPts && fallbackPts > 0) {
+      if (fallbackPts != null && fallbackPts > 0) {
         setRatingAInput(String(Math.round(fallbackPts)));
       }
-      if (fallbackCampionati && fallbackCampionati.length > 0) {
+      if (fallbackGender === 'M' || fallbackGender === 'F') {
+        playerAGenderRef.current = fallbackGender;
+        setPlayerAGender(fallbackGender);
+      }
+      if (fallbackSerieKey) {
+        setPlayerASerie(fallbackSerieKey);
+        setEventKey(fallbackSerieKey);
+      } else if (fallbackCampionati && fallbackCampionati.length > 0) {
         const earlySerie = detectAthleteSerieCampionato(null, fallbackCampionati);
-        if (earlySerie) setEventKey(earlySerie);
+        if (earlySerie) {
+          setPlayerASerie(earlySerie);
+          setEventKey(earlySerie);
+        }
       }
       try {
         const detail = await fetchAtleta(id);
+        if (playerAReqRef.current !== reqId) return;
         if (detail?.anagrafica?.nome) {
           setPlayerAName(detail.anagrafica.nome);
         }
         const pts = extractAthleteCurrentPoints(detail);
-        if (pts > 0) setRatingAInput(String(pts));
-        const gender = detectAthleteGender(detail) || 'M';
+        if (pts > 0) {
+          setRatingAInput(String(pts));
+        } else if (fallbackPts == null) {
+          setRatingAInput('0');
+        }
+        const gender = detectAthleteGender(detail) || fallbackGender || 'M';
+        playerAGenderRef.current = gender;
         setPlayerAGender(gender);
 
         // Auto-rilevamento della serie dal profilo dell'atleta
-        const detectedSerie = detectAthleteSerieCampionato(detail, fallbackCampionati);
+        const detectedSerie =
+          detectAthleteSerieCampionato(detail, fallbackCampionati) || fallbackSerieKey || null;
+        setPlayerASerie(detectedSerie);
         if (detectedSerie) {
           setEventKey(detectedSerie);
         }
@@ -279,52 +384,231 @@ export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({ isOpen, 
     []
   );
 
-  // All'apertura della modale, auto-seleziona l'atleta salvato nel profilo (Atleta A)
+  const handleSelectOpponent = useCallback(
+    async (
+      matchId: string,
+      item: AthleteSearchResult,
+      fallbackPts?: number | null,
+      fallbackCampionati?: CampionatoAttualeInfo[] | null,
+      fallbackGender?: 'M' | 'F' | null,
+      fallbackSerieKey?: string | null
+    ) => {
+      const name = item.value || item.label;
+      const initialGender = fallbackGender || 'M';
+      const initialSerie =
+        fallbackSerieKey ||
+        (fallbackCampionati && fallbackCampionati.length > 0
+          ? detectAthleteSerieCampionato(null, fallbackCampionati)
+          : null);
+
+      setMatches((prev) =>
+        prev.map((m) =>
+          m.id === matchId
+            ? {
+                ...m,
+                opponentId: item.id,
+                opponentName: name,
+                ratingB:
+                  fallbackPts != null && fallbackPts > 0
+                    ? String(Math.round(fallbackPts))
+                    : m.ratingB,
+                opponentGender: initialGender,
+                opponentSerie: initialSerie ?? m.opponentSerie,
+                isMixedGender: playerAGenderRef.current !== initialGender,
+                femalePlayer: playerAGenderRef.current === 'F' ? 'A' : 'B',
+              }
+            : m
+        )
+      );
+      try {
+        const detail = await fetchAtleta(item.id);
+        const pts = extractAthleteCurrentPoints(detail);
+        const oppGender = detectAthleteGender(detail) || fallbackGender || 'M';
+        const oppSerie =
+          detectAthleteSerieCampionato(detail, fallbackCampionati) || initialSerie || null;
+        const currentAGender = playerAGenderRef.current;
+        const isMixed = currentAGender !== oppGender;
+
+        setMatches((prev) =>
+          prev.map((m) =>
+            m.id === matchId && m.opponentId === item.id
+              ? {
+                  ...m,
+                  opponentName: detail?.anagrafica?.nome || m.opponentName,
+                  ratingB:
+                    pts > 0
+                      ? String(pts)
+                      : fallbackPts != null && fallbackPts > 0
+                        ? String(Math.round(fallbackPts))
+                        : '0',
+                  opponentGender: oppGender,
+                  opponentSerie: oppSerie,
+                  isMixedGender: isMixed,
+                  femalePlayer: currentAGender === 'F' ? 'A' : 'B',
+                }
+              : m
+          )
+        );
+      } catch {
+        // ignore
+      }
+    },
+    []
+  );
+
+  // All'apertura della modale, auto-seleziona l'atleta passato da H2H o quello salvato nel profilo
   useEffect(() => {
     if (!isOpen) return;
+    if (initialPlayerA?.id) {
+      void loadPlayerA(
+        initialPlayerA.id,
+        initialPlayerA.name,
+        initialPlayerA.points,
+        initialPlayerA.campionatiGiocati,
+        initialPlayerA.gender,
+        initialPlayerA.serieKey
+      );
+      if (initialOpponent?.id) {
+        const initGenderA = initialPlayerA.gender || 'M';
+        const initGenderB = initialOpponent.gender || 'M';
+        const initMixed = initGenderA !== initGenderB;
+        setMatches([
+          {
+            id: 'm-1',
+            opponentId: initialOpponent.id,
+            opponentName: initialOpponent.name,
+            opponentGender: initGenderB,
+            opponentSerie: initialOpponent.serieKey || null,
+            ratingB:
+              initialOpponent.points && initialOpponent.points > 0
+                ? String(Math.round(initialOpponent.points))
+                : '5000',
+            isWin: true,
+            isMixedGender: initMixed,
+            femalePlayer: initGenderA === 'F' ? 'A' : 'B',
+          },
+        ]);
+        void handleSelectOpponent(
+          'm-1',
+          {
+            id: initialOpponent.id,
+            value: initialOpponent.name,
+            label: initialOpponent.name,
+          },
+          initialOpponent.points,
+          initialOpponent.campionatiGiocati,
+          initialOpponent.gender,
+          initialOpponent.serieKey
+        );
+      }
+      return;
+    }
+
     const myId = getMyPlayerId();
     if (!myId) return;
     const snap = getMyProfileSnapshot(myId);
     const myName = snap?.name || getMyPlayerName() || `Atleta #${myId}`;
     void loadPlayerA(myId, myName, snap?.punti, snap?.campionatiGiocati);
-  }, [isOpen, loadPlayerA]);
+  }, [
+    isOpen,
+    loadPlayerA,
+    handleSelectOpponent,
+    initialPlayerA?.id,
+    initialPlayerA?.points,
+    initialPlayerA?.serieKey,
+    initialOpponent?.id,
+    initialOpponent?.points,
+    initialOpponent?.serieKey,
+  ]);
+
+  // Switch / Inverte la posizione tra Atleta A e il primo Avversario (Atleta B) aggiornando punti, sesso e serie
+  const handleSwapPlayers = () => {
+    const firstMatch = matches[0];
+    if (!firstMatch) return;
+
+    playerAReqRef.current += 1;
+
+    const oldAId = playerAId;
+    const oldAName = playerAName;
+    const oldARating = ratingAInput;
+    const oldAGender = playerAGender;
+    const oldASerie = playerASerie || eventKey;
+
+    const oldBId = firstMatch.opponentId;
+    const oldBName = firstMatch.opponentName;
+    const oldBRating = firstMatch.ratingB;
+    const oldBGender = firstMatch.opponentGender;
+    const oldBSerie = firstMatch.opponentSerie || null;
+
+    // Aggiorna immediatamente Atleta A con i dati di Atleta B
+    setPlayerAId(oldBId);
+    setPlayerAName(oldBName);
+    setRatingAInput(oldBRating);
+    playerAGenderRef.current = oldBGender;
+    setPlayerAGender(oldBGender);
+    setPlayerASerie(oldBSerie);
+    if (oldBSerie) {
+      setEventKey(oldBSerie);
+    }
+
+    // Aggiorna immediatamente Atleta B (matches[0]) con i dati di Atleta A
+    setMatches((prev) =>
+      prev.map((m, idx) =>
+        idx === 0
+          ? {
+              ...m,
+              opponentId: oldAId,
+              opponentName: oldAName,
+              ratingB: oldARating,
+              opponentGender: oldAGender,
+              opponentSerie: oldASerie,
+              isMixedGender: oldBGender !== oldAGender,
+              femalePlayer: oldBGender === 'F' ? 'A' : 'B',
+            }
+          : {
+              ...m,
+              isMixedGender: oldBGender !== m.opponentGender,
+              femalePlayer: oldBGender === 'F' ? 'A' : 'B',
+            }
+      )
+    );
+
+    // Se il nuovo Atleta A ha un ID, ricarica in background per garantire punti e serie aggiornati
+    if (oldBId) {
+      const parsedB = Number(oldBRating);
+      void loadPlayerA(
+        oldBId,
+        oldBName,
+        Number.isFinite(parsedB) && parsedB > 0 ? parsedB : undefined,
+        undefined,
+        oldBGender,
+        oldBSerie
+      );
+    }
+    if (oldAId) {
+      const parsedA = Number(oldARating);
+      void handleSelectOpponent(
+        firstMatch.id,
+        { id: oldAId, value: oldAName, label: oldAName },
+        Number.isFinite(parsedA) && parsedA > 0 ? parsedA : undefined,
+        undefined,
+        oldAGender,
+        oldASerie
+      );
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
     };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    window.addEventListener('keydown', handleKey, true);
+    return () => window.removeEventListener('keydown', handleKey, true);
   }, [isOpen, onClose]);
-
-  const handleSelectOpponent = async (matchId: string, item: AthleteSearchResult) => {
-    const name = item.value || item.label;
-    setMatches((prev) =>
-      prev.map((m) => (m.id === matchId ? { ...m, opponentId: item.id, opponentName: name } : m))
-    );
-    try {
-      const detail = await fetchAtleta(item.id);
-      const pts = extractAthleteCurrentPoints(detail);
-      const oppGender = detectAthleteGender(detail) || 'M';
-      const isMixed = playerAGender !== oppGender;
-      setMatches((prev) =>
-        prev.map((m) =>
-          m.id === matchId
-            ? {
-              ...m,
-              ratingB: pts > 0 ? String(pts) : m.ratingB,
-              opponentGender: oppGender,
-              isMixedGender: isMixed,
-              femalePlayer: playerAGender === 'F' ? 'A' : 'B',
-            }
-            : m
-        )
-      );
-    } catch {
-      // ignore
-    }
-  };
 
   const updateMatch = (id: string, patch: Partial<SimulatedMatchItem>) => {
     setMatches((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
@@ -406,6 +690,7 @@ export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({ isOpen, 
     <div
       className="modal-backdrop-simple modal-h2h-backdrop h2h-picker-backdrop"
       onClick={onClose}
+      style={{ zIndex: 1700 }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="elo-calc-title"
@@ -507,9 +792,23 @@ export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({ isOpen, 
                 onClear={() => {
                   setPlayerAId(undefined);
                   setPlayerAName('');
+                  setPlayerASerie(null);
                 }}
               />
             </div>
+          </div>
+
+          {/* Pulsante per switchare tra Atleta A e Atleta B */}
+          <div className="elo-swap-players-row">
+            <button
+              type="button"
+              className="elo-swap-players-btn"
+              onClick={handleSwapPlayers}
+              title="Inverti posizione e punti tra Atleta A e Atleta B"
+            >
+              <i className="bi bi-arrow-down-up" aria-hidden="true"></i>
+              <span>Inverti Atleta A / Atleta B</span>
+            </button>
           </div>
 
           {/* 3. Select Serie Campionato (raggruppata per settore) */}
@@ -588,7 +887,12 @@ export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({ isOpen, 
                   excludeId={playerAId}
                   onSelect={(item) => handleSelectOpponent(match.id, item)}
                   onClear={() =>
-                    updateMatch(match.id, { opponentId: undefined, opponentName: '' })
+                    updateMatch(match.id, {
+                      opponentId: undefined,
+                      opponentName: '',
+                      opponentSerie: null,
+                      isMixedGender: false,
+                    })
                   }
                 />
               </div>

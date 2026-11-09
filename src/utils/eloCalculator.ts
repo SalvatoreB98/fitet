@@ -443,7 +443,7 @@ export function detectAthleteGender(detail: DettaglioAtleta | null | undefined):
  */
 export function matchSerieCampionatoFromString(
   rawStr?: string | null,
-  _genderHint?: 'M' | 'F' | null
+  genderHint?: 'M' | 'F' | null
 ): string | null {
   if (!rawStr) return null;
   const trimmed = rawStr.trim();
@@ -461,14 +461,14 @@ export function matchSerieCampionatoFromString(
 
   // 1. Paralimpico
   if (/PARALIMP/.test(s)) {
-    if (/\bA\s*1\b/.test(s)) return 'A1_PARA';
-    if (/\bA\s*2\b/.test(s)) return 'A2_PARA';
+    if (/\bA[\s\/\-]*1\b/.test(s)) return 'A1_PARA';
+    if (/\bA[\s\/\-]*2\b/.test(s)) return 'A2_PARA';
     if (/\bB\b/.test(s)) return 'B_PARA';
   }
 
-  // 2. Veterani
-  if (/VETERAN/.test(s)) {
-    if (/\bA\s*1\b/.test(s)) return 'VET_A1';
+  // 2. Veterani / Master
+  if (/VETERAN|MASTER/.test(s)) {
+    if (/\bA[\s\/\-]*[12]?\b/.test(s)) return 'VET_A1';
     if (/\bB\b/.test(s)) return 'VET_B';
   }
 
@@ -480,30 +480,33 @@ export function matchSerieCampionatoFromString(
 
   // Determina se il nome del campionato indica esplicitamente una serie femminile
   // (in un campionato misto/maschile anche l'atleta donna prende i punti base di quella serie)
-  const isFemale = /FEMMINIL|\bDONNE\b|\bSERIE\s+[ABC][12]?\s*F\b|\b[ABC][12]?\s*F\b|\b[ABC][12]?\s*FEMM/.test(s);
+  const isFemale =
+    /FEMMINIL|\bDONNE\b|\bSERIE\s+[ABC][\s\/\-]*[12]?\s*F\b|\b[ABC][\s\/\-]*[12]?\s*F\b|\b[ABC][\s\/\-]*[12]?\s*FEMM/.test(
+      s
+    );
 
   if (isFemale) {
-    if (/\bA\s*1\b/.test(s)) return 'A1_F';
-    if (/\bA\s*2\b/.test(s)) return 'A2_F';
+    if (/\bA[\s\/\-]*1\b/.test(s)) return 'A1_F';
+    if (/\bA[\s\/\-]*2\b/.test(s)) return 'A2_F';
     if (/\bB\b/.test(s)) return 'B_F';
     if (/\bC\b/.test(s)) return 'C_F';
   }
 
-  // 4. Maschile / Generale
-  if (/\bA\s*1\b/.test(s)) return 'A1_M';
-  if (/\bA\s*2\b/.test(s)) return 'A2_M';
-  if (/\bB\s*1\b/.test(s)) return 'B1_M';
-  if (/\bB\s*2\b/.test(s)) return 'B2_M';
-  if (/\bC\s*1\b/.test(s)) return 'C1_M';
-  if (/\bC\s*2\b/.test(s)) return 'C2_M';
-  if (/\bD\s*1\b/.test(s)) return 'D1_M';
-  if (/\bD\s*2\b/.test(s)) return 'D2_M';
-  if (/\bD\s*3\b/.test(s)) return 'D3_M';
-  if (/\bD\s*4\b/.test(s)) return 'D4_M';
+  // 4. Maschile / Generale (supporta sia "D1", "D 1", "D/1", "D-1")
+  if (/\bA[\s\/\-]*1\b/.test(s)) return 'A1_M';
+  if (/\bA[\s\/\-]*2\b/.test(s)) return 'A2_M';
+  if (/\bB[\s\/\-]*1\b/.test(s)) return 'B1_M';
+  if (/\bB[\s\/\-]*2\b/.test(s)) return 'B2_M';
+  if (/\bC[\s\/\-]*1\b/.test(s)) return 'C1_M';
+  if (/\bC[\s\/\-]*2\b/.test(s)) return 'C2_M';
+  if (/\bD[\s\/\-]*1\b/.test(s)) return 'D1_M';
+  if (/\bD[\s\/\-]*2\b/.test(s)) return 'D2_M';
+  if (/\bD[\s\/\-]*3\b/.test(s)) return 'D3_M';
+  if (/\bD[\s\/\-]*4\b/.test(s)) return 'D4_M';
 
-  // Eventuali B o C femminili senza "1/2"
-  if (/\bSERIE\s+B\b/.test(s)) return isFemale ? 'B_F' : 'B2_M';
-  if (/\bSERIE\s+C\b/.test(s)) return isFemale ? 'C_F' : 'C2_M';
+  // Eventuali B o C senza "1/2" (es. "Serie B - B Gir.A" o "C FEMMINILE")
+  if (/\bSERIE\s+B\b|\bB\s+GIR/i.test(s)) return isFemale || genderHint === 'F' ? 'B_F' : 'B2_M';
+  if (/\bSERIE\s+C\b|\bC\s+GIR/i.test(s)) return isFemale || genderHint === 'F' ? 'C_F' : 'C2_M';
 
   return null;
 }
@@ -557,16 +560,35 @@ export function detectAthleteSerieCampionato(
  */
 export function extractAthleteCurrentPoints(detail: DettaglioAtleta | null | undefined): number {
   if (!detail) return 0;
-  if (detail.anagrafica?.punti && detail.anagrafica.punti > 0) {
-    return Math.round(detail.anagrafica.punti);
-  }
-  if (detail.riepilogo?.punteggioFinale && detail.riepilogo.punteggioFinale > 0) {
-    return Math.round(detail.riepilogo.punteggioFinale);
-  }
+
   const storico = detail.storicoClassifica || [];
-  if (storico.length > 0) {
-    const last = storico[storico.length - 1];
-    if (last?.punti && last.punti > 0) return Math.round(last.punti);
+  const last = storico.length > 0 ? storico[storico.length - 1] : null;
+
+  let pts = detail.anagrafica?.punti ?? 0;
+  if (pts < 10 && last?.punti && last.punti >= 100) {
+    pts = last.punti;
   }
+  if (pts > 0) {
+    return Math.round(pts);
+  }
+
+  if (detail.riepilogo?.punteggioFinale && detail.riepilogo.punteggioFinale > 0) {
+    const fin = detail.riepilogo.punteggioFinale;
+    return Math.round(fin < 10 && last?.punti && last.punti >= 100 ? last.punti : fin);
+  }
+
+  if (detail.partiteRanking?.dettaglioPunti?.finali && detail.partiteRanking.dettaglioPunti.finali > 0) {
+    return Math.round(detail.partiteRanking.dettaglioPunti.finali);
+  }
+
+  if (last?.punti && last.punti > 0) {
+    return Math.round(last.punti);
+  }
+
+  if (detail.riepilogo?.puntiIniziali && detail.riepilogo.puntiIniziali > 0) {
+    const init = detail.riepilogo.puntiIniziali;
+    return Math.round(init < 10 && last?.punti && last.punti >= 100 ? init * 1000 : init);
+  }
+
   return 0;
 }

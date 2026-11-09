@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { fetchAtleta } from '../services/api';
+import { fetchAtleta, fetchAtletaCampionatoPartite } from '../services/api';
 import {
   buildMyProfileSnapshot,
   clearMyPlayer,
@@ -10,7 +10,9 @@ import {
   setMyPlayer,
   subscribeToMyProfile,
 } from '../utils/myProfile';
-import type { MyProfileSnapshot } from '../utils/myProfile';
+import type { MyProfileSnapshot, MyProfileFormMatch } from '../utils/myProfile';
+import { aggregateAthleteMatchStats } from '../utils/aggregateAthleteStats';
+import type { PartitaCampionatoAtleta } from '../types/fitet';
 import { SearchAtletaModal } from './SearchAtletaModal';
 import './MyProfileHero.css';
 
@@ -59,6 +61,20 @@ const formatRanking = (ranking?: number | null): string => {
   return `#${formatItalianInteger(ranking)}`;
 };
 
+const parseDateValue = (value?: string): number => {
+  if (!value) return 0;
+  const parts = value.trim().split(/[\/\-\.]/);
+  if (parts.length !== 3) return 0;
+
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  let year = parseInt(parts[2], 10);
+  if (year < 100) year += 2000;
+
+  if (!day || !month || !year) return 0;
+  return new Date(year, month - 1, day).getTime();
+};
+
 const formatPoints = (points?: number | null): string => {
   if (typeof points !== 'number' || !Number.isFinite(points)) return '—';
   return formatItalianInteger(points);
@@ -78,6 +94,8 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [photoError, setPhotoError] = useState(false);
+  const [campionatoPartite, setCampionatoPartite] = useState<PartitaCampionatoAtleta[] | null>(null);
+  const [recentForm, setRecentForm] = useState<MyProfileFormMatch[]>(initialProfile.snapshot?.form || []);
   const menuRef = useRef<HTMLDivElement>(null);
   const onChampionshipDetectedRef = useRef(onChampionshipDetected);
   const onProfileStatusChangeRef = useRef(onProfileStatusChange);
@@ -158,6 +176,7 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
     if (!playerId) {
       setLoading(false);
       setError(null);
+      setRecentForm([]);
       return;
     }
 
@@ -165,6 +184,8 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
     setLoading(true);
     setError(null);
     setPhotoError(false);
+    setCampionatoPartite(null);
+    setRecentForm([]);
     onProfileStatusChangeRef.current?.({
       playerId,
       hasChampionship: snapshot?.hasChampionship ?? true,
@@ -173,7 +194,7 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
     });
 
     fetchAtleta(playerId)
-      .then((data) => {
+      .then(async (data) => {
         if (!active) return;
 
         if (data.id && data.id !== playerId) {
@@ -192,6 +213,59 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
         const freshSnapshot = buildMyProfileSnapshot(data);
         setSnapshot(freshSnapshot);
         saveMyProfileSnapshot(freshSnapshot);
+
+        // Forma recente aggiornata con i dati AggregatedAthleteStats
+        // (partite ranking campionato/tornei + partite live del girone).
+        const knownCamIds = Array.from(
+          new Set([
+            ...(data.campionatiGiocati || []).map((c) => String(c.camId)),
+            ...(data.campionatoAttuale?.camId ? [String(data.campionatoAttuale.camId)] : []),
+          ])
+        ).filter(Boolean);
+
+        let matches: PartitaCampionatoAtleta[] = [];
+        if (knownCamIds.length > 0) {
+          try {
+            const results = await Promise.all(
+              knownCamIds.map((cId) =>
+                fetchAtletaCampionatoPartite(
+                  data.id || playerId,
+                  cId,
+                  undefined,
+                  data.anagrafica?.nome || initialProfile.snapshot?.name || ''
+                ).catch(() => null)
+              )
+            );
+            for (const res of results) {
+              if (res && res.matches && res.matches.length > 0) {
+                matches.push(...res.matches);
+              }
+            }
+          } catch {
+            // Nessun dato live disponibile: la forma ricade sul ranking.
+          }
+        }
+        setCampionatoPartite(matches);
+
+        const aggregated = aggregateAthleteMatchStats(data, matches, data.campionatoAttuale?.nome);
+        const computedForm: MyProfileFormMatch[] = [
+          ...aggregated.mergedCampionatoMatches.map((m) => ({
+            esito: (m.isVittoria ? 'V' : 'S') as 'V' | 'S',
+            data: m.data || '',
+            avversario: m.avversario,
+            evento: m.campionato,
+          })),
+          ...(data.partiteRanking?.tornei || []).map((m) => ({
+            esito: (m.isVittoria ? 'V' : 'S') as 'V' | 'S',
+            data: m.data,
+            avversario: m.avversario,
+            evento: m.torneo,
+          })),
+        ]
+          .filter((m) => Boolean(m.data))
+          .sort((a, b) => parseDateValue(a.data) - parseDateValue(b.data))
+          .slice(-5);
+        setRecentForm(computedForm);
 
         onProfileStatusChangeRef.current?.({
           playerId: data.id || playerId,
@@ -252,7 +326,7 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
   const initials = snapshot ? getInitials(snapshot.name) : 'AT';
   const rankingLabel = formatRanking(snapshot?.ranking);
   const pointsLabel = formatPoints(snapshot?.punti);
-  const form = snapshot?.form || [];
+  const form = recentForm.length > 0 ? recentForm : (snapshot?.form || []);
   const wins = form.filter((match) => match.esito === 'V').length;
   const losses = form.length - wins;
   const hasPoints = Boolean(snapshot && snapshot.punti !== null && snapshot.punti !== undefined);
