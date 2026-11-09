@@ -706,6 +706,17 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
           const isExpanded = !collapsedGiornate.has(blocco.key);
           const isBloccoToday = Boolean(blocco.targetDate && isMatchToday(blocco.targetDate.toISOString()));
 
+          const bloccoVideosMap = new Map<string, { video: MatchVideoInfo; match: PartitaCalendario }>();
+          filteredMatches.forEach((m) => {
+            getVideosForMatch(m).forEach((v) => {
+              if (!bloccoVideosMap.has(v.videoId)) {
+                bloccoVideosMap.set(v.videoId, { video: v, match: m });
+              }
+            });
+          });
+          const bloccoVideosEntries = Array.from(bloccoVideosMap.values());
+          const firstBloccoVideo = bloccoVideosEntries[0];
+
           return (
             <section
               key={blocco.key}
@@ -727,6 +738,34 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                 }}
               >
                 <div className="giornata-title-group">
+                  {firstBloccoVideo && (
+                    <button
+                      type="button"
+                      className="giornata-video-preview"
+                      title={firstBloccoVideo.video.title || 'Video giornata'}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSelectedVideoData({
+                          videos: bloccoVideosEntries.map((item) => item.video),
+                          initialVideoId: firstBloccoVideo.video.videoId,
+                          squadraCasa: bloccoVideosEntries.length === 1 ? firstBloccoVideo.match.squadraCasa : undefined,
+                          squadraOspite: bloccoVideosEntries.length === 1 ? firstBloccoVideo.match.squadraOspite : undefined,
+                          giornata: blocco.numero,
+                        });
+                      }}
+                    >
+                      <img
+                        src={`https://i.ytimg.com/vi/${firstBloccoVideo.video.videoId}/mqdefault.jpg`}
+                        alt=""
+                        className="giornata-video-preview-img"
+                        loading="lazy"
+                      />
+                      <span className="giornata-video-preview-play">
+                        <i className="bi bi-play-fill"></i>
+                      </span>
+                    </button>
+                  )}
                   <span className={`giornata-badge-pill ${isClosest ? 'actual-giornata-badge-pill' : ''}`}>
                     {blocco.numero}ª GIORNATA
                   </span>
@@ -889,15 +928,25 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                                 <button
                                   type="button"
                                   className="btn-video-link"
-                                  title="Guarda il video della partita su YouTube"
+                                  title={matchVideosList[0].title || 'Guarda video'}
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     handleOpenVideo(m, matchVideosList);
                                   }}
                                 >
-                                  <i className="bi bi-play-circle-fill"></i>
-                                  <span>Guarda Video</span>
+                                  <span className="btn-video-thumb-wrap">
+                                    <img
+                                      src={`https://i.ytimg.com/vi/${matchVideosList[0].videoId}/mqdefault.jpg`}
+                                      alt=""
+                                      className="btn-video-thumb-img"
+                                      loading="lazy"
+                                    />
+                                    <span className="btn-video-thumb-play">
+                                      <i className="bi bi-play-fill"></i>
+                                    </span>
+                                  </span>
+                                  <span>Video</span>
                                 </button>
                               )}
                             </div>

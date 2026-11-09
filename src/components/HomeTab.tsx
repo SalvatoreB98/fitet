@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect, useRef, useState } from 'react';
-import { ChampionshipItem, DashboardData } from '../types/fitet';
+import { ChampionshipItem, DashboardData, MatchVideoInfo } from '../types/fitet';
+import { MatchVideoModal } from './MatchVideoModal';
 import {
   useFavoriteAthletes,
   useFavoriteChampionships,
@@ -148,6 +149,38 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     setH2hPlayers(null);
     setIsH2hPickerOpen(true);
   };
+
+  // ── Video Recenti (in fondo alla Home) ────────────────────────────────
+  const [homeVideos, setHomeVideos] = useState<MatchVideoInfo[]>([]);
+  const [selectedHomeVideo, setSelectedHomeVideo] = useState<MatchVideoInfo | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch('/api/videos')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data && Array.isArray(data.videos)) {
+          const sanitized: MatchVideoInfo[] = data.videos
+            .map((v: any) => ({
+              videoId: String(v?.videoId || v?.video_id || '').trim(),
+              channelName: v?.channelName || v?.channel_name || 'YouTube',
+              channelUrl: v?.channelUrl || v?.channel_url || '',
+              title: v?.title || '',
+              publishedAt: v?.publishedAt || v?.published_at || '',
+              league: v?.league || null,
+              matchDay: v?.matchDay ?? v?.match_day ?? null,
+              teamHome: v?.teamHome || v?.team_home || null,
+              teamAway: v?.teamAway || v?.team_away || null,
+            }))
+            .filter((v: MatchVideoInfo) => Boolean(v.videoId) && v.videoId !== 'undefined' && v.videoId !== 'null');
+          setHomeVideos(sanitized);
+        }
+      })
+      .catch(() => { });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // ── Web Push Notifications (PWA) ──────────────────────────────────────
   const [pushStatus, setPushStatus] = useState<PushNotificationStatus>(() => ({
@@ -963,9 +996,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           <div className="home-hero-actions">
             <button
               type="button"
-              className={`home-hero-btn home-push-btn ${
-                pushStatus.subscribed ? 'is-active' : 'home-hero-btn-primary'
-              }`}
+              className={`home-hero-btn home-push-btn ${pushStatus.subscribed ? 'is-active' : 'home-hero-btn-primary'
+                }`}
               onClick={handleTogglePush}
               disabled={
                 !pushStatus.supported ||
@@ -1473,6 +1505,98 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             })}
           </div>
         </section>
+      )}
+      <hr />
+      {/* ====================================================================
+          SEZIONE 5: VIDEO IN CODA
+         ==================================================================== */}
+      {homeVideos.length > 0 && (
+        <section className="home-section">
+          <div className="home-section-header">
+            <div className="home-section-title-group">
+              <h3>
+                Video rilevanti
+              </h3>
+              <span className="home-section-count">{homeVideos.length}</span>
+            </div>
+          </div>
+
+          <div className="home-cards-grid">
+            {homeVideos.map((video) => {
+              const serieKey = video.league
+                ? getChampionshipSerieKey({ categoria: video.league, nome: video.league })
+                : 'altri';
+              const serieConfig = SERIE_CONFIGS[serieKey];
+              const hasTeams = Boolean(video.teamHome && video.teamAway);
+              const mainTitle = hasTeams ? `${video.teamHome} - ${video.teamAway}` : video.title;
+
+              return (
+                <div
+                  key={video.videoId}
+                  className="home-borderless-card home-video-card clickable"
+                  style={{
+                    '--card-accent': serieConfig.color,
+                    '--card-accent-bg': serieConfig.bgLight,
+                  } as React.CSSProperties}
+                  onClick={() => setSelectedHomeVideo(video)}
+                >
+                  <div className="home-video-card-row">
+                    <div className="home-video-thumb-box">
+                      <img
+                        src={`https://i.ytimg.com/vi/${video.videoId}/mqdefault.jpg`}
+                        alt=""
+                        className="home-video-thumb-img"
+                        loading="lazy"
+                      />
+                      <span className="home-video-thumb-overlay">
+                        <i className="bi bi-play-fill"></i>
+                      </span>
+                    </div>
+
+                    <div className="home-video-card-body">
+                      <div className="home-card-badges">
+                        <span className="home-soft-pill">
+                          <i className={`bi ${serieConfig.icon}`}></i>
+                          {video.league || 'FITeT'}
+                        </span>
+                        {video.matchDay ? (
+                          <span className="home-soft-region">
+                            {video.matchDay}ª Giornata
+                          </span>
+                        ) : (
+                          <span className="home-soft-region">
+                            {video.channelName}
+                          </span>
+                        )}
+                      </div>
+
+                      <h4 className="home-card-title home-video-card-title" title={video.title}>
+                        {mainTitle}
+                      </h4>
+
+                      {video.matchDay && video.channelName && (
+                        <p className="home-card-sub home-video-card-sub">{video.channelName}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Modale Video */}
+      {selectedHomeVideo && (
+        <MatchVideoModal
+          isOpen={Boolean(selectedHomeVideo)}
+          onClose={() => setSelectedHomeVideo(null)}
+          videos={[selectedHomeVideo]}
+          initialVideoId={selectedHomeVideo.videoId}
+          squadraCasa={selectedHomeVideo.teamHome || undefined}
+          squadraOspite={selectedHomeVideo.teamAway || undefined}
+          giornata={selectedHomeVideo.matchDay || undefined}
+        />
       )}
 
       {/* Modale Ricerca Atleta */}
