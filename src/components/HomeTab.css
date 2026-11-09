@@ -988,7 +988,8 @@
   transition: all 0.18s ease;
 }
 
-.home-section-btn--icon:hover {
+.home-section-btn--icon:hover,
+.home-section-btn--icon.active {
   background: var(--color-primary-light, #eff6ff);
   border-color: rgba(37, 99, 235, 0.3);
   box-shadow: 0 3px 8px rgba(37, 99, 235, 0.18);

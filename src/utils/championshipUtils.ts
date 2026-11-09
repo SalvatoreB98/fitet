@@ -51,7 +51,7 @@ export const SERIE_CONFIGS: Record<SerieGroupKey, SerieGroupConfig> = {
   },
   altri: {
     key: 'altri',
-    title: 'Coppe & Altri Campionati',
+    title: 'Coppe & Altri Video',
     sub: 'Coppa Italia, Tornei a Squadre, Paralimpici',
     icon: 'bi-stars',
     accent: '#7c3aed',

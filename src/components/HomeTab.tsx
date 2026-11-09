@@ -27,6 +27,7 @@ import {
   SERIE_CONFIGS,
   getChampionshipSerieKey,
   cleanChampionshipCardName,
+  type SerieGroupKey,
 } from '../utils/championshipUtils';
 import {
   ITALIAN_REGIONS,
@@ -45,6 +46,7 @@ import {
   type PushNotificationStatus,
 } from '../services/pushNotifications';
 import './HomeTab.css';
+import { cleanItaDate } from '../utils/utils';
 
 interface HomeTabProps {
   currentCamId: number | null;
@@ -153,6 +155,46 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   // ── Video Recenti (in fondo alla Home) ────────────────────────────────
   const [homeVideos, setHomeVideos] = useState<MatchVideoInfo[]>([]);
   const [selectedHomeVideo, setSelectedHomeVideo] = useState<MatchVideoInfo | null>(null);
+  const [videoSearchQuery, setVideoSearchQuery] = useState('');
+  const [isVideoSearchOpen, setIsVideoSearchOpen] = useState(false);
+  const videoSearchInputRef = useRef<HTMLInputElement>(null);
+
+  const filteredHomeVideos = useMemo(() => {
+    const q = videoSearchQuery.trim().toLowerCase();
+    if (!q) return homeVideos;
+    const tokens = q.split(/\s+/).filter(Boolean);
+    return homeVideos.filter((v) => {
+      const serieKey = getChampionshipSerieKey({ categoria: v.league || '', nome: v.title || '' });
+      const serieTitle = SERIE_CONFIGS[serieKey]?.title || '';
+      const haystack = [
+        v.teamHome || '',
+        v.teamAway || '',
+        v.title || '',
+        v.league || '',
+        serieTitle,
+        v.channelName || '',
+        v.matchDay ? `${v.matchDay} giornata` : '',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return tokens.every((tok) => haystack.includes(tok));
+    });
+  }, [homeVideos, videoSearchQuery]);
+
+  const groupedHomeVideos = useMemo(() => {
+    const groups: Record<SerieGroupKey, MatchVideoInfo[]> = {
+      serie_a: [],
+      serie_b: [],
+      serie_c: [],
+      serie_d: [],
+      altri: [],
+    };
+    filteredHomeVideos.forEach((v) => {
+      const key = getChampionshipSerieKey({ categoria: v.league || '', nome: v.title || '' });
+      groups[key].push(v);
+    });
+    return groups;
+  }, [filteredHomeVideos]);
 
   useEffect(() => {
     let isMounted = true;
@@ -171,6 +213,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               matchDay: v?.matchDay ?? v?.match_day ?? null,
               teamHome: v?.teamHome || v?.team_home || null,
               teamAway: v?.teamAway || v?.team_away || null,
+              date: v?.publishedAt || v?.published_At || null,
             }))
             .filter((v: MatchVideoInfo) => Boolean(v.videoId) && v.videoId !== 'undefined' && v.videoId !== 'null');
           setHomeVideos(sanitized);
@@ -533,16 +576,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                   >
                     <div className="home-card-top">
                       <div className="home-card-badges">
-                        <span
-                          className="home-soft-pill"
-                          style={{
-                            backgroundColor: `${serieConfig.accent}16`,
-                            color: serieConfig.accent,
-                          }}
-                        >
-                          <i className={`bi ${serieConfig.icon}`}></i>
-                          {champ.categoria || serieConfig.title}
-                        </span>
                         <span className="home-soft-region">
                           <i className="bi bi-geo-alt"></i>
                           {champ.regione || activeRegionPage}
@@ -1069,16 +1102,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 >
                   <div className="home-card-top">
                     <div className="home-card-badges">
-                      <span
-                        className="home-soft-pill"
-                        style={{
-                          backgroundColor: `${serieConfig.accent}16`,
-                          color: serieConfig.accent,
-                        }}
-                      >
-                        <i className={`bi ${serieConfig.icon}`}></i>
-                        {champ.categoria || serieConfig.title}
-                      </span>
                       <span className="home-soft-region">
                         <i className="bi bi-geo-alt"></i>
                         {champ.regione || 'Nazionale'}
@@ -1422,16 +1445,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 >
                   <div className="home-card-top">
                     <div className="home-card-badges">
-                      <span
-                        className="home-soft-pill"
-                        style={{
-                          backgroundColor: `${serieConfig.accent}16`,
-                          color: serieConfig.accent,
-                        }}
-                      >
-                        <i className={`bi ${serieConfig.icon}`}></i>
-                        {item.categoria || serieConfig.title}
-                      </span>
                       <span className="home-soft-region">
                         <i className="bi bi-geo-alt"></i>
                         {item.regione || 'Nazionale'}
@@ -1511,78 +1524,160 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           SEZIONE 5: VIDEO IN CODA
          ==================================================================== */}
       {homeVideos.length > 0 && (
-        <section className="home-section">
+        <section className="home-section" aria-labelledby="heading-home-videos">
           <div className="home-section-header">
-            <div className="home-section-title-group">
-              <h3>
+            <div className="home-section-title-wrap">
+              <h3 id="heading-home-videos" className="home-section-title">
                 Video rilevanti
+                <span className="home-section-count">
+                  {filteredHomeVideos.length}
+                </span>
               </h3>
-              <span className="home-section-count">{homeVideos.length}</span>
+            </div>
+
+            <div className={`search-expandable-box ${(isVideoSearchOpen || videoSearchQuery) ? 'is-open' : ''}`}>
+              <button
+                type="button"
+                className={`home-section-btn home-section-btn--icon ${(isVideoSearchOpen || videoSearchQuery) ? 'active' : ''}`}
+                onClick={() => {
+                  if (isVideoSearchOpen && !videoSearchQuery) {
+                    setIsVideoSearchOpen(false);
+                  } else {
+                    setIsVideoSearchOpen(true);
+                    setTimeout(() => videoSearchInputRef.current?.focus(), 50);
+                  }
+                }}
+                title={isVideoSearchOpen || videoSearchQuery ? 'Chiudi ricerca' : 'Cerca tra i video'}
+                aria-label="Cerca tra i video"
+                style={{ minWidth: '43px' }}
+              >
+                <i className="bi bi-search"></i>
+              </button>
+              <div className="search-expandable-content">
+                <input
+                  ref={videoSearchInputRef}
+                  type="text"
+                  className="search-expandable-input"
+                  placeholder="Cerca squadra, serie..."
+                  value={videoSearchQuery}
+                  onChange={(e) => setVideoSearchQuery(e.target.value)}
+                />
+                {videoSearchQuery && (
+                  <button
+                    type="button"
+                    className="search-expandable-clear"
+                    onClick={() => {
+                      setVideoSearchQuery('');
+                      videoSearchInputRef.current?.focus();
+                    }}
+                    title="Cancella ricerca"
+                  >
+                    <i className="bi bi-x-lg"></i>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="home-cards-grid">
-            {homeVideos.map((video) => {
-              const serieKey = video.league
-                ? getChampionshipSerieKey({ categoria: video.league, nome: video.league })
-                : 'altri';
-              const serieConfig = SERIE_CONFIGS[serieKey];
-              const hasTeams = Boolean(video.teamHome && video.teamAway);
-              const mainTitle = hasTeams ? `${video.teamHome} - ${video.teamAway}` : video.title;
+          {filteredHomeVideos.length > 0 ? (
+            <div>
+              {(['serie_a', 'serie_b', 'serie_c', 'serie_d', 'altri'] as SerieGroupKey[]).map((groupKey) => {
+                const list = groupedHomeVideos[groupKey];
+                if (!list || list.length === 0) return null;
+                const serieConfig = SERIE_CONFIGS[groupKey];
 
-              return (
-                <div
-                  key={video.videoId}
-                  className="home-borderless-card home-video-card clickable"
-                  style={{
-                    '--card-accent': serieConfig.color,
-                    '--card-accent-bg': serieConfig.bgLight,
-                  } as React.CSSProperties}
-                  onClick={() => setSelectedHomeVideo(video)}
-                >
-                  <div className="home-video-card-row">
-                    <div className="home-video-thumb-box">
-                      <img
-                        src={`https://i.ytimg.com/vi/${video.videoId}/mqdefault.jpg`}
-                        alt=""
-                        className="home-video-thumb-img"
-                        loading="lazy"
-                      />
-                      <span className="home-video-thumb-overlay">
-                        <i className="bi bi-play-fill"></i>
-                      </span>
+                return (
+                  <div key={groupKey} className="championship-group-section">
+                    <div className="home-section-title-wrap" style={{ marginBottom: '10px' }}>
+                      <h4 className="home-section-title">
+                        <span
+                          className="home-soft-pill"
+                          style={{
+                            backgroundColor: `${serieConfig.accent}16`,
+
+                          }}
+                        >
+                          <i className={`bi ${serieConfig.icon}`}></i>
+                          {serieConfig.title}
+                        </span>
+                        <span className="home-section-count">
+                          {list.length}
+                        </span>
+                      </h4>
                     </div>
 
-                    <div className="home-video-card-body">
-                      <div className="home-card-badges">
-                        <span className="home-soft-pill">
-                          <i className={`bi ${serieConfig.icon}`}></i>
-                          {video.league || 'FITeT'}
-                        </span>
-                        {video.matchDay ? (
-                          <span className="home-soft-region">
-                            {video.matchDay}ª Giornata
-                          </span>
-                        ) : (
-                          <span className="home-soft-region">
-                            {video.channelName}
-                          </span>
-                        )}
-                      </div>
+                    <div className="home-cards-grid">
+                      {list.map((video) => {
+                        const hasTeams = Boolean(video.teamHome && video.teamAway);
+                        const mainTitle = hasTeams ? `${video.teamHome} - ${video.teamAway}` : video.title;
 
-                      <h4 className="home-card-title home-video-card-title" title={video.title}>
-                        {mainTitle}
-                      </h4>
+                        return (
+                          <div
+                            key={video.videoId}
+                            className="home-borderless-card home-video-card clickable"
+                            onClick={() => setSelectedHomeVideo(video)}
+                          >
+                            <div className="home-video-card-row">
+                              <div className="home-video-thumb-box">
+                                <img
+                                  src={`https://i.ytimg.com/vi/${video.videoId}/mqdefault.jpg`}
+                                  alt=""
+                                  className="home-video-thumb-img"
+                                  loading="lazy"
+                                />
+                                <span className="home-video-thumb-overlay">
+                                  <i className="bi bi-play-fill"></i>
+                                </span>
+                              </div>
 
-                      {video.matchDay && video.channelName && (
-                        <p className="home-card-sub home-video-card-sub">{video.channelName}</p>
-                      )}
+                              <div className="home-video-card-body">
+                                <div className="home-card-badges">
+                                  <span
+                                    className="home-soft-pill"
+                                    style={{
+                                      backgroundColor: `${serieConfig.accent}16`,
+
+                                    }}
+                                  >
+                                    <i className={`bi ${serieConfig.icon}`}></i>
+                                    {video.league || serieConfig.title}
+                                  </span>
+                                  {video.matchDay ? (
+                                    <span className="home-soft-region">
+                                      {video.matchDay}ª Giornata
+                                    </span>
+                                  ) : (
+                                    <span className="home-soft-region">
+                                      {video.channelName}
+                                    </span>
+                                  )}
+                                  {video.publishedAt && (
+                                    <span className="home-soft-region">{cleanItaDate(video.publishedAt)}</span>
+                                  )}
+                                </div>
+
+                                <h4 className="home-card-title home-video-card-title" title={video.title}>
+                                  {mainTitle}
+                                </h4>
+
+                                {video.matchDay && video.channelName && (
+                                  <p className="home-card-sub home-video-card-sub">{video.channelName}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="home-empty-simple">
+              Nessun video trovato per &quot;{videoSearchQuery}&quot;
+            </p>
+          )}
         </section>
       )}
 
