@@ -1269,7 +1269,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                 onScroll={handleSliderScroll}
                                 className="atleta-match-slider-container"
                               >
-                                {matchesToDisplay.map((m, idx) => {
+                                {[...matchesToDisplay].reverse().map((m, idx) => {
                                   const matchDateNorm = normDate(m.data);
                                   const oppNameKey = (m.avversario || '').toUpperCase().trim();
                                   const oppIdKey = m.avversarioId || '';

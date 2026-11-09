@@ -6136,7 +6136,6 @@ body.modal-open {
   padding-bottom: 6px;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
-  flex-direction: row-reverse;
 }
 
 .atleta-match-slider-card {
