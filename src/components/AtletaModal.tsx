@@ -38,6 +38,13 @@ const normDate = (d?: string): string => {
   return d.trim();
 };
 
+const isRealDate = (d?: string | null): boolean => {
+  if (!d) return false;
+  const str = d.trim();
+  if (/^G\.?\s*\d+$/i.test(str)) return false;
+  return /\d{1,2}[\/\-\.]\d{1,2}/.test(str) || /\d{4}/.test(str);
+};
+
 export const AtletaModal: React.FC<AtletaModalProps> = ({
   atletaId,
   athleteName,
@@ -1282,9 +1289,10 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                   const exactScore = m.risultatoSet || h2hMatch?.punteggio;
                                   const isFetchingScore = !exactScore && Boolean((oppIdKey && loadingH2h[oppIdKey]) || (oppNameKey && loadingH2h[oppNameKey]));
                                   const displayDate =
-                                    m.data && !/^G\d+$/i.test(m.data)
+                                    m.data && isRealDate(m.data)
                                       ? m.data
                                       : h2hMatch?.data || m.data;
+                                  const hasRealDate = isRealDate(displayDate);
 
                                   return (
                                     <div
@@ -1331,32 +1339,43 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
 
                                         </div>
-                                        <div>
-                                          {m.giornata !== undefined && (
-                                            <span className="badge badge-neutral me-2" style={{ fontSize: '10px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          {m.giornata !== undefined ? (
+                                            <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
                                               G{m.giornata}
                                             </span>
-                                          )}
+                                          ) : m.fase ? (
+                                            <span className="badge badge-neutral" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
+                                              {m.fase}
+                                            </span>
+                                          ) : !hasRealDate && displayDate ? (
+                                            <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
+                                              {displayDate}
+                                            </span>
+                                          ) : null}
 
-                                          {m.fase && (
+                                          {m.giornata !== undefined && m.fase && m.fase.replace(/^G\.?\s*/i, '') !== String(m.giornata) && (
                                             <span className="badge badge-neutral" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
                                               {m.fase}
                                             </span>
                                           )}
-                                          <span
-                                            style={{
-                                              fontSize: '11.5px',
-                                              color: 'var(--text-muted)',
-                                              fontVariantNumeric: 'tabular-nums',
-                                              flexShrink: 0,
-                                              display: 'inline-flex',
-                                              alignItems: 'center',
-                                              gap: '4px',
-                                            }}
-                                          >
-                                            <i className="bi bi-calendar3" style={{ fontSize: '10px', opacity: 0.75 }}></i>
-                                            <span>{displayDate}</span>
-                                          </span>
+
+                                          {hasRealDate && (
+                                            <span
+                                              style={{
+                                                fontSize: '11.5px',
+                                                color: 'var(--text-muted)',
+                                                fontVariantNumeric: 'tabular-nums',
+                                                flexShrink: 0,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                              }}
+                                            >
+                                              <i className="bi bi-calendar3" style={{ fontSize: '10px', opacity: 0.75 }}></i>
+                                              <span>{displayDate}</span>
+                                            </span>
+                                          )}
                                         </div>
 
                                       </div>
@@ -1481,9 +1500,10 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                   const exactScore = m.risultatoSet || h2hMatch?.punteggio;
                                   const isFetchingScore = !exactScore && Boolean((oppIdKey && loadingH2h[oppIdKey]) || (oppNameKey && loadingH2h[oppNameKey]));
                                   const displayDate =
-                                    m.data && !/^G\d+$/i.test(m.data)
+                                    m.data && isRealDate(m.data)
                                       ? m.data
                                       : h2hMatch?.data || m.data;
+                                  const hasRealDate = isRealDate(displayDate);
 
                                   return (
                                     <div
@@ -1495,13 +1515,21 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                           {m.isVittoria ? 'VINTA' : 'PERSA'}
                                         </span>
 
-                                        {m.giornata !== undefined && (
+                                        {m.giornata !== undefined ? (
                                           <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
                                             G{m.giornata}
                                           </span>
-                                        )}
+                                        ) : m.fase ? (
+                                          <span className="badge badge-neutral" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
+                                            {m.fase}
+                                          </span>
+                                        ) : !hasRealDate && displayDate ? (
+                                          <span className="badge badge-neutral" style={{ fontSize: '10px' }}>
+                                            {displayDate}
+                                          </span>
+                                        ) : null}
 
-                                        {m.fase && (
+                                        {m.giornata !== undefined && m.fase && m.fase.replace(/^G\.?\s*/i, '') !== String(m.giornata) && (
                                           <span className="badge badge-neutral" style={{ fontSize: '10px', textTransform: 'uppercase' }}>
                                             {m.fase}
                                           </span>
@@ -1592,9 +1620,11 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                           </span>
                                         )}
 
-                                        <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                                          {displayDate}
-                                        </span>
+                                        {hasRealDate && (
+                                          <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                                            {displayDate}
+                                          </span>
+                                        )}
 
                                         {/* Numeric Result */}
                                         <div style={{ minWidth: '40px', textAlign: 'right' }}>
