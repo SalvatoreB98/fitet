@@ -793,10 +793,248 @@ export async function checkChampionshipsAndNotify(
   };
 }
 
+export interface CheckMatchdayOptions {
+  camIds?: number[];
+  annoId?: number;
+  date?: string; // Formato YYYY-MM-DD oppure DD/MM/YYYY
+  dryRun?: boolean;
+  force?: boolean;
+}
+
+export interface SingleMatchdayCheckResult {
+  camId: number;
+  championshipName: string;
+  isMatchday: boolean;
+  matchesCount: number;
+  alreadyNotified: boolean;
+  notificationSent: boolean;
+  tag: string;
+  broadcastResult?: BroadcastResult;
+}
+
+export interface CheckMatchdayResult {
+  dateISO: string;
+  dateIT: string;
+  checkedCount: number;
+  matchdayChampionshipsCount: number;
+  notificationsSentCount: number;
+  results: SingleMatchdayCheckResult[];
+  durationMs: number;
+}
+
+export function getTodayDateRome(): { dateIT: string; dateISO: string } {
+  const now = new Date();
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  };
+  const parts = new Intl.DateTimeFormat('it-IT', options).formatToParts(now);
+  const day = parts.find((p) => p.type === 'day')?.value || '01';
+  const month = parts.find((p) => p.type === 'month')?.value || '01';
+  const year = parts.find((p) => p.type === 'year')?.value || '2026';
+
+  return {
+    dateIT: `${day}/${month}/${year}`,
+    dateISO: `${year}-${month}-${day}`,
+  };
+}
+
+export function parseDateInput(raw?: string): { dateIT: string; dateISO: string } {
+  if (!raw) return getTodayDateRome();
+  const trimmed = raw.trim();
+
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [y, m, d] = trimmed.split('-');
+    return {
+      dateISO: trimmed,
+      dateIT: `${d}/${m}/${y}`,
+    };
+  }
+
+  // DD/MM/YYYY o DD-MM-YYYY
+  const parts = trimmed.split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    const d = parts[0].padStart(2, '0');
+    const m = parts[1].padStart(2, '0');
+    let y = parts[2];
+    if (y.length === 2) y = `20${y}`;
+    return {
+      dateISO: `${y}-${m}-${d}`,
+      dateIT: `${d}/${m}/${y}`,
+    };
+  }
+
+  return getTodayDateRome();
+}
+
+function normalizeDateMatch(dateStr?: string | null): string {
+  if (!dateStr) return '';
+  const parts = dateStr.trim().split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    const d = String(parseInt(parts[0], 10)).padStart(2, '0');
+    const m = String(parseInt(parts[1], 10)).padStart(2, '0');
+    let y = parts[2];
+    if (y.length === 2) y = `20${y}`;
+    return `${d}/${m}/${y}`;
+  }
+  return dateStr.trim();
+}
+
+/**
+ * Controlla se oggi (o alla data specificata) ci sono incontri in programma
+ * nei campionati a cui gli utenti sono iscritti e invia la notifica push del giorno di gara.
+ */
+export async function checkMatchdayAndNotify(
+  options: CheckMatchdayOptions = {}
+): Promise<CheckMatchdayResult> {
+  const startTime = Date.now();
+  const { annoId = 41, dryRun = false, force = false } = options;
+  const { dateIT, dateISO } = parseDateInput(options.date);
+  const targetTag = `matchday-${dateISO}`;
+
+  let targetCamIds: number[] = [];
+  if (Array.isArray(options.camIds) && options.camIds.length > 0) {
+    targetCamIds = Array.from(
+      new Set(options.camIds.filter((id) => Number.isFinite(id) && id > 0))
+    );
+  } else {
+    targetCamIds = await pushService.getSubscribedChampionshipIds();
+  }
+
+  if (targetCamIds.length === 0) {
+    return {
+      dateISO,
+      dateIT,
+      checkedCount: 0,
+      matchdayChampionshipsCount: 0,
+      notificationsSentCount: 0,
+      results: [],
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  const results: SingleMatchdayCheckResult[] = [];
+  const normalizedTargetIT = normalizeDateMatch(dateIT);
+
+  for (const camId of targetCamIds) {
+    try {
+      const [calendarioHtml, champMeta] = await Promise.all([
+        FitetClient.fetchCalendario(camId, annoId).catch(() => ''),
+        championshipCatalog.getChampionship(camId).catch(() => undefined),
+      ]);
+
+      const championshipName = champMeta?.nome?.trim() || `Campionato #${camId}`;
+      const calendario = calendarioHtml ? parseCalendario(calendarioHtml) : [];
+
+      let matchesTodayCount = 0;
+      for (const g of calendario) {
+        const allMatches = [...(g.partiteAndata || []), ...(g.partiteRitorno || [])];
+        for (const m of allMatches) {
+          if (normalizeDateMatch(m.data) === normalizedTargetIT) {
+            matchesTodayCount++;
+          }
+        }
+      }
+
+      const isMatchday = matchesTodayCount > 0;
+      if (!isMatchday) {
+        results.push({
+          camId,
+          championshipName,
+          isMatchday: false,
+          matchesCount: 0,
+          alreadyNotified: false,
+          notificationSent: false,
+          tag: targetTag,
+        });
+        continue;
+      }
+
+      // Verifica se già inviata oggi per questo campionato
+      const stateKey = `matchday_notified_${camId}_${dateISO}`;
+      const existing = await pushService.getState(stateKey);
+      const alreadyNotified = Boolean(existing && existing === 'sent');
+
+      if (alreadyNotified && !force) {
+        results.push({
+          camId,
+          championshipName,
+          isMatchday: true,
+          matchesCount: matchesTodayCount,
+          alreadyNotified: true,
+          notificationSent: false,
+          tag: targetTag,
+        });
+        continue;
+      }
+
+      // Payload della notifica con tag univoco per la giornata
+      const payload: PushMessagePayload = {
+        title: '🏓 Oggi è giorno di campionato!',
+        body: 'Buona fortuna al tavolo! Stasera passa dal portale a controllare referti e variazione punti.',
+        url: `/?view=campionato&cam=${camId}&tab=calendario`,
+        icon: '/icon.png',
+        badge: '/icon.png',
+        tag: targetTag,
+        renotify: false,
+        data: {
+          type: 'championship_matchday',
+          camId,
+          date: dateISO,
+          url: `/?view=campionato&cam=${camId}&tab=calendario`,
+        },
+      };
+
+      let broadcastResult: BroadcastResult | undefined = undefined;
+      let notificationSent = false;
+
+      if (!dryRun && pushService.isReady()) {
+        console.log(
+          `[CampionatoNotifier] Oggi è giorno di campionato per ${championshipName} (${matchesTodayCount} match il ${dateIT}). Invio push (tag=${targetTag})...`
+        );
+
+        broadcastResult = await pushService.sendToChampionshipSubscribers(camId, payload);
+        notificationSent = (broadcastResult?.sent || 0) > 0;
+
+        await pushService.setState(stateKey, 'sent');
+      }
+
+      results.push({
+        camId,
+        championshipName,
+        isMatchday: true,
+        matchesCount: matchesTodayCount,
+        alreadyNotified,
+        notificationSent,
+        tag: targetTag,
+        broadcastResult,
+      });
+    } catch (err) {
+      console.warn(`[CampionatoNotifier] Errore verifica matchday per cam=${camId}:`, err);
+    }
+  }
+
+  const matchdayChampionshipsCount = results.filter((r) => r.isMatchday).length;
+  const notificationsSentCount = results.filter((r) => r.notificationSent).length;
+
+  return {
+    dateISO,
+    dateIT,
+    checkedCount: results.length,
+    matchdayChampionshipsCount,
+    notificationsSentCount,
+    results,
+    durationMs: Date.now() - startTime,
+  };
+}
+
 let championshipSchedulerTimer: NodeJS.Timeout | null = null;
 
 /**
- * Avvia un controllo periodico (ogni 30 minuti) sui campionati seguiti dagli iscritti
+ * Avvia un controllo periodico (ogni 60 minuti) sui campionati seguiti dagli iscritti
  * quando il server gira come processo Node continuativo.
  */
 export function startChampionshipScheduler(): void {
@@ -807,6 +1045,12 @@ export function startChampionshipScheduler(): void {
     checkChampionshipsAndNotify().catch((err) => {
       console.warn(
         '[CampionatoNotifier] Errore durante il controllo periodico campionati:',
+        err
+      );
+    });
+    checkMatchdayAndNotify().catch((err) => {
+      console.warn(
+        '[CampionatoNotifier] Errore durante il controllo periodico matchday:',
         err
       );
     });

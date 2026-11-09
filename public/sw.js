@@ -63,7 +63,7 @@ self.addEventListener('push', (event) => {
 
   if (payload.tag) {
     options.tag = payload.tag;
-    options.renotify = payload.renotify !== undefined ? Boolean(payload.renotify) : true;
+    options.renotify = payload.renotify !== undefined ? Boolean(payload.renotify) : false;
   }
 
   event.waitUntil(self.registration.showNotification(title, options));

@@ -29,6 +29,7 @@ import {
     invalidateSubscribedChampionshipsCache,
     ensureChampionshipBaseline,
     checkChampionshipsAndNotify,
+    checkMatchdayAndNotify,
     startChampionshipScheduler,
 } from './services/campionatoNotificationService';
 import type { PushSubscriptionPayload, PushSubscriptionContext } from './services/pushService';
@@ -2113,10 +2114,14 @@ app.get('/api/push/check-ranking', async (req, res) => {
 
     try {
         const idClass = await getLatestIdClass(true, false);
-        const [result, championshipsResult] = await Promise.all([
+        const [result, championshipsResult, matchdayResult] = await Promise.all([
             notifyRankingChangeIfNeeded(idClass),
             checkChampionshipsAndNotify().catch((err) => {
                 console.warn('[PushService] Errore controllo campionati durante check-ranking:', err);
+                return null;
+            }),
+            checkMatchdayAndNotify().catch((err) => {
+                console.warn('[PushService] Errore controllo matchday durante check-ranking:', err);
                 return null;
             }),
         ]);
@@ -2124,6 +2129,7 @@ app.get('/api/push/check-ranking', async (req, res) => {
             success: true,
             ...result,
             championships: championshipsResult,
+            matchday: matchdayResult,
         });
     } catch (error: any) {
         console.error('[PushService] Errore controllo cambio ranking:', error);
@@ -2158,6 +2164,36 @@ app.get('/api/push/check-campionati', async (req, res) => {
         console.error('[PushService] Errore controllo campionati:', error);
         return res.status(500).json({
             error: 'Errore durante il controllo dei campionati.',
+            details: error.message,
+        });
+    }
+});
+
+// Endpoint per cron esterno / Vercel Cron: controlla se oggi è giorno di campionato
+// per i campionati seguiti dagli utenti e invia la notifica push "Oggi è giorno di campionato!"
+app.get('/api/push/check-matchday', async (req, res) => {
+    if (!isPushCronAuthorized(req)) {
+        return res.status(401).json({ error: 'Non autorizzato.' });
+    }
+
+    const dryRun = req.query.dryRun === 'true';
+    const force = req.query.force === 'true';
+    const date = typeof req.query.date === 'string' ? req.query.date : undefined;
+    const rawCam = typeof req.query.cam === 'string' ? req.query.cam : '';
+    const camIds = rawCam
+        ? rawCam
+            .split(',')
+            .map((s) => parseInt(s.trim(), 10))
+            .filter((n) => Number.isFinite(n) && n > 0)
+        : undefined;
+
+    try {
+        const result = await checkMatchdayAndNotify({ camIds, date, dryRun, force });
+        return res.json({ success: true, ...result });
+    } catch (error: any) {
+        console.error('[PushService] Errore controllo matchday:', error);
+        return res.status(500).json({
+            error: 'Errore durante il controllo del matchday.',
             details: error.message,
         });
     }

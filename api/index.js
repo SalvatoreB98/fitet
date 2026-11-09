@@ -5391,6 +5391,180 @@ async function checkChampionshipsAndNotify(options = {}) {
     durationMs: Date.now() - startTime
   };
 }
+function getTodayDateRome() {
+  const now = /* @__PURE__ */ new Date();
+  const options = {
+    timeZone: "Europe/Rome",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  };
+  const parts = new Intl.DateTimeFormat("it-IT", options).formatToParts(now);
+  const day = parts.find((p) => p.type === "day")?.value || "01";
+  const month = parts.find((p) => p.type === "month")?.value || "01";
+  const year = parts.find((p) => p.type === "year")?.value || "2026";
+  return {
+    dateIT: `${day}/${month}/${year}`,
+    dateISO: `${year}-${month}-${day}`
+  };
+}
+function parseDateInput(raw) {
+  if (!raw) return getTodayDateRome();
+  const trimmed = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [y, m, d] = trimmed.split("-");
+    return {
+      dateISO: trimmed,
+      dateIT: `${d}/${m}/${y}`
+    };
+  }
+  const parts = trimmed.split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    const d = parts[0].padStart(2, "0");
+    const m = parts[1].padStart(2, "0");
+    let y = parts[2];
+    if (y.length === 2) y = `20${y}`;
+    return {
+      dateISO: `${y}-${m}-${d}`,
+      dateIT: `${d}/${m}/${y}`
+    };
+  }
+  return getTodayDateRome();
+}
+function normalizeDateMatch(dateStr) {
+  if (!dateStr) return "";
+  const parts = dateStr.trim().split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    const d = String(parseInt(parts[0], 10)).padStart(2, "0");
+    const m = String(parseInt(parts[1], 10)).padStart(2, "0");
+    let y = parts[2];
+    if (y.length === 2) y = `20${y}`;
+    return `${d}/${m}/${y}`;
+  }
+  return dateStr.trim();
+}
+async function checkMatchdayAndNotify(options = {}) {
+  const startTime = Date.now();
+  const { annoId = 41, dryRun = false, force = false } = options;
+  const { dateIT, dateISO } = parseDateInput(options.date);
+  const targetTag = `matchday-${dateISO}`;
+  let targetCamIds = [];
+  if (Array.isArray(options.camIds) && options.camIds.length > 0) {
+    targetCamIds = Array.from(
+      new Set(options.camIds.filter((id) => Number.isFinite(id) && id > 0))
+    );
+  } else {
+    targetCamIds = await pushService.getSubscribedChampionshipIds();
+  }
+  if (targetCamIds.length === 0) {
+    return {
+      dateISO,
+      dateIT,
+      checkedCount: 0,
+      matchdayChampionshipsCount: 0,
+      notificationsSentCount: 0,
+      results: [],
+      durationMs: Date.now() - startTime
+    };
+  }
+  const results = [];
+  const normalizedTargetIT = normalizeDateMatch(dateIT);
+  for (const camId of targetCamIds) {
+    try {
+      const [calendarioHtml, champMeta] = await Promise.all([
+        FitetClient.fetchCalendario(camId, annoId).catch(() => ""),
+        championshipCatalog.getChampionship(camId).catch(() => void 0)
+      ]);
+      const championshipName = champMeta?.nome?.trim() || `Campionato #${camId}`;
+      const calendario = calendarioHtml ? parseCalendario(calendarioHtml) : [];
+      let matchesTodayCount = 0;
+      for (const g of calendario) {
+        const allMatches = [...g.partiteAndata || [], ...g.partiteRitorno || []];
+        for (const m of allMatches) {
+          if (normalizeDateMatch(m.data) === normalizedTargetIT) {
+            matchesTodayCount++;
+          }
+        }
+      }
+      const isMatchday = matchesTodayCount > 0;
+      if (!isMatchday) {
+        results.push({
+          camId,
+          championshipName,
+          isMatchday: false,
+          matchesCount: 0,
+          alreadyNotified: false,
+          notificationSent: false,
+          tag: targetTag
+        });
+        continue;
+      }
+      const stateKey = `matchday_notified_${camId}_${dateISO}`;
+      const existing = await pushService.getState(stateKey);
+      const alreadyNotified = Boolean(existing && existing === "sent");
+      if (alreadyNotified && !force) {
+        results.push({
+          camId,
+          championshipName,
+          isMatchday: true,
+          matchesCount: matchesTodayCount,
+          alreadyNotified: true,
+          notificationSent: false,
+          tag: targetTag
+        });
+        continue;
+      }
+      const payload = {
+        title: "\u{1F3D3} Oggi \xE8 giorno di campionato!",
+        body: "Buona fortuna al tavolo! Stasera passa dal portale a controllare referti e variazione punti.",
+        url: `/?view=campionato&cam=${camId}&tab=calendario`,
+        icon: "/icon.png",
+        badge: "/icon.png",
+        tag: targetTag,
+        renotify: false,
+        data: {
+          type: "championship_matchday",
+          camId,
+          date: dateISO,
+          url: `/?view=campionato&cam=${camId}&tab=calendario`
+        }
+      };
+      let broadcastResult = void 0;
+      let notificationSent = false;
+      if (!dryRun && pushService.isReady()) {
+        console.log(
+          `[CampionatoNotifier] Oggi \xE8 giorno di campionato per ${championshipName} (${matchesTodayCount} match il ${dateIT}). Invio push (tag=${targetTag})...`
+        );
+        broadcastResult = await pushService.sendToChampionshipSubscribers(camId, payload);
+        notificationSent = (broadcastResult?.sent || 0) > 0;
+        await pushService.setState(stateKey, "sent");
+      }
+      results.push({
+        camId,
+        championshipName,
+        isMatchday: true,
+        matchesCount: matchesTodayCount,
+        alreadyNotified,
+        notificationSent,
+        tag: targetTag,
+        broadcastResult
+      });
+    } catch (err) {
+      console.warn(`[CampionatoNotifier] Errore verifica matchday per cam=${camId}:`, err);
+    }
+  }
+  const matchdayChampionshipsCount = results.filter((r) => r.isMatchday).length;
+  const notificationsSentCount = results.filter((r) => r.notificationSent).length;
+  return {
+    dateISO,
+    dateIT,
+    checkedCount: results.length,
+    matchdayChampionshipsCount,
+    notificationsSentCount,
+    results,
+    durationMs: Date.now() - startTime
+  };
+}
 var championshipSchedulerTimer = null;
 function startChampionshipScheduler() {
   if (championshipSchedulerTimer) return;
@@ -5399,6 +5573,12 @@ function startChampionshipScheduler() {
     checkChampionshipsAndNotify().catch((err) => {
       console.warn(
         "[CampionatoNotifier] Errore durante il controllo periodico campionati:",
+        err
+      );
+    });
+    checkMatchdayAndNotify().catch((err) => {
+      console.warn(
+        "[CampionatoNotifier] Errore durante il controllo periodico matchday:",
         err
       );
     });
@@ -7987,17 +8167,22 @@ app.get("/api/push/check-ranking", async (req, res) => {
   }
   try {
     const idClass = await getLatestIdClass(true, false);
-    const [result, championshipsResult] = await Promise.all([
+    const [result, championshipsResult, matchdayResult] = await Promise.all([
       notifyRankingChangeIfNeeded(idClass),
       checkChampionshipsAndNotify().catch((err) => {
         console.warn("[PushService] Errore controllo campionati durante check-ranking:", err);
+        return null;
+      }),
+      checkMatchdayAndNotify().catch((err) => {
+        console.warn("[PushService] Errore controllo matchday durante check-ranking:", err);
         return null;
       })
     ]);
     return res.json({
       success: true,
       ...result,
-      championships: championshipsResult
+      championships: championshipsResult,
+      matchday: matchdayResult
     });
   } catch (error) {
     console.error("[PushService] Errore controllo cambio ranking:", error);
@@ -8022,6 +8207,26 @@ app.get("/api/push/check-campionati", async (req, res) => {
     console.error("[PushService] Errore controllo campionati:", error);
     return res.status(500).json({
       error: "Errore durante il controllo dei campionati.",
+      details: error.message
+    });
+  }
+});
+app.get("/api/push/check-matchday", async (req, res) => {
+  if (!isPushCronAuthorized(req)) {
+    return res.status(401).json({ error: "Non autorizzato." });
+  }
+  const dryRun = req.query.dryRun === "true";
+  const force = req.query.force === "true";
+  const date = typeof req.query.date === "string" ? req.query.date : void 0;
+  const rawCam = typeof req.query.cam === "string" ? req.query.cam : "";
+  const camIds = rawCam ? rawCam.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isFinite(n) && n > 0) : void 0;
+  try {
+    const result = await checkMatchdayAndNotify({ camIds, date, dryRun, force });
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error("[PushService] Errore controllo matchday:", error);
+    return res.status(500).json({
+      error: "Errore durante il controllo del matchday.",
       details: error.message
     });
   }
