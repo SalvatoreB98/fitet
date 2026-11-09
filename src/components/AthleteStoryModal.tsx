@@ -65,15 +65,25 @@ export const AthleteStoryModal: React.FC<AthleteStoryModalProps> = ({
 
   // Carica l'immagine 1080x1920 generata dall'endpoint
   useEffect(() => {
-    if (!isOpen || !atleta.id) return;
+    if (!isOpen || !atleta) return;
 
     let isMounted = true;
     setLoading(true);
     setCopied(false);
 
-    const apiUrl = `/api/story/player/${encodeURIComponent(atleta.id)}.png?theme=${selectedTheme}&t=${Date.now()}`;
-
-    fetch(apiUrl)
+    // Priorità al rendering diretto via POST con i dati atleta già caricati nel client
+    fetch('/api/story/render', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ athlete: atleta, theme: selectedTheme }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          // Fallback alla GET se la POST fallisce per qualsiasi motivo
+          return fetch(`/api/story/player/${encodeURIComponent(atleta.id)}.png?theme=${selectedTheme}&t=${Date.now()}`);
+        }
+        return res;
+      })
       .then((res) => {
         if (!res.ok) throw new Error('Errore durante la generazione della card');
         return res.blob();
@@ -95,7 +105,7 @@ export const AthleteStoryModal: React.FC<AthleteStoryModalProps> = ({
       isMounted = false;
       if (imageUrl) URL.revokeObjectURL(imageUrl);
     };
-  }, [isOpen, atleta.id, selectedTheme]);
+  }, [isOpen, atleta, selectedTheme]);
 
   // Gestione tasto ESC
   useEffect(() => {

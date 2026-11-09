@@ -1,5 +1,47 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { Resvg } from '@resvg/resvg-js';
 import type { DettaglioAtleta } from '../../src/types/fitet';
+
+/**
+ * Risolve il percorso del font TTF (Inter) incluso nel bundle del server.
+ * Indispensabile in ambienti serverless (AWS Lambda / Vercel) dove non sono installati font di sistema.
+ */
+function getBundledFontPath(): string | null {
+  const currentDir = typeof __dirname !== 'undefined'
+    ? __dirname
+    : typeof import.meta?.url === 'string'
+      ? path.dirname(fileURLToPath(import.meta.url))
+      : process.cwd();
+
+  const candidates = [
+    path.resolve(process.cwd(), 'server', 'assets', 'fonts', 'Inter-Variable.ttf'),
+    path.resolve(currentDir, 'assets', 'fonts', 'Inter-Variable.ttf'),
+    path.resolve(currentDir, '..', 'assets', 'fonts', 'Inter-Variable.ttf'),
+    path.resolve(currentDir, '..', 'server', 'assets', 'fonts', 'Inter-Variable.ttf'),
+    path.resolve(process.cwd(), 'api', 'server', 'assets', 'fonts', 'Inter-Variable.ttf'),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
+function getResvgOptions(width: number) {
+  const fontPath = getBundledFontPath();
+  const fontFiles = fontPath ? [fontPath] : [];
+
+  return {
+    fitTo: { mode: 'width' as const, value: width },
+    font: {
+      loadSystemFonts: true,
+      fontFiles,
+      defaultFontFamily: 'Inter',
+      sansSerifFamily: 'Inter',
+    },
+  };
+}
 
 /**
  * Utility per fare il fetch di un'immagine e convertirla in Data URL base64.
@@ -46,10 +88,24 @@ function extractAthleteMetrics(athlete: DettaglioAtleta) {
   const points = athlete.anagrafica?.punti || athlete.riepilogo?.punteggioFinale || 0;
   const initialPoints = athlete.riepilogo?.puntiIniziali || points;
   const pointsDiff = Math.round((points - initialPoints) * 10) / 10;
-  const partiteVinte = athlete.riepilogo?.partiteVinte ?? 0;
-  const partiteGiocate = athlete.riepilogo?.partiteGiocate ?? 0;
+
+  // Partite giocate e vinte con fallback sui match del ranking / tornei / campionati
+  let partiteVinte = athlete.riepilogo?.partiteVinte ?? 0;
+  let partiteGiocate = athlete.riepilogo?.partiteGiocate ?? 0;
+
+  if (partiteGiocate === 0 && athlete.partiteRanking) {
+    const allMatches = [
+      ...(athlete.partiteRanking.campionato || []),
+      ...(athlete.partiteRanking.tornei || []),
+    ];
+    if (allMatches.length > 0) {
+      partiteGiocate = allMatches.length;
+      partiteVinte = allMatches.filter((m) => m.isVittoria).length;
+    }
+  }
+
   const winRate =
-    athlete.riepilogo?.percentualePositiva !== undefined
+    athlete.riepilogo?.percentualePositiva !== undefined && partiteGiocate > 0
       ? `${athlete.riepilogo.percentualePositiva}%`
       : partiteGiocate > 0
         ? `${Math.round((partiteVinte / partiteGiocate) * 100)}%`
@@ -57,8 +113,24 @@ function extractAthleteMetrics(athlete: DettaglioAtleta) {
 
   // Ranking attuale dallo storico classifica
   const storico = athlete.storicoClassifica || [];
-  const latestSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
-  const currentRank = latestSnapshot?.posizione ? `#${latestSnapshot.posizione.toLocaleString('it-IT')}` : 'N.D.';
+  const validPositions = storico
+    .map((s) => s.posizione)
+    .filter((p): p is number => typeof p === 'number' && p > 0);
+
+  let currentRank = 'N.D.';
+  if (validPositions.length > 0) {
+    // Cerchiamo l'ultimo snapshot valido partendo dalla fine
+    const lastWithPos = [...storico].reverse().find((s) => typeof s.posizione === 'number' && s.posizione > 0);
+    if (lastWithPos?.posizione) {
+      currentRank = `#${lastWithPos.posizione.toLocaleString('it-IT')}`;
+    }
+  }
+
+  // Fallback dallo stato anagrafico (es. "Posizione in Classifica: N. 8284")
+  if (currentRank === 'N.D.' && athlete.anagrafica?.stato) {
+    const statoMatch = athlete.anagrafica.stato.match(/(?:n\.?|posizione\s*:?\s*)(\d+)/i);
+    if (statoMatch) currentRank = `#${parseInt(statoMatch[1], 10).toLocaleString('it-IT')}`;
+  }
 
   // Best ranking
   let bestRank = 'N.D.';
@@ -66,11 +138,11 @@ function extractAthleteMetrics(athlete: DettaglioAtleta) {
     const match = athlete.anagrafica.recordClassifica.match(/(\d+)/);
     if (match) bestRank = `#${parseInt(match[1], 10).toLocaleString('it-IT')}`;
   }
-  if (bestRank === 'N.D.' && storico.length > 0) {
-    const validPositions = storico.map((s) => s.posizione).filter((p): p is number => typeof p === 'number' && p > 0);
-    if (validPositions.length > 0) {
-      bestRank = `#${Math.min(...validPositions).toLocaleString('it-IT')}`;
-    }
+  if (bestRank === 'N.D.' && validPositions.length > 0) {
+    bestRank = `#${Math.min(...validPositions).toLocaleString('it-IT')}`;
+  }
+  if (bestRank === 'N.D.' && currentRank !== 'N.D.') {
+    bestRank = currentRank;
   }
 
   // Ultimo torneo disputato
@@ -181,9 +253,9 @@ export async function generateAthleteOgCard(athlete: DettaglioAtleta): Promise<B
   <g transform="translate(60, 48)">
     <rect width="36" height="36" rx="8" fill="url(#primaryGrad)" />
     <circle cx="18" cy="18" r="8" fill="#ffffff" opacity="0.9" />
-    <text x="48" y="25" fill="#ffffff" font-size="16" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="1">PORTALE RISULTATI FITeT</text>
+    <text x="48" y="25" fill="#ffffff" font-size="16" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="1">PORTALE RISULTATI FITeT</text>
     <rect x="910" y="2" width="170" height="32" rx="16" fill="#1e293b" stroke="#334155" stroke-width="1" />
-    <text x="995" y="23" fill="#38bdf8" font-size="12" font-family="system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="0.5">RANKING UFFICIALE</text>
+    <text x="995" y="23" fill="#38bdf8" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="0.5">RANKING UFFICIALE</text>
   </g>
 
   <!-- Left Column: Athlete Profile Card -->
@@ -193,7 +265,7 @@ export async function generateAthleteOgCard(athlete: DettaglioAtleta): Promise<B
   ${
     photoBase64
       ? `<image href="${photoBase64}" x="85" y="180" width="190" height="190" clip-path="url(#avatarClip)" preserveAspectRatio="xMidYMid slice" />`
-      : `<text x="180" y="295" fill="#38bdf8" font-size="64" font-family="system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(m.initials)}</text>`
+      : `<text x="180" y="295" fill="#38bdf8" font-size="64" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(m.initials)}</text>`
   }
 
   <!-- Athlete Details -->
@@ -202,21 +274,21 @@ export async function generateAthleteOgCard(athlete: DettaglioAtleta): Promise<B
     ${
       categoryBadge
         ? `<rect x="0" y="0" width="${Math.min(320, categoryBadge.length * 10 + 24)}" height="26" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="1" stroke-opacity="0.4" />
-           <text x="12" y="17" fill="#38bdf8" font-size="11.5" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.5">${escapeXml(categoryBadge.toUpperCase())}</text>`
+           <text x="12" y="17" fill="#38bdf8" font-size="11.5" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.5">${escapeXml(categoryBadge.toUpperCase())}</text>`
         : ''
     }
 
     <!-- Athlete Name -->
-    <text x="0" y="58" fill="#ffffff" font-size="38" font-family="system-ui, -apple-system, sans-serif" font-weight="900" letter-spacing="-0.5">${escapeXml(m.name.toUpperCase())}</text>
+    <text x="0" y="58" fill="#ffffff" font-size="38" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900" letter-spacing="-0.5">${escapeXml(m.name.toUpperCase())}</text>
 
     <!-- Club -->
-    <text x="0" y="92" fill="#94a3b8" font-size="19" font-family="system-ui, -apple-system, sans-serif" font-weight="600">${escapeXml(m.club)}</text>
+    <text x="0" y="92" fill="#94a3b8" font-size="19" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="600">${escapeXml(m.club)}</text>
 
     <!-- Verified Badge -->
     <g transform="translate(0, 114)">
       <circle cx="8" cy="8" r="8" fill="#10b981" />
       <path d="M5 8 L7 10 L11 6" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-      <text x="24" y="12" fill="#cbd5e1" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="600">Profilo Atleta FITeT Ufficiale</text>
+      <text x="24" y="12" fill="#cbd5e1" font-size="13" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="600">Profilo Atleta FITeT Ufficiale</text>
     </g>
   </g>
 
@@ -225,48 +297,46 @@ export async function generateAthleteOgCard(athlete: DettaglioAtleta): Promise<B
     <!-- Card 1: Ranking Attuale -->
     <g transform="translate(0, 0)">
       <rect width="210" height="150" rx="16" fill="url(#cardGrad)" stroke="#334155" stroke-width="1" filter="url(#shadow)" />
-      <text x="20" y="36" fill="#94a3b8" font-size="12" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">RANKING ATTUALE</text>
-      <text x="20" y="88" fill="#38bdf8" font-size="38" font-family="system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.currentRank)}</text>
-      <text x="20" y="122" fill="#64748b" font-size="12" font-family="system-ui, -apple-system, sans-serif">Classifica Italia</text>
+      <text x="20" y="36" fill="#94a3b8" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">RANKING ATTUALE</text>
+      <text x="20" y="88" fill="#38bdf8" font-size="38" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.currentRank)}</text>
+      <text x="20" y="122" fill="#64748b" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif">Classifica Italia</text>
     </g>
 
     <!-- Card 2: Punti Classifica -->
     <g transform="translate(240, 0)">
       <rect width="220" height="150" rx="16" fill="url(#cardGrad)" stroke="#334155" stroke-width="1" filter="url(#shadow)" />
-      <text x="20" y="36" fill="#94a3b8" font-size="12" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">PUNTI RANKING</text>
-      <text x="20" y="88" fill="#ffffff" font-size="36" font-family="system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.points.toLocaleString('it-IT'))} <tspan font-size="18" fill="#64748b">pt</tspan></text>
-      <text x="20" y="122" fill="${diffColor}" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="700">${escapeXml(diffLabel)} da inizio anno</text>
+      <text x="20" y="36" fill="#94a3b8" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">PUNTI RANKING</text>
+      <text x="20" y="88" fill="#ffffff" font-size="36" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.points.toLocaleString('it-IT'))} <tspan font-size="18" fill="#64748b">pt</tspan></text>
+      <text x="20" y="122" fill="${diffColor}" font-size="13" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700">${escapeXml(diffLabel)} da inizio anno</text>
     </g>
 
     <!-- Card 3: Partite V / G -->
     <g transform="translate(0, 180)">
       <rect width="210" height="150" rx="16" fill="url(#cardGrad)" stroke="#334155" stroke-width="1" filter="url(#shadow)" />
-      <text x="20" y="36" fill="#94a3b8" font-size="12" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">PARTITE V / G</text>
-      <text x="20" y="88" fill="#ffffff" font-size="34" font-family="system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.partiteVinte)} <tspan font-size="20" fill="#64748b">/</tspan> ${escapeXml(m.partiteGiocate)}</text>
-      <text x="20" y="122" fill="#10b981" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="700">${escapeXml(m.winRate)} Vittorie</text>
+      <text x="20" y="36" fill="#94a3b8" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">PARTITE V / G</text>
+      <text x="20" y="88" fill="#ffffff" font-size="34" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.partiteVinte)} <tspan font-size="20" fill="#64748b">/</tspan> ${escapeXml(m.partiteGiocate)}</text>
+      <text x="20" y="122" fill="#10b981" font-size="13" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700">${escapeXml(m.winRate)} Vittorie</text>
     </g>
 
     <!-- Card 4: Best Rank -->
     <g transform="translate(240, 180)">
       <rect width="220" height="150" rx="16" fill="url(#cardGrad)" stroke="#334155" stroke-width="1" filter="url(#shadow)" />
-      <text x="20" y="36" fill="#94a3b8" font-size="12" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">BEST RANKING</text>
-      <text x="20" y="88" fill="#f59e0b" font-size="36" font-family="system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.bestRank)}</text>
-      <text x="20" y="122" fill="#64748b" font-size="12" font-family="system-ui, -apple-system, sans-serif">Record Personale</text>
+      <text x="20" y="36" fill="#94a3b8" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">BEST RANKING</text>
+      <text x="20" y="88" fill="#f59e0b" font-size="36" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.bestRank)}</text>
+      <text x="20" y="122" fill="#64748b" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif">Record Personale</text>
     </g>
   </g>
 
   <!-- Bottom Brand Footer -->
   <g transform="translate(60, 560)">
     <line x1="0" y1="0" x2="1080" y2="0" stroke="#1e293b" stroke-width="1.5" />
-    <text x="0" y="32" fill="#64748b" font-size="14" font-family="system-ui, -apple-system, sans-serif" font-weight="600">portale-risultati-tt.it • Statistiche Ufficiali Campionati e Tornei FITeT</text>
-    <text x="1080" y="32" fill="#38bdf8" font-size="14" font-family="system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="end">Condividi la tua passione per il Tennistavolo</text>
+    <text x="0" y="32" fill="#64748b" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="600">portale-risultati-tt.it • Statistiche Ufficiali Campionati e Tornei FITeT</text>
+    <text x="1080" y="32" fill="#38bdf8" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="end">Condividi la tua passione per il Tennistavolo</text>
   </g>
 </svg>
 `;
 
-  const resvg = new Resvg(svg, {
-    fitTo: { mode: 'width', value: 1200 },
-  });
+  const resvg = new Resvg(svg, getResvgOptions(1200));
   return resvg.render().asPng();
 }
 
@@ -361,7 +431,7 @@ export async function generateAthleteStoryCard(
   <g transform="translate(0, 190)">
     <rect x="360" y="0" width="360" height="42" rx="21" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5" stroke-opacity="0.5" />
     <circle cx="384" cy="21" r="7" fill="#10b981" />
-    <text x="545" y="27" fill="#ffffff" font-size="14.5" font-family="system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="1.2">PORTALE RISULTATI FITeT</text>
+    <text x="545" y="27" fill="#ffffff" font-size="14.5" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="1.2">PORTALE RISULTATI FITeT</text>
   </g>
 
   <!-- Hero Profile Section -->
@@ -371,18 +441,18 @@ export async function generateAthleteStoryCard(
   ${
     photoBase64
       ? `<image href="${photoBase64}" x="405" y="335" width="270" height="270" clip-path="url(#storyAvatarClip)" preserveAspectRatio="xMidYMid slice" />`
-      : `<text x="540" y="505" fill="#38bdf8" font-size="88" font-family="system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle">${escapeXml(m.initials)}</text>`
+      : `<text x="540" y="505" fill="#38bdf8" font-size="88" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle">${escapeXml(m.initials)}</text>`
   }
 
   <!-- Athlete Name & Club -->
-  <text x="540" y="685" fill="#ffffff" font-size="46" font-family="system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle" letter-spacing="-0.5">${escapeXml(m.name.toUpperCase())}</text>
-  <text x="540" y="730" fill="#94a3b8" font-size="22" font-family="system-ui, -apple-system, sans-serif" font-weight="600" text-anchor="middle">${escapeXml(m.club)}</text>
+  <text x="540" y="685" fill="#ffffff" font-size="46" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle" letter-spacing="-0.5">${escapeXml(m.name.toUpperCase())}</text>
+  <text x="540" y="730" fill="#94a3b8" font-size="22" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="600" text-anchor="middle">${escapeXml(m.club)}</text>
 
   <!-- Category & Sector Pill -->
   ${
     categoryBadge
       ? `<rect x="${540 - Math.min(380, categoryBadge.length * 9 + 30) / 2}" y="760" width="${Math.min(380, categoryBadge.length * 9 + 30)}" height="34" rx="17" fill="#1e293b" stroke="#334155" stroke-width="1.2" />
-         <text x="540" y="783" fill="#38bdf8" font-size="13" font-family="system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="0.8">${escapeXml(categoryBadge.toUpperCase())}</text>`
+         <text x="540" y="783" fill="#38bdf8" font-size="13" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="0.8">${escapeXml(categoryBadge.toUpperCase())}</text>`
       : ''
   }
 
@@ -391,20 +461,20 @@ export async function generateAthleteStoryCard(
     <rect width="900" height="260" rx="24" fill="url(#highlightGrad)" stroke="url(#storyGlow)" stroke-width="2" filter="url(#glowFilter)" />
 
     <!-- Banner Header -->
-    <text x="450" y="48" fill="#38bdf8" font-size="15" font-family="system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="1">${escapeXml(highlightTitle.toUpperCase())}</text>
+    <text x="450" y="48" fill="#38bdf8" font-size="15" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="1">${escapeXml(highlightTitle.toUpperCase())}</text>
     <line x1="40" y1="72" x2="860" y2="72" stroke="#334155" stroke-width="1" />
 
     <!-- Two Key Highlight Metrics Inside Banner -->
     <g transform="translate(0, 100)">
       <!-- Left Column -->
-      <text x="225" y="55" fill="#ffffff" font-size="46" font-family="system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle">${escapeXml(highlightVal1)}</text>
-      <text x="225" y="98" fill="#94a3b8" font-size="16" font-family="system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="middle">${escapeXml(highlightSub1)}</text>
+      <text x="225" y="55" fill="#ffffff" font-size="46" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle">${escapeXml(highlightVal1)}</text>
+      <text x="225" y="98" fill="#94a3b8" font-size="16" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="middle">${escapeXml(highlightSub1)}</text>
 
       <line x1="450" y1="20" x2="450" y2="120" stroke="#334155" stroke-width="1.5" />
 
       <!-- Right Column -->
-      <text x="675" y="55" fill="#10b981" font-size="46" font-family="system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle">${escapeXml(highlightVal2)}</text>
-      <text x="675" y="98" fill="#94a3b8" font-size="16" font-family="system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="middle">${escapeXml(highlightSub2)}</text>
+      <text x="675" y="55" fill="#10b981" font-size="46" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle">${escapeXml(highlightVal2)}</text>
+      <text x="675" y="98" fill="#94a3b8" font-size="16" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="middle">${escapeXml(highlightSub2)}</text>
     </g>
   </g>
 
@@ -413,33 +483,33 @@ export async function generateAthleteStoryCard(
     <!-- Card 1: Ranking Italia -->
     <g transform="translate(0, 0)">
       <rect width="430" height="180" rx="20" fill="url(#cardGrad)" stroke="#1e293b" stroke-width="1.5" />
-      <text x="32" y="44" fill="#94a3b8" font-size="14" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">RANKING NAZIONALE</text>
-      <text x="32" y="108" fill="#38bdf8" font-size="46" font-family="system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.currentRank)}</text>
-      <text x="32" y="148" fill="#64748b" font-size="15" font-family="system-ui, -apple-system, sans-serif">Classifica Ufficiale</text>
+      <text x="32" y="44" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">RANKING NAZIONALE</text>
+      <text x="32" y="108" fill="#38bdf8" font-size="46" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.currentRank)}</text>
+      <text x="32" y="148" fill="#64748b" font-size="15" font-family="Inter, system-ui, -apple-system, sans-serif">Classifica Ufficiale</text>
     </g>
 
     <!-- Card 2: Punti Totali -->
     <g transform="translate(470, 0)">
       <rect width="430" height="180" rx="20" fill="url(#cardGrad)" stroke="#1e293b" stroke-width="1.5" />
-      <text x="32" y="44" fill="#94a3b8" font-size="14" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">PUNTI ATTUALI</text>
-      <text x="32" y="108" fill="#ffffff" font-size="44" font-family="system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.points.toLocaleString('it-IT'))} <tspan font-size="22" fill="#64748b">pt</tspan></text>
-      <text x="32" y="148" fill="${diffColor}" font-size="15" font-family="system-ui, -apple-system, sans-serif" font-weight="700">${escapeXml(diffLabel)} da inizio anno</text>
+      <text x="32" y="44" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">PUNTI ATTUALI</text>
+      <text x="32" y="108" fill="#ffffff" font-size="44" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.points.toLocaleString('it-IT'))} <tspan font-size="22" fill="#64748b">pt</tspan></text>
+      <text x="32" y="148" fill="${diffColor}" font-size="15" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700">${escapeXml(diffLabel)} da inizio anno</text>
     </g>
 
     <!-- Card 3: Partite Vinte / Giocate -->
     <g transform="translate(0, 210)">
       <rect width="430" height="180" rx="20" fill="url(#cardGrad)" stroke="#1e293b" stroke-width="1.5" />
-      <text x="32" y="44" fill="#94a3b8" font-size="14" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">PARTITE V / G</text>
-      <text x="32" y="108" fill="#ffffff" font-size="44" font-family="system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.partiteVinte)} <tspan font-size="26" fill="#64748b">/</tspan> ${escapeXml(m.partiteGiocate)}</text>
-      <text x="32" y="148" fill="#10b981" font-size="15" font-family="system-ui, -apple-system, sans-serif" font-weight="700">${escapeXml(m.winRate)} Vittorie</text>
+      <text x="32" y="44" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">PARTITE V / G</text>
+      <text x="32" y="108" fill="#ffffff" font-size="44" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.partiteVinte)} <tspan font-size="26" fill="#64748b">/</tspan> ${escapeXml(m.partiteGiocate)}</text>
+      <text x="32" y="148" fill="#10b981" font-size="15" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700">${escapeXml(m.winRate)} Vittorie</text>
     </g>
 
     <!-- Card 4: Best Rank -->
     <g transform="translate(470, 210)">
       <rect width="430" height="180" rx="20" fill="url(#cardGrad)" stroke="#1e293b" stroke-width="1.5" />
-      <text x="32" y="44" fill="#94a3b8" font-size="14" font-family="system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">BEST RANKING</text>
-      <text x="32" y="108" fill="#f59e0b" font-size="44" font-family="system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.bestRank)}</text>
-      <text x="32" y="148" fill="#64748b" font-size="15" font-family="system-ui, -apple-system, sans-serif">Record Personale</text>
+      <text x="32" y="44" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">BEST RANKING</text>
+      <text x="32" y="108" fill="#f59e0b" font-size="44" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.bestRank)}</text>
+      <text x="32" y="148" fill="#64748b" font-size="15" font-family="Inter, system-ui, -apple-system, sans-serif">Record Personale</text>
     </g>
   </g>
 
@@ -448,17 +518,15 @@ export async function generateAthleteStoryCard(
     <!-- Pill link -->
     <rect x="240" y="0" width="600" height="60" rx="30" fill="url(#storyGlow)" />
     <rect x="242" y="2" width="596" height="56" rx="28" fill="#081324" />
-    <text x="540" y="37" fill="#38bdf8" font-size="17" font-family="system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="0.5">portale-risultati-tt.it/player/${escapeXml(athlete.id)}</text>
+    <text x="540" y="37" fill="#38bdf8" font-size="17" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="0.5">portale-risultati-tt.it/player/${escapeXml(athlete.id)}</text>
 
     <!-- Sub Footer -->
-    <text x="540" y="95" fill="#64748b" font-size="14" font-family="system-ui, -apple-system, sans-serif" font-weight="600" text-anchor="middle">Generato dal Portale Risultati FITeT • Condividi nelle tue Storie!</text>
+    <text x="540" y="95" fill="#64748b" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="600" text-anchor="middle">Generato dal Portale Risultati FITeT • Condividi nelle tue Storie!</text>
   </g>
 </svg>
 `;
 
-  const resvg = new Resvg(svg, {
-    fitTo: { mode: 'width', value: 1080 },
-  });
+  const resvg = new Resvg(svg, getResvgOptions(1080));
   return resvg.render().asPng();
 }
 

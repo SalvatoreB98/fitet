@@ -6,6 +6,7 @@
   ],
   "functions": {
     "api/index.js": {
+      "includeFiles": "{server/assets/**,dist/**}",
       "maxDuration": 60
     }
   },

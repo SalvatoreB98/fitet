@@ -1500,7 +1500,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               </div>
                             ) : (
                               <div className="atleta-match-list-container">
-                                {matchesToDisplay.map((m, idx) => {
+                                {[...matchesToDisplay].reverse().map((m, idx) => {
                                   const matchDateNorm = normDate(m.data);
                                   const oppNameKey = (m.avversario || '').toUpperCase().trim();
                                   const oppIdKey = m.avversarioId || '';

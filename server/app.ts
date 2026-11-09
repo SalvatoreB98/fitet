@@ -2292,6 +2292,21 @@ app.get(['/api/og/player/:id.png', '/api/og/player/:id', '/api/og-player'], asyn
 });
 
 // 2. Dynamic Instagram Story Card (1080 x 1920 PNG - 9:16)
+app.post('/api/story/render', async (req, res) => {
+    const { athlete, theme } = req.body || {};
+    if (!athlete) return res.status(400).send('Missing athlete data');
+
+    try {
+        const pngBuffer = await generateAthleteStoryCard(athlete, theme || 'panoramica');
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
+        return res.send(pngBuffer);
+    } catch (err: any) {
+        console.error('Error rendering Story image from payload:', err);
+        return res.status(500).send('Error generating story image');
+    }
+});
+
 app.get(['/api/story/player/:id.png', '/api/story/player/:id', '/api/story-player'], async (req, res) => {
     let id = req.params.id || (req.query.id as string);
     const theme = (req.query.theme as any) || 'panoramica';
@@ -2377,7 +2392,13 @@ app.get(['/player/:id', '/atleta/:id'], async (req, res, next) => {
   <meta name="twitter:description" content="${escapeHtmlMeta(description)}" />
   <meta name="twitter:image" content="${ogImageUrl}" />
 `;
-        let html = baseHtml.replace(/<title>.*?<\/title>/i, ogMeta);
+        let html = baseHtml
+            .replace(/<title>.*?<\/title>/gi, '')
+            .replace(/<meta\s+property=["']og:[^"']*["'][^>]*>/gi, '')
+            .replace(/<meta\s+name=["']twitter:[^"']*["'][^>]*>/gi, '')
+            .replace(/<meta\s+name=["']description["'][^>]*>/gi, '');
+
+        html = html.replace(/<head>/i, `<head>${ogMeta}`);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         return res.send(html);
     } catch {
