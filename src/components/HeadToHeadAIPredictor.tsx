@@ -230,7 +230,7 @@ export const HeadToHeadAIPredictor: React.FC<HeadToHeadAIPredictorProps> = ({
             Analisi matchup e metriche in corso...
           </p>
           <p className="mb-3" style={{ fontSize: '0.75rem' }}>
-            Elaborazione tattica qualitativa e stima probabilistica con Google Gemini
+            Elaborazione tattica qualitativa e stima probabilistica con IA
           </p>
           <div
             className="progress w-50"
