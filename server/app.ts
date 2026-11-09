@@ -14,6 +14,7 @@ import { parseStatisticheAtleti } from './parsers/statisticheParser';
 import { parseDettaglioAtleta, extractRankingIframeUrl, parsePartiteRanking } from './parsers/atletaParser';
 import { headToHeadService } from './services/headToHeadService';
 import { handlePredictH2H } from '../api/predict-h2h';
+import { generateAthleteOgCard, generateAthleteStoryCard } from './services/socialCardService';
 import {
     pushService,
     notifyRankingChangeIfNeeded,
@@ -2185,59 +2186,175 @@ app.get('/api/push/check-tornei', async (req, res) => {
     }
 });
 
+// ---------------------------------------------------------------------------
+// Dynamic Open Graph & Instagram Story Image Generation
+// ---------------------------------------------------------------------------
+async function getOrFetchAthlete(id: string) {
+    const cacheKey = `atleta_${id}`;
+    const cached = cacheService.get<any>(cacheKey);
+    const isHollow = !cached || !cached.anagrafica || cached.anagrafica.nome?.startsWith('Atleta ') || (cached.anagrafica.punti === 0 && (!cached.storicoClassifica || cached.storicoClassifica.length === 0));
+    if (cached && !isHollow) return cached;
+
+    try {
+        let resolvedIdClass = await getLatestIdClass();
+        const html = await FitetClient.fetchSchedaAtleta(id, resolvedIdClass);
+        let partiteRanking: any = undefined;
+        let iframeUrl = extractRankingIframeUrl(html);
+
+        if (iframeUrl) {
+            try {
+                const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);
+                partiteRanking = parsePartiteRanking(iframeHtml, id);
+            } catch { }
+        }
+
+        const atleta = parseDettaglioAtleta(html, id, partiteRanking);
+        if (atleta && atleta.anagrafica && atleta.anagrafica.nome) {
+            cacheService.set(cacheKey, atleta, 60 * 60 * 1000);
+            return atleta;
+        }
+        return atleta;
+    } catch {
+        return cached || null;
+    }
+}
+
+function escapeHtmlMeta(str: string): string {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// 1. Dynamic Open Graph Social Card (1200 x 630 PNG)
+app.get(['/api/og/player/:id.png', '/api/og/player/:id', '/api/og-player'], async (req, res) => {
+    let id = req.params.id || (req.query.id as string);
+    if (!id) return res.status(400).send('Missing player ID');
+
+    id = id.replace(/\.png$/i, '');
+
+    if (!/^\d+$/.test(id)) {
+        const resolved = await athleteResolver.resolveAthleteId(decodeURIComponent(id).trim());
+        if (resolved) id = resolved;
+    }
+
+    const athlete = await getOrFetchAthlete(id);
+    if (!athlete) {
+        return res.status(404).send('Athlete not found');
+    }
+
+    try {
+        const pngBuffer = await generateAthleteOgCard(athlete);
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
+        return res.send(pngBuffer);
+    } catch (err: any) {
+        console.error('Error generating OG image for athlete', id, err);
+        return res.status(500).send('Error generating card image');
+    }
+});
+
+// 2. Dynamic Instagram Story Card (1080 x 1920 PNG - 9:16)
+app.get(['/api/story/player/:id.png', '/api/story/player/:id', '/api/story-player'], async (req, res) => {
+    let id = req.params.id || (req.query.id as string);
+    const theme = (req.query.theme as any) || 'panoramica';
+    if (!id) return res.status(400).send('Missing player ID');
+
+    id = id.replace(/\.png$/i, '');
+
+    if (!/^\d+$/.test(id)) {
+        const resolved = await athleteResolver.resolveAthleteId(decodeURIComponent(id).trim());
+        if (resolved) id = resolved;
+    }
+
+    const athlete = await getOrFetchAthlete(id);
+    if (!athlete) {
+        return res.status(404).send('Athlete not found');
+    }
+
+    try {
+        const pngBuffer = await generateAthleteStoryCard(athlete, theme);
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
+        return res.send(pngBuffer);
+    } catch (err: any) {
+        console.error('Error generating Story image for athlete', id, err);
+        return res.status(500).send('Error generating story image');
+    }
+});
+
+// Dynamic OG tags for /player/:id and /atleta/:id for WhatsApp, Facebook and social preview crawlers
+app.get(['/player/:id', '/atleta/:id'], async (req, res, next) => {
+    let { id } = req.params;
+    if (!id) return next();
+
+    id = id.replace(/\.png$/i, '');
+
+    if (!/^\d+$/.test(id)) {
+        const resolved = await athleteResolver.resolveAthleteId(decodeURIComponent(id).trim());
+        if (resolved) id = resolved;
+    }
+
+    const distPath = path.resolve(process.cwd(), 'dist');
+    const indexFile = path.join(distPath, 'index.html');
+
+    let baseHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8" /><title>Portale Risultati FITeT</title></head><body><div id="root"></div></body></html>';
+    if (fs.existsSync(indexFile)) {
+        try {
+            baseHtml = await fs.promises.readFile(indexFile, 'utf8');
+        } catch { }
+    }
+
+    try {
+        let athleteName = `Atleta #${id}`;
+        let description = 'Visualizza la scheda atleta, ranking e storico incontri sul Portale Risultati FITeT.';
+
+        const athlete = await getOrFetchAthlete(id);
+        if (athlete?.anagrafica?.nome) {
+            athleteName = athlete.anagrafica.nome;
+            const societa = athlete.anagrafica.societa ? ` (${athlete.anagrafica.societa})` : '';
+            const rankText = athlete.anagrafica.punti ? ` - ${athlete.anagrafica.punti.toLocaleString('it-IT')} pt` : '';
+            description = `${athleteName}${societa}${rankText} • Scheda ranking, risultati e statistiche sul Portale Risultati FITeT.`;
+        }
+
+        const title = `${athleteName} | Scheda Ranking Portale Risultati FITeT`;
+        const host = req.get('host') || 'portale-risultati-tt.it';
+        const protocol = req.protocol === 'http' && host.includes('localhost') ? 'http' : 'https';
+        const currentUrl = `${protocol}://${host}/player/${encodeURIComponent(id)}`;
+        const ogImageUrl = `${protocol}://${host}/api/og/player/${encodeURIComponent(id)}.png`;
+
+        const ogMeta = `
+  <title>${escapeHtmlMeta(title)}</title>
+  <meta name="description" content="${escapeHtmlMeta(description)}" />
+  <meta property="og:title" content="${escapeHtmlMeta(title)}" />
+  <meta property="og:description" content="${escapeHtmlMeta(description)}" />
+  <meta property="og:image" content="${ogImageUrl}" />
+  <meta property="og:image:secure_url" content="${ogImageUrl}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:url" content="${currentUrl}" />
+  <meta property="og:type" content="profile" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtmlMeta(title)}" />
+  <meta name="twitter:description" content="${escapeHtmlMeta(description)}" />
+  <meta name="twitter:image" content="${ogImageUrl}" />
+`;
+        let html = baseHtml.replace(/<title>.*?<\/title>/i, ogMeta);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(html);
+    } catch {
+        return next();
+    }
+});
+
 // Serve static frontend files in production only when running as standalone node server (not on Vercel)
 if (!process.env.VERCEL) {
     startDailyTorneiScheduler();
     startChampionshipScheduler();
     const distPath = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distPath));
-
-    // Dynamic OG tags for /player/:id and /atleta/:id for WhatsApp and social preview crawlers
-    app.get(['/player/:id', '/atleta/:id'], async (req, res, next) => {
-        const { id } = req.params;
-        const indexFile = path.join(distPath, 'index.html');
-        if (!fs.existsSync(indexFile)) return next();
-
-        try {
-            let html = await fs.promises.readFile(indexFile, 'utf8');
-            let athleteName = `Atleta #${id}`;
-            let photoUrl = 'https://portale.fitet.org/images/atleti/' + encodeURIComponent(id) + '.jpg';
-            let description = 'Visualizza la scheda atleta, ranking e storico incontri sul Portale Risultati FITeT.';
-
-            const cached = cacheService.get<any>(`atleta_${id}`);
-            if (cached?.anagrafica?.nome) {
-                athleteName = cached.anagrafica.nome;
-                if (cached.anagrafica.societa) {
-                    description = `${athleteName} (${cached.anagrafica.societa}) - Scheda ranking, risultati e statistiche sul Portale Risultati FITeT.`;
-                }
-                if (cached.anagrafica.fotoUrl) {
-                    photoUrl = cached.anagrafica.fotoUrl;
-                }
-            }
-
-            const title = `${athleteName} | Scheda Ranking Portale Risultati FITeT`;
-            const currentUrl = `${req.protocol}://${req.get('host')}/player/${encodeURIComponent(id)}`;
-
-            const ogMeta = `
-  <title>${title}</title>
-  <meta name="description" content="${description}" />
-  <meta property="og:title" content="${title}" />
-  <meta property="og:description" content="${description}" />
-  <meta property="og:image" content="${photoUrl}" />
-  <meta property="og:url" content="${currentUrl}" />
-  <meta property="og:type" content="profile" />
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="${title}" />
-  <meta name="twitter:description" content="${description}" />
-  <meta name="twitter:image" content="${photoUrl}" />
-`;
-            html = html.replace(/<title>.*?<\/title>/i, ogMeta);
-            res.setHeader('Content-Type', 'text/html; charset=utf-8');
-            return res.send(html);
-        } catch {
-            return next();
-        }
-    });
 
     // Dynamic OG & SEO tags for /regioni/:slug and /regione/:slug
     app.get(['/regioni/:slug', '/regione/:slug'], async (req, res, next) => {

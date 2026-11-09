@@ -12,6 +12,7 @@ import { useFavoriteAthletes, saveFavoriteAthlete } from '../utils/favorites';
 import { addRecentAthlete } from '../utils/history';
 import { TeamLogo } from './TeamLogo';
 import { aggregateAthleteMatchStats } from '../utils/aggregateAthleteStats';
+import { AthleteStoryModal } from './AthleteStoryModal';
 
 interface AtletaModalProps {
   atletaId: string;
@@ -71,6 +72,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
   // Share state
   const [isShareMenuOpen, setIsShareMenuOpen] = useState<boolean>(false);
+  const [isStoryModalOpen, setIsStoryModalOpen] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
   const [showToast, setShowToast] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
@@ -635,6 +637,17 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     <span className="athlete-share-url-text">{shareUrl}</span>
                   </div>
                   <div className="athlete-share-actions">
+                    <button
+                      type="button"
+                      className="athlete-share-action-btn btn-instagram-story"
+                      onClick={() => {
+                        setIsShareMenuOpen(false);
+                        setIsStoryModalOpen(true);
+                      }}
+                    >
+                      <i className="bi bi-instagram me-2" style={{ fontSize: '15px', color: '#E1306C' }}></i>
+                      <span>Crea Storia Instagram (9:16)</span>
+                    </button>
                     <button
                       type="button"
                       className="athlete-share-action-btn btn-whatsapp"
@@ -1787,6 +1800,15 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
               onSelectAthlete(resolvedId, name);
             }
           }}
+        />
+      )}
+
+      {/* Modal Card Grafica Instagram Stories (9:16) */}
+      {isStoryModalOpen && atleta && (
+        <AthleteStoryModal
+          isOpen={isStoryModalOpen}
+          onClose={() => setIsStoryModalOpen(false)}
+          atleta={atleta}
         />
       )}
 

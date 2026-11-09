@@ -61,12 +61,12 @@
       "destination": "/regioni/:slug/index.html"
     },
     {
-      "source": "/player/(.*)",
-      "destination": "/index.html"
+      "source": "/player/:id",
+      "destination": "/api/index.js"
     },
     {
-      "source": "/atleta/(.*)",
-      "destination": "/index.html"
+      "source": "/atleta/:id",
+      "destination": "/api/index.js"
     },
     {
       "source": "/((?!api/).*)",
