@@ -115,7 +115,7 @@ export const CoffeeNudge: React.FC<CoffeeNudgeProps> = ({ isSuppressed = false }
 
       <div className="coffee-nudge-text">
         <strong>Portale risultati è gratuito e senza pubblicità.</strong>
-        <span>Se ti sta tornando utile, puoi offrirmi un caffè.</span>
+        <span>Se ti sta tornando utile, sostieni il progetto.</span>
         <a
           className="coffee-nudge-link"
           href={COFFEE_URL}
@@ -124,7 +124,7 @@ export const CoffeeNudge: React.FC<CoffeeNudgeProps> = ({ isSuppressed = false }
           onClick={handleSupportClick}
           style={{ width: '100%' }}
         >
-          Offri un caffè ☕
+          Sostieni il progetto ☕
         </a>
       </div>
     </aside>
