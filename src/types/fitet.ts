@@ -61,6 +61,7 @@ export interface MatchVideoInfo {
   matchDay?: number | null;
   teamHome?: string | null;
   teamAway?: string | null;
+  previewUrl?: string | null;
 }
 
 export interface PartitaCalendario {

@@ -146,6 +146,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
               matchDay: v?.matchDay ?? v?.match_day ?? null,
               teamHome: v?.teamHome || v?.team_home || null,
               teamAway: v?.teamAway || v?.team_away || null,
+              previewUrl: v?.previewUrl || v?.preview_url || null,     
             }))
             .filter((v: MatchVideoInfo) => Boolean(v.videoId) && v.videoId !== 'undefined' && v.videoId !== 'null');
           setMatchVideos(sanitized);

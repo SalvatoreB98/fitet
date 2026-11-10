@@ -605,6 +605,12 @@
   gap: 4px;
 }
 
+.home-soft-pill.serie {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+}
+
 .home-soft-region {
   font-size: 11.5px;
   font-weight: 600;
@@ -615,6 +621,12 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+
+.home-soft-region.date {
+  all: unset;
+  font-size: 10px;
+  opacity: 0.5;
 }
 
 .home-card-main {
@@ -1334,6 +1346,7 @@
   padding: 12px 14px;
   justify-content: center;
   cursor: pointer;
+  position: relative;
 }
 
 .home-video-card-row {
@@ -1352,6 +1365,8 @@
   flex-shrink: 0;
   background: #0f172a;
   border: 1px solid rgba(15, 23, 42, 0.08);
+  height: 100%;
+  padding: 25px 0;
 }
 
 .home-video-thumb-img {

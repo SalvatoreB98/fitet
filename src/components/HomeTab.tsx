@@ -214,6 +214,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               teamHome: v?.teamHome || v?.team_home || null,
               teamAway: v?.teamAway || v?.team_away || null,
               date: v?.publishedAt || v?.published_At || null,
+              previewUrl: v?.previewUrl || v?.preview_url || null,
+
             }))
             .filter((v: MatchVideoInfo) => Boolean(v.videoId) && v.videoId !== 'undefined' && v.videoId !== 'null');
           setHomeVideos(sanitized);
@@ -1631,17 +1633,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                               </div>
 
                               <div className="home-video-card-body">
-                                <div className="home-card-badges">
-                                  <span
-                                    className="home-soft-pill"
-                                    style={{
-                                      backgroundColor: `${serieConfig.accent}16`,
-
-                                    }}
-                                  >
-                                    <i className={`bi ${serieConfig.icon}`}></i>
-                                    {video.league || serieConfig.title}
-                                  </span>
+                                <span>
                                   {video.matchDay ? (
                                     <span className="home-soft-region">
                                       {video.matchDay}ª Giornata
@@ -1651,19 +1643,32 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                                       {video.channelName}
                                     </span>
                                   )}
-                                  {video.publishedAt && (
-                                    <span className="home-soft-region">{cleanItaDate(video.publishedAt)}</span>
-                                  )}
-                                </div>
-
+                                </span>
                                 <h4 className="home-card-title home-video-card-title" title={video.title}>
                                   {mainTitle}
                                 </h4>
-
                                 {video.matchDay && video.channelName && (
-                                  <p className="home-card-sub home-video-card-sub">{video.channelName}</p>
+                                  <p className="home-card-sub home-video-card-sub">
+                                    <img src="" alt="" />
+                                    {video.channelName}
+                                  </p>
+                                )}
+                                {video.publishedAt && (
+                                  <span className="home-soft-region date">{cleanItaDate(video.publishedAt)}</span>
                                 )}
                               </div>
+                            </div>
+                            <div className="home-card-badges">
+                              <span
+                                className="home-soft-pill serie"
+                                style={{
+                                  backgroundColor: `${serieConfig.accent}16`,
+
+                                }}
+                              >
+                                <i className={`bi ${serieConfig.icon}`}></i>
+                                {video.league || serieConfig.title}
+                              </span>
                             </div>
                           </div>
                         );
