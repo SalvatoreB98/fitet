@@ -336,13 +336,14 @@
 
 .home-section-title {
   font-family: var(--font-serif, serif);
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: var(--text-dark, #0f172a);
   margin: 0;
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-top: 0.5em;
 }
 
 .home-section-count {
@@ -562,7 +563,6 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 14px;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
