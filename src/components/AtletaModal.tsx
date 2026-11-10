@@ -1674,7 +1674,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               <div className="ranking-federale-note">
                                 <i className="bi bi-info-circle text-primary" style={{ flexShrink: 0 }}></i>
                                 <span>
-                                  <strong>Nota:</strong> Alcuni match potrebbero non essere stati conteggiati ai fini del ranking.
+                                  <strong>Nota:</strong> Alcuni match potrebbero non essere stati ancora conteggiati ai fini del ranking.
                                 </span>
                               </div>
                             )}
