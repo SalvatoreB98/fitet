@@ -136,7 +136,7 @@ export const MatchVideoModal: React.FC<MatchVideoModalProps> = ({
                   onClick={() => setActiveVideoId(v.videoId)}
                 >
                   <i className={isActive ? 'bi bi-play-circle-fill' : 'bi bi-play-circle'}></i>
-                  <span>{v.channelName || `Video #${idx + 1}`}</span>
+                  <span>{`Video #${idx + 1}`}</span>
                 </button>
               );
             })}
