@@ -7,7 +7,7 @@ import { cacheService } from './services/cacheService';
 import { viewsService } from './services/viewsService';
 import { athleteResolver } from './services/athleteResolver';
 import { teamResolver } from './services/teamResolver';
-import { championshipCatalog } from './services/championshipCatalog';
+import { championshipCatalog, normalizeChampionshipGender } from './services/championshipCatalog';
 import { parseClassifica } from './parsers/classificaParser';
 import { parseCalendario } from './parsers/calendarioParser';
 import { parseStatisticheAtleti } from './parsers/statisticheParser';
@@ -22,7 +22,6 @@ import {
 import { youtubeSyncService } from './services/youtubeSyncService';
 import {
     checkNewTorneiAndNotify,
-    notifyObservedTorneiIfNeeded,
     startDailyTorneiScheduler,
 } from './services/torneiNotificationService';
 import {
@@ -76,71 +75,29 @@ export const app = express();
 app.use(cors());
 app.use(express.json());
 
-/**
- * Cache HTTP per le risposte pubbliche.
- *
- * - `Vercel-CDN-Cache-Control` fa gestire la risposta dalla CDN Vercel senza
- *   eseguire la funzione serverless a ogni richiesta.
- * - `Cache-Control` è il fallback per il browser e per i deploy non-Vercel.
- * - Le richieste con `refresh=true`/`force=true` bypassano sempre la cache.
- */
-interface PublicApiCachePolicy {
-    cdnTtlSeconds: number;
-    browserTtlSeconds: number;
-    staleWhileRevalidateSeconds: number;
-}
-
-function cachePolicy(
-    cdnTtlSeconds: number,
-    browserTtlSeconds: number,
-    staleWhileRevalidateSeconds = cdnTtlSeconds
-): PublicApiCachePolicy {
-    return { cdnTtlSeconds, browserTtlSeconds, staleWhileRevalidateSeconds };
-}
-
-const EXACT_PUBLIC_API_CACHE_POLICIES: Record<string, PublicApiCachePolicy> = {
-    '/api/campionati': cachePolicy(30 * 60, 5 * 60, 60 * 60),
-    '/api/dashboard': cachePolicy(5 * 60, 60, 15 * 60),
-    '/api/classifica': cachePolicy(10 * 60, 2 * 60, 30 * 60),
-    '/api/calendario': cachePolicy(10 * 60, 2 * 60, 30 * 60),
-    '/api/statistiche': cachePolicy(15 * 60, 2 * 60, 45 * 60),
-    '/api/ranking': cachePolicy(15 * 60, 2 * 60, 45 * 60),
-    '/api/tornei': cachePolicy(10 * 60, 2 * 60, 30 * 60),
-    '/api/tornei/dettaglio': cachePolicy(5 * 60, 60, 15 * 60),
-    '/api/tornei/gara': cachePolicy(5 * 60, 60, 15 * 60),
-    '/api/head-to-head': cachePolicy(30 * 60, 5 * 60, 60 * 60),
-    '/api/search-atleta': cachePolicy(5 * 60, 60, 15 * 60),
-    '/api/search-atleta-scelta': cachePolicy(5 * 60, 60, 15 * 60),
-    '/api/atleta-campionato-partite': cachePolicy(10 * 60, 2 * 60, 30 * 60),
-};
-
-const PREFIX_PUBLIC_API_CACHE_POLICIES: Array<{
-    pattern: RegExp;
-    policy: PublicApiCachePolicy;
-}> = [
-    { pattern: /^\/api\/atleta\/[^/]+$/, policy: cachePolicy(30 * 60, 5 * 60, 60 * 60) },
-    { pattern: /^\/api\/referto\/[^/]+$/, policy: cachePolicy(30 * 60, 5 * 60, 60 * 60) },
-    { pattern: /^\/api\/partita\/[^/]+$/, policy: cachePolicy(60 * 60, 10 * 60, 2 * 60 * 60) },
-    { pattern: /^\/api\/squadra\/[^/]+$/, policy: cachePolicy(30 * 60, 5 * 60, 60 * 60) },
-];
-
-function getPublicApiCachePolicy(pathname: string): PublicApiCachePolicy | null {
-    const exact = EXACT_PUBLIC_API_CACHE_POLICIES[pathname];
-    if (exact) return exact;
-
-    for (const entry of PREFIX_PUBLIC_API_CACHE_POLICIES) {
-        if (entry.pattern.test(pathname)) return entry.policy;
+// Blocco preventivo bot e crawler aggressivi che consumano CPU scansionando API
+const AGGRESSIVE_BOT_REGEX = /AhrefsBot|SemrushBot|DotBot|PetalBot|Bytespider|MJ12bot|MegaIndex|BLEXBot|ZoominfoBot/i;
+app.use((req, res, next) => {
+    const userAgent = (req.headers['user-agent'] as string) || '';
+    if (AGGRESSIVE_BOT_REGEX.test(userAgent) && (req.path.startsWith('/api') || req.path.startsWith('/player/'))) {
+        return res.status(403).send('Forbidden');
     }
+    return next();
+});
 
-    return null;
+/**
+ * Cache HTTP per le risposte pubbliche:
+ * - Cache CDN elevata (24 ore + 7 giorni stale-while-revalidate) per rispondere
+ *   direttamente dagli edge server Vercel a costo 0 CPU serverless.
+ * - Esclusi cron jobs e route push di mutazione.
+ * - Force refresh disabilitato temporaneamente per neutralizzare crawler che azzerano la cache.
+ */
+function isForceRefreshRequest(_req: express.Request): boolean {
+    // Disabilitato per evitare bypass cache forzati da bot/crawler
+    return false;
 }
 
-function isForceRefreshRequest(req: express.Request): boolean {
-    if (req.query.refresh === 'true' || req.query.force === 'true') return true;
-    return req.method === 'POST' && req.path === '/api/refresh';
-}
-
-// Le richieste di refresh manuale devono ignorare anche la cache upstream FITeT.
+// Le richieste con fitet cache bypass (disattivato)
 app.use((req, _res, next) => {
     if (isForceRefreshRequest(req)) {
         return withFitetCacheBypass(next);
@@ -148,25 +105,29 @@ app.use((req, _res, next) => {
     return next();
 });
 
+const CDN_HEADER_24H = 'public, s-maxage=86400, stale-while-revalidate=604800';
+const BROWSER_HEADER_1H = 'public, max-age=3600, stale-while-revalidate=604800';
+
 app.use((req, res, next) => {
     if (req.method !== 'GET') return next();
 
-    if (isForceRefreshRequest(req)) {
-        res.setHeader('Cache-Control', 'no-store');
+    // Cron jobs e sincronizzazioni video: non devono MAI essere cachati
+    if (req.path.startsWith('/api/push/') || req.path.startsWith('/api/videos/sync')) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
         res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
+        res.setHeader('CDN-Cache-Control', 'no-store');
         return next();
     }
 
-    const policy = getPublicApiCachePolicy(req.path);
-    if (!policy) return next();
+    // Segnala a motori di ricerca e bot di non indicizzare gli endpoint API
+    if (req.path.startsWith('/api/')) {
+        res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    }
 
-    const cdnHeader = `public, s-maxage=${policy.cdnTtlSeconds}, stale-while-revalidate=${policy.staleWhileRevalidateSeconds}`;
-    res.setHeader('Vercel-CDN-Cache-Control', cdnHeader);
-    res.setHeader('CDN-Cache-Control', cdnHeader);
-    res.setHeader(
-        'Cache-Control',
-        `public, max-age=${policy.browserTtlSeconds}, stale-while-revalidate=${policy.staleWhileRevalidateSeconds}`
-    );
+    // Cache CDN 24h globale per tutte le risposte GET pubbliche
+    res.setHeader('Vercel-CDN-Cache-Control', CDN_HEADER_24H);
+    res.setHeader('CDN-Cache-Control', CDN_HEADER_24H);
+    res.setHeader('Cache-Control', BROWSER_HEADER_1H);
 
     // Non lasciare che errori 4xx/5xx vengano memorizzati dalla CDN.
     const originalJson = res.json.bind(res);
@@ -186,13 +147,13 @@ app.use((req, res, next) => {
 const DEFAULT_CAM_ID = 794;
 const DEFAULT_ANNO_ID = 41;
 
-// Cache TTLs (ms)
-const TTL_CLASSIFICA = 30 * 60 * 1000; // 30 min
-const TTL_CALENDARIO = 30 * 60 * 1000; // 30 min
-const TTL_STATISTICHE = 60 * 60 * 1000; // 60 min
-const TTL_ATLETA = 24 * 60 * 60 * 1000; // 24 hours
-const TTL_REFERTO = 12 * 60 * 60 * 1000; // 12 hours
-const TTL_RICERCA_ATLETA = 10 * 60 * 1000; // 10 min
+// Cache TTLs in-memory (ms) - Incrementati per minimizzare il parsing Cheerio e richieste HTTP FITeT
+const TTL_CLASSIFICA = 4 * 60 * 60 * 1000; // 4 ore
+const TTL_CALENDARIO = 4 * 60 * 60 * 1000; // 4 ore
+const TTL_STATISTICHE = 6 * 60 * 60 * 1000; // 6 ore
+const TTL_ATLETA = 7 * 24 * 60 * 60 * 1000; // 7 giorni
+const TTL_REFERTO = 7 * 24 * 60 * 60 * 1000; // 7 giorni
+const TTL_RICERCA_ATLETA = 24 * 60 * 60 * 1000; // 24 ore
 
 /**
  * Calculates recent form ('V', 'P', 'N') for each team based on played calendar matches
@@ -247,6 +208,63 @@ function computeTeamForm(classifica: SquadraClassifica[], calendario: GiornataCa
             forma: teamForm.slice(-5), // Last 5 matches
         };
     });
+}
+
+/**
+ * Risolve i campionati giocati dall'atleta a partire dalle partite di ranking.
+ *
+ * Il nome del campionato nel ranking non distingue maschile/femminile
+ * (es. "A/1 Gir.U" vale sia per la Serie A1 maschile che femminile): la colonna
+ * "sesso" della tabella ranking è l'unica informazione affidabile per scegliere
+ * il campionato corretto.
+ */
+function resolveAthleteChampionshipsFromRanking(
+    campRanking: Array<{ campionato?: string; sesso?: string }>,
+    regione?: string
+): {
+    playedCamps: Array<{ camId: number; nome: string; categoria?: string; regione?: string; squadra?: string }>;
+    athleteSesso?: 'M' | 'F';
+} {
+    const uniqueCampNames: string[] = [];
+    for (const m of campRanking) {
+        const trimmed = m.campionato?.trim();
+        if (trimmed && !uniqueCampNames.includes(trimmed)) {
+            uniqueCampNames.push(trimmed);
+        }
+    }
+
+    const campSessoByName = new Map<string, 'M' | 'F'>();
+    const sessoCounts: Record<'M' | 'F', number> = { M: 0, F: 0 };
+    for (const m of campRanking) {
+        const name = m.campionato?.trim();
+        if (!name) continue;
+        const campSesso = normalizeChampionshipGender(m.sesso);
+        if (!campSesso) continue;
+        if (!campSessoByName.has(name)) campSessoByName.set(name, campSesso);
+        sessoCounts[campSesso] += 1;
+    }
+
+    const athleteSesso: 'M' | 'F' | undefined =
+        sessoCounts.M > sessoCounts.F ? 'M' : sessoCounts.F > sessoCounts.M ? 'F' : undefined;
+
+    const playedCamps: Array<{ camId: number; nome: string; categoria?: string; regione?: string; squadra?: string }> = [];
+    for (const cName of uniqueCampNames) {
+        const resolved = championshipCatalog.resolveChampionship(
+            cName,
+            regione,
+            campSessoByName.get(cName) || athleteSesso
+        );
+        if (resolved && !playedCamps.some(pc => pc.camId === resolved.id)) {
+            playedCamps.push({
+                camId: resolved.id,
+                nome: resolved.nome,
+                categoria: resolved.categoria,
+                regione: resolved.regione,
+            });
+        }
+    }
+
+    return { playedCamps, athleteSesso };
 }
 
 /**
@@ -386,8 +404,8 @@ async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squa
 // ======================== API ROUTES ========================
 
 // 0. All Championships Catalog
-app.get('/api/campionati', async (req, res) => {
-    const forceRefresh = req.query.refresh === 'true';
+app.get('/api/campionati', async (_req, res) => {
+    const forceRefresh = false;
     try {
         const campionati = await championshipCatalog.getAllCampionati(forceRefresh);
         res.json(campionati);
@@ -401,7 +419,7 @@ app.get('/api/campionati', async (req, res) => {
 app.get('/api/dashboard', async (req, res) => {
     const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
     const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = false;
 
     try {
         // 1. Fetch Classifica & Calendario in parallel
@@ -432,18 +450,6 @@ app.get('/api/dashboard', async (req, res) => {
             },
         };
 
-        // Controllo passivo ("piggyback") su nuovi match disputati / cambi classifica / statistiche
-        notifyObservedChampionshipIfNeeded({
-            camId: cam,
-            annoId: anno,
-            championshipName: payload.championship.nome,
-            classifica,
-            calendario,
-            statisticheAtleti,
-        }).catch((err) => {
-            console.warn(`[CampionatoNotifier] Errore controllo passivo dashboard cam=${cam}:`, err);
-        });
-
         res.json(payload);
     } catch (error: any) {
         console.error(`Error fetching dashboard data for CAM=${cam}:`, error);
@@ -455,7 +461,7 @@ app.get('/api/dashboard', async (req, res) => {
 app.get('/api/classifica', async (req, res) => {
     const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
     const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = false;
     try {
         const data = await getClassifica(cam, anno, forceRefresh);
         res.json(data);
@@ -468,7 +474,7 @@ app.get('/api/classifica', async (req, res) => {
 app.get('/api/calendario', async (req, res) => {
     const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
     const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = false;
     try {
         const data = await getCalendario(cam, anno, forceRefresh);
         const champMeta = await championshipCatalog.getChampionship(cam);
@@ -482,7 +488,7 @@ app.get('/api/calendario', async (req, res) => {
 // 4. Statistiche Atleti standalone
 app.get('/api/statistiche', async (req, res) => {
     const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = false;
     try {
         const classifica = await getClassifica(cam, DEFAULT_ANNO_ID, false);
         const squadraIds = classifica.map((s) => s.squadraId).filter(Boolean);
@@ -681,12 +687,7 @@ async function fetchSingleTorneoSection(
                 comit: r.comit,
             })),
         };
-        cacheService.set(cacheKey, sectionResult, 30 * 60 * 1000);
-        if (mergedTornei.length > 0) {
-            notifyObservedTorneiIfNeeded(mergedTornei).catch((err) => {
-                console.warn('[TorneiScanner] Errore trigger passivo tornei:', err);
-            });
-        }
+        cacheService.set(cacheKey, sectionResult, 2 * 60 * 60 * 1000);
         return sectionResult;
     }
 
@@ -728,12 +729,7 @@ async function fetchSingleTorneoSection(
         tornei: parsed.tornei,
     };
 
-    cacheService.set(cacheKey, sectionResult, 30 * 60 * 1000);
-    if (sectionResult.tornei.length > 0) {
-        notifyObservedTorneiIfNeeded(sectionResult.tornei).catch((err) => {
-            console.warn('[TorneiScanner] Errore trigger passivo tornei:', err);
-        });
-    }
+    cacheService.set(cacheKey, sectionResult, 2 * 60 * 60 * 1000);
     return sectionResult;
 }
 
@@ -743,7 +739,7 @@ app.get('/api/tornei', async (req, res) => {
     const regParam = req.query.reg ? parseInt(req.query.reg as string, 10) : 0;
     const customTor = req.query.tor !== undefined ? parseInt(req.query.tor as string, 10) : undefined;
     const customId = req.query.id !== undefined ? parseInt(req.query.id as string, 10) : undefined;
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = false;
 
     try {
         // Caso 1: Vista "Tutti i Tornei Attivi" (o "Tutti Regionali" quando è selezionata una regione)
@@ -897,7 +893,7 @@ app.get('/api/tornei/dettaglio', async (req, res) => {
     const idt = parseInt(req.query.idt as string, 10);
     const com = parseInt(req.query.com as string, 10) || 30;
     const anno = parseInt(req.query.anno as string, 10) || 41;
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = false;
 
     if (!idt || isNaN(idt)) {
         return res.status(400).json({ error: 'Parametro IDT mancante o non valido' });
@@ -917,7 +913,7 @@ app.get('/api/tornei/dettaglio', async (req, res) => {
         ]);
 
         const parsed = parseDettaglioTorneo(elencoGareHtml, iscrizioniHtml, idt, com, anno);
-        cacheService.set(cacheKey, parsed, 30 * 60 * 1000);
+        cacheService.set(cacheKey, parsed, 2 * 60 * 60 * 1000);
         res.json(parsed);
     } catch (error: any) {
         console.error(`Error fetching torneo dettaglio IDT=${idt}:`, error);
@@ -1083,7 +1079,7 @@ app.get('/api/tornei/gara', async (req, res) => {
     const reqCod2 = req.query.cod2 ? parseInt(req.query.cod2 as string, 10) : undefined;
     const reqTab = req.query.tab ? parseInt(req.query.tab as string, 10) : undefined;
     const reqTurno = req.query.turno ? parseInt(req.query.turno as string, 10) : undefined;
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = false;
 
     if (!idt || !garaId) {
         return res.status(400).json({ error: 'Parametri idt e gara obbligatori' });
@@ -1315,7 +1311,7 @@ app.get('/api/tornei/gara', async (req, res) => {
 // 5. Scheda Singolo Atleta
 app.get('/api/atleta/:id', async (req, res) => {
     let { id } = req.params;
-    const forceRefresh = req.query.refresh === 'true' || req.query.force === 'true';
+    const forceRefresh = false;
 
     if (!id || id === 'null' || id === 'undefined') {
         return res.status(400).json({ error: 'ID atleta non valido' });
@@ -1342,7 +1338,22 @@ app.get('/api/atleta/:id', async (req, res) => {
         if (!forceRefresh) {
             const cached = cacheService.get<any>(cacheKey);
             const isHollow = !cached || !cached.anagrafica || cached.anagrafica.nome?.startsWith('Atleta ') || (cached.anagrafica.punti === 0 && (!cached.storicoClassifica || cached.storicoClassifica.length === 0));
-            if (cached && !isHollow && cached.partiteRanking) return res.json(cached);
+            if (cached && !isHollow && cached.partiteRanking) {
+                // Le cache precedenti possono contenere un campionato assegnato senza
+                // distinguere maschile/femminile: ricalcolalo al volo e aggiorna la cache.
+                const corrected = resolveAthleteChampionshipsFromRanking(
+                    cached.partiteRanking?.campionato || [],
+                    cached.anagrafica?.regione
+                );
+                const currentIds = (cached.campionatiGiocati || []).map((c: any) => c.camId).join(',');
+                const correctedIds = corrected.playedCamps.map((c) => c.camId).join(',');
+                if (corrected.playedCamps.length > 0 && currentIds !== correctedIds) {
+                    cached.campionatoAttuale = corrected.playedCamps[0];
+                    cached.campionatiGiocati = corrected.playedCamps;
+                    cacheService.set(cacheKey, cached, TTL_ATLETA);
+                }
+                return res.json(cached);
+            }
         }
 
         let resolvedIdClass = await getLatestIdClass();
@@ -1367,31 +1378,17 @@ app.get('/api/atleta/:id', async (req, res) => {
 
         // Risoluzione campionati effettivamente giocati dall'atleta
         const campRanking = partiteRanking?.campionato || [];
-        const uniqueCampNames: string[] = [];
-        for (const m of campRanking) {
-            const trimmed = m.campionato?.trim();
-            if (trimmed && !uniqueCampNames.includes(trimmed)) {
-                uniqueCampNames.push(trimmed);
-            }
-        }
-
-        const playedCamps: Array<{ camId: number; nome: string; categoria?: string; regione?: string; squadra?: string }> = [];
-        for (const cName of uniqueCampNames) {
-            const resolved = championshipCatalog.resolveChampionship(cName, atleta.anagrafica?.regione);
-            if (resolved && !playedCamps.some(pc => pc.camId === resolved.id)) {
-                playedCamps.push({
-                    camId: resolved.id,
-                    nome: resolved.nome,
-                    categoria: resolved.categoria,
-                    regione: resolved.regione,
-                });
-            }
-        }
-
-        // Se non trovato tramite stringa ranking (es. atleta non classificato o privo di dettaglio ranking),
-        // cerchiamo il suo campionato attivo della stagione nei campionati regionali/nazionali
+        const { playedCamps, athleteSesso } = resolveAthleteChampionshipsFromRanking(
+            campRanking,
+            atleta.anagrafica?.regione
+        );
         if (playedCamps.length === 0) {
-            const fallback = await championshipCatalog.findAthleteChampionship(id, atleta.anagrafica?.nome, atleta.anagrafica?.regione);
+            const fallback = await championshipCatalog.findAthleteChampionship(
+                id,
+                atleta.anagrafica?.nome,
+                atleta.anagrafica?.regione,
+                athleteSesso
+            );
             if (fallback && !playedCamps.some(pc => pc.camId === fallback.id)) {
                 playedCamps.push({
                     camId: fallback.id,
@@ -1411,18 +1408,6 @@ app.get('/api/atleta/:id', async (req, res) => {
         const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith('Atleta ') || (atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0));
         if (!isHollow) {
             cacheService.set(cacheKey, atleta, TTL_ATLETA);
-        }
-
-        // Arricchimento asincrono dei punteggi set in background (non blocca la risposta HTTP)
-        if (partiteRanking && (partiteRanking.campionato.length > 0 || partiteRanking.tornei.length > 0)) {
-            headToHeadService.enrichRankingMatches(id, partiteRanking, resolvedIdClass)
-                .then((enriched) => {
-                    if (enriched && !isHollow) {
-                        atleta.partiteRanking = enriched;
-                        cacheService.set(cacheKey, atleta, TTL_ATLETA);
-                    }
-                })
-                .catch(() => { });
         }
 
         res.json(atleta);
@@ -1568,7 +1553,7 @@ app.get('/api/referto/:incontroId', async (req, res) => {
     const { incontroId } = req.params;
     const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : 0;
     const formula = req.query.formula ? parseInt(req.query.formula as string, 10) : 19;
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = false;
     const cacheKey = `referto_${incontroId}_${cam}_${formula}`;
 
     if (!incontroId || incontroId === 'null' || incontroId === 'undefined') {
@@ -1594,7 +1579,7 @@ app.get('/api/referto/:incontroId', async (req, res) => {
 // 8. Dettaglio Singola Partita Individuale
 app.get('/api/partita/:partitaId', async (req, res) => {
     const { partitaId } = req.params;
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = false;
     const cacheKey = `partita_${partitaId}`;
 
     if (!partitaId || partitaId === 'null' || partitaId === 'undefined') {
@@ -1635,7 +1620,7 @@ app.get('/api/squadra/:squadraId', async (req, res) => {
     const { squadraId } = req.params;
     const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
     const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = false;
 
     if (!squadraId || squadraId === 'null' || squadraId === 'undefined') {
         return res.status(400).json({ error: 'ID squadra non valido' });
@@ -1707,7 +1692,20 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
 
     // Se cam non è specificato o è 'auto', cerchiamo automaticamente il campionato dell'atleta
     if (!cam || cam === 'auto' || cam === 'null' || cam === 'undefined') {
-        const autoCamp = await championshipCatalog.findAthleteChampionship(atletaId, atletaNome);
+        // Se il dettaglio atleta è già in cache, ricava il sesso dalle partite di campionato
+        // per evitare di assegnare la variante maschile a una giocatrice (e viceversa).
+        const cachedAtleta = cacheService.get<any>(`atleta_${atletaId}`);
+        let autoSesso: 'M' | 'F' | undefined;
+        const cachedCampMatches: any[] = cachedAtleta?.partiteRanking?.campionato || [];
+        for (const m of cachedCampMatches) {
+            const campSesso = normalizeChampionshipGender(m?.sesso);
+            if (campSesso) {
+                autoSesso = campSesso;
+                break;
+            }
+        }
+
+        const autoCamp = await championshipCatalog.findAthleteChampionship(atletaId, atletaNome, undefined, autoSesso);
         if (autoCamp) {
             cam = String(autoCamp.id);
         } else {
@@ -2311,7 +2309,7 @@ app.all(['/api/videos/sync', '/api/sync-youtube'], async (req, res) => {
 
 // Restituisce l'elenco dei video archiviati, con filtri opzionali per cam, league o giornata
 app.get('/api/videos', async (req, res) => {
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = false;
     const league = typeof req.query.league === 'string' ? req.query.league.toUpperCase() : undefined;
     const day = req.query.day ? parseInt(req.query.day as string, 10) : undefined;
 
@@ -2382,7 +2380,7 @@ async function getOrFetchAthlete(id: string) {
 
         const atleta = parseDettaglioAtleta(html, id, partiteRanking);
         if (atleta && atleta.anagrafica && atleta.anagrafica.nome) {
-            cacheService.set(cacheKey, atleta, 60 * 60 * 1000);
+            cacheService.set(cacheKey, atleta, TTL_ATLETA);
             return atleta;
         }
         return atleta;
@@ -2399,6 +2397,9 @@ function escapeHtmlMeta(str: string): string {
         .replace(/"/g, '&quot;');
 }
 
+// In-memory cache per i buffer PNG dei social card (evita di ricalcolare Resvg a ogni hit)
+const ogCardCache = new Map<string, { buffer: Buffer; expiresAt: number }>();
+
 // 1. Dynamic Open Graph Social Card (1200 x 630 PNG)
 app.get(['/api/og/player/:id.png', '/api/og/player/:id', '/api/og-player'], async (req, res) => {
     let id = req.params.id || (req.query.id as string);
@@ -2411,6 +2412,15 @@ app.get(['/api/og/player/:id.png', '/api/og/player/:id', '/api/og-player'], asyn
         if (resolved) id = resolved;
     }
 
+    const cachedEntry = ogCardCache.get(id);
+    if (cachedEntry && Date.now() < cachedEntry.expiresAt) {
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Vercel-CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+        res.setHeader('CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+        res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
+        return res.send(cachedEntry.buffer);
+    }
+
     const athlete = await getOrFetchAthlete(id);
     if (!athlete) {
         return res.status(404).send('Athlete not found');
@@ -2418,7 +2428,10 @@ app.get(['/api/og/player/:id.png', '/api/og/player/:id', '/api/og-player'], asyn
 
     try {
         const pngBuffer = await generateAthleteOgCard(athlete);
+        ogCardCache.set(id, { buffer: pngBuffer, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
         res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Vercel-CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+        res.setHeader('CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
         res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
         return res.send(pngBuffer);
     } catch (err: any) {
@@ -2471,6 +2484,20 @@ app.get(['/api/story/player/:id.png', '/api/story/player/:id', '/api/story-playe
     }
 });
 
+let cachedBaseHtml: string | null = null;
+async function getCachedBaseHtml(): Promise<string> {
+    if (cachedBaseHtml) return cachedBaseHtml;
+    const distPath = path.resolve(process.cwd(), 'dist');
+    const indexFile = path.join(distPath, 'index.html');
+    if (fs.existsSync(indexFile)) {
+        try {
+            cachedBaseHtml = await fs.promises.readFile(indexFile, 'utf8');
+            return cachedBaseHtml;
+        } catch { }
+    }
+    return '<!DOCTYPE html><html><head><meta charset="UTF-8" /><title>Portale Risultati FITeT</title></head><body><div id="root"></div></body></html>';
+}
+
 // Dynamic OG tags for /player/:id and /atleta/:id for WhatsApp, Facebook and social preview crawlers
 app.get(['/player/:id', '/atleta/:id'], async (req, res, next) => {
     let { id } = req.params;
@@ -2483,15 +2510,7 @@ app.get(['/player/:id', '/atleta/:id'], async (req, res, next) => {
         if (resolved) id = resolved;
     }
 
-    const distPath = path.resolve(process.cwd(), 'dist');
-    const indexFile = path.join(distPath, 'index.html');
-
-    let baseHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8" /><title>Portale Risultati FITeT</title></head><body><div id="root"></div></body></html>';
-    if (fs.existsSync(indexFile)) {
-        try {
-            baseHtml = await fs.promises.readFile(indexFile, 'utf8');
-        } catch { }
-    }
+    const baseHtml = await getCachedBaseHtml();
 
     try {
         let athleteName = `Atleta #${id}`;
@@ -2536,6 +2555,9 @@ app.get(['/player/:id', '/atleta/:id'], async (req, res, next) => {
 
         html = html.replace(/<head>/i, `<head>${ogMeta}`);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Vercel-CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+        res.setHeader('CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
+        res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=604800');
         return res.send(html);
     } catch {
         return next();

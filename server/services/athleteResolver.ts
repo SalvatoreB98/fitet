@@ -9,6 +9,7 @@ export class AthleteResolver {
   private staticMappingFile: string;
   private runtimeMappingFile: string;
   private mapping: Record<string, string>;
+  private resolvedChampionships = new Set<number>();
 
   constructor() {
     this.mapping = { ...defaultMapping };
@@ -97,7 +98,10 @@ export class AthleteResolver {
    * Resolves all athlete IDs for a given championship by crawling percentuali.php of its teams
    */
   async resolveAthletesForChampionship(cam: number, squadraIds: string[]): Promise<Record<string, string>> {
-    if (!squadraIds || squadraIds.length === 0) return this.getMapping();
+    if (!squadraIds || squadraIds.length === 0 || this.resolvedChampionships.has(cam)) {
+      return this.getMapping();
+    }
+    this.resolvedChampionships.add(cam);
 
     let newFound = 0;
     await Promise.all(

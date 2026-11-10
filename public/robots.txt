@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /undefined
 
 Sitemap: https://portale-risultati-tt.it/sitemap.xml

@@ -19,6 +19,20 @@ export interface ChampionshipItem {
   sesso?: 'M' | 'F';
 }
 
+/**
+ * Normalizza il sesso proveniente da fonti eterogenee (ranking FITeT, catalogo
+ * campionati, testo libero) in 'M' | 'F'. Restituisce undefined se non è
+ * possibile determinarlo con certezza.
+ */
+export function normalizeChampionshipGender(value?: string | null): 'M' | 'F' | undefined {
+  if (!value) return undefined;
+  const v = String(value).trim().toUpperCase();
+  if (!v) return undefined;
+  if (v === 'F' || v.startsWith('FEMM') || v === 'DONNE' || v === 'W') return 'F';
+  if (v === 'M' || v.startsWith('MASCH') || v === 'UOMINI') return 'M';
+  return undefined;
+}
+
 const REGIONI = [
   { id: 19, nome: 'Calabria' },
   { id: 14, nome: 'Abruzzo' },
@@ -120,8 +134,16 @@ class ChampionshipCatalog {
   /**
    * Risolve istantaneamente in memoria (0ms) l'ID numerico del campionato
    * a partire dalla stringa testuale estratta dalla scheda ranking dell'atleta e dalla regione.
+   *
+   * Il nome del campionato può essere identico tra la variante maschile e quella
+   * femminile (es. "A/1 Gir.U"): in quel caso il parametro `sesso` è indispensabile
+   * per non assegnare all'atleta il campionato sbagliato.
    */
-  public resolveChampionship(campName?: string, regione?: string): ChampionshipItem | undefined {
+  public resolveChampionship(
+    campName?: string,
+    regione?: string,
+    sesso?: 'M' | 'F' | string | null
+  ): ChampionshipItem | undefined {
     if (!campName) return undefined;
     if (!this.memoryCache || this.memoryCache.length === 0) {
       this.loadFromDisk();
@@ -143,32 +165,53 @@ class ChampionshipCatalog {
     const cClean = clean(campName);
     if (!cClean) return undefined;
     const targetRegNorm = normReg(regione);
+    const targetSesso = normalizeChampionshipGender(sesso);
 
-    let bestItem: ChampionshipItem | undefined;
-    let highestScore = -1;
+    const findBest = (enforceGender: boolean): { item?: ChampionshipItem; score: number } => {
+      let bestItem: ChampionshipItem | undefined;
+      let highestScore = -1;
 
-    for (const item of items) {
-      const itemClean = clean(item.nome);
-      if (!itemClean) continue;
-      const itemRegNorm = normReg(item.regione);
-      const isSameReg = Boolean(targetRegNorm && itemRegNorm === targetRegNorm);
-      const isNazionale = itemRegNorm === 'nazionale';
+      for (const item of items) {
+        const itemClean = clean(item.nome);
+        if (!itemClean) continue;
 
-      let score = 0;
+        const itemSesso = normalizeChampionshipGender(item.sesso);
+        if (enforceGender && targetSesso && itemSesso && itemSesso !== targetSesso) {
+          continue;
+        }
 
-      if (itemClean === cClean) {
-        score = isSameReg ? 100 : (isNazionale ? 90 : 60);
-      } else if (itemClean.includes(cClean) || cClean.includes(itemClean)) {
-        score = isSameReg ? 80 : (isNazionale ? 70 : 50);
+        const itemRegNorm = normReg(item.regione);
+        const isSameReg = Boolean(targetRegNorm && itemRegNorm === targetRegNorm);
+        const isNazionale = itemRegNorm === 'nazionale';
+
+        let score = 0;
+
+        if (itemClean === cClean) {
+          score = isSameReg ? 100 : (isNazionale ? 90 : 60);
+        } else if (itemClean.includes(cClean) || cClean.includes(itemClean)) {
+          score = isSameReg ? 80 : (isNazionale ? 70 : 50);
+        }
+
+        // A parità di nome preferisci sempre la variante dello stesso sesso.
+        if (score > 0 && targetSesso && itemSesso === targetSesso) {
+          score += 2;
+        }
+
+        if (score > highestScore) {
+          highestScore = score;
+          bestItem = item;
+        }
       }
 
-      if (score > highestScore) {
-        highestScore = score;
-        bestItem = item;
-      }
-    }
+      return { item: bestItem, score: highestScore };
+    };
 
-    return highestScore >= 50 ? bestItem : undefined;
+    const genderAware = findBest(true);
+    if (genderAware.item && genderAware.score >= 50) return genderAware.item;
+
+    // Fallback: nessun candidato del sesso richiesto, usa la ricerca storica.
+    const fallback = findBest(false);
+    return fallback.item && fallback.score >= 50 ? fallback.item : undefined;
   }
 
   /**
@@ -179,11 +222,13 @@ class ChampionshipCatalog {
   public async findAthleteChampionship(
     atletaId: string,
     atletaNome?: string,
-    regione?: string
+    regione?: string,
+    sesso?: 'M' | 'F' | string | null
   ): Promise<(ChampionshipItem & { squadra?: string }) | undefined> {
     if (!atletaId && !atletaNome) return undefined;
 
-    const cacheKey = `athlete_champ_${atletaId || atletaNome}`;
+    const targetSesso = normalizeChampionshipGender(sesso);
+    const cacheKey = `athlete_champ_${atletaId || atletaNome}_${targetSesso || 'any'}`;
     const cached = cacheService.get<ChampionshipItem & { squadra?: string }>(cacheKey);
     if (cached) return cached;
 
@@ -195,13 +240,26 @@ class ChampionshipCatalog {
     const targetNomeNorm = cleanNorm(atletaNome);
     const targetIdStr = String(atletaId || '').trim();
 
-    // 1. Prioritizza campionati della regione dell'atleta, poi campionati nazionali
+    // 1. Prioritizza campionati della regione dell'atleta, poi campionati nazionali.
+    // Quando il sesso è noto, i campionati del sesso opposto vengono esclusi: molti
+    // campionati maschili e femminili condividono lo stesso nome (es. "A/1 Gir.U").
     const regionalCamps = targetRegNorm 
       ? allCamps.filter(c => cleanNorm(c.regione) === targetRegNorm)
       : [];
     const nationalCamps = allCamps.filter(c => cleanNorm(c.regione) === 'nazionale');
 
-    const searchPool = [...regionalCamps, ...nationalCamps];
+    const matchesGender = (camp: ChampionshipItem): boolean => {
+      if (!targetSesso) return true;
+      const campSesso = normalizeChampionshipGender(camp.sesso);
+      return !campSesso || campSesso === targetSesso;
+    };
+
+    const allRegionalAndNational = [...regionalCamps, ...nationalCamps];
+    const genderMatches = allRegionalAndNational.filter(matchesGender);
+    const otherGender = allRegionalAndNational.filter(c => !matchesGender(c));
+
+    // I campionati compatibili col sesso hanno priorità assoluta.
+    const searchPool = [...genderMatches, ...otherGender];
 
     // 2. Controllo istantaneo (0ms): verifichiamo prima se qualche campionato ha già le statistiche in cache
     for (const camp of searchPool) {
@@ -219,11 +277,13 @@ class ChampionshipCatalog {
       }
     }
 
-    // 3. Se non ancora in cache, facciamo il fetch delle statistiche dei campionati regionali a piccoli batch
+    // 3. Se non ancora in cache, facciamo il fetch delle statistiche dei campionati regionali a piccoli batch.
+    // Con sesso noto evitiamo di interrogare i campionati del sesso opposto (fetch inutili e rischio di match errato).
+    const fetchPool = targetSesso ? genderMatches : searchPool;
     const mapping = athleteResolver.getMapping();
     const batchSize = 6;
-    for (let i = 0; i < searchPool.length; i += batchSize) {
-      const batch = searchPool.slice(i, i + batchSize);
+    for (let i = 0; i < fetchPool.length; i += batchSize) {
+      const batch = fetchPool.slice(i, i + batchSize);
       const batchResults = await Promise.all(
         batch.map(async (camp) => {
           try {
