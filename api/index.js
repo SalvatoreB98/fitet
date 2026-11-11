@@ -520,6 +520,16 @@ var BASELINE_VISITORS_BY_DATE = {
   "2026-11-09": 165,
   "2026-11-10": 95
 };
+var BASELINE_PAGES_BY_DATE = {
+  "2026-11-04": 148,
+  "2026-11-05": 365,
+  "2026-11-06": 248,
+  "2026-11-07": 419,
+  "2026-11-08": 835,
+  "2026-11-09": 750,
+  "2026-11-10": 353
+};
+var BASELINE_NOV11_PAGES_OFFSET = 154;
 function getUtcDateString(offsetDays = 0) {
   const d = /* @__PURE__ */ new Date();
   d.setUTCHours(0, 0, 0, 0);
@@ -727,10 +737,18 @@ var AnalyticsService = class {
       }
     }
     for (const [dateStr, dayBucket] of dailyMap.entries()) {
-      const baseline = BASELINE_VISITORS_BY_DATE[dateStr];
-      if (baseline !== void 0 && dayBucket.visitors < baseline) {
-        totalVisitors += baseline - dayBucket.visitors;
-        dayBucket.visitors = baseline;
+      const baselineVisitors = BASELINE_VISITORS_BY_DATE[dateStr];
+      if (baselineVisitors !== void 0 && dayBucket.visitors < baselineVisitors) {
+        totalVisitors += baselineVisitors - dayBucket.visitors;
+        dayBucket.visitors = baselineVisitors;
+      }
+      const baselinePages = BASELINE_PAGES_BY_DATE[dateStr];
+      if (baselinePages !== void 0 && dayBucket.pages < baselinePages) {
+        totalPages += baselinePages - dayBucket.pages;
+        dayBucket.pages = baselinePages;
+      } else if (dateStr === "2026-11-11") {
+        dayBucket.pages += BASELINE_NOV11_PAGES_OFFSET;
+        totalPages += BASELINE_NOV11_PAGES_OFFSET;
       }
     }
     const dailySeries = Array.from(dailyMap.entries()).map(([date, val]) => ({
@@ -7948,7 +7966,6 @@ app.use((req, _res, next) => {
   if (BOT_USER_AGENT_REGEX.test(userAgent) || purpose.includes("prefetch")) {
     return next();
   }
-  void analyticsService.incrementMetric("page", normalizeAnalyticsPagePath(reqPath));
   void trackRequestDailyVisitor(req);
   return next();
 });
@@ -9908,8 +9925,27 @@ var requireAnalyticsBasicAuth = async (req, res, next) => {
   analyticsAuthFailures.delete(clientKey);
   return next();
 };
-app.post("/api/visit", async (req, res) => {
-  await trackRequestDailyVisitor(req);
+app.post("/api/visit", express.text({ type: "text/plain" }), async (req, res) => {
+  let payload = {};
+  if (typeof req.body === "string") {
+    try {
+      const parsed = JSON.parse(req.body);
+      if (parsed && typeof parsed === "object") payload = parsed;
+    } catch {
+      payload = {};
+    }
+  } else if (req.body && typeof req.body === "object") {
+    payload = req.body;
+  }
+  const userAgent = req.headers["user-agent"] || "";
+  const purpose = String(req.headers["purpose"] || req.headers["sec-purpose"] || "").toLowerCase();
+  const isBot = BOT_USER_AGENT_REGEX.test(userAgent) || purpose.includes("prefetch");
+  const rawPath = typeof payload.path === "string" ? payload.path.trim() : "";
+  const tasks = [trackRequestDailyVisitor(req)];
+  if (!isBot && rawPath && !rawPath.startsWith("/admin") && !rawPath.startsWith("/api")) {
+    tasks.push(analyticsService.incrementMetric("page", normalizeAnalyticsPagePath(rawPath)));
+  }
+  await Promise.all(tasks);
   res.setHeader("Cache-Control", "no-store");
   return res.status(200).json({ ok: true });
 });

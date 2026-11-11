@@ -83,6 +83,16 @@ const BASELINE_VISITORS_BY_DATE: Record<string, number> = {
   '2026-11-09': 165,
   '2026-11-10': 95,
 };
+const BASELINE_PAGES_BY_DATE: Record<string, number> = {
+  '2026-11-04': 148,
+  '2026-11-05': 365,
+  '2026-11-06': 248,
+  '2026-11-07': 419,
+  '2026-11-08': 835,
+  '2026-11-09': 750,
+  '2026-11-10': 353,
+};
+const BASELINE_NOV11_PAGES_OFFSET = 154;
 
 function getUtcDateString(offsetDays = 0): string {
   const d = new Date();
@@ -357,10 +367,19 @@ class AnalyticsService {
 
     // Applica i dati storici di partenza (4-10 novembre) se il DB non li contiene ancora
     for (const [dateStr, dayBucket] of dailyMap.entries()) {
-      const baseline = BASELINE_VISITORS_BY_DATE[dateStr];
-      if (baseline !== undefined && dayBucket.visitors < baseline) {
-        totalVisitors += baseline - dayBucket.visitors;
-        dayBucket.visitors = baseline;
+      const baselineVisitors = BASELINE_VISITORS_BY_DATE[dateStr];
+      if (baselineVisitors !== undefined && dayBucket.visitors < baselineVisitors) {
+        totalVisitors += baselineVisitors - dayBucket.visitors;
+        dayBucket.visitors = baselineVisitors;
+      }
+
+      const baselinePages = BASELINE_PAGES_BY_DATE[dateStr];
+      if (baselinePages !== undefined && dayBucket.pages < baselinePages) {
+        totalPages += baselinePages - dayBucket.pages;
+        dayBucket.pages = baselinePages;
+      } else if (dateStr === '2026-11-11') {
+        dayBucket.pages += BASELINE_NOV11_PAGES_OFFSET;
+        totalPages += BASELINE_NOV11_PAGES_OFFSET;
       }
     }
 

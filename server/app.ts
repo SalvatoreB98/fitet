@@ -195,7 +195,6 @@ app.use((req, _res, next) => {
         return next();
     }
 
-    void analyticsService.incrementMetric('page', normalizeAnalyticsPagePath(reqPath));
     void trackRequestDailyVisitor(req);
     return next();
 });
@@ -2745,8 +2744,30 @@ const requireAnalyticsBasicAuth = async (req: express.Request, res: express.Resp
     return next();
 };
 
-app.post('/api/visit', async (req, res) => {
-    await trackRequestDailyVisitor(req);
+app.post('/api/visit', express.text({ type: 'text/plain' }), async (req, res) => {
+    let payload: Record<string, unknown> = {};
+    if (typeof req.body === 'string') {
+        try {
+            const parsed = JSON.parse(req.body);
+            if (parsed && typeof parsed === 'object') payload = parsed as Record<string, unknown>;
+        } catch {
+            payload = {};
+        }
+    } else if (req.body && typeof req.body === 'object') {
+        payload = req.body as Record<string, unknown>;
+    }
+
+    const userAgent = (req.headers['user-agent'] as string) || '';
+    const purpose = String(req.headers['purpose'] || req.headers['sec-purpose'] || '').toLowerCase();
+    const isBot = BOT_USER_AGENT_REGEX.test(userAgent) || purpose.includes('prefetch');
+
+    const rawPath = typeof payload.path === 'string' ? payload.path.trim() : '';
+    const tasks: Promise<void>[] = [trackRequestDailyVisitor(req)];
+    if (!isBot && rawPath && !rawPath.startsWith('/admin') && !rawPath.startsWith('/api')) {
+        tasks.push(analyticsService.incrementMetric('page', normalizeAnalyticsPagePath(rawPath)));
+    }
+
+    await Promise.all(tasks);
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({ ok: true });
 });

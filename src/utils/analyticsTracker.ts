@@ -38,7 +38,8 @@ export function trackDailyVisit(): void {
     if (window.location.pathname.startsWith('/admin')) return;
     if (typeof navigator !== 'undefined' && navigator.webdriver) return;
     dailyVisitSent = true;
-    sendBeaconOrFetch('/api/visit', '{}');
+    const body = JSON.stringify({ path: window.location.pathname || '/' });
+    sendBeaconOrFetch('/api/visit', body);
 }
 
 function sanitizeLabel(raw: string): string {
