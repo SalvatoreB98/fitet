@@ -73,12 +73,36 @@ interface DailyAnalyticsRow {
 
 const MAX_TYPE_LEN = 32;
 const MAX_TARGET_LEN = 200;
+const ANALYTICS_START_DATE = '2026-11-04';
+const BASELINE_VISITORS_BY_DATE: Record<string, number> = {
+  '2026-11-04': 49,
+  '2026-11-05': 75,
+  '2026-11-06': 64,
+  '2026-11-07': 101,
+  '2026-11-08': 192,
+  '2026-11-09': 165,
+  '2026-11-10': 95,
+};
 
 function getUtcDateString(offsetDays = 0): string {
   const d = new Date();
   d.setUTCHours(0, 0, 0, 0);
   d.setUTCDate(d.getUTCDate() + offsetDays);
   return d.toISOString().slice(0, 10);
+}
+
+function enumerateUtcDates(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const cursor = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  if (Number.isNaN(cursor.getTime()) || Number.isNaN(end.getTime()) || cursor > end) {
+    return [endDate];
+  }
+  while (cursor <= end) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
 }
 
 function sanitizeMetricValue(value: unknown, maxLen: number): string {
@@ -270,7 +294,9 @@ class AnalyticsService {
   async getAnalytics(requestedDays = 30): Promise<AnalyticsSummary> {
     const rangeDays = requestedDays <= 7 ? 7 : 30;
     const endDate = getUtcDateString(0);
-    const startDate = getUtcDateString(-(rangeDays - 1));
+    const rawStartDate = getUtcDateString(-(rangeDays - 1));
+    const clampedStartDate = rawStartDate < ANALYTICS_START_DATE ? ANALYTICS_START_DATE : rawStartDate;
+    const startDate = clampedStartDate > endDate ? endDate : clampedStartDate;
 
     let rows: DailyAnalyticsRow[] = [];
 
@@ -292,10 +318,10 @@ class AnalyticsService {
       );
     }
 
-    // Costruisci tutti i giorni dell'intervallo per avere una serie continua
+    // Costruisci tutti i giorni dell'intervallo dal startDate (min 4 novembre) fino a oggi
     const dailyMap = new Map<string, { pages: number; visitors: number; clicks: number }>();
-    for (let i = rangeDays - 1; i >= 0; i--) {
-      dailyMap.set(getUtcDateString(-i), { pages: 0, visitors: 0, clicks: 0 });
+    for (const dateStr of enumerateUtcDates(startDate, endDate)) {
+      dailyMap.set(dateStr, { pages: 0, visitors: 0, clicks: 0 });
     }
 
     const pageCounts = new Map<string, number>();
@@ -329,6 +355,15 @@ class AnalyticsService {
       }
     }
 
+    // Applica i dati storici di partenza (4-10 novembre) se il DB non li contiene ancora
+    for (const [dateStr, dayBucket] of dailyMap.entries()) {
+      const baseline = BASELINE_VISITORS_BY_DATE[dateStr];
+      if (baseline !== undefined && dayBucket.visitors < baseline) {
+        totalVisitors += baseline - dayBucket.visitors;
+        dayBucket.visitors = baseline;
+      }
+    }
+
     const dailySeries: DailySeriesPoint[] = Array.from(dailyMap.entries()).map(([date, val]) => ({
       date,
       pages: val.pages,
@@ -336,9 +371,11 @@ class AnalyticsService {
       clicks: val.clicks,
     }));
 
+    const actualDays = Math.max(dailySeries.length, 1);
+
     let peakDay: { date: string; total: number } | null = null;
     for (const pt of dailySeries) {
-      const total = pt.pages + pt.clicks;
+      const total = pt.visitors + pt.pages + pt.clicks;
       if (total > 0 && (!peakDay || total > peakDay.total)) {
         peakDay = { date: pt.date, total };
       }
@@ -400,7 +437,7 @@ class AnalyticsService {
 
     return {
       configured: this.isConfigured(),
-      rangeDays,
+      rangeDays: actualDays,
       startDate,
       endDate,
       totals: {
@@ -408,9 +445,9 @@ class AnalyticsService {
         visitors: totalVisitors,
         clicks: totalClicks,
         flows: totalFlows,
-        avgPagesPerDay: Math.round((totalPages / rangeDays) * 10) / 10,
-        avgVisitorsPerDay: Math.round((totalVisitors / rangeDays) * 10) / 10,
-        avgClicksPerDay: Math.round((totalClicks / rangeDays) * 10) / 10,
+        avgPagesPerDay: Math.round((totalPages / actualDays) * 10) / 10,
+        avgVisitorsPerDay: Math.round((totalVisitors / actualDays) * 10) / 10,
+        avgClicksPerDay: Math.round((totalClicks / actualDays) * 10) / 10,
         peakDay,
       },
       dailySeries,
