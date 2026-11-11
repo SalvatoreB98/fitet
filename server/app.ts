@@ -161,6 +161,21 @@ app.use((req, res, next) => {
 
 const ANALYTICS_STATIC_ASSET_REGEX = /\.(js|mjs|css|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|eot|otf|map|json|xml|txt|webmanifest|pdf|mp4|webm|mp3)$/i;
 
+const trackRequestDailyVisitor = (req: express.Request): Promise<void> => {
+    const userAgent = (req.headers['user-agent'] as string) || '';
+    const purpose = String(req.headers['purpose'] || req.headers['sec-purpose'] || '').toLowerCase();
+    if (BOT_USER_AGENT_REGEX.test(userAgent) || purpose.includes('prefetch')) {
+        return Promise.resolve();
+    }
+
+    const forwarded = typeof req.headers['x-forwarded-for'] === 'string'
+        ? req.headers['x-forwarded-for'].split(',')[0].trim()
+        : '';
+    const ip = forwarded || req.socket?.remoteAddress || '';
+    const visitorHash = analyticsService.computeDailyVisitorHash(ip, userAgent);
+    return analyticsService.trackDailyVisitor(visitorHash);
+};
+
 // Middleware analytics GDPR-compliant: nessun cookie, nessun IP salvato, ignora asset, /api e /admin
 app.use((req, _res, next) => {
     if (req.method !== 'GET') return next();
@@ -181,6 +196,7 @@ app.use((req, _res, next) => {
     }
 
     void analyticsService.incrementMetric('page', normalizeAnalyticsPagePath(reqPath));
+    void trackRequestDailyVisitor(req);
     return next();
 });
 
@@ -2729,6 +2745,12 @@ const requireAnalyticsBasicAuth = async (req: express.Request, res: express.Resp
     return next();
 };
 
+app.post('/api/visit', async (req, res) => {
+    await trackRequestDailyVisitor(req);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ ok: true });
+});
+
 app.post('/api/click', express.text({ type: 'text/plain' }), async (req, res) => {
     let payload: Record<string, unknown> = {};
     if (typeof req.body === 'string') {
@@ -2750,7 +2772,10 @@ app.post('/api/click', express.text({ type: 'text/plain' }), async (req, res) =>
         return res.status(400).json({ error: 'Campo "target" obbligatorio' });
     }
 
-    await analyticsService.recordClick(target, from, metricType);
+    await Promise.all([
+        analyticsService.recordClick(target, from, metricType),
+        trackRequestDailyVisitor(req),
+    ]);
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({ ok: true });
 });

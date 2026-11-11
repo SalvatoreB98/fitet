@@ -26,7 +26,7 @@ import { PingPongLoader } from './components/PingPongLoader';
 import { CoffeeNudge } from './components/CoffeeNudge';
 import { registerTeamLogos } from './utils/teamLogos';
 import { addRecentAthlete, addRecentChampionship } from './utils/history';
-import { initAnalyticsStep, trackClick } from './utils/analyticsTracker';
+import { initAnalyticsStep, trackClick, trackDailyVisit } from './utils/analyticsTracker';
 import { VenueConnectionBanner } from './components/VenueConnectionBanner';
 import { preCacheChampionshipForVenue } from './services/api';
 import {
@@ -212,6 +212,7 @@ export const App: React.FC = () => {
             ? `Tornei: ${torneiTab}`
             : 'Classifiche';
     initAnalyticsStep(initialLabel);
+    trackDailyVisit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

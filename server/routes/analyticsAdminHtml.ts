@@ -313,6 +313,11 @@ export function renderAnalyticsAdminHtml(): string {
 
     <div class="kpi-grid">
       <div class="kpi-card">
+        <div class="kpi-label">Visitatori Unici</div>
+        <div class="kpi-value" id="kpiVisitors">-</div>
+        <div class="kpi-sub" id="kpiVisitorsAvg">-</div>
+      </div>
+      <div class="kpi-card">
         <div class="kpi-label">Visualizzazioni Pagina</div>
         <div class="kpi-value" id="kpiPages">-</div>
         <div class="kpi-sub" id="kpiPagesAvg">-</div>
@@ -336,7 +341,7 @@ export function renderAnalyticsAdminHtml(): string {
 
     <div class="panel">
       <div class="panel-header">
-        <h2 class="panel-title">Andamento Giornaliero (Pagine vs Click)</h2>
+        <h2 class="panel-title">Andamento Giornaliero (Visitatori, Pagine &amp; Click)</h2>
         <span class="panel-desc">Aggregazione giornaliera anonima su Supabase</span>
       </div>
       <div class="chart-box">
@@ -422,6 +427,16 @@ export function renderAnalyticsAdminHtml(): string {
         data: {
           labels: series.map((d) => formatShortDate(d.date)),
           datasets: [
+            {
+              label: 'Visitatori Unici',
+              data: series.map((d) => d.visitors || 0),
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.14)',
+              fill: true,
+              tension: 0.32,
+              borderWidth: 2.5,
+              pointRadius: 3,
+            },
             {
               label: 'Pagine Viste',
               data: series.map((d) => d.pages),
@@ -666,6 +681,8 @@ export function renderAnalyticsAdminHtml(): string {
         document.getElementById('periodLabel').textContent =
           'Finestra: ' + data.startDate + ' → ' + data.endDate + ' (' + data.rangeDays + ' giorni)';
 
+        document.getElementById('kpiVisitors').textContent = (data.totals.visitors || 0).toLocaleString('it-IT');
+        document.getElementById('kpiVisitorsAvg').textContent = (data.totals.avgVisitorsPerDay || 0) + ' / giorno in media';
         document.getElementById('kpiPages').textContent = data.totals.pages.toLocaleString('it-IT');
         document.getElementById('kpiPagesAvg').textContent = data.totals.avgPagesPerDay + ' / giorno in media';
         document.getElementById('kpiClicks').textContent = data.totals.clicks.toLocaleString('it-IT');

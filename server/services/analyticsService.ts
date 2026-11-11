@@ -1,13 +1,15 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-export type AnalyticsMetricType = 'page' | 'click' | 'flow';
+export type AnalyticsMetricType = 'page' | 'visitor' | 'click' | 'flow';
 
 export interface DailySeriesPoint {
   date: string;
   pages: number;
+  visitors: number;
   clicks: number;
 }
 
@@ -43,9 +45,11 @@ export interface AnalyticsSummary {
   endDate: string;
   totals: {
     pages: number;
+    visitors: number;
     clicks: number;
     flows: number;
     avgPagesPerDay: number;
+    avgVisitorsPerDay: number;
     avgClicksPerDay: number;
     peakDay: { date: string; total: number } | null;
   };
@@ -109,6 +113,8 @@ class AnalyticsService {
   private supabase: SupabaseClient | null = null;
   // Fallback in-memory solo per ambiente locale privo di credenziali Supabase
   private memoryFallback = new Map<string, DailyAnalyticsRow>();
+  private memoryVisitors = new Set<string>();
+  private ephemeralVisitorSalt = crypto.randomBytes(32).toString('hex');
 
   constructor() {
     this.initClient();
@@ -179,6 +185,62 @@ class AnalyticsService {
   }
 
   /**
+   * Calcola un hash HMAC giornaliero anonimo e irreversibile per contare i visitatori unici
+   * senza salvare IP né usare cookie (il salt ruota ogni giorno UTC).
+   */
+  computeDailyVisitorHash(ip: string, userAgent: string): string {
+    const today = getUtcDateString(0);
+    const baseSalt =
+      process.env.ANALYTICS_SALT ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.CRON_SECRET ||
+      this.ephemeralVisitorSalt;
+    return crypto
+      .createHmac('sha256', `${baseSalt}:${today}`)
+      .update(`${ip}|${userAgent}`, 'utf8')
+      .digest('hex')
+      .slice(0, 32);
+  }
+
+  /**
+   * Registra un visitatore unico giornaliero tramite RPC Postgres `track_daily_visitor`.
+   */
+  async trackDailyVisitor(visitorHash: string): Promise<void> {
+    const cleanHash = sanitizeMetricValue(visitorHash, 64);
+    if (!cleanHash) return;
+
+    const today = getUtcDateString(0);
+    const dedupKey = `${today}|${cleanHash}`;
+    if (this.memoryVisitors.has(dedupKey)) {
+      return;
+    }
+
+    // Pulizia chiavi dei giorni precedenti in memoria
+    for (const k of this.memoryVisitors) {
+      if (!k.startsWith(`${today}|`)) this.memoryVisitors.delete(k);
+    }
+
+    if (!this.supabase) {
+      this.memoryVisitors.add(dedupKey);
+      this.incrementMemoryFallback('visitor', 'unique');
+      return;
+    }
+
+    try {
+      const { error } = await this.supabase.rpc('track_daily_visitor', {
+        p_visitor_hash: cleanHash,
+      });
+      if (error) {
+        console.warn('[AnalyticsService] Errore RPC track_daily_visitor:', error.message);
+      } else {
+        this.memoryVisitors.add(dedupKey);
+      }
+    } catch (err: any) {
+      console.warn('[AnalyticsService] Eccezione RPC track_daily_visitor:', err?.message || err);
+    }
+  }
+
+  /**
    * Registra un click (o azione UI) e, se presente lo step di provenienza `from`,
    * incrementa anche il relativo arco di flusso `from -> target`.
    */
@@ -231,9 +293,9 @@ class AnalyticsService {
     }
 
     // Costruisci tutti i giorni dell'intervallo per avere una serie continua
-    const dailyMap = new Map<string, { pages: number; clicks: number }>();
+    const dailyMap = new Map<string, { pages: number; visitors: number; clicks: number }>();
     for (let i = rangeDays - 1; i >= 0; i--) {
-      dailyMap.set(getUtcDateString(-i), { pages: 0, clicks: 0 });
+      dailyMap.set(getUtcDateString(-i), { pages: 0, visitors: 0, clicks: 0 });
     }
 
     const pageCounts = new Map<string, number>();
@@ -241,6 +303,7 @@ class AnalyticsService {
     const flowCounts = new Map<string, number>();
 
     let totalPages = 0;
+    let totalVisitors = 0;
     let totalClicks = 0;
     let totalFlows = 0;
 
@@ -253,6 +316,9 @@ class AnalyticsService {
         totalPages += count;
         if (dayBucket) dayBucket.pages += count;
         pageCounts.set(row.target, (pageCounts.get(row.target) || 0) + count);
+      } else if (row.type === 'visitor') {
+        totalVisitors += count;
+        if (dayBucket) dayBucket.visitors += count;
       } else if (row.type === 'click') {
         totalClicks += count;
         if (dayBucket) dayBucket.clicks += count;
@@ -266,6 +332,7 @@ class AnalyticsService {
     const dailySeries: DailySeriesPoint[] = Array.from(dailyMap.entries()).map(([date, val]) => ({
       date,
       pages: val.pages,
+      visitors: val.visitors,
       clicks: val.clicks,
     }));
 
@@ -338,9 +405,11 @@ class AnalyticsService {
       endDate,
       totals: {
         pages: totalPages,
+        visitors: totalVisitors,
         clicks: totalClicks,
         flows: totalFlows,
         avgPagesPerDay: Math.round((totalPages / rangeDays) * 10) / 10,
+        avgVisitorsPerDay: Math.round((totalVisitors / rangeDays) * 10) / 10,
         avgClicksPerDay: Math.round((totalClicks / rangeDays) * 10) / 10,
         peakDay,
       },

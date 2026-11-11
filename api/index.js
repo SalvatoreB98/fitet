@@ -1,7 +1,7 @@
 // server/app.ts
 import express from "express";
 import cors from "cors";
-import crypto from "crypto";
+import crypto2 from "crypto";
 import path7 from "path";
 import fs6 from "fs";
 
@@ -505,6 +505,7 @@ var viewsService = new ViewsService();
 
 // server/services/analyticsService.ts
 import { createClient as createClient2 } from "@supabase/supabase-js";
+import crypto from "crypto";
 import dotenv2 from "dotenv";
 dotenv2.config();
 var MAX_TYPE_LEN = 32;
@@ -532,6 +533,8 @@ var AnalyticsService = class {
   supabase = null;
   // Fallback in-memory solo per ambiente locale privo di credenziali Supabase
   memoryFallback = /* @__PURE__ */ new Map();
+  memoryVisitors = /* @__PURE__ */ new Set();
+  ephemeralVisitorSalt = crypto.randomBytes(32).toString("hex");
   constructor() {
     this.initClient();
   }
@@ -592,6 +595,47 @@ var AnalyticsService = class {
     }
   }
   /**
+   * Calcola un hash HMAC giornaliero anonimo e irreversibile per contare i visitatori unici
+   * senza salvare IP né usare cookie (il salt ruota ogni giorno UTC).
+   */
+  computeDailyVisitorHash(ip, userAgent) {
+    const today = getUtcDateString(0);
+    const baseSalt = process.env.ANALYTICS_SALT || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.CRON_SECRET || this.ephemeralVisitorSalt;
+    return crypto.createHmac("sha256", `${baseSalt}:${today}`).update(`${ip}|${userAgent}`, "utf8").digest("hex").slice(0, 32);
+  }
+  /**
+   * Registra un visitatore unico giornaliero tramite RPC Postgres `track_daily_visitor`.
+   */
+  async trackDailyVisitor(visitorHash) {
+    const cleanHash = sanitizeMetricValue(visitorHash, 64);
+    if (!cleanHash) return;
+    const today = getUtcDateString(0);
+    const dedupKey = `${today}|${cleanHash}`;
+    if (this.memoryVisitors.has(dedupKey)) {
+      return;
+    }
+    for (const k of this.memoryVisitors) {
+      if (!k.startsWith(`${today}|`)) this.memoryVisitors.delete(k);
+    }
+    if (!this.supabase) {
+      this.memoryVisitors.add(dedupKey);
+      this.incrementMemoryFallback("visitor", "unique");
+      return;
+    }
+    try {
+      const { error } = await this.supabase.rpc("track_daily_visitor", {
+        p_visitor_hash: cleanHash
+      });
+      if (error) {
+        console.warn("[AnalyticsService] Errore RPC track_daily_visitor:", error.message);
+      } else {
+        this.memoryVisitors.add(dedupKey);
+      }
+    } catch (err) {
+      console.warn("[AnalyticsService] Eccezione RPC track_daily_visitor:", err?.message || err);
+    }
+  }
+  /**
    * Registra un click (o azione UI) e, se presente lo step di provenienza `from`,
    * incrementa anche il relativo arco di flusso `from -> target`.
    */
@@ -628,12 +672,13 @@ var AnalyticsService = class {
     }
     const dailyMap = /* @__PURE__ */ new Map();
     for (let i = rangeDays - 1; i >= 0; i--) {
-      dailyMap.set(getUtcDateString(-i), { pages: 0, clicks: 0 });
+      dailyMap.set(getUtcDateString(-i), { pages: 0, visitors: 0, clicks: 0 });
     }
     const pageCounts = /* @__PURE__ */ new Map();
     const clickCounts = /* @__PURE__ */ new Map();
     const flowCounts = /* @__PURE__ */ new Map();
     let totalPages = 0;
+    let totalVisitors = 0;
     let totalClicks = 0;
     let totalFlows = 0;
     for (const row of rows) {
@@ -644,6 +689,9 @@ var AnalyticsService = class {
         totalPages += count;
         if (dayBucket) dayBucket.pages += count;
         pageCounts.set(row.target, (pageCounts.get(row.target) || 0) + count);
+      } else if (row.type === "visitor") {
+        totalVisitors += count;
+        if (dayBucket) dayBucket.visitors += count;
       } else if (row.type === "click") {
         totalClicks += count;
         if (dayBucket) dayBucket.clicks += count;
@@ -656,6 +704,7 @@ var AnalyticsService = class {
     const dailySeries = Array.from(dailyMap.entries()).map(([date, val]) => ({
       date,
       pages: val.pages,
+      visitors: val.visitors,
       clicks: val.clicks
     }));
     let peakDay = null;
@@ -710,9 +759,11 @@ var AnalyticsService = class {
       endDate,
       totals: {
         pages: totalPages,
+        visitors: totalVisitors,
         clicks: totalClicks,
         flows: totalFlows,
         avgPagesPerDay: Math.round(totalPages / rangeDays * 10) / 10,
+        avgVisitorsPerDay: Math.round(totalVisitors / rangeDays * 10) / 10,
         avgClicksPerDay: Math.round(totalClicks / rangeDays * 10) / 10,
         peakDay
       },
@@ -1078,6 +1129,11 @@ function renderAnalyticsAdminHtml() {
 
     <div class="kpi-grid">
       <div class="kpi-card">
+        <div class="kpi-label">Visitatori Unici</div>
+        <div class="kpi-value" id="kpiVisitors">-</div>
+        <div class="kpi-sub" id="kpiVisitorsAvg">-</div>
+      </div>
+      <div class="kpi-card">
         <div class="kpi-label">Visualizzazioni Pagina</div>
         <div class="kpi-value" id="kpiPages">-</div>
         <div class="kpi-sub" id="kpiPagesAvg">-</div>
@@ -1101,7 +1157,7 @@ function renderAnalyticsAdminHtml() {
 
     <div class="panel">
       <div class="panel-header">
-        <h2 class="panel-title">Andamento Giornaliero (Pagine vs Click)</h2>
+        <h2 class="panel-title">Andamento Giornaliero (Visitatori, Pagine &amp; Click)</h2>
         <span class="panel-desc">Aggregazione giornaliera anonima su Supabase</span>
       </div>
       <div class="chart-box">
@@ -1187,6 +1243,16 @@ function renderAnalyticsAdminHtml() {
         data: {
           labels: series.map((d) => formatShortDate(d.date)),
           datasets: [
+            {
+              label: 'Visitatori Unici',
+              data: series.map((d) => d.visitors || 0),
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.14)',
+              fill: true,
+              tension: 0.32,
+              borderWidth: 2.5,
+              pointRadius: 3,
+            },
             {
               label: 'Pagine Viste',
               data: series.map((d) => d.pages),
@@ -1431,6 +1497,8 @@ function renderAnalyticsAdminHtml() {
         document.getElementById('periodLabel').textContent =
           'Finestra: ' + data.startDate + ' \u2192 ' + data.endDate + ' (' + data.rangeDays + ' giorni)';
 
+        document.getElementById('kpiVisitors').textContent = (data.totals.visitors || 0).toLocaleString('it-IT');
+        document.getElementById('kpiVisitorsAvg').textContent = (data.totals.avgVisitorsPerDay || 0) + ' / giorno in media';
         document.getElementById('kpiPages').textContent = data.totals.pages.toLocaleString('it-IT');
         document.getElementById('kpiPagesAvg').textContent = data.totals.avgPagesPerDay + ' / giorno in media';
         document.getElementById('kpiClicks').textContent = data.totals.clicks.toLocaleString('it-IT');
@@ -7900,6 +7968,17 @@ app.use((req, res, next) => {
   return next();
 });
 var ANALYTICS_STATIC_ASSET_REGEX = /\.(js|mjs|css|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|eot|otf|map|json|xml|txt|webmanifest|pdf|mp4|webm|mp3)$/i;
+var trackRequestDailyVisitor = (req) => {
+  const userAgent = req.headers["user-agent"] || "";
+  const purpose = String(req.headers["purpose"] || req.headers["sec-purpose"] || "").toLowerCase();
+  if (BOT_USER_AGENT_REGEX.test(userAgent) || purpose.includes("prefetch")) {
+    return Promise.resolve();
+  }
+  const forwarded = typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"].split(",")[0].trim() : "";
+  const ip = forwarded || req.socket?.remoteAddress || "";
+  const visitorHash = analyticsService.computeDailyVisitorHash(ip, userAgent);
+  return analyticsService.trackDailyVisitor(visitorHash);
+};
 app.use((req, _res, next) => {
   if (req.method !== "GET") return next();
   const reqPath = req.path || "/";
@@ -7912,6 +7991,7 @@ app.use((req, _res, next) => {
     return next();
   }
   void analyticsService.incrementMetric("page", normalizeAnalyticsPagePath(reqPath));
+  void trackRequestDailyVisitor(req);
   return next();
 });
 var DEFAULT_CAM_ID = 794;
@@ -9787,19 +9867,19 @@ app.get(["/player/:id", "/atleta/:id"], async (req, res, next) => {
   }
 });
 var safeTimingEqual = (a, b) => {
-  const hashA = crypto.createHash("sha256").update(a, "utf8").digest();
-  const hashB = crypto.createHash("sha256").update(b, "utf8").digest();
-  return crypto.timingSafeEqual(hashA, hashB);
+  const hashA = crypto2.createHash("sha256").update(a, "utf8").digest();
+  const hashB = crypto2.createHash("sha256").update(b, "utf8").digest();
+  return crypto2.timingSafeEqual(hashA, hashB);
 };
 var ANALYTICS_AUTH_WINDOW_MS = 15 * 60 * 1e3;
 var ANALYTICS_AUTH_MAX_FAILURES = 5;
 var ANALYTICS_AUTH_MAX_ENTRIES = 1e3;
-var EPHEMERAL_AUTH_HMAC_KEY = crypto.randomBytes(32);
+var EPHEMERAL_AUTH_HMAC_KEY = crypto2.randomBytes(32);
 var analyticsAuthFailures = /* @__PURE__ */ new Map();
 var getEphemeralAuthClientKey = (req) => {
   const forwarded = typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"].split(",")[0].trim() : "";
   const remote = forwarded || req.socket?.remoteAddress || "unknown";
-  return crypto.createHmac("sha256", EPHEMERAL_AUTH_HMAC_KEY).update(remote).digest("hex");
+  return crypto2.createHmac("sha256", EPHEMERAL_AUTH_HMAC_KEY).update(remote).digest("hex");
 };
 var pruneAuthFailureMap = (now) => {
   for (const [key, state] of analyticsAuthFailures.entries()) {
@@ -9870,6 +9950,11 @@ var requireAnalyticsBasicAuth = async (req, res, next) => {
   analyticsAuthFailures.delete(clientKey);
   return next();
 };
+app.post("/api/visit", async (req, res) => {
+  await trackRequestDailyVisitor(req);
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(200).json({ ok: true });
+});
 app.post("/api/click", express.text({ type: "text/plain" }), async (req, res) => {
   let payload = {};
   if (typeof req.body === "string") {
@@ -9888,7 +9973,10 @@ app.post("/api/click", express.text({ type: "text/plain" }), async (req, res) =>
   if (!target) {
     return res.status(400).json({ error: 'Campo "target" obbligatorio' });
   }
-  await analyticsService.recordClick(target, from, metricType);
+  await Promise.all([
+    analyticsService.recordClick(target, from, metricType),
+    trackRequestDailyVisitor(req)
+  ]);
   res.setHeader("Cache-Control", "no-store");
   return res.status(200).json({ ok: true });
 });

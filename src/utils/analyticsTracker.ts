@@ -10,6 +10,36 @@ let currentStep: string | null = null;
 let lastTrackedTarget = '';
 let lastTrackedAt = 0;
 let delegatedInitialized = false;
+let dailyVisitSent = false;
+
+function sendBeaconOrFetch(endpoint: string, body: string): void {
+    try {
+        if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+            const blob = new Blob([body], { type: 'application/json' });
+            const queued = navigator.sendBeacon(endpoint, blob);
+            if (queued) return;
+        }
+    } catch {
+        // Fallback to fetch below
+    }
+
+    if (typeof fetch === 'function') {
+        void fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+            keepalive: true,
+        }).catch(() => undefined);
+    }
+}
+
+export function trackDailyVisit(): void {
+    if (typeof window === 'undefined' || dailyVisitSent) return;
+    if (window.location.pathname.startsWith('/admin')) return;
+    if (typeof navigator !== 'undefined' && navigator.webdriver) return;
+    dailyVisitSent = true;
+    sendBeaconOrFetch('/api/visit', '{}');
+}
 
 function sanitizeLabel(raw: string): string {
     return raw.replace(/\s+/g, ' ').trim().slice(0, 120);
@@ -62,24 +92,7 @@ export function trackClick(
         type: options?.type === 'page' ? 'page' : 'click',
     });
 
-    try {
-        if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-            const blob = new Blob([body], { type: 'application/json' });
-            const queued = navigator.sendBeacon('/api/click', blob);
-            if (queued) return;
-        }
-    } catch {
-        // Fallback to fetch below
-    }
-
-    if (typeof fetch === 'function') {
-        void fetch('/api/click', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body,
-            keepalive: true,
-        }).catch(() => undefined);
-    }
+    sendBeaconOrFetch('/api/click', body);
 }
 
 export function initDelegatedClickTracking(): void {
