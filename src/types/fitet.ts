@@ -519,5 +519,100 @@ export interface TorneoGaraDettaglioResponse {
   allTurniTabellone?: Array<{ tab: number; turno: number; label: string; matches: TorneoMatchItem[] }>;
 }
 
+export interface SimulatedIndividualMatch {
+  numero: number;
+  atletaCasa: string;
+  atletaCasaId?: string;
+  atletaOspite: string;
+  atletaOspiteId?: string;
+  vincitore: 'casa' | 'ospite';
+  probCasa: number;
+  setCasa: number;
+  setOspite: number;
+  puntiCasa: number;
+  puntiOspite: number;
+  nota: string;
+}
+
+export interface TeamMatchPrediction {
+  probCasa: number;
+  probPareggio: number;
+  probOspite: number;
+  puntiIncontroCasa: number;
+  puntiIncontroOspite: number;
+  setStimatiCasa: number;
+  setStimatiOspite: number;
+  puntiStimatiCasa: number;
+  puntiStimatiOspite: number;
+  keyFactor: string;
+  analysis: string;
+  incontriSimulati: SimulatedIndividualMatch[];
+}
+
+export interface TeamMatchAIPlayerInput {
+  atletaId: string;
+  nome: string;
+  rankPosizione: number | null;
+  rankPunti: number | null;
+  partiteDisputate: number;
+  partiteVinte: number;
+  partitePerse: number;
+  setVinti: number;
+  setPersi: number;
+  puntiVinti: number;
+  puntiPersi: number;
+  percentualeVittorie: number;
+  evaluationScore: number;
+}
+
+export interface TeamMatchAITeamInput {
+  nome: string;
+  posizione?: number | null;
+  puntiClassifica?: number | null;
+  incontriDisputati?: number;
+  incontriVinti?: number;
+  incontriPareggiati?: number;
+  incontriPersi?: number;
+  partiteVinte?: number;
+  partitePerse?: number;
+  setVinti?: number;
+  setPersi?: number;
+  puntiVinti?: number;
+  puntiPersi?: number;
+  forma?: string[];
+  players: TeamMatchAIPlayerInput[];
+}
+
+export interface TeamMatchFormulaInfo {
+  formulaId?: number | string;
+  label: string;
+  expectedTotalMatches: number;
+  winningThreshold: number | null;
+  drawsPossible: boolean;
+  sampleScores: string[];
+}
+
+export interface PredictTeamMatchRequestBody {
+  camId?: number | string;
+  championshipName?: string;
+  giornata?: number;
+  fase?: 'andata' | 'ritorno';
+  matchDate?: string;
+  formulaInfo: TeamMatchFormulaInfo;
+  homeTeam: TeamMatchAITeamInput;
+  awayTeam: TeamMatchAITeamInput;
+  reverseFixture?: {
+    giornata: number;
+    fase: string;
+    data: string;
+    risultato: string;
+    puntiCasa: number | null;
+    puntiOspite: number | null;
+    casaNome: string;
+    ospiteNome: string;
+  } | null;
+}
+
+
 
 

@@ -17,6 +17,7 @@ import { parseStatisticheAtleti } from './parsers/statisticheParser';
 import { parseDettaglioAtleta, extractRankingIframeUrl, parsePartiteRanking } from './parsers/atletaParser';
 import { headToHeadService } from './services/headToHeadService';
 import { handlePredictH2H } from '../api/predict-h2h';
+import { handlePredictTeamMatch } from '../api/predict-team-match';
 import { generateAthleteOgCard, generateAthleteStoryCard } from './services/socialCardService';
 import {
     pushService,
@@ -1504,6 +1505,7 @@ app.get('/api/head-to-head', async (req, res) => {
 
 // 5c. Head-to-Head AI Prediction
 app.post('/api/predict-h2h', handlePredictH2H);
+app.post('/api/predict-team-match', handlePredictTeamMatch);
 
 // 5c. Athlete Real Views tracking
 app.post("/api/atleta/:id/view", async (req, res) => {

@@ -1133,11 +1133,13 @@ export const App: React.FC = () => {
               >
                 <CalendarioTab
                   calendario={data.calendario}
+                  classifica={data.classifica}
                   championshipName={headerChampionshipName}
                   selectedTeamFilter={selectedTeamFilter}
                   statisticheAtleti={data.statisticheAtleti}
                   isSubmodalOpen={Boolean(selectedAthlete) || Boolean(selectedSquadra)}
                   currentCamId={camId ?? undefined}
+                  annoId={annoId}
                   onClearTeamFilter={() => setSelectedTeamFilter(null)}
                   onSelectTeamFilter={(team) => setSelectedTeamFilter(team)}
                   onOpenSquadraModal={handleOpenSquadra}

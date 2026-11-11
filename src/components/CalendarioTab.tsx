@@ -1,13 +1,15 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { GiornataCalendario, PartitaCalendario, MatchVideoInfo } from '../types/fitet';
+import { GiornataCalendario, PartitaCalendario, MatchVideoInfo, SquadraClassifica } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';
 import { RefertoModal } from './RefertoModal';
 import { MatchVideoModal } from './MatchVideoModal';
+import { TeamMatchPreviewModal } from './TeamMatchPreviewModal';
 import { TeamLogo } from './TeamLogo';
 import { ChampionshipBellButton } from './ChampionshipBellButton';
 
 interface CalendarioTabProps {
   calendario: GiornataCalendario[];
+  classifica?: SquadraClassifica[];
   selectedTeamFilter: string | null;
   statisticheAtleti?: Array<{ atleta: string; atletaId: string | null }>;
   isSubmodalOpen?: boolean;
@@ -16,6 +18,7 @@ interface CalendarioTabProps {
   onOpenAtletaModal?: (id: string, name: string) => void;
   onOpenSquadraModal?: (teamName: string) => void;
   currentCamId?: number;
+  annoId?: number;
   championshipName?: string;
   /** Indica se la scheda Calendario è quella attualmente visibile. */
   isActive?: boolean;
@@ -95,8 +98,12 @@ const shouldShowReferto = (match: PartitaCalendario): boolean => {
   return today.getTime() >= matchDate.getTime();
 };
 
+const isByeTeamName = (name?: string | null): boolean =>
+  /^(riposo|bye|-)$/i.test((name || '').trim());
+
 export const CalendarioTab: React.FC<CalendarioTabProps> = ({
   calendario,
+  classifica,
   selectedTeamFilter,
   statisticheAtleti,
   isSubmodalOpen,
@@ -105,12 +112,14 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
   onOpenAtletaModal,
   onOpenSquadraModal,
   currentCamId,
+  annoId = 41,
   championshipName,
   isActive = true,
 }) => {
   const [selectedGiornata, setSelectedGiornata] = useState<number | 'all'>('all');
   const [faseFilter, setFaseFilter] = useState<'all' | 'andata' | 'ritorno'>('all');
   const [isScrolledToCurrent, setIsScrolledToCurrent] = useState(false);
+  const [selectedPreviewMatch, setSelectedPreviewMatch] = useState<PartitaCalendario | null>(null);
   const [selectedReferto, setSelectedReferto] = useState<{
     incontroId: string;
     camId?: string;
@@ -810,15 +819,21 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                     const isOspiteWinner = m.vincitore === 'ospite';
                     const isDraw = m.vincitore === 'pareggio';
                     const hasReferto = Boolean(m.refertoUrl && shouldShowReferto(m));
+                    const canOpenPreview =
+                      !m.disputato &&
+                      !hasReferto &&
+                      !isByeTeamName(m.squadraCasa) &&
+                      !isByeTeamName(m.squadraOspite);
                     const matchVideosList = getVideosForMatch(m);
                     const hasVideo = matchVideosList.length > 0;
 
                     return (
                       <article
                         key={m.id}
-                        className={`match-card ${hasReferto ? 'has-referto' : ''}`}
+                        className={`match-card ${hasReferto ? 'has-referto' : ''} ${canOpenPreview ? 'has-preview' : ''}`}
                         onClick={() => {
                           if (hasReferto) handleOpenReferto(m);
+                          else if (canOpenPreview) setSelectedPreviewMatch(m);
                         }}
                       >
                         <div className="match-card-top">
@@ -921,7 +936,7 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                           </div>
                         </div>
 
-                        {(hasReferto || isDraw || hasVideo) && (
+                        {(hasReferto || canOpenPreview || isDraw || hasVideo) && (
                           <div className="match-card-bottom">
                             <div className="match-card-bottom-left flex items-center gap-2">
                               {isDraw && <span className="match-card-draw-label">Pareggio</span>}
@@ -963,6 +978,20 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                               >
                                 <span>Referto</span>
                                 <i className="bi bi-chevron-right ms-1"></i>
+                              </button>
+                            )}
+                            {canOpenPreview && (
+                              <button
+                                type="button"
+                                className="btn-ai-preview-link"
+                                title="Anteprima incontro, valutazione giocatori e pronostico IA"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedPreviewMatch(m);
+                                }}
+                              >
+                                <i className="bi bi-stars" aria-hidden="true"></i>
+                                <span>Pronostico IA</span>
                               </button>
                             )}
                           </div>
@@ -1014,6 +1043,22 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
           squadraCasa={selectedVideoData.squadraCasa}
           squadraOspite={selectedVideoData.squadraOspite}
           giornata={selectedVideoData.giornata}
+        />
+      )}
+
+      {selectedPreviewMatch && (
+        <TeamMatchPreviewModal
+          isOpen={Boolean(selectedPreviewMatch)}
+          match={selectedPreviewMatch}
+          camId={currentCamId}
+          annoId={annoId}
+          championshipName={championshipName}
+          calendario={calendario}
+          classifica={classifica}
+          isSubmodalOpen={isSubmodalOpen}
+          onClose={() => setSelectedPreviewMatch(null)}
+          onOpenSquadraModal={onOpenSquadraModal}
+          onOpenAtletaModal={onOpenAtletaModal}
         />
       )}
     </div>
