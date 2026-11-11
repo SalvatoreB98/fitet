@@ -632,16 +632,61 @@ class PushService {
      * Aggiorna lo stato solo se il valore atteso è ancora quello salvato.
      * Funge da lock distribuito: in caso di più istanze serverless solo una
      * riesce ad aggiornare e quindi a inviare la notifica.
+     *
+     * Nota: per valori grandi (es. JSON `championship_state_*` di diversi KB),
+     * passare `.eq('value', expected)` mette l'intero JSON nella query string URL
+     * causando `400 Bad Request` (URI Too Long) su PostgREST/Cloudflare.
+     * Usiamo quindi `updated_at` come token di concorrenza ottimistica nella query.
      */
     async compareAndSetState(key: string, expected: string, next: string): Promise<boolean> {
         if (!this.supabase) return false;
 
-        const { data, error } = await this.supabase
+        // Per valori brevi (es. ID_CLASS), il filtro diretto su `value` è sicuro e immediato.
+        if (expected.length <= 256) {
+            const { data, error } = await this.supabase
+                .from('push_state')
+                .update({ value: next, updated_at: new Date().toISOString() })
+                .eq('key', key)
+                .eq('value', expected)
+                .select('key');
+
+            if (error) {
+                console.error(`[PushService] Aggiornamento atomico stato "${key}" fallito:`, error.message);
+                return false;
+            }
+
+            return Array.isArray(data) && data.length > 0;
+        }
+
+        // Per payload grandi (snapshot campionati / tornei), verifichiamo `value` in memoria
+        // e usiamo `updated_at` nella clausola WHERE per evitare URL troppo lunghi.
+        const { data: current, error: readError } = await this.supabase
             .from('push_state')
-            .update({ value: next, updated_at: new Date().toISOString() })
+            .select('value, updated_at')
             .eq('key', key)
-            .eq('value', expected)
-            .select('key');
+            .maybeSingle();
+
+        if (readError) {
+            console.error(`[PushService] Lettura pre-update stato "${key}" fallita:`, readError.message);
+            return false;
+        }
+
+        if (!current || current.value !== expected) {
+            return false;
+        }
+
+        // Assicura che il nuovo timestamp sia strettamente diverso dal precedente
+        const nextUpdatedAt = new Date(Date.now() + 1).toISOString();
+        let query = this.supabase
+            .from('push_state')
+            .update({ value: next, updated_at: nextUpdatedAt })
+            .eq('key', key);
+
+        if (current.updated_at) {
+            query = query.eq('updated_at', current.updated_at);
+        }
+
+        const { data, error } = await query.select('key');
 
         if (error) {
             console.error(`[PushService] Aggiornamento atomico stato "${key}" fallito:`, error.message);

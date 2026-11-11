@@ -87,17 +87,24 @@ app.use((req, res, next) => {
 
 /**
  * Cache HTTP per le risposte pubbliche:
- * - Cache CDN elevata (24 ore + 7 giorni stale-while-revalidate) per rispondere
- *   direttamente dagli edge server Vercel a costo 0 CPU serverless.
- * - Esclusi cron jobs e route push di mutazione.
- * - Force refresh disabilitato temporaneamente per neutralizzare crawler che azzerano la cache.
+ * - Cache CDN per rispondere dagli edge server Vercel riducendo il carico CPU serverless.
+ * - Esclusi cron jobs, route push di mutazione e richieste di refresh manuale (`?refresh=true` / `?force=true`).
+ * - Il bypass della cache è ignorato per bot/crawler per evitare che azzerino la cache.
  */
-function isForceRefreshRequest(_req: express.Request): boolean {
-    // Disabilitato per evitare bypass cache forzati da bot/crawler
-    return false;
+const BOT_USER_AGENT_REGEX = /bot|crawler|spider|slurp|bingpreview|facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|embedly|quora|pinterest|slackbot|vkshare|w3c_validator|AhrefsBot|SemrushBot|DotBot|PetalBot|Bytespider|MJ12bot|MegaIndex|BLEXBot|ZoominfoBot/i;
+
+function isForceRefreshRequest(req: express.Request): boolean {
+    const userAgent = (req.headers['user-agent'] as string) || '';
+    if (BOT_USER_AGENT_REGEX.test(userAgent)) {
+        return false;
+    }
+    if (req.query.refresh === 'true' || req.query.force === 'true') {
+        return true;
+    }
+    return req.method === 'POST' && req.path === '/api/refresh';
 }
 
-// Le richieste con fitet cache bypass (disattivato)
+// Le richieste di refresh manuale ignorano anche la cache upstream FITeT.
 app.use((req, _res, next) => {
     if (isForceRefreshRequest(req)) {
         return withFitetCacheBypass(next);
@@ -105,14 +112,18 @@ app.use((req, _res, next) => {
     return next();
 });
 
-const CDN_HEADER_24H = 'public, s-maxage=86400, stale-while-revalidate=604800';
-const BROWSER_HEADER_1H = 'public, max-age=3600, stale-while-revalidate=604800';
+const CDN_HEADER_DEFAULT = 'public, s-maxage=900, stale-while-revalidate=86400';
+const BROWSER_HEADER_DEFAULT = 'public, max-age=120, stale-while-revalidate=3600';
 
 app.use((req, res, next) => {
     if (req.method !== 'GET') return next();
 
-    // Cron jobs e sincronizzazioni video: non devono MAI essere cachati
-    if (req.path.startsWith('/api/push/') || req.path.startsWith('/api/videos/sync')) {
+    // Cron jobs, sincronizzazioni video e richieste con force refresh: non devono MAI essere cachati
+    if (
+        req.path.startsWith('/api/push/') ||
+        req.path.startsWith('/api/videos/sync') ||
+        isForceRefreshRequest(req)
+    ) {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
         res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
         res.setHeader('CDN-Cache-Control', 'no-store');
@@ -124,10 +135,10 @@ app.use((req, res, next) => {
         res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     }
 
-    // Cache CDN 24h globale per tutte le risposte GET pubbliche
-    res.setHeader('Vercel-CDN-Cache-Control', CDN_HEADER_24H);
-    res.setHeader('CDN-Cache-Control', CDN_HEADER_24H);
-    res.setHeader('Cache-Control', BROWSER_HEADER_1H);
+    // Cache CDN e browser bilanciata per le risposte GET pubbliche
+    res.setHeader('Vercel-CDN-Cache-Control', CDN_HEADER_DEFAULT);
+    res.setHeader('CDN-Cache-Control', CDN_HEADER_DEFAULT);
+    res.setHeader('Cache-Control', BROWSER_HEADER_DEFAULT);
 
     // Non lasciare che errori 4xx/5xx vengano memorizzati dalla CDN.
     const originalJson = res.json.bind(res);
@@ -319,55 +330,65 @@ async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, f
 async function enrichCalendarioWithVideos(
     calendario: GiornataCalendario[],
     camId: number,
-    championshipName?: string
+    championshipName?: string,
+    forceRefresh = false
 ): Promise<GiornataCalendario[]> {
     try {
-        const videos = await youtubeSyncService.getAllVideos();
+        if (!Array.isArray(calendario) || calendario.length === 0) return calendario;
+
+        const videos = await youtubeSyncService.getAllVideos(forceRefresh);
         if (!videos || videos.length === 0) return calendario;
+
+        const enrichPartita = (partita: GiornataCalendario['partiteAndata'][number]) => {
+            const matched = youtubeSyncService.matchVideosForMatch(videos, {
+                giornata: partita.giornata,
+                squadraCasa: partita.squadraCasa,
+                squadraOspite: partita.squadraOspite,
+                camId,
+                championshipName,
+            });
+
+            if (matched.length > 0) {
+                const primary = matched[0];
+                return {
+                    ...partita,
+                    youtubeVideoId: primary.video_id,
+                    video: {
+                        videoId: primary.video_id,
+                        channelName: primary.channel_name,
+                        channelUrl: primary.channel_url,
+                        title: primary.title,
+                        publishedAt: primary.published_at,
+                        league: primary.league,
+                        matchDay: primary.match_day,
+                        teamHome: primary.team_home,
+                        teamAway: primary.team_away,
+                    },
+                    videos: matched.map((v) => ({
+                        videoId: v.video_id,
+                        channelName: v.channel_name,
+                        channelUrl: v.channel_url,
+                        title: v.title,
+                        publishedAt: v.published_at,
+                        league: v.league,
+                        matchDay: v.match_day,
+                        teamHome: v.team_home,
+                        teamAway: v.team_away,
+                    })),
+                };
+            }
+
+            return partita;
+        };
 
         return calendario.map((giornata) => ({
             ...giornata,
-            partite: giornata.partite.map((partita) => {
-                const matched = youtubeSyncService.matchVideosForMatch(videos, {
-                    giornata: partita.giornata,
-                    squadraCasa: partita.squadraCasa,
-                    squadraOspite: partita.squadraOspite,
-                    camId,
-                    championshipName,
-                });
-
-                if (matched.length > 0) {
-                    const primary = matched[0];
-                    return {
-                        ...partita,
-                        youtubeVideoId: primary.video_id,
-                        video: {
-                            videoId: primary.video_id,
-                            channelName: primary.channel_name,
-                            channelUrl: primary.channel_url,
-                            title: primary.title,
-                            publishedAt: primary.published_at,
-                            league: primary.league,
-                            matchDay: primary.match_day,
-                            teamHome: primary.team_home,
-                            teamAway: primary.team_away,
-                        },
-                        videos: matched.map((v) => ({
-                            videoId: v.video_id,
-                            channelName: v.channel_name,
-                            channelUrl: v.channel_url,
-                            title: v.title,
-                            publishedAt: v.published_at,
-                            league: v.league,
-                            matchDay: v.match_day,
-                            teamHome: v.team_home,
-                            teamAway: v.team_away,
-                        })),
-                    };
-                }
-
-                return partita;
-            }),
+            partiteAndata: Array.isArray(giornata.partiteAndata)
+                ? giornata.partiteAndata.map(enrichPartita)
+                : [],
+            partiteRitorno: Array.isArray(giornata.partiteRitorno)
+                ? giornata.partiteRitorno.map(enrichPartita)
+                : [],
         }));
     } catch (err) {
         console.warn('[EnrichCalendario] Errore associazione video YouTube:', err);
@@ -404,8 +425,8 @@ async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squa
 // ======================== API ROUTES ========================
 
 // 0. All Championships Catalog
-app.get('/api/campionati', async (_req, res) => {
-    const forceRefresh = false;
+app.get('/api/campionati', async (req, res) => {
+    const forceRefresh = isForceRefreshRequest(req);
     try {
         const campionati = await championshipCatalog.getAllCampionati(forceRefresh);
         res.json(campionati);
@@ -419,7 +440,7 @@ app.get('/api/campionati', async (_req, res) => {
 app.get('/api/dashboard', async (req, res) => {
     const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
     const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
-    const forceRefresh = false;
+    const forceRefresh = isForceRefreshRequest(req);
 
     try {
         // 1. Fetch Classifica & Calendario in parallel
@@ -434,7 +455,7 @@ app.get('/api/dashboard', async (req, res) => {
         const statisticheAtleti = await getStatistiche(cam, forceRefresh, squadraIds);
 
         const classifica = computeTeamForm(rawClassifica, calendario);
-        const enrichedCalendario = await enrichCalendarioWithVideos(calendario, cam, champMeta?.nome);
+        const enrichedCalendario = await enrichCalendarioWithVideos(calendario, cam, champMeta?.nome, forceRefresh);
 
         const payload: DashboardData = {
             classifica,
@@ -461,7 +482,7 @@ app.get('/api/dashboard', async (req, res) => {
 app.get('/api/classifica', async (req, res) => {
     const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
     const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
-    const forceRefresh = false;
+    const forceRefresh = isForceRefreshRequest(req);
     try {
         const data = await getClassifica(cam, anno, forceRefresh);
         res.json(data);
@@ -474,11 +495,11 @@ app.get('/api/classifica', async (req, res) => {
 app.get('/api/calendario', async (req, res) => {
     const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
     const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
-    const forceRefresh = false;
+    const forceRefresh = isForceRefreshRequest(req);
     try {
         const data = await getCalendario(cam, anno, forceRefresh);
         const champMeta = await championshipCatalog.getChampionship(cam);
-        const enriched = await enrichCalendarioWithVideos(data, cam, champMeta?.nome);
+        const enriched = await enrichCalendarioWithVideos(data, cam, champMeta?.nome, forceRefresh);
         res.json(enriched);
     } catch (error: any) {
         res.status(500).json({ error: error.message });
@@ -488,9 +509,9 @@ app.get('/api/calendario', async (req, res) => {
 // 4. Statistiche Atleti standalone
 app.get('/api/statistiche', async (req, res) => {
     const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
-    const forceRefresh = false;
+    const forceRefresh = isForceRefreshRequest(req);
     try {
-        const classifica = await getClassifica(cam, DEFAULT_ANNO_ID, false);
+        const classifica = await getClassifica(cam, DEFAULT_ANNO_ID, forceRefresh);
         const squadraIds = classifica.map((s) => s.squadraId).filter(Boolean);
         const data = await getStatistiche(cam, forceRefresh, squadraIds);
         res.json(data);
@@ -548,7 +569,7 @@ app.get('/api/ranking', async (req, res) => {
     const sesso = (req.query.sesso === 'F' ? 'F' : 'M') as 'M' | 'F';
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
     const comit = req.query.comit ? String(req.query.comit).trim() : '';
-    const forceRefresh = req.query.refresh === 'true';
+    const forceRefresh = isForceRefreshRequest(req);
 
     // Rileva automaticamente l'ID classifica attuale (es. 248, 249...), consentendo override via query param
     const idClass = req.query.idClass ? parseInt(req.query.idClass as string, 10) : await getLatestIdClass(forceRefresh);
@@ -739,7 +760,7 @@ app.get('/api/tornei', async (req, res) => {
     const regParam = req.query.reg ? parseInt(req.query.reg as string, 10) : 0;
     const customTor = req.query.tor !== undefined ? parseInt(req.query.tor as string, 10) : undefined;
     const customId = req.query.id !== undefined ? parseInt(req.query.id as string, 10) : undefined;
-    const forceRefresh = false;
+    const forceRefresh = isForceRefreshRequest(req);
 
     try {
         // Caso 1: Vista "Tutti i Tornei Attivi" (o "Tutti Regionali" quando è selezionata una regione)
@@ -893,7 +914,7 @@ app.get('/api/tornei/dettaglio', async (req, res) => {
     const idt = parseInt(req.query.idt as string, 10);
     const com = parseInt(req.query.com as string, 10) || 30;
     const anno = parseInt(req.query.anno as string, 10) || 41;
-    const forceRefresh = false;
+    const forceRefresh = isForceRefreshRequest(req);
 
     if (!idt || isNaN(idt)) {
         return res.status(400).json({ error: 'Parametro IDT mancante o non valido' });
@@ -1079,7 +1100,7 @@ app.get('/api/tornei/gara', async (req, res) => {
     const reqCod2 = req.query.cod2 ? parseInt(req.query.cod2 as string, 10) : undefined;
     const reqTab = req.query.tab ? parseInt(req.query.tab as string, 10) : undefined;
     const reqTurno = req.query.turno ? parseInt(req.query.turno as string, 10) : undefined;
-    const forceRefresh = false;
+    const forceRefresh = isForceRefreshRequest(req);
 
     if (!idt || !garaId) {
         return res.status(400).json({ error: 'Parametri idt e gara obbligatori' });
@@ -1311,7 +1332,7 @@ app.get('/api/tornei/gara', async (req, res) => {
 // 5. Scheda Singolo Atleta
 app.get('/api/atleta/:id', async (req, res) => {
     let { id } = req.params;
-    const forceRefresh = false;
+    const forceRefresh = isForceRefreshRequest(req);
 
     if (!id || id === 'null' || id === 'undefined') {
         return res.status(400).json({ error: 'ID atleta non valido' });
@@ -1553,7 +1574,7 @@ app.get('/api/referto/:incontroId', async (req, res) => {
     const { incontroId } = req.params;
     const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : 0;
     const formula = req.query.formula ? parseInt(req.query.formula as string, 10) : 19;
-    const forceRefresh = false;
+    const forceRefresh = isForceRefreshRequest(req);
     const cacheKey = `referto_${incontroId}_${cam}_${formula}`;
 
     if (!incontroId || incontroId === 'null' || incontroId === 'undefined') {
@@ -1579,7 +1600,7 @@ app.get('/api/referto/:incontroId', async (req, res) => {
 // 8. Dettaglio Singola Partita Individuale
 app.get('/api/partita/:partitaId', async (req, res) => {
     const { partitaId } = req.params;
-    const forceRefresh = false;
+    const forceRefresh = isForceRefreshRequest(req);
     const cacheKey = `partita_${partitaId}`;
 
     if (!partitaId || partitaId === 'null' || partitaId === 'undefined') {
@@ -1620,7 +1641,7 @@ app.get('/api/squadra/:squadraId', async (req, res) => {
     const { squadraId } = req.params;
     const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
     const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
-    const forceRefresh = false;
+    const forceRefresh = isForceRefreshRequest(req);
 
     if (!squadraId || squadraId === 'null' || squadraId === 'undefined') {
         return res.status(400).json({ error: 'ID squadra non valido' });
@@ -1632,7 +1653,7 @@ app.get('/api/squadra/:squadraId', async (req, res) => {
         // Se l'ID non è numerico, cerchiamo nella classifica per nome squadra
         if (!/^\d+$/.test(targetSquadraId)) {
             const decodedName = decodeURIComponent(targetSquadraId).trim().toUpperCase();
-            let rawClassifica = cacheService.get(`classifica_${cam}_${anno}`);
+            let rawClassifica = cacheService.get(`classifica_${cam}`);
             if (!rawClassifica) {
                 rawClassifica = await getClassifica(cam, anno);
             }
@@ -1656,9 +1677,7 @@ app.get('/api/squadra/:squadraId', async (req, res) => {
         }
 
         const url = `https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${targetSquadraId}&CAM=${cam}`;
-        const response = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        const buffer = await response.arrayBuffer();
-        const html = new TextDecoder('iso-8859-1').decode(buffer);
+        const html = await FitetClient.fetchHtml(url);
 
         // Parse team and players
         const parsed = parseDettaglioSquadra(html, targetSquadraId, cam);
@@ -1736,7 +1755,7 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
         }
     }
 
-    const force = req.query.force === 'true';
+    const force = isForceRefreshRequest(req);
     const cacheKey = `atleta_camp_partite_${cam}_${atletaId}_${squadraId || 'auto'}_v3`;
     const cached = cacheService.get<AtletaCampionatoPartiteResponse>(cacheKey);
     // Non restituire dalla cache se cached contiene un errore o 0 partite (fallimento precedente)
@@ -1941,19 +1960,20 @@ app.post('/api/refresh', async (req, res) => {
             championshipCatalog.getChampionship(cam).catch(() => undefined),
         ]);
         const classifica = computeTeamForm(rawClassifica, calendario);
+        const enrichedCalendario = await enrichCalendarioWithVideos(calendario, cam, champMeta?.nome, true);
 
         notifyObservedChampionshipIfNeeded({
             camId: cam,
             annoId: anno,
             championshipName: champMeta?.nome || `Campionato ${cam}`,
             classifica,
-            calendario,
+            calendario: enrichedCalendario,
             statisticheAtleti,
         }).catch((err) => {
             console.warn(`[CampionatoNotifier] Errore controllo passivo refresh cam=${cam}:`, err);
         });
 
-        res.json({ success: true, timestamp: new Date().toISOString(), classifica, calendario, statisticheAtleti });
+        res.json({ success: true, timestamp: new Date().toISOString(), classifica, calendario: enrichedCalendario, statisticheAtleti });
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
@@ -2309,7 +2329,7 @@ app.all(['/api/videos/sync', '/api/sync-youtube'], async (req, res) => {
 
 // Restituisce l'elenco dei video archiviati, con filtri opzionali per cam, league o giornata
 app.get('/api/videos', async (req, res) => {
-    const forceRefresh = false;
+    const forceRefresh = isForceRefreshRequest(req);
     const league = typeof req.query.league === 'string' ? req.query.league.toUpperCase() : undefined;
     const day = req.query.day ? parseInt(req.query.day as string, 10) : undefined;
 

@@ -136,7 +136,10 @@ async function fetchWithVenueFallback<T>(
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const res = await fetch(url, { signal: controller.signal });
+      const res = await fetch(url, {
+        signal: controller.signal,
+        ...(forceRefresh ? { cache: 'no-store' } : {}),
+      });
       clearTimeout(timeoutId);
 
       if (res.ok) {

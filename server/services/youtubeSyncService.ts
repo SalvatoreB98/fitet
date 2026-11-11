@@ -324,11 +324,11 @@ class YouTubeSyncService {
     const normCasa = normalizeTeamName(squadraCasa);
     const normOspite = normalizeTeamName(squadraOspite);
 
-    // Estrai eventuale categoria da championshipName (es. "SERIE B1 MASCHILE" -> "B1")
+    // Estrai eventuale categoria da championshipName (es. "SERIE B1 MASCHILE" o "Serie B/1" -> "B1")
     let champLeague: string | null = null;
     if (championshipName) {
-      const lm = championshipName.match(/\b([ABCD][1-2])\b/i);
-      if (lm) champLeague = lm[1].toUpperCase();
+      const lm = championshipName.match(/\b([ABCD])\s*\/?\s*([1-3])\b/i);
+      if (lm) champLeague = `${lm[1].toUpperCase()}${lm[2]}`;
     }
 
     return videos.filter((v) => {
@@ -356,7 +356,7 @@ class YouTubeSyncService {
 
         const invertedMatch =
           (normCasa.includes(vAway) || vAway.includes(normCasa) || (vAway.length >= 4 && normCasa.includes(vAway.slice(0, 5)))) &&
-          (normOspite.includes(vHome) || vHome.includes(normHome) || (vHome.length >= 4 && normOspite.includes(vHome.slice(0, 5))));
+          (normOspite.includes(vHome) || vHome.includes(normOspite) || (vHome.length >= 4 && normOspite.includes(vHome.slice(0, 5))));
 
         if (directMatch || invertedMatch) {
           return true;

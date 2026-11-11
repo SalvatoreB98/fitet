@@ -169,16 +169,16 @@ function buildUpstreamCacheKey(kind, url, extra = "") {
   return `upstream_${kind}_${hash}`;
 }
 async function withUpstreamCache(cacheKey, url, loader) {
-  if (isCacheBypassed()) {
-    return loader();
-  }
-  const cached = cacheService.get(cacheKey);
-  if (typeof cached === "string") {
-    return cached;
-  }
-  const existing = inFlightFetches.get(cacheKey);
-  if (existing) {
-    return existing;
+  const bypassed = isCacheBypassed();
+  if (!bypassed) {
+    const cached = cacheService.get(cacheKey);
+    if (typeof cached === "string") {
+      return cached;
+    }
+    const existing = inFlightFetches.get(cacheKey);
+    if (existing) {
+      return existing;
+    }
   }
   const task = loader().then((html) => {
     if (html) {
@@ -190,7 +190,9 @@ async function withUpstreamCache(cacheKey, url, loader) {
       inFlightFetches.delete(cacheKey);
     }
   });
-  inFlightFetches.set(cacheKey, task);
+  if (!bypassed) {
+    inFlightFetches.set(cacheKey, task);
+  }
   return task;
 }
 var FitetClient = class {
@@ -3650,10 +3652,36 @@ var PushService = class {
    * Aggiorna lo stato solo se il valore atteso è ancora quello salvato.
    * Funge da lock distribuito: in caso di più istanze serverless solo una
    * riesce ad aggiornare e quindi a inviare la notifica.
+   *
+   * Nota: per valori grandi (es. JSON `championship_state_*` di diversi KB),
+   * passare `.eq('value', expected)` mette l'intero JSON nella query string URL
+   * causando `400 Bad Request` (URI Too Long) su PostgREST/Cloudflare.
+   * Usiamo quindi `updated_at` come token di concorrenza ottimistica nella query.
    */
   async compareAndSetState(key, expected, next) {
     if (!this.supabase) return false;
-    const { data, error } = await this.supabase.from("push_state").update({ value: next, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("key", key).eq("value", expected).select("key");
+    if (expected.length <= 256) {
+      const { data: data2, error: error2 } = await this.supabase.from("push_state").update({ value: next, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("key", key).eq("value", expected).select("key");
+      if (error2) {
+        console.error(`[PushService] Aggiornamento atomico stato "${key}" fallito:`, error2.message);
+        return false;
+      }
+      return Array.isArray(data2) && data2.length > 0;
+    }
+    const { data: current, error: readError } = await this.supabase.from("push_state").select("value, updated_at").eq("key", key).maybeSingle();
+    if (readError) {
+      console.error(`[PushService] Lettura pre-update stato "${key}" fallita:`, readError.message);
+      return false;
+    }
+    if (!current || current.value !== expected) {
+      return false;
+    }
+    const nextUpdatedAt = new Date(Date.now() + 1).toISOString();
+    let query = this.supabase.from("push_state").update({ value: next, updated_at: nextUpdatedAt }).eq("key", key);
+    if (current.updated_at) {
+      query = query.eq("updated_at", current.updated_at);
+    }
+    const { data, error } = await query.select("key");
     if (error) {
       console.error(`[PushService] Aggiornamento atomico stato "${key}" fallito:`, error.message);
       return false;
@@ -3926,8 +3954,8 @@ var YouTubeSyncService = class {
     const normOspite = normalizeTeamName(squadraOspite);
     let champLeague = null;
     if (championshipName) {
-      const lm = championshipName.match(/\b([ABCD][1-2])\b/i);
-      if (lm) champLeague = lm[1].toUpperCase();
+      const lm = championshipName.match(/\b([ABCD])\s*\/?\s*([1-3])\b/i);
+      if (lm) champLeague = `${lm[1].toUpperCase()}${lm[2]}`;
     }
     return videos.filter((v) => {
       if (v.match_day !== null && v.match_day !== void 0 && v.match_day !== giornata) {
@@ -3943,7 +3971,7 @@ var YouTubeSyncService = class {
         const vHome = normalizeTeamName(v.team_home);
         const vAway = normalizeTeamName(v.team_away);
         const directMatch = (normCasa.includes(vHome) || vHome.includes(normCasa) || vHome.length >= 4 && normCasa.includes(vHome.slice(0, 5))) && (normOspite.includes(vAway) || vAway.includes(normOspite) || vAway.length >= 4 && normOspite.includes(vAway.slice(0, 5)));
-        const invertedMatch = (normCasa.includes(vAway) || vAway.includes(normCasa) || vAway.length >= 4 && normCasa.includes(vAway.slice(0, 5))) && (normOspite.includes(vHome) || vHome.includes(normHome) || vHome.length >= 4 && normOspite.includes(vHome.slice(0, 5)));
+        const invertedMatch = (normCasa.includes(vAway) || vAway.includes(normCasa) || vAway.length >= 4 && normCasa.includes(vAway.slice(0, 5))) && (normOspite.includes(vHome) || vHome.includes(normOspite) || vHome.length >= 4 && normOspite.includes(vHome.slice(0, 5)));
         if (directMatch || invertedMatch) {
           return true;
         }
@@ -5450,6 +5478,9 @@ async function evaluateSnapshotAndNotify(currSnapshot, options = {}) {
       snapshot: mergedCurrSnapshot,
       timestamp: Date.now()
     });
+    cacheService.delete(`classifica_${camId}`);
+    cacheService.delete(`calendario_${camId}_${currSnapshot.annoId || 41}`);
+    cacheService.delete(`statistiche_${camId}`);
     if (pushService.isReady()) {
       const payload = buildChampionshipNotificationPayload(
         camId,
@@ -5534,12 +5565,14 @@ async function notifyObservedChampionshipIfNeeded(input) {
   }
 }
 async function fetchChampionshipSnapshotFromFitet(camId, annoId = 41) {
-  const [classificaHtml, calendarioHtml, statisticheHtml, champMeta] = await Promise.all([
-    FitetClient.fetchClassifica(camId).catch(() => ""),
-    FitetClient.fetchCalendario(camId, annoId).catch(() => ""),
-    FitetClient.fetchStatisticheAtleti(camId).catch(() => ""),
-    championshipCatalog.getChampionship(camId).catch(() => void 0)
-  ]);
+  const [classificaHtml, calendarioHtml, statisticheHtml, champMeta] = await withFitetCacheBypass(
+    () => Promise.all([
+      FitetClient.fetchClassifica(camId).catch(() => ""),
+      FitetClient.fetchCalendario(camId, annoId).catch(() => ""),
+      FitetClient.fetchStatisticheAtleti(camId).catch(() => ""),
+      championshipCatalog.getChampionship(camId).catch(() => void 0)
+    ])
+  );
   const classifica = classificaHtml ? parseClassifica(classificaHtml) : [];
   const calendario = calendarioHtml ? parseCalendario(calendarioHtml) : [];
   const statisticheAtleti = statisticheHtml ? parseStatisticheAtleti(statisticheHtml, {}) : [];
@@ -6858,8 +6891,16 @@ app.use((req, res, next) => {
   }
   return next();
 });
-function isForceRefreshRequest(_req) {
-  return false;
+var BOT_USER_AGENT_REGEX = /bot|crawler|spider|slurp|bingpreview|facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|embedly|quora|pinterest|slackbot|vkshare|w3c_validator|AhrefsBot|SemrushBot|DotBot|PetalBot|Bytespider|MJ12bot|MegaIndex|BLEXBot|ZoominfoBot/i;
+function isForceRefreshRequest(req) {
+  const userAgent = req.headers["user-agent"] || "";
+  if (BOT_USER_AGENT_REGEX.test(userAgent)) {
+    return false;
+  }
+  if (req.query.refresh === "true" || req.query.force === "true") {
+    return true;
+  }
+  return req.method === "POST" && req.path === "/api/refresh";
 }
 app.use((req, _res, next) => {
   if (isForceRefreshRequest(req)) {
@@ -6867,11 +6908,11 @@ app.use((req, _res, next) => {
   }
   return next();
 });
-var CDN_HEADER_24H = "public, s-maxage=86400, stale-while-revalidate=604800";
-var BROWSER_HEADER_1H = "public, max-age=3600, stale-while-revalidate=604800";
+var CDN_HEADER_DEFAULT = "public, s-maxage=900, stale-while-revalidate=86400";
+var BROWSER_HEADER_DEFAULT = "public, max-age=120, stale-while-revalidate=3600";
 app.use((req, res, next) => {
   if (req.method !== "GET") return next();
-  if (req.path.startsWith("/api/push/") || req.path.startsWith("/api/videos/sync")) {
+  if (req.path.startsWith("/api/push/") || req.path.startsWith("/api/videos/sync") || isForceRefreshRequest(req)) {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
     res.setHeader("Vercel-CDN-Cache-Control", "no-store");
     res.setHeader("CDN-Cache-Control", "no-store");
@@ -6880,9 +6921,9 @@ app.use((req, res, next) => {
   if (req.path.startsWith("/api/")) {
     res.setHeader("X-Robots-Tag", "noindex, nofollow");
   }
-  res.setHeader("Vercel-CDN-Cache-Control", CDN_HEADER_24H);
-  res.setHeader("CDN-Cache-Control", CDN_HEADER_24H);
-  res.setHeader("Cache-Control", BROWSER_HEADER_1H);
+  res.setHeader("Vercel-CDN-Cache-Control", CDN_HEADER_DEFAULT);
+  res.setHeader("CDN-Cache-Control", CDN_HEADER_DEFAULT);
+  res.setHeader("Cache-Control", BROWSER_HEADER_DEFAULT);
   const originalJson = res.json.bind(res);
   res.json = ((body) => {
     if (res.statusCode >= 400) {
@@ -6941,6 +6982,43 @@ function computeTeamForm(classifica, calendario) {
     };
   });
 }
+function resolveAthleteChampionshipsFromRanking(campRanking, regione) {
+  const uniqueCampNames = [];
+  for (const m of campRanking) {
+    const trimmed = m.campionato?.trim();
+    if (trimmed && !uniqueCampNames.includes(trimmed)) {
+      uniqueCampNames.push(trimmed);
+    }
+  }
+  const campSessoByName = /* @__PURE__ */ new Map();
+  const sessoCounts = { M: 0, F: 0 };
+  for (const m of campRanking) {
+    const name = m.campionato?.trim();
+    if (!name) continue;
+    const campSesso = normalizeChampionshipGender(m.sesso);
+    if (!campSesso) continue;
+    if (!campSessoByName.has(name)) campSessoByName.set(name, campSesso);
+    sessoCounts[campSesso] += 1;
+  }
+  const athleteSesso = sessoCounts.M > sessoCounts.F ? "M" : sessoCounts.F > sessoCounts.M ? "F" : void 0;
+  const playedCamps = [];
+  for (const cName of uniqueCampNames) {
+    const resolved = championshipCatalog.resolveChampionship(
+      cName,
+      regione,
+      campSessoByName.get(cName) || athleteSesso
+    );
+    if (resolved && !playedCamps.some((pc) => pc.camId === resolved.id)) {
+      playedCamps.push({
+        camId: resolved.id,
+        nome: resolved.nome,
+        categoria: resolved.categoria,
+        regione: resolved.regione
+      });
+    }
+  }
+  return { playedCamps, athleteSesso };
+}
 async function getClassifica(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, forceRefresh = false) {
   const cacheKey = `classifica_${camId}`;
   if (!forceRefresh) {
@@ -6973,51 +7051,54 @@ async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, f
   cacheService.set(cacheKey, data, TTL_CALENDARIO);
   return data;
 }
-async function enrichCalendarioWithVideos(calendario, camId, championshipName) {
+async function enrichCalendarioWithVideos(calendario, camId, championshipName, forceRefresh = false) {
   try {
-    const videos = await youtubeSyncService.getAllVideos();
+    if (!Array.isArray(calendario) || calendario.length === 0) return calendario;
+    const videos = await youtubeSyncService.getAllVideos(forceRefresh);
     if (!videos || videos.length === 0) return calendario;
+    const enrichPartita = (partita) => {
+      const matched = youtubeSyncService.matchVideosForMatch(videos, {
+        giornata: partita.giornata,
+        squadraCasa: partita.squadraCasa,
+        squadraOspite: partita.squadraOspite,
+        camId,
+        championshipName
+      });
+      if (matched.length > 0) {
+        const primary = matched[0];
+        return {
+          ...partita,
+          youtubeVideoId: primary.video_id,
+          video: {
+            videoId: primary.video_id,
+            channelName: primary.channel_name,
+            channelUrl: primary.channel_url,
+            title: primary.title,
+            publishedAt: primary.published_at,
+            league: primary.league,
+            matchDay: primary.match_day,
+            teamHome: primary.team_home,
+            teamAway: primary.team_away
+          },
+          videos: matched.map((v) => ({
+            videoId: v.video_id,
+            channelName: v.channel_name,
+            channelUrl: v.channel_url,
+            title: v.title,
+            publishedAt: v.published_at,
+            league: v.league,
+            matchDay: v.match_day,
+            teamHome: v.team_home,
+            teamAway: v.team_away
+          }))
+        };
+      }
+      return partita;
+    };
     return calendario.map((giornata) => ({
       ...giornata,
-      partite: giornata.partite.map((partita) => {
-        const matched = youtubeSyncService.matchVideosForMatch(videos, {
-          giornata: partita.giornata,
-          squadraCasa: partita.squadraCasa,
-          squadraOspite: partita.squadraOspite,
-          camId,
-          championshipName
-        });
-        if (matched.length > 0) {
-          const primary = matched[0];
-          return {
-            ...partita,
-            youtubeVideoId: primary.video_id,
-            video: {
-              videoId: primary.video_id,
-              channelName: primary.channel_name,
-              channelUrl: primary.channel_url,
-              title: primary.title,
-              publishedAt: primary.published_at,
-              league: primary.league,
-              matchDay: primary.match_day,
-              teamHome: primary.team_home,
-              teamAway: primary.team_away
-            },
-            videos: matched.map((v) => ({
-              videoId: v.video_id,
-              channelName: v.channel_name,
-              channelUrl: v.channel_url,
-              title: v.title,
-              publishedAt: v.published_at,
-              league: v.league,
-              matchDay: v.match_day,
-              teamHome: v.team_home,
-              teamAway: v.team_away
-            }))
-          };
-        }
-        return partita;
-      })
+      partiteAndata: Array.isArray(giornata.partiteAndata) ? giornata.partiteAndata.map(enrichPartita) : [],
+      partiteRitorno: Array.isArray(giornata.partiteRitorno) ? giornata.partiteRitorno.map(enrichPartita) : []
     }));
   } catch (err) {
     console.warn("[EnrichCalendario] Errore associazione video YouTube:", err);
@@ -7043,8 +7124,8 @@ async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squa
   cacheService.set(cacheKey, data, TTL_STATISTICHE);
   return data;
 }
-app.get("/api/campionati", async (_req, res) => {
-  const forceRefresh = false;
+app.get("/api/campionati", async (req, res) => {
+  const forceRefresh = isForceRefreshRequest(req);
   try {
     const campionati = await championshipCatalog.getAllCampionati(forceRefresh);
     res.json(campionati);
@@ -7056,7 +7137,7 @@ app.get("/api/campionati", async (_req, res) => {
 app.get("/api/dashboard", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
-  const forceRefresh = false;
+  const forceRefresh = isForceRefreshRequest(req);
   try {
     const [rawClassifica, calendario, champMeta] = await Promise.all([
       getClassifica(cam, anno, forceRefresh),
@@ -7066,7 +7147,7 @@ app.get("/api/dashboard", async (req, res) => {
     const squadraIds = rawClassifica.map((s) => s.squadraId).filter(Boolean);
     const statisticheAtleti = await getStatistiche(cam, forceRefresh, squadraIds);
     const classifica = computeTeamForm(rawClassifica, calendario);
-    const enrichedCalendario = await enrichCalendarioWithVideos(calendario, cam, champMeta?.nome);
+    const enrichedCalendario = await enrichCalendarioWithVideos(calendario, cam, champMeta?.nome, forceRefresh);
     const payload = {
       classifica,
       calendario: enrichedCalendario,
@@ -7089,7 +7170,7 @@ app.get("/api/dashboard", async (req, res) => {
 app.get("/api/classifica", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
-  const forceRefresh = false;
+  const forceRefresh = isForceRefreshRequest(req);
   try {
     const data = await getClassifica(cam, anno, forceRefresh);
     res.json(data);
@@ -7100,11 +7181,11 @@ app.get("/api/classifica", async (req, res) => {
 app.get("/api/calendario", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
-  const forceRefresh = false;
+  const forceRefresh = isForceRefreshRequest(req);
   try {
     const data = await getCalendario(cam, anno, forceRefresh);
     const champMeta = await championshipCatalog.getChampionship(cam);
-    const enriched = await enrichCalendarioWithVideos(data, cam, champMeta?.nome);
+    const enriched = await enrichCalendarioWithVideos(data, cam, champMeta?.nome, forceRefresh);
     res.json(enriched);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -7112,9 +7193,9 @@ app.get("/api/calendario", async (req, res) => {
 });
 app.get("/api/statistiche", async (req, res) => {
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
-  const forceRefresh = false;
+  const forceRefresh = isForceRefreshRequest(req);
   try {
-    const classifica = await getClassifica(cam, DEFAULT_ANNO_ID, false);
+    const classifica = await getClassifica(cam, DEFAULT_ANNO_ID, forceRefresh);
     const squadraIds = classifica.map((s) => s.squadraId).filter(Boolean);
     const data = await getStatistiche(cam, forceRefresh, squadraIds);
     res.json(data);
@@ -7155,7 +7236,7 @@ app.get("/api/ranking", async (req, res) => {
   const sesso = req.query.sesso === "F" ? "F" : "M";
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const comit = req.query.comit ? String(req.query.comit).trim() : "";
-  const forceRefresh = req.query.refresh === "true";
+  const forceRefresh = isForceRefreshRequest(req);
   const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) : await getLatestIdClass(forceRefresh);
   const categoryKey = req.query.category || "";
   const catDef = categoryKey ? getRankingCategoryByKey(categoryKey) : void 0;
@@ -7303,7 +7384,7 @@ app.get("/api/tornei", async (req, res) => {
   const regParam = req.query.reg ? parseInt(req.query.reg, 10) : 0;
   const customTor = req.query.tor !== void 0 ? parseInt(req.query.tor, 10) : void 0;
   const customId = req.query.id !== void 0 ? parseInt(req.query.id, 10) : void 0;
-  const forceRefresh = false;
+  const forceRefresh = isForceRefreshRequest(req);
   try {
     if (categoryKey === "all" || categoryKey === "reg_all") {
       const isRegionSelected = comitParam >= 1 && comitParam <= 21;
@@ -7427,7 +7508,7 @@ app.get("/api/tornei/dettaglio", async (req, res) => {
   const idt = parseInt(req.query.idt, 10);
   const com = parseInt(req.query.com, 10) || 30;
   const anno = parseInt(req.query.anno, 10) || 41;
-  const forceRefresh = false;
+  const forceRefresh = isForceRefreshRequest(req);
   if (!idt || isNaN(idt)) {
     return res.status(400).json({ error: "Parametro IDT mancante o non valido" });
   }
@@ -7566,7 +7647,7 @@ app.get("/api/tornei/gara", async (req, res) => {
   const reqCod2 = req.query.cod2 ? parseInt(req.query.cod2, 10) : void 0;
   const reqTab = req.query.tab ? parseInt(req.query.tab, 10) : void 0;
   const reqTurno = req.query.turno ? parseInt(req.query.turno, 10) : void 0;
-  const forceRefresh = false;
+  const forceRefresh = isForceRefreshRequest(req);
   if (!idt || !garaId) {
     return res.status(400).json({ error: "Parametri idt e gara obbligatori" });
   }
@@ -7736,46 +7817,9 @@ app.get("/api/tornei/gara", async (req, res) => {
     res.status(500).json({ error: "Errore nel recupero dei risultati della gara", details: error.message });
   }
 });
-function resolveAthleteChampionshipsFromRanking(campRanking, regione) {
-  const uniqueCampNames = [];
-  for (const m of campRanking) {
-    const trimmed = m.campionato?.trim();
-    if (trimmed && !uniqueCampNames.includes(trimmed)) {
-      uniqueCampNames.push(trimmed);
-    }
-  }
-  const campSessoByName = /* @__PURE__ */ new Map();
-  const sessoCounts = { M: 0, F: 0 };
-  for (const m of campRanking) {
-    const name = m.campionato?.trim();
-    if (!name) continue;
-    const campSesso = normalizeChampionshipGender(m.sesso);
-    if (!campSesso) continue;
-    if (!campSessoByName.has(name)) campSessoByName.set(name, campSesso);
-    sessoCounts[campSesso] += 1;
-  }
-  const athleteSesso = sessoCounts.M > sessoCounts.F ? "M" : sessoCounts.F > sessoCounts.M ? "F" : void 0;
-  const playedCamps = [];
-  for (const cName of uniqueCampNames) {
-    const resolved = championshipCatalog.resolveChampionship(
-      cName,
-      regione,
-      campSessoByName.get(cName) || athleteSesso
-    );
-    if (resolved && !playedCamps.some((pc) => pc.camId === resolved.id)) {
-      playedCamps.push({
-        camId: resolved.id,
-        nome: resolved.nome,
-        categoria: resolved.categoria,
-        regione: resolved.regione
-      });
-    }
-  }
-  return { playedCamps, athleteSesso };
-}
 app.get("/api/atleta/:id", async (req, res) => {
   let { id } = req.params;
-  const forceRefresh = false;
+  const forceRefresh = isForceRefreshRequest(req);
   if (!id || id === "null" || id === "undefined") {
     return res.status(400).json({ error: "ID atleta non valido" });
   }
@@ -7970,7 +8014,7 @@ app.get("/api/referto/:incontroId", async (req, res) => {
   const { incontroId } = req.params;
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : 0;
   const formula = req.query.formula ? parseInt(req.query.formula, 10) : 19;
-  const forceRefresh = false;
+  const forceRefresh = isForceRefreshRequest(req);
   const cacheKey = `referto_${incontroId}_${cam}_${formula}`;
   if (!incontroId || incontroId === "null" || incontroId === "undefined") {
     return res.status(400).json({ error: "ID incontro non valido" });
@@ -7991,7 +8035,7 @@ app.get("/api/referto/:incontroId", async (req, res) => {
 });
 app.get("/api/partita/:partitaId", async (req, res) => {
   const { partitaId } = req.params;
-  const forceRefresh = false;
+  const forceRefresh = isForceRefreshRequest(req);
   const cacheKey = `partita_${partitaId}`;
   if (!partitaId || partitaId === "null" || partitaId === "undefined") {
     return res.status(400).json({ error: "ID partita non valido" });
@@ -8024,7 +8068,7 @@ app.get("/api/squadra/:squadraId", async (req, res) => {
   const { squadraId } = req.params;
   const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
   const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
-  const forceRefresh = false;
+  const forceRefresh = isForceRefreshRequest(req);
   if (!squadraId || squadraId === "null" || squadraId === "undefined") {
     return res.status(400).json({ error: "ID squadra non valido" });
   }
@@ -8032,7 +8076,7 @@ app.get("/api/squadra/:squadraId", async (req, res) => {
     let targetSquadraId = squadraId;
     if (!/^\d+$/.test(targetSquadraId)) {
       const decodedName = decodeURIComponent(targetSquadraId).trim().toUpperCase();
-      let rawClassifica = cacheService.get(`classifica_${cam}_${anno}`);
+      let rawClassifica = cacheService.get(`classifica_${cam}`);
       if (!rawClassifica) {
         rawClassifica = await getClassifica(cam, anno);
       }
@@ -8051,9 +8095,7 @@ app.get("/api/squadra/:squadraId", async (req, res) => {
       if (cached) return res.json(cached);
     }
     const url = `https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${targetSquadraId}&CAM=${cam}`;
-    const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-    const buffer = await response.arrayBuffer();
-    const html = new TextDecoder("iso-8859-1").decode(buffer);
+    const html = await FitetClient.fetchHtml(url);
     const parsed = parseDettaglioSquadra(html, targetSquadraId, cam);
     let logoUrl = teamResolver.getLogo(parsed.nome);
     if (!logoUrl && targetSquadraId) {
@@ -8116,7 +8158,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
       }
     }
   }
-  const force = req.query.force === "true";
+  const force = isForceRefreshRequest(req);
   const cacheKey = `atleta_camp_partite_${cam}_${atletaId}_${squadraId || "auto"}_v3`;
   const cached = cacheService.get(cacheKey);
   if (cached && !force && !cached.error && cached.matches && cached.matches.length > 0) {
@@ -8284,17 +8326,18 @@ app.post("/api/refresh", async (req, res) => {
       championshipCatalog.getChampionship(cam).catch(() => void 0)
     ]);
     const classifica = computeTeamForm(rawClassifica, calendario);
+    const enrichedCalendario = await enrichCalendarioWithVideos(calendario, cam, champMeta?.nome, true);
     notifyObservedChampionshipIfNeeded({
       camId: cam,
       annoId: anno,
       championshipName: champMeta?.nome || `Campionato ${cam}`,
       classifica,
-      calendario,
+      calendario: enrichedCalendario,
       statisticheAtleti
     }).catch((err) => {
       console.warn(`[CampionatoNotifier] Errore controllo passivo refresh cam=${cam}:`, err);
     });
-    res.json({ success: true, timestamp: (/* @__PURE__ */ new Date()).toISOString(), classifica, calendario, statisticheAtleti });
+    res.json({ success: true, timestamp: (/* @__PURE__ */ new Date()).toISOString(), classifica, calendario: enrichedCalendario, statisticheAtleti });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -8556,7 +8599,7 @@ app.all(["/api/videos/sync", "/api/sync-youtube"], async (req, res) => {
   }
 });
 app.get("/api/videos", async (req, res) => {
-  const forceRefresh = false;
+  const forceRefresh = isForceRefreshRequest(req);
   const league = typeof req.query.league === "string" ? req.query.league.toUpperCase() : void 0;
   const day = req.query.day ? parseInt(req.query.day, 10) : void 0;
   try {

@@ -102,18 +102,18 @@ async function withUpstreamCache(
   url: string,
   loader: () => Promise<string>
 ): Promise<string> {
-  if (isCacheBypassed()) {
-    return loader();
-  }
+  const bypassed = isCacheBypassed();
 
-  const cached = cacheService.get<string>(cacheKey);
-  if (typeof cached === 'string') {
-    return cached;
-  }
+  if (!bypassed) {
+    const cached = cacheService.get<string>(cacheKey);
+    if (typeof cached === 'string') {
+      return cached;
+    }
 
-  const existing = inFlightFetches.get(cacheKey);
-  if (existing) {
-    return existing;
+    const existing = inFlightFetches.get(cacheKey);
+    if (existing) {
+      return existing;
+    }
   }
 
   const task = loader()
@@ -129,7 +129,9 @@ async function withUpstreamCache(
       }
     });
 
-  inFlightFetches.set(cacheKey, task);
+  if (!bypassed) {
+    inFlightFetches.set(cacheKey, task);
+  }
   return task;
 }
 

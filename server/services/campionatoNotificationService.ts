@@ -1,4 +1,5 @@
-import { FitetClient } from './fitetClient';
+import { FitetClient, withFitetCacheBypass } from './fitetClient';
+import { cacheService } from './cacheService';
 import { championshipCatalog } from './championshipCatalog';
 import { parseClassifica } from '../parsers/classificaParser';
 import { parseCalendario } from '../parsers/calendarioParser';
@@ -547,6 +548,11 @@ async function evaluateSnapshotAndNotify(
       timestamp: Date.now(),
     });
 
+    // Invalida le cache in-memory/disco del campionato così chi apre la notifica vede subito i dati freschi
+    cacheService.delete(`classifica_${camId}`);
+    cacheService.delete(`calendario_${camId}_${currSnapshot.annoId || 41}`);
+    cacheService.delete(`statistiche_${camId}`);
+
     if (pushService.isReady()) {
       const payload = buildChampionshipNotificationPayload(
         camId,
@@ -556,8 +562,8 @@ async function evaluateSnapshotAndNotify(
 
       console.log(
         `[CampionatoNotifier] Rilevato aggiornamento per ${championshipName} (cam=${camId}): ` +
-          `nuoviMatch=${diff.newPlayedMatches.length}, matchAggiornati=${diff.updatedMatches.length}, ` +
-          `classifica=${diff.classificaChanged}, statistiche=${diff.statisticheChanged}. Invio push...`
+        `nuoviMatch=${diff.newPlayedMatches.length}, matchAggiornati=${diff.updatedMatches.length}, ` +
+        `classifica=${diff.classificaChanged}, statistiche=${diff.statisticheChanged}. Invio push...`
       );
 
       broadcastResult = await pushService.sendToChampionshipSubscribers(
@@ -664,12 +670,14 @@ export async function fetchChampionshipSnapshotFromFitet(
   annoId = 41
 ): Promise<ChampionshipMonitorSnapshot | null> {
   const [classificaHtml, calendarioHtml, statisticheHtml, champMeta] =
-    await Promise.all([
-      FitetClient.fetchClassifica(camId).catch(() => ''),
-      FitetClient.fetchCalendario(camId, annoId).catch(() => ''),
-      FitetClient.fetchStatisticheAtleti(camId).catch(() => ''),
-      championshipCatalog.getChampionship(camId).catch(() => undefined),
-    ]);
+    await withFitetCacheBypass(() =>
+      Promise.all([
+        FitetClient.fetchClassifica(camId).catch(() => ''),
+        FitetClient.fetchCalendario(camId, annoId).catch(() => ''),
+        FitetClient.fetchStatisticheAtleti(camId).catch(() => ''),
+        championshipCatalog.getChampionship(camId).catch(() => undefined),
+      ])
+    );
 
   const classifica = classificaHtml ? parseClassifica(classificaHtml) : [];
   const calendario = calendarioHtml ? parseCalendario(calendarioHtml) : [];
