@@ -1,10 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import { FitetClient, withFitetCacheBypass } from './services/fitetClient';
 import { cacheService } from './services/cacheService';
 import { viewsService } from './services/viewsService';
+import { analyticsService, normalizeAnalyticsPagePath } from './services/analyticsService';
+import { renderAnalyticsAdminHtml } from './routes/analyticsAdminHtml';
 import { athleteResolver } from './services/athleteResolver';
 import { teamResolver } from './services/teamResolver';
 import { championshipCatalog, normalizeChampionshipGender } from './services/championshipCatalog';
@@ -118,21 +121,23 @@ const BROWSER_HEADER_DEFAULT = 'public, max-age=120, stale-while-revalidate=3600
 app.use((req, res, next) => {
     if (req.method !== 'GET') return next();
 
-    // Cron jobs, sincronizzazioni video e richieste con force refresh: non devono MAI essere cachati
+    // Segnala a motori di ricerca e bot di non indicizzare gli endpoint API e la dashboard admin
+    if (req.path.startsWith('/api/') || req.path.startsWith('/admin')) {
+        res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    }
+
+    // Cron jobs, sincronizzazioni video, analytics admin e richieste con force refresh: non devono MAI essere cachati
     if (
         req.path.startsWith('/api/push/') ||
         req.path.startsWith('/api/videos/sync') ||
+        req.path === '/api/analytics' ||
+        req.path.startsWith('/admin') ||
         isForceRefreshRequest(req)
     ) {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
         res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
         res.setHeader('CDN-Cache-Control', 'no-store');
         return next();
-    }
-
-    // Segnala a motori di ricerca e bot di non indicizzare gli endpoint API
-    if (req.path.startsWith('/api/')) {
-        res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     }
 
     // Cache CDN e browser bilanciata per le risposte GET pubbliche
@@ -151,6 +156,31 @@ app.use((req, res, next) => {
         return originalJson(body);
     }) as typeof res.json;
 
+    return next();
+});
+
+const ANALYTICS_STATIC_ASSET_REGEX = /\.(js|mjs|css|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|eot|otf|map|json|xml|txt|webmanifest|pdf|mp4|webm|mp3)$/i;
+
+// Middleware analytics GDPR-compliant: nessun cookie, nessun IP salvato, ignora asset, /api e /admin
+app.use((req, _res, next) => {
+    if (req.method !== 'GET') return next();
+    const reqPath = req.path || '/';
+    if (
+        reqPath.startsWith('/api') ||
+        reqPath.startsWith('/admin') ||
+        reqPath.startsWith('/assets') ||
+        ANALYTICS_STATIC_ASSET_REGEX.test(reqPath)
+    ) {
+        return next();
+    }
+
+    const userAgent = (req.headers['user-agent'] as string) || '';
+    const purpose = String(req.headers['purpose'] || req.headers['sec-purpose'] || '').toLowerCase();
+    if (BOT_USER_AGENT_REGEX.test(userAgent) || purpose.includes('prefetch')) {
+        return next();
+    }
+
+    void analyticsService.incrementMetric('page', normalizeAnalyticsPagePath(reqPath));
     return next();
 });
 
@@ -2582,6 +2612,106 @@ app.get(['/player/:id', '/atleta/:id'], async (req, res, next) => {
     } catch {
         return next();
     }
+});
+
+// ==========================================
+// GDPR-Compliant Analytics (Zero Cookie / Zero IP)
+// ==========================================
+const safeTimingEqual = (a: string, b: string): boolean => {
+    const hashA = crypto.createHash('sha256').update(a, 'utf8').digest();
+    const hashB = crypto.createHash('sha256').update(b, 'utf8').digest();
+    return crypto.timingSafeEqual(hashA, hashB);
+};
+
+const requireAnalyticsBasicAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const expectedPass = process.env.ANALYTICS_ADMIN_PASS || process.env.ADMIN_PASSWORD || '';
+    const expectedUser = process.env.ANALYTICS_ADMIN_USER || process.env.ADMIN_USER || 'admin';
+
+    if (!expectedPass) {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(503).json({
+            error: 'Analytics admin non configurato. Imposta ANALYTICS_ADMIN_PASS nelle variabili d\'ambiente.',
+        });
+    }
+
+    const authHeader = req.headers.authorization || '';
+    if (!authHeader.startsWith('Basic ')) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="FITeT Analytics Admin", charset="UTF-8"');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(401).send('Autenticazione richiesta');
+    }
+
+    let decoded = '';
+    try {
+        decoded = Buffer.from(authHeader.slice(6).trim(), 'base64').toString('utf8');
+    } catch {
+        res.setHeader('WWW-Authenticate', 'Basic realm="FITeT Analytics Admin", charset="UTF-8"');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(401).send('Credenziali non valide');
+    }
+
+    const sepIdx = decoded.indexOf(':');
+    const providedUser = sepIdx >= 0 ? decoded.slice(0, sepIdx) : '';
+    const providedPass = sepIdx >= 0 ? decoded.slice(sepIdx + 1) : '';
+
+    if (!safeTimingEqual(providedUser, expectedUser) || !safeTimingEqual(providedPass, expectedPass)) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="FITeT Analytics Admin", charset="UTF-8"');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(401).send('Credenziali non valide');
+    }
+
+    return next();
+};
+
+app.post('/api/click', express.text({ type: 'text/plain' }), async (req, res) => {
+    let payload: Record<string, unknown> = {};
+    if (typeof req.body === 'string') {
+        try {
+            const parsed = JSON.parse(req.body);
+            if (parsed && typeof parsed === 'object') payload = parsed as Record<string, unknown>;
+        } catch {
+            return res.status(400).json({ error: 'Payload JSON non valido' });
+        }
+    } else if (req.body && typeof req.body === 'object') {
+        payload = req.body as Record<string, unknown>;
+    }
+
+    const target = typeof payload.target === 'string' ? payload.target.trim() : '';
+    const from = typeof payload.from === 'string' ? payload.from.trim() : null;
+    const metricType = payload.type === 'page' ? 'page' : 'click';
+
+    if (!target) {
+        return res.status(400).json({ error: 'Campo "target" obbligatorio' });
+    }
+
+    await analyticsService.recordClick(target, from, metricType);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ ok: true });
+});
+
+app.get('/api/analytics', requireAnalyticsBasicAuth, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
+    res.setHeader('CDN-Cache-Control', 'no-store');
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+
+    try {
+        const requestedDays = Number(req.query.days);
+        const days = requestedDays === 7 ? 7 : 30;
+        const summary = await analyticsService.getAnalytics(days);
+        return res.json(summary);
+    } catch (err) {
+        const message = err instanceof Error ? err.message : 'Errore caricamento analytics';
+        return res.status(500).json({ error: message });
+    }
+});
+
+app.get('/admin/analytics', requireAnalyticsBasicAuth, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
+    res.setHeader('CDN-Cache-Control', 'no-store');
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    return res.type('html').send(renderAnalyticsAdminHtml());
 });
 
 // Serve static frontend files in production only when running as standalone node server (not on Vercel)

@@ -26,6 +26,7 @@ import { PingPongLoader } from './components/PingPongLoader';
 import { CoffeeNudge } from './components/CoffeeNudge';
 import { registerTeamLogos } from './utils/teamLogos';
 import { addRecentAthlete, addRecentChampionship } from './utils/history';
+import { initAnalyticsStep, trackClick } from './utils/analyticsTracker';
 import { VenueConnectionBanner } from './components/VenueConnectionBanner';
 import { preCacheChampionshipForVenue } from './services/api';
 import {
@@ -201,8 +202,22 @@ export const App: React.FC = () => {
   });
   const athleteKeyCounter = useRef(0);
 
+  useEffect(() => {
+    const initialLabel =
+      mainView === 'home'
+        ? 'Home'
+        : mainView === 'campionato'
+          ? `Campionato: ${championshipTab}`
+          : mainView === 'tornei'
+            ? `Tornei: ${torneiTab}`
+            : 'Classifiche';
+    initAnalyticsStep(initialLabel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const setSelectedAthlete = (a: { id: string; name: string; fromReferto?: boolean }) => {
     addRecentAthlete({ id: a.id, name: a.name });
+    trackClick('Scheda Atleta');
     setAthleteStack((prev) => {
       const top = prev[prev.length - 1];
       if (top && top.id === a.id && top.name === a.name) return prev;
@@ -620,6 +635,7 @@ export const App: React.FC = () => {
       url.searchParams.set('tab', championshipTab);
       window.history.pushState({ ...(window.history.state || {}), cam: newCam, view: 'campionato' }, '', url.toString());
     }
+    trackClick(`Campionato: ${championshipTab}`);
   };
 
   const scrollToNav = () => {
@@ -638,6 +654,11 @@ export const App: React.FC = () => {
     setMainView(view);
     localStorage.setItem('fitet_main_view', view);
 
+    let flowTarget = 'Home';
+    if (view === 'classifiche') flowTarget = 'Classifiche';
+    else if (view === 'campionato') flowTarget = `Campionato: ${championshipTab}`;
+    else if (view === 'tornei') flowTarget = `Tornei: ${torneiTab}`;
+
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       url.pathname = '/';
@@ -654,6 +675,9 @@ export const App: React.FC = () => {
           const defaultTab = hasMyPlayer ? 'miei' : 'mappa';
           url.searchParams.set('tab', defaultTab);
           setTorneiTab(defaultTab);
+          flowTarget = `Tornei: ${defaultTab}`;
+        } else {
+          flowTarget = `Tornei: ${currentTab}`;
         }
       } else if (view === 'campionato') {
         url.searchParams.set('view', 'campionato');
@@ -662,6 +686,7 @@ export const App: React.FC = () => {
       window.history.pushState({ ...(window.history.state || {}), view }, '', url.toString());
     }
 
+    trackClick(flowTarget);
     window.scrollTo(0, 0);
   };
 
@@ -673,6 +698,7 @@ export const App: React.FC = () => {
       url.searchParams.set('tab', tab);
       window.history.pushState({ ...(window.history.state || {}), view: 'campionato', tab }, '', url.toString());
     }
+    trackClick(`Campionato: ${tab}`);
     scrollToNav();
   };
 
@@ -684,6 +710,7 @@ export const App: React.FC = () => {
       url.searchParams.set('tab', tab);
       window.history.pushState({ ...(window.history.state || {}), view: 'tornei', tab }, '', url.toString());
     }
+    trackClick(`Tornei: ${tab}`);
     scrollToNav();
   };
 
@@ -716,6 +743,7 @@ export const App: React.FC = () => {
       setUserRegion(region);
     }
     setIsRegioniModalOpen(true);
+    trackClick(region ? `Regione: ${region}` : 'Modale Regioni');
     if (typeof window !== 'undefined') {
       const targetUrl = region ? `/regioni/${regionToSlug(region)}` : '/';
       window.history.pushState(
@@ -829,6 +857,7 @@ export const App: React.FC = () => {
       if (match) resolvedId = match.squadraId;
     }
     setSelectedSquadra({ id: resolvedId || teamName, name: teamName });
+    trackClick('Dettaglio Squadra');
   };
 
   const activeChampionshipInfo = campionati.find((c) => c.id === camId) || null;
@@ -883,12 +912,30 @@ export const App: React.FC = () => {
         championshipRegion={headerChampionshipRegion}
         isConsulting={isConsulting}
         onReturnToMyChampionship={handleReturnToMyChampionship}
-        onOpenChampionshipModal={() => setIsChampionshipModalOpen(true)}
-        onOpenRegioniModal={() => setIsRegioniModalOpen(true)}
-        onOpenEloCalculatorModal={() => setIsEloCalculatorOpen(true)}
-        onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
-        onOpenSearchModal={() => setIsSearchModalOpen(true)}
-        onOpenInstallAppModal={() => setIsInstallModalOpen(true)}
+        onOpenChampionshipModal={() => {
+          trackClick('Modale Campionato');
+          setIsChampionshipModalOpen(true);
+        }}
+        onOpenRegioniModal={() => {
+          trackClick('Modale Regioni');
+          setIsRegioniModalOpen(true);
+        }}
+        onOpenEloCalculatorModal={() => {
+          trackClick('Calcolatore ELO');
+          setIsEloCalculatorOpen(true);
+        }}
+        onOpenFavoritesModal={() => {
+          trackClick('Preferiti');
+          setIsFavoritesModalOpen(true);
+        }}
+        onOpenSearchModal={() => {
+          trackClick('Ricerca Atleta');
+          setIsSearchModalOpen(true);
+        }}
+        onOpenInstallAppModal={() => {
+          trackClick('Installa App');
+          setIsInstallModalOpen(true);
+        }}
         onPrecacheChampionship={camId ? handlePrecache : undefined}
       />
 
@@ -943,14 +990,22 @@ export const App: React.FC = () => {
             onAutoSelectProfileChampionship={handleAutoSelectProfileChampionship}
             onNavigateTab={(tab) => {
               if (tab === 'cercaAtleta') {
+                trackClick('Ricerca Atleta');
                 setIsSearchModalOpen(true);
               } else if (['classifica', 'calendario', 'statistiche'].includes(tab)) {
                 setMainView('campionato');
                 setChampionshipTab(tab as ChampionshipTabType);
+                trackClick(`Campionato: ${tab}`);
               }
             }}
-            onOpenChampionshipModal={() => setIsChampionshipModalOpen(true)}
-            onOpenInstallAppModal={() => setIsInstallModalOpen(true)}
+            onOpenChampionshipModal={() => {
+              trackClick('Modale Campionato');
+              setIsChampionshipModalOpen(true);
+            }}
+            onOpenInstallAppModal={() => {
+              trackClick('Installa App');
+              setIsInstallModalOpen(true);
+            }}
             onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
             dashboardData={data}
           />
@@ -1130,7 +1185,10 @@ export const App: React.FC = () => {
       <BottomBar
         activeView={mainView}
         onChangeView={handleMainViewChange}
-        onOpenSearchModal={() => setIsSearchModalOpen(true)}
+        onOpenSearchModal={() => {
+          trackClick('Ricerca Atleta');
+          setIsSearchModalOpen(true);
+        }}
       />
 
       {/* Global Search Athlete Modal */}

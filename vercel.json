@@ -75,6 +75,10 @@
       "destination": "/api/index.js"
     },
     {
+      "source": "/admin/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
       "source": "/regioni/:slug",
       "destination": "/regioni/:slug/index.html"
     },

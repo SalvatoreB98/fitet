@@ -18,10 +18,12 @@ import './index.css';
 import './transitions.css';
 import { App } from './App';
 import { registerServiceWorker } from './services/pushNotifications';
+import { initDelegatedClickTracking } from './utils/analyticsTracker';
 
 // Registra il service worker per le Web Push Notifications (PWA).
 // È idempotente e non blocca il rendering dell'app.
 registerServiceWorker().catch(() => undefined);
+initDelegatedClickTracking();
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
