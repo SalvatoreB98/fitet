@@ -646,7 +646,12 @@ export function renderAnalyticsAdminHtml(): string {
       try {
         const res = await fetch('/api/analytics?days=' + days, { cache: 'no-store' });
         if (!res.ok) {
-          throw new Error('HTTP ' + res.status);
+          let detail = 'HTTP ' + res.status;
+          try {
+            const errJson = await res.json();
+            if (errJson && errJson.error) detail += ' - ' + errJson.error;
+          } catch (_) {}
+          throw new Error(detail);
         }
         const data = await res.json();
 

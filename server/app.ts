@@ -2623,7 +2623,60 @@ const safeTimingEqual = (a: string, b: string): boolean => {
     return crypto.timingSafeEqual(hashA, hashB);
 };
 
-const requireAnalyticsBasicAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+interface AuthFailureState {
+    failures: number;
+    firstFailureAt: number;
+    blockedUntil: number;
+}
+
+const ANALYTICS_AUTH_WINDOW_MS = 15 * 60 * 1000;
+const ANALYTICS_AUTH_MAX_FAILURES = 5;
+const ANALYTICS_AUTH_MAX_ENTRIES = 1000;
+// Segreto effimero in sola RAM: nessun IP viene mai salvato in chiaro o persistito su DB/disco
+const EPHEMERAL_AUTH_HMAC_KEY = crypto.randomBytes(32);
+const analyticsAuthFailures = new Map<string, AuthFailureState>();
+
+const getEphemeralAuthClientKey = (req: express.Request): string => {
+    const forwarded = typeof req.headers['x-forwarded-for'] === 'string'
+        ? req.headers['x-forwarded-for'].split(',')[0].trim()
+        : '';
+    const remote = forwarded || req.socket?.remoteAddress || 'unknown';
+    return crypto.createHmac('sha256', EPHEMERAL_AUTH_HMAC_KEY).update(remote).digest('hex');
+};
+
+const pruneAuthFailureMap = (now: number): void => {
+    for (const [key, state] of analyticsAuthFailures.entries()) {
+        if (now - state.firstFailureAt > ANALYTICS_AUTH_WINDOW_MS && now >= state.blockedUntil) {
+            analyticsAuthFailures.delete(key);
+        }
+    }
+    while (analyticsAuthFailures.size >= ANALYTICS_AUTH_MAX_ENTRIES) {
+        const oldestKey = analyticsAuthFailures.keys().next().value;
+        if (!oldestKey) break;
+        analyticsAuthFailures.delete(oldestKey);
+    }
+};
+
+const recordAuthFailure = async (clientKey: string, now: number): Promise<void> => {
+    pruneAuthFailureMap(now);
+    const existing = analyticsAuthFailures.get(clientKey);
+    const state: AuthFailureState =
+        existing && now - existing.firstFailureAt <= ANALYTICS_AUTH_WINDOW_MS
+            ? existing
+            : { failures: 0, firstFailureAt: now, blockedUntil: 0 };
+
+    state.failures += 1;
+    if (state.failures >= ANALYTICS_AUTH_MAX_FAILURES) {
+        state.blockedUntil = now + ANALYTICS_AUTH_WINDOW_MS;
+    }
+    analyticsAuthFailures.set(clientKey, state);
+
+    // Ritardo progressivo (max 1.5s) per rallentare tentativi automatici
+    const delayMs = Math.min(1500, state.failures * 250);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+};
+
+const requireAnalyticsBasicAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const expectedPass = process.env.ANALYTICS_ADMIN_PASS || process.env.ADMIN_PASSWORD || '';
     const expectedUser = process.env.ANALYTICS_ADMIN_USER || process.env.ADMIN_USER || 'admin';
 
@@ -2632,6 +2685,16 @@ const requireAnalyticsBasicAuth = (req: express.Request, res: express.Response, 
         return res.status(503).json({
             error: 'Analytics admin non configurato. Imposta ANALYTICS_ADMIN_PASS nelle variabili d\'ambiente.',
         });
+    }
+
+    const now = Date.now();
+    const clientKey = getEphemeralAuthClientKey(req);
+    const failureState = analyticsAuthFailures.get(clientKey);
+    if (failureState && now < failureState.blockedUntil) {
+        const retryAfterSec = Math.max(1, Math.ceil((failureState.blockedUntil - now) / 1000));
+        res.setHeader('Retry-After', String(retryAfterSec));
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(429).send('Troppi tentativi falliti. Riprova tra qualche minuto.');
     }
 
     const authHeader = req.headers.authorization || '';
@@ -2645,6 +2708,7 @@ const requireAnalyticsBasicAuth = (req: express.Request, res: express.Response, 
     try {
         decoded = Buffer.from(authHeader.slice(6).trim(), 'base64').toString('utf8');
     } catch {
+        await recordAuthFailure(clientKey, now);
         res.setHeader('WWW-Authenticate', 'Basic realm="FITeT Analytics Admin", charset="UTF-8"');
         res.setHeader('Cache-Control', 'no-store');
         return res.status(401).send('Credenziali non valide');
@@ -2655,11 +2719,13 @@ const requireAnalyticsBasicAuth = (req: express.Request, res: express.Response, 
     const providedPass = sepIdx >= 0 ? decoded.slice(sepIdx + 1) : '';
 
     if (!safeTimingEqual(providedUser, expectedUser) || !safeTimingEqual(providedPass, expectedPass)) {
+        await recordAuthFailure(clientKey, now);
         res.setHeader('WWW-Authenticate', 'Basic realm="FITeT Analytics Admin", charset="UTF-8"');
         res.setHeader('Cache-Control', 'no-store');
         return res.status(401).send('Credenziali non valide');
     }
 
+    analyticsAuthFailures.delete(clientKey);
     return next();
 };
 
