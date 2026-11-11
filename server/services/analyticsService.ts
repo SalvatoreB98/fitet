@@ -82,6 +82,8 @@ const BASELINE_VISITORS_BY_DATE: Record<string, number> = {
   '2026-11-08': 192,
   '2026-11-09': 165,
   '2026-11-10': 95,
+  '2026-11-11': 29,
+
 };
 
 function getUtcDateString(offsetDays = 0): string {
