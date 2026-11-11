@@ -310,7 +310,7 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
   }, [isMenuOpen]);
 
   const photoUrl = useMemo(() => {
-    if (!snapshot || photoError) return null;
+    if (!snapshot || photoError) return "/bg.webp";
     return (
       snapshot.fotoUrl ||
       `https://portale.fitet.org/images/atleti/${encodeURIComponent(snapshot.id)}.jpg`
@@ -589,22 +589,18 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
                 {form.length > 0 ? (
                   <div
                     className="my-profile-hero-form-badges"
-                    aria-label={`Forma recente: ${wins} ${
-                      wins === 1 ? 'vittoria' : 'vittorie'
-                    } e ${losses} ${losses === 1 ? 'sconfitta' : 'sconfitte'}`}
+                    aria-label={`Forma recente: ${wins} ${wins === 1 ? 'vittoria' : 'vittorie'
+                      } e ${losses} ${losses === 1 ? 'sconfitta' : 'sconfitte'}`}
                   >
                     {form.map((match, index) => (
                       <span
                         key={`${match.data}-${match.avversario}-${index}`}
-                        className={`my-profile-hero-form-badge ${
-                          match.esito === 'V' ? 'is-win' : 'is-loss'
-                        } ${index === form.length - 1 ? 'is-latest' : ''}`}
-                        title={`${match.esito === 'V' ? 'Vittoria' : 'Sconfitta'} vs ${
-                          match.avversario
-                        }${match.data ? ` · ${match.data}` : ''}`}
-                        aria-label={`${match.esito === 'V' ? 'Vittoria' : 'Sconfitta'} contro ${
-                          match.avversario
-                        }`}
+                        className={`my-profile-hero-form-badge ${match.esito === 'V' ? 'is-win' : 'is-loss'
+                          } ${index === form.length - 1 ? 'is-latest' : ''}`}
+                        title={`${match.esito === 'V' ? 'Vittoria' : 'Sconfitta'} vs ${match.avversario
+                          }${match.data ? ` · ${match.data}` : ''}`}
+                        aria-label={`${match.esito === 'V' ? 'Vittoria' : 'Sconfitta'} contro ${match.avversario
+                          }`}
                       >
                         {match.esito}
                       </span>
