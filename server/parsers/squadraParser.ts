@@ -58,6 +58,12 @@ export function parseDettaglioSquadra(
       return parseInt(val, 10) || 0;
     };
 
+    const getFloat = (cellIdx: number): number => {
+      const val = $(cells[cellIdx]).text().trim().replace(/[^\d.,-]/g, '').replace(',', '.');
+      const num = parseFloat(val);
+      return Number.isFinite(num) ? num : 0;
+    };
+
     const partiteDisputate = getInt(3);
     const partiteVinte = getInt(4);
     const partitePerse = getInt(5);
@@ -65,7 +71,7 @@ export function parseDettaglioSquadra(
     const setPersi = getInt(7);
     const puntiVinti = getInt(8);
     const puntiPersi = getInt(9);
-    const percentualeVittorie = getInt(10);
+    const percentualeVittorie = getFloat(10);
 
     atleti.push({
       atletaId,

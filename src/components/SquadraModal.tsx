@@ -266,10 +266,19 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                   <tbody>
                     {data.atleti.map((a: AtletaSquadraDettaglio, idx: number) => {
                       const isClickable = !a.isDoppio && Boolean(a.atletaId) && Boolean(onOpenAtletaModal);
+                      let winRate = Number(a.percentualeVittorie) || 0;
+                      if (winRate > 100) {
+                        if (a.partiteDisputate > 0) {
+                          winRate = Math.round((a.partiteVinte / a.partiteDisputate) * 1000) / 10;
+                        } else {
+                          while (winRate > 100) winRate /= 10;
+                        }
+                      }
+                      winRate = Math.max(0, Math.min(100, winRate));
                       const winRateColor =
-                        a.percentualeVittorie >= 65
+                        winRate >= 65
                           ? '#16a34a'
-                          : a.percentualeVittorie >= 40
+                          : winRate >= 40
                           ? '#d97706'
                           : '#dc2626';
 
@@ -376,12 +385,12 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                                   color: winRateColor,
                                 }}
                               >
-                                {a.percentualeVittorie}%
+                                {winRate}%
                               </span>
                               <div className="mini-progress-track">
                                 <div
                                   style={{
-                                    width: `${a.percentualeVittorie}%`,
+                                    width: `${winRate}%`,
                                     height: '100%',
                                     background: winRateColor,
                                     borderRadius: '3px',

@@ -1717,8 +1717,9 @@ app.get('/api/squadra/:squadraId', async (req, res) => {
         const cacheKey = `squadra_${targetSquadraId}_${cam}_${anno}`;
 
         if (!forceRefresh) {
-            const cached = cacheService.get(cacheKey);
-            if (cached) return res.json(cached);
+            const cached = cacheService.get<any>(cacheKey);
+            const hasCorruptedPct = cached?.atleti?.some((a: any) => Number(a?.percentualeVittorie) > 100);
+            if (cached && !hasCorruptedPct) return res.json(cached);
         }
 
         const url = `https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${targetSquadraId}&CAM=${cam}`;

@@ -6908,6 +6908,11 @@ function parseDettaglioSquadra(html, squadraId, camId, logoUrl) {
       const val = $(cells[cellIdx]).text().trim().replace(/[^\d-]/g, "");
       return parseInt(val, 10) || 0;
     };
+    const getFloat = (cellIdx) => {
+      const val = $(cells[cellIdx]).text().trim().replace(/[^\d.,-]/g, "").replace(",", ".");
+      const num = parseFloat(val);
+      return Number.isFinite(num) ? num : 0;
+    };
     const partiteDisputate = getInt(3);
     const partiteVinte = getInt(4);
     const partitePerse = getInt(5);
@@ -6915,7 +6920,7 @@ function parseDettaglioSquadra(html, squadraId, camId, logoUrl) {
     const setPersi = getInt(7);
     const puntiVinti = getInt(8);
     const puntiPersi = getInt(9);
-    const percentualeVittorie = getInt(10);
+    const percentualeVittorie = getFloat(10);
     atleti.push({
       atletaId,
       nome: athleteName,
@@ -9126,7 +9131,8 @@ app.get("/api/squadra/:squadraId", async (req, res) => {
     const cacheKey = `squadra_${targetSquadraId}_${cam}_${anno}`;
     if (!forceRefresh) {
       const cached = cacheService.get(cacheKey);
-      if (cached) return res.json(cached);
+      const hasCorruptedPct = cached?.atleti?.some((a) => Number(a?.percentualeVittorie) > 100);
+      if (cached && !hasCorruptedPct) return res.json(cached);
     }
     const url = `https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${targetSquadraId}&CAM=${cam}`;
     const html = await FitetClient.fetchHtml(url);
