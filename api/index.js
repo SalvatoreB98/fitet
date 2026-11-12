@@ -3752,12 +3752,13 @@ Restituisci ESCLUSIVAMENTE un JSON valido in questo formato:
   "probB": <intero da 1 a 99, con probA + probB = 100>,
   "analysis": "<massimo 2-3 frasi evidenziando il matchup tattico e il fattore decisivo>"
 }`;
-    const preferredModel = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+    const preferredModel = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
     const candidateModels = Array.from(
       /* @__PURE__ */ new Set([
         preferredModel,
-        "gemini-3.5-flash",
         "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash",
         "gemini-3.6-flash",
         "gemini-3.8-flash"
       ])
@@ -3948,12 +3949,13 @@ Restituisci ESCLUSIVAMENTE un JSON valido con questo schema esatto:
     }
   ]
 }`;
-    const preferredModel = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+    const preferredModel = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
     const candidateModels = Array.from(
       /* @__PURE__ */ new Set([
         preferredModel,
-        "gemini-3.5-flash",
         "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash",
         "gemini-3.6-flash",
         "gemini-3.8-flash"
       ])

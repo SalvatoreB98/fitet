@@ -93,13 +93,14 @@ Restituisci ESCLUSIVAMENTE un JSON valido in questo formato:
   "analysis": "<massimo 2-3 frasi evidenziando il matchup tattico e il fattore decisivo>"
 }`;
 
-    // Modello preferito da env o default ad alta velocità e disponibilità
-    const preferredModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+    // Modello preferito da env (default su gemini-3.5-flash-lite per quota 500 RPD)
+    const preferredModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
     const candidateModels = Array.from(
       new Set([
         preferredModel,
-        'gemini-3.5-flash',
         'gemini-3.5-flash-lite',
+        'gemini-3.1-flash-lite',
+        'gemini-3.5-flash',
         'gemini-3.6-flash',
         'gemini-3.8-flash',
       ])
