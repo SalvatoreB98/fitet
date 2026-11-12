@@ -1198,15 +1198,21 @@ export const App: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="portal-footer mt-5 text-center" style={{ paddingBottom: '90px' }}>
+      <footer className="portal-footer mt-5 text-center" style={{ paddingBottom: '90px', position: 'relative', zIndex: 1 }}>
         <div>
           <div>Progetto non ufficiale della community, dati sincronizzati automaticamente da portale.fitet.org</div>
-          <div className="portal-footer-coffee">
+          <div className="portal-footer-coffee mt-3">
             Se ti sta tornando utile, puoi{' '}
             <a href="https://buymeacoffee.com/salvatore.butera" target="_blank" rel="noopener noreferrer">
               offrirmi un caffè
             </a>
           </div>
+          <p className='mt-3'>
+            Per feedback o segnalazioni{' '}
+            <a href="mailto:salvatore.butera1998@gmail.com">
+              salvatore.butera1998@gmail.com
+            </a>
+          </p>
         </div>
       </footer>
 
