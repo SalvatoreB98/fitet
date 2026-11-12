@@ -1,6 +1,6 @@
 import { FitetClient } from './fitetClient';
 import { parseElencoTornei, COMIT_NAMES } from '../parsers/torneiParser';
-import { pushService, BroadcastResult } from './pushService';
+import { pushService, BroadcastResult, PushMessagePayload } from './pushService';
 import { TorneoItem } from '../../src/types/fitet';
 import { getTorneoHostRegion } from '../../src/utils/torneoMap';
 
@@ -92,38 +92,7 @@ export async function notifyObservedTorneiIfNeeded(observedTornei: TorneoItem[])
       }
 
       if (pushService.isReady()) {
-        let title: string;
-        let body: string;
-
-        if (newTornei.length === 1) {
-          const single = newTornei[0];
-          const isNat = single.com === 30 || single.com === 0;
-          const typeLabel = single.categoriaLabel || (isNat ? 'Torneo Nazionale' : 'Torneo Regionale');
-          title = `🏆 Nuovo ${typeLabel}`;
-          body = `${single.luogo} • ${single.data}${single.regione ? ` (${single.regione})` : ''}`;
-        } else {
-          title = `🏆 ${newTornei.length} nuovi tornei FITeT pubblicati!`;
-          const previews = newTornei
-            .slice(0, 3)
-            .map((t) => `${t.luogo} (${t.data})`)
-            .join(', ');
-          const extra = newTornei.length > 3 ? ` e altri ${newTornei.length - 3}...` : '';
-          body = `Disponibili nuove gare a: ${previews}${extra}`;
-        }
-
-        await pushService.sendToAll({
-          title,
-          body,
-          url: '/?view=tornei',
-          icon: '/icon.png',
-          badge: '/icon.png',
-          tag: `tornei-new-${Date.now()}`,
-          data: {
-            type: 'new_tornei',
-            count: newTornei.length,
-            keys: newTornei.map((t) => t.key),
-          },
-        });
+        await pushService.sendToAll(buildTorneiNotificationPayload(newTornei));
       }
 
       const updatedKeys = Array.from(new Set([...freshKnown, ...newTornei.map((t) => t.key)]));
@@ -179,6 +148,80 @@ interface ScanTarget {
   comit: number;
   id: number;
   isRegional: boolean;
+}
+
+/**
+ * Costruisce il payload push per uno o più nuovi tornei rilevati.
+ * Se il torneo è singolo, include nell'URL i parametri per aprire direttamente
+ * la scheda del torneo associata.
+ */
+function buildTorneiNotificationPayload(newTornei: ScannedTorneoItem[]): PushMessagePayload {
+  let title: string;
+  let body: string;
+  let url: string;
+  let singleTorneoData: Record<string, any> | undefined;
+
+  if (newTornei.length === 1) {
+    const single = newTornei[0];
+    const isNat = single.com === 30 || single.com === 0;
+    const typeLabel = single.categoriaLabel || (isNat ? 'Torneo Nazionale' : 'Torneo Regionale');
+    title = `🏆 Nuovo ${typeLabel}`;
+    body = `${single.luogo} • ${single.data}${single.regione ? ` (${single.regione})` : ''}`;
+
+    const tab = single.status === 'disputato' ? 'risultati' : 'programma';
+    const params = new URLSearchParams({
+      view: 'tornei',
+      tab,
+      torneoIdt: String(single.idt),
+      torneoCom: String(single.com),
+      torneoAnno: String(single.anno || 0),
+    });
+    if (single.luogo) params.set('torneoLuogo', single.luogo);
+    if (single.data) params.set('torneoData', single.data);
+    if (single.regione) params.set('torneoRegione', single.regione);
+    if (single.status) params.set('torneoStatus', single.status);
+    url = `/?${params.toString()}`;
+
+    singleTorneoData = {
+      idt: single.idt,
+      com: single.com,
+      anno: single.anno,
+      tipo: single.tipo,
+      luogo: single.luogo,
+      data: single.data,
+      regione: single.regione,
+      status: single.status,
+      href: single.href,
+      key: single.key,
+    };
+  } else {
+    title = `🏆 ${newTornei.length} nuovi tornei FITeT pubblicati!`;
+    const previews = newTornei
+      .slice(0, 3)
+      .map((t) => `${t.luogo} (${t.data})`)
+      .join(', ');
+    const extra = newTornei.length > 3 ? ` e altri ${newTornei.length - 3}...` : '';
+    body = `Disponibili nuove gare a: ${previews}${extra}`;
+
+    const allDisputati = newTornei.every((t) => t.status === 'disputato');
+    url = `/?view=tornei&tab=${allDisputati ? 'risultati' : 'programma'}`;
+  }
+
+  return {
+    title,
+    body,
+    url,
+    icon: '/icon.png',
+    badge: '/icon.png',
+    tag: `tornei-new-${Date.now()}`,
+    data: {
+      type: 'new_tornei',
+      url,
+      count: newTornei.length,
+      keys: newTornei.map((t) => t.key),
+      ...(singleTorneoData ? { torneo: singleTorneoData } : {}),
+    },
+  };
 }
 
 /**
@@ -410,39 +453,10 @@ export async function checkNewTorneiAndNotify(
 
   // Invio notifica push (se non è una simulazione)
   if (!dryRun && pushService.isReady()) {
-    let title: string;
-    let body: string;
-
-    if (newTornei.length === 1) {
-      const single = newTornei[0];
-      const isNat = single.com === 30 || single.com === 0;
-      const typeLabel = single.categoriaLabel || (isNat ? 'Torneo Nazionale' : 'Torneo Regionale');
-      title = `🏆 Nuovo ${typeLabel}`;
-      body = `${single.luogo} • ${single.data}${single.regione ? ` (${single.regione})` : ''}`;
-    } else {
-      title = `🏆 ${newTornei.length} nuovi tornei FITeT pubblicati!`;
-      const previews = newTornei
-        .slice(0, 3)
-        .map((t) => `${t.luogo} (${t.data})`)
-        .join(', ');
-      const extra = newTornei.length > 3 ? ` e altri ${newTornei.length - 3}...` : '';
-      body = `Disponibili nuove gare a: ${previews}${extra}`;
-    }
-
     try {
-      broadcastResult = await pushService.sendToAll({
-        title,
-        body,
-        url: '/?view=tornei',
-        icon: '/icon.png',
-        badge: '/icon.png',
-        tag: `tornei-new-${Date.now()}`,
-        data: {
-          type: 'new_tornei',
-          count: newTornei.length,
-          keys: newTornei.map((t) => t.key),
-        },
-      });
+      broadcastResult = await pushService.sendToAll(
+        buildTorneiNotificationPayload(newTornei)
+      );
 
       notificationSent = broadcastResult.sent > 0;
       console.log(

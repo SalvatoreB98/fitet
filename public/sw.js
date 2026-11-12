@@ -98,17 +98,34 @@ self.addEventListener('notificationclick', (event) => {
       // 1. Finestra già aperta esattamente sull'URL richiesto.
       for (const client of windowClients) {
         if (client.url === absoluteUrl && 'focus' in client) {
+          if ('postMessage' in client) {
+            client.postMessage({ type: 'PUSH_NOTIFICATION_CLICK', url: absoluteUrl, data });
+          }
           return client.focus();
         }
       }
 
-      // 2. Qualsiasi finestra della stessa origine: naviga e porta in primo piano.
+      // 2. Qualsiasi finestra della stessa origine: invia messaggio SPA + naviga + porta in primo piano.
       for (const client of windowClients) {
         try {
           const sameOrigin = new URL(client.url).origin === self.location.origin;
-          if (sameOrigin && 'navigate' in client) {
-            await client.navigate(absoluteUrl);
-            return 'focus' in client ? client.focus() : undefined;
+          if (!sameOrigin) continue;
+
+          if ('postMessage' in client) {
+            client.postMessage({ type: 'PUSH_NOTIFICATION_CLICK', url: absoluteUrl, data });
+          }
+
+          if ('navigate' in client) {
+            try {
+              await client.navigate(absoluteUrl);
+            } catch (navErr) {
+              // Alcune PWA (es. iOS / Android standalone) non supportano client.navigate:
+              // il messaggio postMessage gestirà comunque la navigazione SPA.
+            }
+          }
+
+          if ('focus' in client) {
+            return client.focus();
           }
         } catch (err) {
           // Ignora client non navigabili.

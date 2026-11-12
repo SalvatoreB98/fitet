@@ -6147,6 +6147,66 @@ var cachedKnownKeys = null;
 var cachedKnownKeysTimestamp = 0;
 var KNOWN_KEYS_CACHE_TTL_MS = 60 * 60 * 1e3;
 var PASSIVE_CHECK_MIN_INTERVAL_MS = 15 * 60 * 1e3;
+function buildTorneiNotificationPayload(newTornei) {
+  let title;
+  let body;
+  let url;
+  let singleTorneoData;
+  if (newTornei.length === 1) {
+    const single = newTornei[0];
+    const isNat = single.com === 30 || single.com === 0;
+    const typeLabel = single.categoriaLabel || (isNat ? "Torneo Nazionale" : "Torneo Regionale");
+    title = `\u{1F3C6} Nuovo ${typeLabel}`;
+    body = `${single.luogo} \u2022 ${single.data}${single.regione ? ` (${single.regione})` : ""}`;
+    const tab = single.status === "disputato" ? "risultati" : "programma";
+    const params = new URLSearchParams({
+      view: "tornei",
+      tab,
+      torneoIdt: String(single.idt),
+      torneoCom: String(single.com),
+      torneoAnno: String(single.anno || 0)
+    });
+    if (single.luogo) params.set("torneoLuogo", single.luogo);
+    if (single.data) params.set("torneoData", single.data);
+    if (single.regione) params.set("torneoRegione", single.regione);
+    if (single.status) params.set("torneoStatus", single.status);
+    url = `/?${params.toString()}`;
+    singleTorneoData = {
+      idt: single.idt,
+      com: single.com,
+      anno: single.anno,
+      tipo: single.tipo,
+      luogo: single.luogo,
+      data: single.data,
+      regione: single.regione,
+      status: single.status,
+      href: single.href,
+      key: single.key
+    };
+  } else {
+    title = `\u{1F3C6} ${newTornei.length} nuovi tornei FITeT pubblicati!`;
+    const previews = newTornei.slice(0, 3).map((t) => `${t.luogo} (${t.data})`).join(", ");
+    const extra = newTornei.length > 3 ? ` e altri ${newTornei.length - 3}...` : "";
+    body = `Disponibili nuove gare a: ${previews}${extra}`;
+    const allDisputati = newTornei.every((t) => t.status === "disputato");
+    url = `/?view=tornei&tab=${allDisputati ? "risultati" : "programma"}`;
+  }
+  return {
+    title,
+    body,
+    url,
+    icon: "/icon.png",
+    badge: "/icon.png",
+    tag: `tornei-new-${Date.now()}`,
+    data: {
+      type: "new_tornei",
+      url,
+      count: newTornei.length,
+      keys: newTornei.map((t) => t.key),
+      ...singleTorneoData ? { torneo: singleTorneoData } : {}
+    }
+  };
+}
 function getTorneoUniqueKey(torneo) {
   return `${torneo.com}-${torneo.idt}-${torneo.tipo ?? 0}`;
 }
@@ -6308,34 +6368,10 @@ async function checkNewTorneiAndNotify(options = {}) {
   let broadcastResult;
   let notificationSent = false;
   if (!dryRun && pushService.isReady()) {
-    let title;
-    let body;
-    if (newTornei.length === 1) {
-      const single = newTornei[0];
-      const isNat = single.com === 30 || single.com === 0;
-      const typeLabel = single.categoriaLabel || (isNat ? "Torneo Nazionale" : "Torneo Regionale");
-      title = `\u{1F3C6} Nuovo ${typeLabel}`;
-      body = `${single.luogo} \u2022 ${single.data}${single.regione ? ` (${single.regione})` : ""}`;
-    } else {
-      title = `\u{1F3C6} ${newTornei.length} nuovi tornei FITeT pubblicati!`;
-      const previews = newTornei.slice(0, 3).map((t) => `${t.luogo} (${t.data})`).join(", ");
-      const extra = newTornei.length > 3 ? ` e altri ${newTornei.length - 3}...` : "";
-      body = `Disponibili nuove gare a: ${previews}${extra}`;
-    }
     try {
-      broadcastResult = await pushService.sendToAll({
-        title,
-        body,
-        url: "/?view=tornei",
-        icon: "/icon.png",
-        badge: "/icon.png",
-        tag: `tornei-new-${Date.now()}`,
-        data: {
-          type: "new_tornei",
-          count: newTornei.length,
-          keys: newTornei.map((t) => t.key)
-        }
-      });
+      broadcastResult = await pushService.sendToAll(
+        buildTorneiNotificationPayload(newTornei)
+      );
       notificationSent = broadcastResult.sent > 0;
       console.log(
         `[TorneiScanner] Notifiche inviate: ${broadcastResult.sent}/${broadcastResult.total} (fallite: ${broadcastResult.failed}).`

@@ -1034,6 +1034,71 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
     }
   };
 
+  const handleSelectTorneoRef = useRef(handleSelectTorneo);
+  handleSelectTorneoRef.current = handleSelectTorneo;
+  const allKnownTorneiRef = useRef(allKnownTornei);
+  allKnownTorneiRef.current = allKnownTornei;
+  const lastAutoOpenedTorneoKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const tryOpenTorneoFromUrl = () => {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const idtRaw = params.get('torneoIdt');
+      const comRaw = params.get('torneoCom');
+      if (!idtRaw || !comRaw || !/^\d+$/.test(idtRaw) || !/^\d+$/.test(comRaw)) {
+        return;
+      }
+
+      const idt = parseInt(idtRaw, 10);
+      const com = parseInt(comRaw, 10);
+      const annoRaw = params.get('torneoAnno');
+      const anno = annoRaw && /^\d+$/.test(annoRaw) ? parseInt(annoRaw, 10) : 0;
+      const uniqueKey = `${com}-${idt}-${anno}`;
+
+      if (lastAutoOpenedTorneoKeyRef.current === uniqueKey) {
+        return;
+      }
+      lastAutoOpenedTorneoKeyRef.current = uniqueKey;
+
+      const matched =
+        allKnownTorneiRef.current.find(
+          (t) => t.idt === idt && t.com === com && (!anno || t.anno === anno)
+        ) ||
+        allKnownTorneiRef.current.find((t) => t.idt === idt && t.com === com);
+
+      const torneoToOpen: TorneoItem = matched || {
+        idt,
+        com,
+        anno,
+        tipo: 0,
+        data: params.get('torneoData') || '',
+        luogo: params.get('torneoLuogo') || 'Torneo FITeT',
+        regione: params.get('torneoRegione') || undefined,
+        status: params.get('torneoStatus') === 'disputato' ? 'disputato' : 'in_programma',
+        href: `https://portale.fitet.org/risultati/tornei/dettaglio_torneo.asp?IDT=${idt}&COM=${com}&ANNO=${anno || ''}`,
+      };
+
+      void handleSelectTorneoRef.current(torneoToOpen);
+    };
+
+    if (isActive) {
+      tryOpenTorneoFromUrl();
+    }
+
+    const handleCustomOpen = () => {
+      lastAutoOpenedTorneoKeyRef.current = null;
+      tryOpenTorneoFromUrl();
+    };
+
+    window.addEventListener('fitet:open-torneo-from-url', handleCustomOpen);
+    window.addEventListener('popstate', handleCustomOpen);
+    return () => {
+      window.removeEventListener('fitet:open-torneo-from-url', handleCustomOpen);
+      window.removeEventListener('popstate', handleCustomOpen);
+    };
+  }, [isActive]);
+
   // Open a gara: load its data and stop on the phase-choice screen
   const handleOpenGara = async (gara: TorneoGaraLink) => {
     setSelectedGara(gara);
@@ -1173,6 +1238,7 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
   }, [garaData?.idt, garaData?.garaId, garaData?.iscritti?.length]);
 
   const backToTornei = () => {
+    lastAutoOpenedTorneoKeyRef.current = null;
     setIsModalFullscreen(false);
     setSelectedTorneo(null);
     setTorneoDettaglio(null);
@@ -1180,6 +1246,27 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
     setSelectedGara(null);
     setGaraData(null);
     setGaraPhaseTab(null);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      let changed = false;
+      for (const key of [
+        'torneoIdt',
+        'torneoCom',
+        'torneoAnno',
+        'torneoLuogo',
+        'torneoData',
+        'torneoRegione',
+        'torneoStatus',
+      ]) {
+        if (url.searchParams.has(key)) {
+          url.searchParams.delete(key);
+          changed = true;
+        }
+      }
+      if (changed) {
+        window.history.replaceState(window.history.state, '', url.toString());
+      }
+    }
     scrollToRoot();
   };
 

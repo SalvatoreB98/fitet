@@ -778,9 +778,9 @@ export const App: React.FC = () => {
     }
   };
 
-  // Browser back / forward popstate handler
+  // Browser back / forward popstate handler + Service Worker push notification click handler
   useEffect(() => {
-    const handlePopState = () => {
+    const syncFromCurrentUrl = () => {
       const regionFromPath = getRegionFromUrl();
       setActiveRegionPage(regionFromPath);
       if (regionFromPath) {
@@ -796,8 +796,10 @@ export const App: React.FC = () => {
 
       if (viewParam === 'classifiche') {
         setMainView('classifiche');
+        localStorage.setItem('fitet_main_view', 'classifiche');
       } else if (viewParam === 'tornei' || ['miei', 'mappa', 'risultati', 'programma'].includes(tabParam || '')) {
         setMainView('tornei');
+        localStorage.setItem('fitet_main_view', 'tornei');
         if (tabParam && ['miei', 'mappa', 'risultati', 'programma'].includes(tabParam)) {
           if (tabParam === 'miei' && !getMyPlayerId()) {
             setTorneiTab('mappa');
@@ -807,13 +809,18 @@ export const App: React.FC = () => {
         } else {
           setTorneiTab(getMyPlayerId() ? 'miei' : 'mappa');
         }
+        if (urlParams.get('torneoIdt') && urlParams.get('torneoCom')) {
+          window.dispatchEvent(new CustomEvent('fitet:open-torneo-from-url'));
+        }
       } else if (viewParam === 'campionato' || (urlParams.get('cam') && tabParam && ['classifica', 'calendario', 'statistiche'].includes(tabParam))) {
         setMainView('campionato');
+        localStorage.setItem('fitet_main_view', 'campionato');
         if (tabParam && ['classifica', 'calendario', 'statistiche'].includes(tabParam)) {
           setChampionshipTab(tabParam as ChampionshipTabType);
         }
       } else {
         setMainView('home');
+        localStorage.setItem('fitet_main_view', 'home');
       }
 
       const urlCam = urlParams.get('cam');
@@ -845,8 +852,30 @@ export const App: React.FC = () => {
       }
     };
 
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type !== 'PUSH_NOTIFICATION_CLICK' || !event.data?.url) return;
+      try {
+        const targetUrl = new URL(event.data.url, window.location.origin);
+        if (targetUrl.origin !== window.location.origin) return;
+        if (window.location.href !== targetUrl.href) {
+          window.history.pushState({ ...(window.history.state || {}) }, '', targetUrl.toString());
+        }
+        syncFromCurrentUrl();
+      } catch {
+        // Ignora URL non validi
+      }
+    };
+
+    window.addEventListener('popstate', syncFromCurrentUrl);
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+    }
+    return () => {
+      window.removeEventListener('popstate', syncFromCurrentUrl);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+      }
+    };
   }, []);
 
   const handleOpenSquadra = (teamName: string, squadraId?: string) => {
