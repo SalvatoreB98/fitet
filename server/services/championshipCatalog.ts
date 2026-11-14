@@ -281,8 +281,11 @@ class ChampionshipCatalog {
     // Con sesso noto evitiamo di interrogare i campionati del sesso opposto (fetch inutili e rischio di match errato).
     const fetchPool = targetSesso ? genderMatches : searchPool;
     const mapping = athleteResolver.getMapping();
-    const batchSize = 6;
+    const batchSize = 2;
     for (let i = 0; i < fetchPool.length; i += batchSize) {
+      if (i > 0) {
+        await FitetClient.sleepWithJitter(1500, 3000);
+      }
       const batch = fetchPool.slice(i, i + batchSize);
       const batchResults = await Promise.all(
         batch.map(async (camp) => {
@@ -326,13 +329,16 @@ class ChampionshipCatalog {
   private async scrapeFromFitet(): Promise<ChampionshipItem[]> {
     const all: ChampionshipItem[] = [];
 
-    // 1. Fetch National Championships
-    for (const nat of NAZIONALI) {
+    // 1. Fetch National Championships sequentially with jitter
+    for (let i = 0; i < NAZIONALI.length; i++) {
+      const nat = NAZIONALI[i];
+      if (i > 0) {
+        await FitetClient.sleepWithJitter(1500, 3000);
+      }
       try {
-        const res = await fetch(`https://portale.fitet.org/risultati/campionati/elenco_campionati.php?ID_CAMP=${nat.cid}`, {
-          headers: { 'User-Agent': 'Mozilla/5.0' }
-        });
-        const text = new TextDecoder('iso-8859-1').decode(await res.arrayBuffer());
+        const text = await FitetClient.fetchHtml(
+          `https://portale.fitet.org/risultati/campionati/elenco_campionati.php?ID_CAMP=${nat.cid}`
+        );
         const $ = cheerio.load(text);
         $('tr').each((_, tr) => {
           const rowText = $(tr).find('td').first().text().trim().toLowerCase();
@@ -362,16 +368,15 @@ class ChampionshipCatalog {
       }
     }
 
-    // 2. Fetch Regional Championships in batches of 5
-    for (let i = 0; i < REGIONI.length; i += 5) {
-      const batch = REGIONI.slice(i, i + 5);
-      await Promise.all(batch.map(async (reg) => {
-        try {
-          const res = await fetch(`https://portale.fitet.org/risultati/regioni/menu_reg.php?REG=${reg.id}`, {
-            headers: { 'User-Agent': 'Mozilla/5.0' }
-          });
-          const text = new TextDecoder('iso-8859-1').decode(await res.arrayBuffer());
-          const $ = cheerio.load(text);
+    // 2. Fetch Regional Championships sequentially with jitter
+    for (let i = 0; i < REGIONI.length; i++) {
+      const reg = REGIONI[i];
+      await FitetClient.sleepWithJitter(1500, 3000);
+      try {
+        const text = await FitetClient.fetchHtml(
+          `https://portale.fitet.org/risultati/regioni/menu_reg.php?REG=${reg.id}`
+        );
+        const $ = cheerio.load(text);
           $('a[href*="CAM="]').each((_, el) => {
             const href = $(el).attr('href') || '';
             const m = href.match(/CAM=(\d+)/i);
@@ -401,7 +406,6 @@ class ChampionshipCatalog {
         } catch (e) {
           console.error(`Error scraping region ${reg.nome}:`, e);
         }
-      }));
     }
 
     return all;

@@ -8,9 +8,35 @@
 
 import { AsyncLocalStorage } from 'async_hooks';
 import { createHash } from 'crypto';
+import { Agent } from 'undici';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { cacheService } from './cacheService';
 
 const BASE_URL = 'https://portale.fitet.org';
+const CONNECT_TIMEOUT_MS = 25_000;
+const REQUEST_TIMEOUT_MS = 30_000;
+const SUPABASE_CACHE_PREFIX = 'fitet_cache:';
+
+const fitetDispatcher = new Agent({
+  connect: {
+    timeout: CONNECT_TIMEOUT_MS,
+  },
+});
+
+let supabaseClient: SupabaseClient | null | undefined;
+function getSupabaseClient(): SupabaseClient | null {
+  if (supabaseClient !== undefined) return supabaseClient;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    supabaseClient = null;
+    return null;
+  }
+  supabaseClient = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return supabaseClient;
+}
 
 const DEFAULT_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -97,12 +123,67 @@ function buildUpstreamCacheKey(kind: 'html' | 'post', url: string, extra = ''): 
   return `upstream_${kind}_${hash}`;
 }
 
+function shouldPersistInSupabase(url: string): boolean {
+  const normalized = url.toLowerCase();
+  return !normalized.includes('ajax.php') && !normalized.includes('scelta_atleta');
+}
+
+async function getSupabaseCachedHtml(cacheKey: string): Promise<{ html: string; remainingTtlMs: number } | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('push_state')
+      .select('value')
+      .eq('key', `${SUPABASE_CACHE_PREFIX}${cacheKey}`)
+      .maybeSingle();
+
+    if (error || !data?.value) return null;
+    const parsed = JSON.parse(data.value) as { html?: string; expiresAt?: number };
+    if (typeof parsed?.html !== 'string' || typeof parsed?.expiresAt !== 'number') {
+      return null;
+    }
+
+    const remainingTtlMs = parsed.expiresAt - Date.now();
+    if (remainingTtlMs <= 0) return null;
+    return { html: parsed.html, remainingTtlMs };
+  } catch {
+    return null;
+  }
+}
+
+async function setSupabaseCachedHtml(cacheKey: string, html: string, ttlMs: number): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !html) return;
+
+  try {
+    const payload = JSON.stringify({
+      html,
+      expiresAt: Date.now() + ttlMs,
+    });
+    await supabase
+      .from('push_state')
+      .upsert(
+        {
+          key: `${SUPABASE_CACHE_PREFIX}${cacheKey}`,
+          value: payload,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'key' }
+      );
+  } catch {
+    // Non bloccare il flusso in caso di errore di scrittura cache su Supabase
+  }
+}
+
 async function withUpstreamCache(
   cacheKey: string,
   url: string,
   loader: () => Promise<string>
 ): Promise<string> {
   const bypassed = isCacheBypassed();
+  const useSupabaseCache = shouldPersistInSupabase(url);
 
   if (!bypassed) {
     const cached = cacheService.get<string>(cacheKey);
@@ -116,18 +197,29 @@ async function withUpstreamCache(
     }
   }
 
-  const task = loader()
-    .then((html) => {
-      if (html) {
-        cacheService.set(cacheKey, html, resolveUpstreamTtlMs(url));
+  const task = (async () => {
+    if (!bypassed && useSupabaseCache) {
+      const remoteCached = await getSupabaseCachedHtml(cacheKey);
+      if (remoteCached) {
+        cacheService.set(cacheKey, remoteCached.html, remoteCached.remainingTtlMs);
+        return remoteCached.html;
       }
-      return html;
-    })
-    .finally(() => {
-      if (inFlightFetches.get(cacheKey) === task) {
-        inFlightFetches.delete(cacheKey);
+    }
+
+    const html = await loader();
+    if (html) {
+      const ttlMs = resolveUpstreamTtlMs(url);
+      cacheService.set(cacheKey, html, ttlMs);
+      if (useSupabaseCache) {
+        void setSupabaseCachedHtml(cacheKey, html, ttlMs);
       }
-    });
+    }
+    return html;
+  })().finally(() => {
+    if (inFlightFetches.get(cacheKey) === task) {
+      inFlightFetches.delete(cacheKey);
+    }
+  });
 
   if (!bypassed) {
     inFlightFetches.set(cacheKey, task);
@@ -136,6 +228,14 @@ async function withUpstreamCache(
 }
 
 export class FitetClient {
+  /**
+   * Attende un ritardo casuale (jitter) tra minMs e maxMs (default 1.5s - 3s)
+   * per evitare picchi sequenziali verso il WAF di portale.fitet.org.
+   */
+  static async sleepWithJitter(minMs = 1500, maxMs = 3000): Promise<void> {
+    const delay = Math.floor(minMs + Math.random() * Math.max(0, maxMs - minMs));
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
   /**
    * Fetches raw ISO-8859-1 HTML content from a FITeT endpoint and decodes it safely
    */
@@ -160,13 +260,15 @@ export class FitetClient {
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
-      const response = await fetch(url, {
+      const fetchOptions: RequestInit & { dispatcher?: unknown } = {
         headers,
         signal: controller.signal,
-      });
+        dispatcher: fitetDispatcher,
+      };
+      const response = await fetch(url, fetchOptions);
 
       if (!response.ok) {
         throw new Error(`FITeT HTTP error: ${response.status} ${response.statusText} on ${url}`);
@@ -213,15 +315,17 @@ export class FitetClient {
     };
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
-      const response = await fetch(url, {
+      const fetchOptions: RequestInit & { dispatcher?: unknown } = {
         method: 'POST',
         headers,
         body: serializedBody,
         signal: controller.signal,
-      });
+        dispatcher: fitetDispatcher,
+      };
+      const response = await fetch(url, fetchOptions);
 
       if (!response.ok) {
         throw new Error(`FITeT HTTP error: ${response.status} ${response.statusText} on ${url}`);

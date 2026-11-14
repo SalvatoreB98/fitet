@@ -8,6 +8,8 @@ import fs6 from "fs";
 // server/services/fitetClient.ts
 import { AsyncLocalStorage } from "async_hooks";
 import { createHash } from "crypto";
+import { Agent } from "undici";
+import { createClient } from "@supabase/supabase-js";
 
 // server/services/cacheService.ts
 import fs from "fs";
@@ -125,6 +127,28 @@ var cacheService = new CacheService();
 
 // server/services/fitetClient.ts
 var BASE_URL = "https://portale.fitet.org";
+var CONNECT_TIMEOUT_MS = 25e3;
+var REQUEST_TIMEOUT_MS = 3e4;
+var SUPABASE_CACHE_PREFIX = "fitet_cache:";
+var fitetDispatcher = new Agent({
+  connect: {
+    timeout: CONNECT_TIMEOUT_MS
+  }
+});
+var supabaseClient;
+function getSupabaseClient() {
+  if (supabaseClient !== void 0) return supabaseClient;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    supabaseClient = null;
+    return null;
+  }
+  supabaseClient = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  return supabaseClient;
+}
 var DEFAULT_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
   "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -169,8 +193,49 @@ function buildUpstreamCacheKey(kind, url, extra = "") {
   const hash = createHash("sha1").update(kind).update("\n").update(url).update("\n").update(extra).digest("hex");
   return `upstream_${kind}_${hash}`;
 }
+function shouldPersistInSupabase(url) {
+  const normalized = url.toLowerCase();
+  return !normalized.includes("ajax.php") && !normalized.includes("scelta_atleta");
+}
+async function getSupabaseCachedHtml(cacheKey) {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from("push_state").select("value").eq("key", `${SUPABASE_CACHE_PREFIX}${cacheKey}`).maybeSingle();
+    if (error || !data?.value) return null;
+    const parsed = JSON.parse(data.value);
+    if (typeof parsed?.html !== "string" || typeof parsed?.expiresAt !== "number") {
+      return null;
+    }
+    const remainingTtlMs = parsed.expiresAt - Date.now();
+    if (remainingTtlMs <= 0) return null;
+    return { html: parsed.html, remainingTtlMs };
+  } catch {
+    return null;
+  }
+}
+async function setSupabaseCachedHtml(cacheKey, html, ttlMs) {
+  const supabase = getSupabaseClient();
+  if (!supabase || !html) return;
+  try {
+    const payload = JSON.stringify({
+      html,
+      expiresAt: Date.now() + ttlMs
+    });
+    await supabase.from("push_state").upsert(
+      {
+        key: `${SUPABASE_CACHE_PREFIX}${cacheKey}`,
+        value: payload,
+        updated_at: (/* @__PURE__ */ new Date()).toISOString()
+      },
+      { onConflict: "key" }
+    );
+  } catch {
+  }
+}
 async function withUpstreamCache(cacheKey, url, loader) {
   const bypassed = isCacheBypassed();
+  const useSupabaseCache = shouldPersistInSupabase(url);
   if (!bypassed) {
     const cached = cacheService.get(cacheKey);
     if (typeof cached === "string") {
@@ -181,12 +246,24 @@ async function withUpstreamCache(cacheKey, url, loader) {
       return existing;
     }
   }
-  const task = loader().then((html) => {
+  const task = (async () => {
+    if (!bypassed && useSupabaseCache) {
+      const remoteCached = await getSupabaseCachedHtml(cacheKey);
+      if (remoteCached) {
+        cacheService.set(cacheKey, remoteCached.html, remoteCached.remainingTtlMs);
+        return remoteCached.html;
+      }
+    }
+    const html = await loader();
     if (html) {
-      cacheService.set(cacheKey, html, resolveUpstreamTtlMs(url));
+      const ttlMs = resolveUpstreamTtlMs(url);
+      cacheService.set(cacheKey, html, ttlMs);
+      if (useSupabaseCache) {
+        void setSupabaseCachedHtml(cacheKey, html, ttlMs);
+      }
     }
     return html;
-  }).finally(() => {
+  })().finally(() => {
     if (inFlightFetches.get(cacheKey) === task) {
       inFlightFetches.delete(cacheKey);
     }
@@ -197,6 +274,14 @@ async function withUpstreamCache(cacheKey, url, loader) {
   return task;
 }
 var FitetClient = class {
+  /**
+   * Attende un ritardo casuale (jitter) tra minMs e maxMs (default 1.5s - 3s)
+   * per evitare picchi sequenziali verso il WAF di portale.fitet.org.
+   */
+  static async sleepWithJitter(minMs = 1500, maxMs = 3e3) {
+    const delay = Math.floor(minMs + Math.random() * Math.max(0, maxMs - minMs));
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
   /**
    * Fetches raw ISO-8859-1 HTML content from a FITeT endpoint and decodes it safely
    */
@@ -217,12 +302,14 @@ var FitetClient = class {
       headers["Referer"] = customReferer || "https://portale.fitet.org/risultati/new_rank/testaclassifica_auto.php?ID_CLASS=248&ID=1&PASS=20";
     }
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12e3);
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
-      const response = await fetch(url, {
+      const fetchOptions = {
         headers,
-        signal: controller.signal
-      });
+        signal: controller.signal,
+        dispatcher: fitetDispatcher
+      };
+      const response = await fetch(url, fetchOptions);
       if (!response.ok) {
         throw new Error(`FITeT HTTP error: ${response.status} ${response.statusText} on ${url}`);
       }
@@ -257,14 +344,16 @@ ${customReferer || "default"}`
       "Referer": customReferer || `${BASE_URL}/risultati/new_rank/scelta_atleta.php`
     };
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12e3);
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
-      const response = await fetch(url, {
+      const fetchOptions = {
         method: "POST",
         headers,
         body: serializedBody,
-        signal: controller.signal
-      });
+        signal: controller.signal,
+        dispatcher: fitetDispatcher
+      };
+      const response = await fetch(url, fetchOptions);
       if (!response.ok) {
         throw new Error(`FITeT HTTP error: ${response.status} ${response.statusText} on ${url}`);
       }
@@ -408,7 +497,7 @@ ${customReferer || "default"}`
 };
 
 // server/services/viewsService.ts
-import { createClient } from "@supabase/supabase-js";
+import { createClient as createClient2 } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 dotenv.config();
 var ViewsService = class {
@@ -422,7 +511,7 @@ var ViewsService = class {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
     if (url && key) {
       try {
-        this.supabase = createClient(url, key, {
+        this.supabase = createClient2(url, key, {
           auth: {
             persistSession: false,
             autoRefreshToken: false
@@ -504,7 +593,7 @@ var ViewsService = class {
 var viewsService = new ViewsService();
 
 // server/services/analyticsService.ts
-import { createClient as createClient2 } from "@supabase/supabase-js";
+import { createClient as createClient3 } from "@supabase/supabase-js";
 import crypto from "crypto";
 import dotenv2 from "dotenv";
 dotenv2.config();
@@ -576,7 +665,7 @@ var AnalyticsService = class {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
     if (url && key) {
       try {
-        this.supabase = createClient2(url, key, {
+        this.supabase = createClient3(url, key, {
           auth: {
             persistSession: false,
             autoRefreshToken: false
@@ -2796,8 +2885,11 @@ var ChampionshipCatalog = class {
     }
     const fetchPool = targetSesso ? genderMatches : searchPool;
     const mapping = athleteResolver.getMapping();
-    const batchSize = 6;
+    const batchSize = 2;
     for (let i = 0; i < fetchPool.length; i += batchSize) {
+      if (i > 0) {
+        await FitetClient.sleepWithJitter(1500, 3e3);
+      }
       const batch = fetchPool.slice(i, i + batchSize);
       const batchResults = await Promise.all(
         batch.map(async (camp) => {
@@ -2835,12 +2927,15 @@ var ChampionshipCatalog = class {
   }
   async scrapeFromFitet() {
     const all = [];
-    for (const nat of NAZIONALI) {
+    for (let i = 0; i < NAZIONALI.length; i++) {
+      const nat = NAZIONALI[i];
+      if (i > 0) {
+        await FitetClient.sleepWithJitter(1500, 3e3);
+      }
       try {
-        const res = await fetch(`https://portale.fitet.org/risultati/campionati/elenco_campionati.php?ID_CAMP=${nat.cid}`, {
-          headers: { "User-Agent": "Mozilla/5.0" }
-        });
-        const text = new TextDecoder("iso-8859-1").decode(await res.arrayBuffer());
+        const text = await FitetClient.fetchHtml(
+          `https://portale.fitet.org/risultati/campionati/elenco_campionati.php?ID_CAMP=${nat.cid}`
+        );
         const $ = cheerio4.load(text);
         $("tr").each((_, tr) => {
           const rowText = $(tr).find("td").first().text().trim().toLowerCase();
@@ -2869,45 +2964,43 @@ var ChampionshipCatalog = class {
         console.error(`Error scraping national ${nat.nome}:`, e);
       }
     }
-    for (let i = 0; i < REGIONI.length; i += 5) {
-      const batch = REGIONI.slice(i, i + 5);
-      await Promise.all(batch.map(async (reg) => {
-        try {
-          const res = await fetch(`https://portale.fitet.org/risultati/regioni/menu_reg.php?REG=${reg.id}`, {
-            headers: { "User-Agent": "Mozilla/5.0" }
-          });
-          const text = new TextDecoder("iso-8859-1").decode(await res.arrayBuffer());
-          const $ = cheerio4.load(text);
-          $('a[href*="CAM="]').each((_, el) => {
-            const href = $(el).attr("href") || "";
-            const m = href.match(/CAM=(\d+)/i);
-            if (m) {
-              const id = parseInt(m[1], 10);
-              const name = $(el).text().replace(/\s+/g, " ").trim();
-              if (id && name) {
-                let cat = "Regionale";
-                const firstPart = name.split(" ")[0];
-                if (firstPart.includes("/") || firstPart.length <= 4) {
-                  cat = firstPart;
-                }
-                const isFem = /femm|femminil/i.test(name) || /femm|femminil/i.test(cat);
-                all.push({
-                  id,
-                  nome: name,
-                  categoria: cat,
-                  regione: reg.nome,
-                  regioneId: reg.id,
-                  anno: 41,
-                  formula: 19,
-                  sesso: isFem ? "F" : "M"
-                });
+    for (let i = 0; i < REGIONI.length; i++) {
+      const reg = REGIONI[i];
+      await FitetClient.sleepWithJitter(1500, 3e3);
+      try {
+        const text = await FitetClient.fetchHtml(
+          `https://portale.fitet.org/risultati/regioni/menu_reg.php?REG=${reg.id}`
+        );
+        const $ = cheerio4.load(text);
+        $('a[href*="CAM="]').each((_, el) => {
+          const href = $(el).attr("href") || "";
+          const m = href.match(/CAM=(\d+)/i);
+          if (m) {
+            const id = parseInt(m[1], 10);
+            const name = $(el).text().replace(/\s+/g, " ").trim();
+            if (id && name) {
+              let cat = "Regionale";
+              const firstPart = name.split(" ")[0];
+              if (firstPart.includes("/") || firstPart.length <= 4) {
+                cat = firstPart;
               }
+              const isFem = /femm|femminil/i.test(name) || /femm|femminil/i.test(cat);
+              all.push({
+                id,
+                nome: name,
+                categoria: cat,
+                regione: reg.nome,
+                regioneId: reg.id,
+                anno: 41,
+                formula: 19,
+                sesso: isFem ? "F" : "M"
+              });
             }
-          });
-        } catch (e) {
-          console.error(`Error scraping region ${reg.nome}:`, e);
-        }
-      }));
+          }
+        });
+      } catch (e) {
+        console.error(`Error scraping region ${reg.nome}:`, e);
+      }
     }
     return all;
   }
@@ -4488,7 +4581,7 @@ async function generateAthleteStoryCard(athlete, theme = "panoramica") {
 
 // server/services/pushService.ts
 import webpush from "web-push";
-import { createClient as createClient3 } from "@supabase/supabase-js";
+import { createClient as createClient4 } from "@supabase/supabase-js";
 import dotenv3 from "dotenv";
 dotenv3.config();
 var SUBSCRIPTION_CONTEXTS_STATE_KEY = "push_subscription_contexts";
@@ -4512,7 +4605,7 @@ var PushService = class {
       return;
     }
     try {
-      this.supabase = createClient3(url, key, {
+      this.supabase = createClient4(url, key, {
         auth: {
           persistSession: false,
           autoRefreshToken: false
@@ -4990,7 +5083,7 @@ async function notifyRankingChangeIfNeeded(idClass) {
 }
 
 // server/services/youtubeSyncService.ts
-import { createClient as createClient4 } from "@supabase/supabase-js";
+import { createClient as createClient5 } from "@supabase/supabase-js";
 import dotenv4 from "dotenv";
 dotenv4.config();
 var YOUTUBE_CHANNELS = [
@@ -5070,7 +5163,7 @@ var YouTubeSyncService = class {
       return;
     }
     try {
-      this.supabase = createClient4(url, key, {
+      this.supabase = createClient5(url, key, {
         auth: {
           persistSession: false,
           autoRefreshToken: false
@@ -6919,28 +7012,23 @@ async function checkChampionshipsAndNotify(options = {}) {
     };
   }
   const results = [];
-  const concurrency = 4;
-  for (let i = 0; i < targetCamIds.length; i += concurrency) {
-    const batch = targetCamIds.slice(i, i + concurrency);
-    const batchResults = await Promise.all(
-      batch.map(async (camId) => {
-        try {
-          const snapshot = await fetchChampionshipSnapshotFromFitet(camId, annoId);
-          if (!snapshot) {
-            return null;
-          }
-          return await evaluateSnapshotAndNotify(snapshot, { dryRun, init });
-        } catch (err) {
-          console.warn(
-            `[CampionatoNotifier] Errore controllo campionato ${camId}:`,
-            err
-          );
-          return null;
-        }
-      })
-    );
-    for (const r of batchResults) {
-      if (r) results.push(r);
+  for (let i = 0; i < targetCamIds.length; i++) {
+    const camId = targetCamIds[i];
+    if (i > 0) {
+      await FitetClient.sleepWithJitter(1500, 3e3);
+    }
+    try {
+      const snapshot = await fetchChampionshipSnapshotFromFitet(camId, annoId);
+      if (!snapshot) {
+        continue;
+      }
+      const res = await evaluateSnapshotAndNotify(snapshot, { dryRun, init });
+      if (res) results.push(res);
+    } catch (err) {
+      console.warn(
+        `[CampionatoNotifier] Errore controllo campionato ${camId}:`,
+        err
+      );
     }
   }
   const changedCount = results.filter((r) => r.changed).length;
@@ -7031,7 +7119,11 @@ async function checkMatchdayAndNotify(options = {}) {
   }
   const results = [];
   const normalizedTargetIT = normalizeDateMatch(dateIT);
-  for (const camId of targetCamIds) {
+  for (let i = 0; i < targetCamIds.length; i++) {
+    const camId = targetCamIds[i];
+    if (i > 0) {
+      await FitetClient.sleepWithJitter(1500, 3e3);
+    }
     try {
       const [calendarioHtml, champMeta] = await Promise.all([
         FitetClient.fetchCalendario(camId, annoId).catch(() => ""),

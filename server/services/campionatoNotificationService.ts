@@ -762,30 +762,24 @@ export async function checkChampionshipsAndNotify(
   }
 
   const results: SingleChampionshipCheckResult[] = [];
-  const concurrency = 4;
 
-  for (let i = 0; i < targetCamIds.length; i += concurrency) {
-    const batch = targetCamIds.slice(i, i + concurrency);
-    const batchResults = await Promise.all(
-      batch.map(async (camId) => {
-        try {
-          const snapshot = await fetchChampionshipSnapshotFromFitet(camId, annoId);
-          if (!snapshot) {
-            return null;
-          }
-          return await evaluateSnapshotAndNotify(snapshot, { dryRun, init });
-        } catch (err) {
-          console.warn(
-            `[CampionatoNotifier] Errore controllo campionato ${camId}:`,
-            err
-          );
-          return null;
-        }
-      })
-    );
-
-    for (const r of batchResults) {
-      if (r) results.push(r);
+  for (let i = 0; i < targetCamIds.length; i++) {
+    const camId = targetCamIds[i];
+    if (i > 0) {
+      await FitetClient.sleepWithJitter(1500, 3000);
+    }
+    try {
+      const snapshot = await fetchChampionshipSnapshotFromFitet(camId, annoId);
+      if (!snapshot) {
+        continue;
+      }
+      const res = await evaluateSnapshotAndNotify(snapshot, { dryRun, init });
+      if (res) results.push(res);
+    } catch (err) {
+      console.warn(
+        `[CampionatoNotifier] Errore controllo campionato ${camId}:`,
+        err
+      );
     }
   }
 
@@ -927,7 +921,11 @@ export async function checkMatchdayAndNotify(
   const results: SingleMatchdayCheckResult[] = [];
   const normalizedTargetIT = normalizeDateMatch(dateIT);
 
-  for (const camId of targetCamIds) {
+  for (let i = 0; i < targetCamIds.length; i++) {
+    const camId = targetCamIds[i];
+    if (i > 0) {
+      await FitetClient.sleepWithJitter(1500, 3000);
+    }
     try {
       const [calendarioHtml, champMeta] = await Promise.all([
         FitetClient.fetchCalendario(camId, annoId).catch(() => ''),
