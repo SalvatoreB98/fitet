@@ -6,6 +6,7 @@ import { getTeamLogoUrl } from '../utils/teamLogos';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { TeamLogo } from './TeamLogo';
 import { AthleteAvatar } from './AthleteAvatar';
+import MarqueeText from './MarqueeText';
 
 interface RefertoModalProps {
   incontroId: string;
@@ -436,101 +437,33 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
 
                             {/* Individual match detail view */}
                             <div className="expanded-detail-grid">
-                              {/* Athlete Casa Profile Card */}
-                              {(() => {
-                                const isDoublesCasa = match.atletaCasa.includes(' - ');
-                                const casaPlayers = isDoublesCasa
-                                  ? match.atletaCasa.split(' - ').map((s) => s.trim())
-                                  : [match.atletaCasa];
-                                const hasValidPhoto =
-                                  Boolean(dettaglio?.atletaCasa.fotoUrl) &&
-                                  !dettaglio?.atletaCasa.fotoUrl?.includes('-vuoto');
 
-                                return (
-                                  <div className="athlete-card casa-card">
-                                    <div
-                                      className="athlete-photo-frame"
-                                      onClick={() => handleOpenAthlete(dettaglio?.atletaCasa.atletaId, match.atletaCasa)}
-                                      style={{ cursor: onOpenAtletaModal ? 'pointer' : 'default' }}
-                                      title={onOpenAtletaModal ? `Visualizza scheda ${match.atletaCasa}` : undefined}
-                                    >
-                                      <AthleteAvatar
-                                        atletaId={dettaglio?.atletaCasa.atletaId || athleteIdMap[match.atletaCasa.trim().toUpperCase()]}
-                                        nome={match.atletaCasa}
-                                        size={36}
-                                        className="athlete-photo"
-                                      />
-                                    </div>
-                                    <div className="athlete-info">
-                                      <div className="athlete-name-row">
-                                        <strong
-                                          style={{ cursor: onOpenAtletaModal ? 'pointer' : 'default' }}
-                                          onClick={() => {
-                                            if (!onOpenAtletaModal) return;
-                                            if (isDoublesCasa) {
-                                              handleOpenAthlete(dettaglio?.atletaCasa.atletaId, casaPlayers[0]);
-                                            } else {
-                                              handleOpenAthlete(dettaglio?.atletaCasa.atletaId, match.atletaCasa);
-                                            }
-                                          }}
-                                          title={onOpenAtletaModal ? `Visualizza scheda di ${isDoublesCasa ? casaPlayers[0] : match.atletaCasa}` : undefined}
-                                        >
-                                          {match.atletaCasa}
-                                        </strong>
-                                        {dettaglio?.atletaCasa.bandieraUrl && (
-                                          <img
-                                            src={dettaglio.atletaCasa.bandieraUrl}
-                                            alt="Bandiera"
-                                            className="athlete-flag"
-                                          />
-                                        )}
-                                      </div>
-                                      {onOpenAtletaModal &&
-                                        (isDoublesCasa ? (
-                                          <div className="doubles-athlete-links">
-                                            {casaPlayers.map((player, idx) => (
-                                              <button
-                                                key={idx}
-                                                type="button"
-                                                className="btn-athlete-link"
-                                                onClick={() =>
-                                                  handleOpenAthlete(
-                                                    idx === 0 ? dettaglio?.atletaCasa.atletaId : undefined,
-                                                    player
-                                                  )
-                                                }
-                                                title={`Visualizza scheda ranking di ${player}`}
-                                              >
-                                                <i className="bi bi-box-arrow-up-right"></i>
-                                              </button>
-                                            ))}
-                                          </div>
-                                        ) : (
-                                          <button
-                                            type="button"
-                                            className="btn-athlete-link"
-                                            onClick={() =>
-                                              handleOpenAthlete(dettaglio?.atletaCasa.atletaId, match.atletaCasa)
-                                            }
-                                            title={`Visualizza scheda di ${match.atletaCasa}`}
-                                            aria-label={`Visualizza scheda di ${match.atletaCasa}`}
-                                          >
-                                            <i className="bi bi-box-arrow-up-right"></i>
-                                          </button>
-                                        ))}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
 
                               {/* Sets Progression Table */}
                               <div className="sets-table-box">
                                 <table className="sets-progression-table">
                                   <thead>
                                     <tr>
-                                      <th>CASA</th>
+                                      <th>                                       <AthleteAvatar
+                                        atletaId={dettaglio?.atletaCasa.atletaId || athleteIdMap[match.atletaCasa.trim().toUpperCase()]}
+                                        nome={match.atletaCasa}
+                                        size={20}
+                                        className="athlete-photo"
+                                      />
+                                        <span className='casa-ospite-detail ms-1'>
+                                          <MarqueeText>{match.atletaCasa}</MarqueeText>
+                                        </span>
+                                      </th>
                                       <th>SET</th>
-                                      <th>OSPITE</th>
+                                      <th>                                      <AthleteAvatar
+                                        atletaId={dettaglio?.atletaOspite.atletaId || athleteIdMap[match.atletaOspite.trim().toUpperCase()]}
+                                        nome={match.atletaOspite}
+                                        size={20}
+                                        className="athlete-photo"
+                                      />
+                                        <span className='casa-ospite-detail ms-1'>
+                                          <MarqueeText>{match.atletaOspite}</MarqueeText>
+                                        </span></th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -562,93 +495,6 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                   )}
                                 </table>
                               </div>
-
-                              {/* Athlete Ospite Profile Card */}
-                              {(() => {
-                                const isDoublesOspite = match.atletaOspite.includes(' - ');
-                                const ospitePlayers = isDoublesOspite
-                                  ? match.atletaOspite.split(' - ').map((s) => s.trim())
-                                  : [match.atletaOspite];
-                                const hasValidPhoto =
-                                  Boolean(dettaglio?.atletaOspite.fotoUrl) &&
-                                  !dettaglio?.atletaOspite.fotoUrl?.includes('-vuoto');
-
-                                return (
-                                  <div className="athlete-card ospite-card">
-                                    <div
-                                      className="athlete-photo-frame"
-                                      onClick={() => handleOpenAthlete(dettaglio?.atletaOspite.atletaId, match.atletaOspite)}
-                                      style={{ cursor: onOpenAtletaModal ? 'pointer' : 'default' }}
-                                      title={onOpenAtletaModal ? `Visualizza scheda ${match.atletaOspite}` : undefined}
-                                    >
-                                      <AthleteAvatar
-                                        atletaId={dettaglio?.atletaOspite.atletaId || athleteIdMap[match.atletaOspite.trim().toUpperCase()]}
-                                        nome={match.atletaOspite}
-                                        size={36}
-                                        className="athlete-photo"
-                                      />
-                                    </div>
-                                    <div className="athlete-info">
-                                      <div className="athlete-name-row">
-                                        <strong
-                                          style={{ cursor: onOpenAtletaModal ? 'pointer' : 'default' }}
-                                          onClick={() => {
-                                            if (!onOpenAtletaModal) return;
-                                            if (isDoublesOspite) {
-                                              handleOpenAthlete(dettaglio?.atletaOspite.atletaId, ospitePlayers[0]);
-                                            } else {
-                                              handleOpenAthlete(dettaglio?.atletaOspite.atletaId, match.atletaOspite);
-                                            }
-                                          }}
-                                          title={onOpenAtletaModal ? `Visualizza scheda di ${isDoublesOspite ? ospitePlayers[0] : match.atletaOspite}` : undefined}
-                                        >
-                                          {match.atletaOspite}
-                                        </strong>
-                                        {dettaglio?.atletaOspite.bandieraUrl && (
-                                          <img
-                                            src={dettaglio.atletaOspite.bandieraUrl}
-                                            alt="Bandiera"
-                                            className="athlete-flag"
-                                          />
-                                        )}
-                                      </div>
-                                      {onOpenAtletaModal &&
-                                        (isDoublesOspite ? (
-                                          <div className="doubles-athlete-links">
-                                            {ospitePlayers.map((player, idx) => (
-                                              <button
-                                                key={idx}
-                                                type="button"
-                                                className="btn-athlete-link"
-                                                onClick={() =>
-                                                  handleOpenAthlete(
-                                                    idx === 0 ? dettaglio?.atletaOspite.atletaId : undefined,
-                                                    player
-                                                  )
-                                                }
-                                                title={`Visualizza scheda ranking di ${player}`}
-                                              >
-                                                <i className="bi bi-box-arrow-up-right"></i>
-                                              </button>
-                                            ))}
-                                          </div>
-                                        ) : (
-                                          <button
-                                            type="button"
-                                            className="btn-athlete-link"
-                                            onClick={() =>
-                                              handleOpenAthlete(dettaglio?.atletaOspite.atletaId, match.atletaOspite)
-                                            }
-                                            title={`Visualizza scheda di ${match.atletaOspite}`}
-                                            aria-label={`Visualizza scheda di ${match.atletaOspite}`}
-                                          >
-                                            <i className="bi bi-box-arrow-up-right"></i>
-                                          </button>
-                                        ))}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
                             </div>
                           </div>
                         )}
