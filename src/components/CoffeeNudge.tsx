@@ -124,7 +124,7 @@ export const CoffeeNudge: React.FC<CoffeeNudgeProps> = ({ isSuppressed = false }
           onClick={handleSupportClick}
           style={{ width: '100%' }}
         >
-          Sostieni il progetto ☕
+          Offri un caffè ☕
         </a>
       </div>
     </aside>
