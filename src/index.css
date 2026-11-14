@@ -2663,6 +2663,8 @@ body.modal-open {
   flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+  color: var(--text-dark);
+  background: #df7373;
 }
 
 .modal-header-simple .modal-close-btn {
@@ -2673,10 +2675,9 @@ body.modal-open {
 }
 
 .modal-close-btn:hover {
-  background: rgba(255, 255, 255, 0.18) !important;
   border-color: rgba(255, 255, 255, 0.28) !important;
   color: #ffffff !important;
-  transform: none !important;
+  transform: scale(0.9) !important;
   box-shadow: none !important;
 }
 

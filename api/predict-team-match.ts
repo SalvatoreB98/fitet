@@ -4,8 +4,10 @@ import type {
   PredictTeamMatchRequestBody,
   SimulatedIndividualMatch,
   TeamMatchAIPlayerInput,
+  TeamMatchFormulaInfo,
   TeamMatchPrediction,
 } from '../src/types/fitet';
+import { buildSwaythlingSchedule } from '../src/utils/teamMatchPreview';
 
 function formatPlayersForPrompt(players: TeamMatchAIPlayerInput[]): string {
   if (!players || players.length === 0) {
@@ -134,12 +136,62 @@ export async function handlePredictTeamMatch(req: Request | any, res: Response |
       ? `Precedente nello stesso campionato (${reverseFixture.fase} Giornata ${reverseFixture.giornata}, ${reverseFixture.data}): ${reverseFixture.casaNome} vs ${reverseFixture.ospiteNome} finita ${reverseFixture.risultato}.`
       : 'Nessun precedente già disputato in questo campionato.';
 
-    const formulaDesc = formulaInfo
-      ? `${formulaInfo.label} (incontri per giornata: ${formulaInfo.expectedTotalMatches}, ` +
-        `pareggio possibile: ${formulaInfo.drawsPossible ? 'SÌ' : 'NO'}, ` +
-        `soglia vittoria: ${formulaInfo.winningThreshold ?? 'maggioranza'}, ` +
-        `punteggi osservati nel girone: ${formulaInfo.sampleScores.length ? formulaInfo.sampleScores.join(', ') : 'N/D'})`
-      : 'Formula standard FITeT a squadre (al meglio delle 5 o 6 partite, best of 5 set per incontro)';
+    const effectiveFormula: TeamMatchFormulaInfo = {
+      formulaId: formulaInfo?.formulaId,
+      label: 'Mini-Swaythling con Doppio (7 incontri completi: 6 singolari + 1 doppio)',
+      expectedTotalMatches: 7,
+      winningThreshold: 4,
+      drawsPossible: false,
+      hasDoubles: true,
+      sampleScores: formulaInfo?.sampleScores || [],
+    };
+
+    const resolveSingles = (
+      team: PredictTeamMatchRequestBody['homeTeam'],
+      fallbackPrefix: string
+    ): [string, string, string] => {
+      const s = team.lineup?.singles;
+      const p0 = (s?.[0] || team.players[0]?.nome || `${fallbackPrefix} A`).trim();
+      const p1 = (s?.[1] || team.players[1]?.nome || p0).trim();
+      const p2 = (s?.[2] || team.players[2]?.nome || p1).trim();
+      return [p0, p1, p2];
+    };
+
+    const resolveDoubles = (
+      team: PredictTeamMatchRequestBody['homeTeam'],
+      singles: [string, string, string]
+    ): [string, string] => {
+      const d = team.lineup?.doubles;
+      const d0 = (d?.[0] || singles[0]).trim();
+      const d1 = (d?.[1] || singles[1]).trim();
+      return [d0, d1];
+    };
+
+    const homeSingles = resolveSingles(homeTeam, homeTeam.nome);
+    const awaySingles = resolveSingles(awayTeam, awayTeam.nome);
+    const homeDoubles = resolveDoubles(homeTeam, homeSingles);
+    const awayDoubles = resolveDoubles(awayTeam, awaySingles);
+
+    const schedule = buildSwaythlingSchedule(
+      effectiveFormula,
+      homeSingles,
+      awaySingles,
+      homeDoubles,
+      awayDoubles
+    );
+
+    const scheduleText = schedule
+      .map(
+        (slot) =>
+          `  ${slot.numero}. [${slot.slotLabel}] ${slot.atletaCasa} vs ${slot.atletaOspite}`
+      )
+      .join('\n');
+
+    const formulaDesc = `${effectiveFormula.label} (incontri massimi: ${effectiveFormula.expectedTotalMatches}, ` +
+      `doppio previsto: ${effectiveFormula.hasDoubles ? 'SÌ' : 'NO'}, ` +
+      `pareggio possibile: ${effectiveFormula.drawsPossible ? 'SÌ' : 'NO'}, ` +
+      `soglia vittoria: ${effectiveFormula.winningThreshold ?? 'maggioranza'}, ` +
+      `punteggi osservati nel girone: ${effectiveFormula.sampleScores.length ? effectiveFormula.sampleScores.join(', ') : 'N/D'})`;
 
     const prompt = `Sei un analista esperto di tennistavolo italiano (FITeT). Devi produrre il pronostico tecnico completo per un incontro di campionato a squadre futuro.
 
@@ -152,26 +204,28 @@ CONTESTO INCONTRO:
 SQUADRA CASA: ${homeTeam.nome}
 - Classifica: ${homeTeam.posizione ? `#${homeTeam.posizione}` : 'N/D'} | Punti: ${homeTeam.puntiClassifica ?? 'N/D'} | Bilancio: ${homeTeam.incontriVinti ?? 0}V-${homeTeam.incontriPareggiati ?? 0}N-${homeTeam.incontriPersi ?? 0}P
 - Partite singole: ${homeTeam.partiteVinte ?? 0}V-${homeTeam.partitePerse ?? 0}P | Set: ${homeTeam.setVinti ?? 0}:${homeTeam.setPersi ?? 0} | Punti: ${homeTeam.puntiVinti ?? 0}-${homeTeam.puntiPersi ?? 0} | Forma recente: ${homeForma}
+- Formazione schierata: A=${homeSingles[0]}, B=${homeSingles[1]}, C=${homeSingles[2]}${effectiveFormula.hasDoubles ? `, Doppio=${homeDoubles[0]} / ${homeDoubles[1]}` : ''}
 - Giocatori selezionati (valutati):
 ${formatPlayersForPrompt(homeTeam.players)}
 
 SQUADRA OSPITE: ${awayTeam.nome}
 - Classifica: ${awayTeam.posizione ? `#${awayTeam.posizione}` : 'N/D'} | Punti: ${awayTeam.puntiClassifica ?? 'N/D'} | Bilancio: ${awayTeam.incontriVinti ?? 0}V-${awayTeam.incontriPareggiati ?? 0}N-${awayTeam.incontriPersi ?? 0}P
 - Partite singole: ${awayTeam.partiteVinte ?? 0}V-${awayTeam.partitePerse ?? 0}P | Set: ${awayTeam.setVinti ?? 0}:${awayTeam.setPersi ?? 0} | Punti: ${awayTeam.puntiVinti ?? 0}-${awayTeam.puntiPersi ?? 0} | Forma recente: ${awayForma}
+- Formazione schierata: X=${awaySingles[0]}, Y=${awaySingles[1]}, Z=${awaySingles[2]}${effectiveFormula.hasDoubles ? `, Doppio=${awayDoubles[0]} / ${awayDoubles[1]}` : ''}
 - Giocatori selezionati (valutati):
 ${formatPlayersForPrompt(awayTeam.players)}
 
 ISTRUZIONI:
-1. Simula gli incontri individuali ("incontriSimulati") usando ESATTAMENTE i nomi dei giocatori forniti sopra, rispettando la formula del campionato:
-   - Se la formula prevede il pareggio (es. 6 incontri totali tipo 4-2 o 3-3), genera 6 incontri individuali incrociando i giocatori (es. A1-B2, A2-B1, A3-B3, A1-B1, A3-B2, A2-B3).
-   - Se la formula è Swaythling (9 singolari, vince chi arriva a 5), genera gli incontri fino al raggiungimento del 5° punto (da 5 a 9 incontri, es. 5-0, 5-1, 5-2, 5-3, 5-4).
-   - Se la formula è a 5 incontri (vince chi arriva a 3), genera da 3 a 5 incontri fino al 3° punto.
+1. ORDINE UFFICIALE DEGLI INCONTRI (${effectiveFormula.label}):
+${scheduleText}
+   - Simula TUTTI E ${schedule.length} gli incontri ESATTAMENTE in questo ordine e con questi esatti abbinamenti/nomi di giocatori, SENZA fermarti al 4° punto.
+   - Si disputano sempre tutti i 7 incontri (6 singolari + 1 doppio): il risultato finale della squadra deve avere SEMPRE somma uguale a 7 (es. 7-0, 6-1, 5-2, 4-3, 3-4, 2-5, 1-6 o 0-7). Non è previsto il pareggio.
 2. Per ogni incontro individuale fornisci:
    - setCasa e setOspite (al meglio dei 5 set: chi vince fa 3, chi perde 0, 1 o 2)
    - puntiCasa e puntiOspite realistici (somma dei punti di tutti i set, es. in un 3-1 circa 40-31)
    - probCasa (intero 5-95) e una nota tattica brevissima (max 10 parole).
-3. Calcola le probabilità globali dell'incontro: probCasa, probPareggio (0 se pareggio non possibile), probOspite (somma esatta = 100).
-4. Fornisci "keyFactor" (1 frase incisiva sul fattore decisivo) e "analysis" (2-4 frasi tecniche in italiano che citino giocatori chiave, differenza di ranking/punti, set e fattore campo).
+3. Calcola le probabilità globali dell'incontro: probCasa, probPareggio (${effectiveFormula.drawsPossible ? 'intero 0-95 se il pareggio è possibile' : 'SEMPRE 0 perché la formula non ammette pareggio'}), probOspite (somma esatta = 100).
+4. Fornisci "keyFactor" (1 frase incisiva sul fattore decisivo) e "analysis" (2-4 frasi tecniche in italiano che citino il doppio se presente, i giocatori chiave ABC/XYZ, gli incroci favorevoli e il fattore campo).
 
 Restituisci ESCLUSIVAMENTE un JSON valido con questo schema esatto:
 {
@@ -238,15 +292,15 @@ Restituisci ESCLUSIVAMENTE un JSON valido con questo schema esatto:
     const raw = JSON.parse(cleanedText);
 
     const rawMatches: any[] = Array.isArray(raw.incontriSimulati) ? raw.incontriSimulati : [];
-    const incontriSimulati: SimulatedIndividualMatch[] = rawMatches.slice(0, 10).map((m, idx) => {
-      const atletaCasa =
-        typeof m?.atletaCasa === 'string' && m.atletaCasa.trim()
-          ? m.atletaCasa.trim()
-          : homeTeam.players[idx % Math.max(1, homeTeam.players.length)]?.nome || `${homeTeam.nome} #${idx + 1}`;
-      const atletaOspite =
-        typeof m?.atletaOspite === 'string' && m.atletaOspite.trim()
-          ? m.atletaOspite.trim()
-          : awayTeam.players[idx % Math.max(1, awayTeam.players.length)]?.nome || `${awayTeam.nome} #${idx + 1}`;
+    const incontriSimulati: SimulatedIndividualMatch[] = [];
+    let homeWins = 0;
+    let awayWins = 0;
+
+    for (let idx = 0; idx < schedule.length; idx++) {
+      const m = rawMatches[idx] || {};
+      const slot = schedule[idx];
+      const atletaCasa = slot.atletaCasa;
+      const atletaOspite = slot.atletaOspite;
 
       const rawProbCasa = Math.round(Number(m?.probCasa));
       const probCasa = Number.isFinite(rawProbCasa) ? Math.max(1, Math.min(99, rawProbCasa)) : 50;
@@ -260,12 +314,17 @@ Restituisci ESCLUSIVAMENTE un JSON valido con questo schema esatto:
         vincitore
       );
 
-      return {
-        numero: Number.isFinite(Number(m?.numero)) ? Number(m.numero) : idx + 1,
+      if (vincitore === 'casa') homeWins++;
+      else awayWins++;
+
+      incontriSimulati.push({
+        numero: slot.numero,
+        slotLabel: slot.slotLabel,
+        isDoppio: slot.isDoppio,
         atletaCasa,
-        atletaCasaId: resolvePlayerId(atletaCasa, homeTeam.players),
+        atletaCasaId: slot.isDoppio ? undefined : resolvePlayerId(atletaCasa, homeTeam.players),
         atletaOspite,
-        atletaOspiteId: resolvePlayerId(atletaOspite, awayTeam.players),
+        atletaOspiteId: slot.isDoppio ? undefined : resolvePlayerId(atletaOspite, awayTeam.players),
         vincitore,
         probCasa,
         setCasa,
@@ -273,12 +332,12 @@ Restituisci ESCLUSIVAMENTE un JSON valido con questo schema esatto:
         puntiCasa,
         puntiOspite,
         nota: typeof m?.nota === 'string' ? m.nota.trim() : '',
-      };
-    });
+      });
+    }
 
     // Normalize probabilities so probCasa + probPareggio + probOspite === 100
     let probCasa = Math.round(Number(raw.probCasa));
-    let probPareggio = formulaInfo?.drawsPossible ? Math.round(Number(raw.probPareggio)) : 0;
+    let probPareggio = effectiveFormula.drawsPossible ? Math.round(Number(raw.probPareggio)) : 0;
     let probOspite = Math.round(Number(raw.probOspite));
 
     if (!Number.isFinite(probCasa)) probCasa = 50;

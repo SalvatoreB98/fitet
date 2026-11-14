@@ -1,6 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { TorneoMatchItem } from '../types/fitet';
 import { AthleteAvatar } from './AthleteAvatar';
+import {
+  computeBracketRows,
+  findNextRoundMatchIndex,
+  getMatchWinnerName,
+  selectMainTabRounds,
+  sortBracketRounds,
+} from '../utils/bracketRounds';
 import './TorneoBracket.css';
 
 export interface BracketRoundData {
@@ -48,12 +55,15 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
   const initialPinchOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const rafZoomUpdateRef = useRef<number | null>(null);
 
-  // Normalizza e ordina i round dal primo turno (più partite) all'ultimo (la finale con 1 partita)
+  // Normalizza e ordina i round dal primo turno (più partite) all'ultimo (la finale con 1 partita).
+  // L'ordine si basa sul numero di turno FITeT (monotono), non sul numero di incontri:
+  // con i bye due turni consecutivi possono avere lo stesso numero di partite.
   const sortedRounds = useMemo(() => {
     if (!rounds || rounds.length === 0) return [];
-    const valid = rounds.filter((r) => r.matches && r.matches.length > 0);
-    // Ordina dal turno con più incontri (es. 16/8 match) a quello con meno (es. finale con 1 match)
-    return [...valid].sort((a, b) => b.matches.length - a.matches.length);
+
+    // Se la gara ha più tabelloni (principal + consolazione) non vanno mescolati.
+    const mainTabRounds = selectMainTabRounds(rounds);
+    return sortBracketRounds(mainTabRounds);
   }, [rounds]);
 
   // Calcolo layout a due lati (Two-sides se primo round ha >= 8 incontri)
@@ -68,7 +78,13 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
       };
     }
 
-    const firstMatchesCount = sortedRounds[0].matches.length;
+    // La finale è l'ultimo turno se ha un solo incontro; eventuali turni con
+    // un solo match ma non conclusivi restano nelle colonne laterali.
+    const lastRound = sortedRounds[sortedRounds.length - 1];
+    const hasFinal = lastRound.matches.length === 1;
+    const sideSourceRounds = hasFinal ? sortedRounds.slice(0, -1) : sortedRounds;
+
+    const firstMatchesCount = sideSourceRounds[0]?.matches.length ?? 0;
     const twoSides = firstMatchesCount >= 8;
 
     if (!twoSides) {
@@ -76,26 +92,23 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
         isTwoSides: false,
         leftRounds: [],
         rightRounds: [],
-        finalMatch: null,
-        centerRoundLabel: '',
+        finalMatch: hasFinal ? lastRound.matches[0] : null,
+        centerRoundLabel: hasFinal ? lastRound.roundLabel || 'Finale' : '',
       };
     }
 
     const left: BracketRoundData[] = [];
     const right: BracketRoundData[] = [];
-    let final: TorneoMatchItem | null = null;
-    let finalLabel = 'Finale';
+    let final: TorneoMatchItem | null = hasFinal ? lastRound.matches[0] : null;
+    const finalLabel = hasFinal ? lastRound.roundLabel || 'Finale' : 'Finale';
 
-    sortedRounds.forEach((r) => {
+    sideSourceRounds.forEach((r) => {
       const m = r.matches || [];
-      if (m.length === 1) {
-        final = m[0];
-        finalLabel = r.roundLabel || 'Finale';
-      } else {
-        const half = Math.floor(m.length / 2);
-        left.push({ ...r, matches: m.slice(0, half) });
-        right.push({ ...r, matches: m.slice(half) });
-      }
+      // Il lato sinistro rappresenta la metà alta del tabellone: con un numero
+      // dispari di incontri il match "in più" resta a sinistra.
+      const half = Math.ceil(m.length / 2);
+      left.push({ ...r, matches: m.slice(0, half) });
+      right.push({ ...r, matches: m.slice(half) });
     });
 
     return {
@@ -106,6 +119,15 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
       centerRoundLabel: finalLabel,
     };
   }, [sortedRounds]);
+
+  // Righe delle card: tabellone pieno → spaziatura classica, con bye → genitori
+  // centrati sui figli realmente presenti.
+  const singleSideRows = useMemo(() => computeBracketRows(sortedRounds), [sortedRounds]);
+  const leftSideRows = useMemo(() => computeBracketRows(leftRounds), [leftRounds]);
+  const rightSideRows = useMemo(() => computeBracketRows(rightRounds), [rightRounds]);
+
+  const getRoundRow = (rows: number[][], colIndex: number, matchIndex: number): number =>
+    rows[colIndex]?.[matchIndex] ?? matchIndex * 2 + 1;
 
   const applyTransform = useCallback((zoom: number, ox: number, oy: number) => {
     if (gridRef.current) {
@@ -369,11 +391,6 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
   };
   const [linePaths, setLinePaths] = useState<Array<{ id: string; d: string; isActive: boolean }>>([]);
 
-  const getGridRow = (colIndex: number, matchIndex: number): number => {
-    const spacing = Math.pow(2, colIndex);
-    return matchIndex * spacing * 2 + spacing;
-  };
-
   const getRightGridColumn = (colIndexFromZero: number, totalCols: number): number => {
     return totalCols - colIndexFromZero;
   };
@@ -451,6 +468,8 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
           const srcEl = grid.querySelector(`[data-bracket-id="L-${col}-${matchIdx}"]`) as HTMLElement | null;
           if (!srcEl) return;
 
+          const winnerName = getMatchWinnerName(m);
+
           let dstEl: HTMLElement | null = null;
           let dstMatch: TorneoMatchItem | null = null;
 
@@ -458,7 +477,9 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
             dstEl = grid.querySelector('[data-bracket-id="FINAL"]') as HTMLElement | null;
             dstMatch = finalMatch;
           } else if (nextRound) {
-            const targetIdx = Math.floor(matchIdx / 2);
+            // Con i bye il match successivo non è sempre floor(idx / 2):
+            // seguiamo il vincitore per trovare la card corretta.
+            const targetIdx = findNextRoundMatchIndex(nextRound, winnerName, Math.floor(matchIdx / 2));
             dstEl = grid.querySelector(`[data-bracket-id="L-${col + 1}-${targetIdx}"]`) as HTMLElement | null;
             dstMatch = nextRound.matches[targetIdx] || null;
           }
@@ -474,7 +495,6 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
 
             const d = createConnectorPath(x1, y1, x2, y2, 'ltr');
 
-            const winnerName = m.vincitore === 1 ? m.atleta1 : m.vincitore === 2 ? m.atleta2 : null;
             const isActive = !!(
               winnerName &&
               dstMatch &&
@@ -500,6 +520,8 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
           const srcEl = grid.querySelector(`[data-bracket-id="R-${col}-${matchIdx}"]`) as HTMLElement | null;
           if (!srcEl) return;
 
+          const winnerName = getMatchWinnerName(m);
+
           let dstEl: HTMLElement | null = null;
           let dstMatch: TorneoMatchItem | null = null;
 
@@ -507,7 +529,17 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
             dstEl = grid.querySelector('[data-bracket-id="FINAL"]') as HTMLElement | null;
             dstMatch = finalMatch;
           } else if (nextRound) {
-            const targetIdx = Math.floor(matchIdx / 2);
+            // Indice teorico del padre calcolato sull'intero turno (non sulla metà):
+            // con un numero dispari di incontri a sinistra il semplice floor locale
+            // sposterebbe il collegamento di una card.
+            const leftCountCurrent = leftRounds[col]?.matches.length || 0;
+            const leftCountNext = leftRounds[col + 1]?.matches.length || 0;
+            const fallbackGlobal = Math.floor((leftCountCurrent + matchIdx) / 2);
+            const fallbackLocal = Math.max(
+              0,
+              Math.min(fallbackGlobal - leftCountNext, nextRound.matches.length - 1)
+            );
+            const targetIdx = findNextRoundMatchIndex(nextRound, winnerName, fallbackLocal);
             dstEl = grid.querySelector(`[data-bracket-id="R-${col + 1}-${targetIdx}"]`) as HTMLElement | null;
             dstMatch = nextRound.matches[targetIdx] || null;
           }
@@ -523,7 +555,6 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
 
             const d = createConnectorPath(x1, y1, x2, y2, 'rtl');
 
-            const winnerName = m.vincitore === 1 ? m.atleta1 : m.vincitore === 2 ? m.atleta2 : null;
             const isActive = !!(
               winnerName &&
               dstMatch &&
@@ -548,7 +579,8 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
           const srcEl = grid.querySelector(`[data-bracket-id="S-${col}-${matchIdx}"]`) as HTMLElement | null;
           if (!srcEl) return;
 
-          const targetIdx = Math.floor(matchIdx / 2);
+          const winnerName = getMatchWinnerName(m);
+          const targetIdx = findNextRoundMatchIndex(nextRound, winnerName, Math.floor(matchIdx / 2));
           const dstEl = grid.querySelector(`[data-bracket-id="S-${col + 1}-${targetIdx}"]`) as HTMLElement | null;
           const dstMatch = nextRound.matches[targetIdx] || null;
 
@@ -563,7 +595,6 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
 
             const d = createConnectorPath(x1, y1, x2, y2, 'ltr');
 
-            const winnerName = m.vincitore === 1 ? m.atleta1 : m.vincitore === 2 ? m.atleta2 : null;
             const isActive = !!(
               winnerName &&
               dstMatch &&
@@ -783,7 +814,7 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
                         key={`left-${colIndex}-${matchIndex}`}
                         style={{
                           gridColumn: colIndex + 1,
-                          gridRow: getGridRow(colIndex, matchIndex),
+                          gridRow: getRoundRow(leftSideRows, colIndex, matchIndex),
                           position: 'relative',
                         }}
                       >
@@ -818,7 +849,7 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
                         key={`right-${colIndex}-${matchIndex}`}
                         style={{
                           gridColumn: getRightGridColumn(colIndex, rightRounds.length),
-                          gridRow: getGridRow(colIndex, matchIndex),
+                          gridRow: getRoundRow(rightSideRows, colIndex, matchIndex),
                           position: 'relative',
                         }}
                       >
@@ -843,7 +874,7 @@ export const TorneoBracket: React.FC<TorneoBracketProps> = ({
                     key={`single-${colIndex}-${matchIndex}`}
                     style={{
                       gridColumn: colIndex + 1,
-                      gridRow: getGridRow(colIndex, matchIndex),
+                      gridRow: getRoundRow(singleSideRows, colIndex, matchIndex),
                       position: 'relative',
                     }}
                   >

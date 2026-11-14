@@ -193,6 +193,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
               onClick={onClose}
               aria-label="Chiudi"
               className="modal-close-btn"
+              style={{ color: 'color: var(--text-dark)!important' }}
             >
               <i className="bi bi-x-lg" aria-hidden="true"></i>
             </button>

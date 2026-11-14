@@ -73,68 +73,88 @@ export function inferChampionshipFormula(
 
   const sampleScores = played.slice(-8).map((p) => `${p.puntiCasa}-${p.puntiOspite}`);
 
-  if (played.length > 0) {
-    const totals = played.map((p) => (p.puntiCasa || 0) + (p.puntiOspite || 0));
-    const maxWinners = played.map((p) => Math.max(p.puntiCasa || 0, p.puntiOspite || 0));
-    const hasDraw = played.some((p) => p.puntiCasa === p.puntiOspite);
-    const allTotalSix = totals.every((t) => t === 6);
-    const maxWinner = Math.max(...maxWinners);
-
-    if (allTotalSix || (hasDraw && maxWinner <= 6 && totals.some((t) => t === 6))) {
-      return {
-        formulaId,
-        label: 'Mini-Swaythling / 6 incontri (pareggio 3-3 possibile)',
-        expectedTotalMatches: 6,
-        winningThreshold: 4,
-        drawsPossible: true,
-        sampleScores,
-      };
-    }
-
-    if (maxWinner === 5 && !hasDraw) {
-      return {
-        formulaId,
-        label: 'Swaythling (al meglio di 9 singolari, vince chi arriva a 5)',
-        expectedTotalMatches: 9,
-        winningThreshold: 5,
-        drawsPossible: false,
-        sampleScores,
-      };
-    }
-
-    if (maxWinner === 4 && !hasDraw) {
-      return {
-        formulaId,
-        label: 'Formula a 4 punti (al meglio di 7 incontri)',
-        expectedTotalMatches: 7,
-        winningThreshold: 4,
-        drawsPossible: false,
-        sampleScores,
-      };
-    }
-
-    if (maxWinner <= 3) {
-      return {
-        formulaId,
-        label: hasDraw
-          ? 'Formula ridotta (pareggio possibile, max 3 punti)'
-          : 'Formula Davis / 5 incontri (vince chi arriva a 3)',
-        expectedTotalMatches: hasDraw ? 6 : 5,
-        winningThreshold: 3,
-        drawsPossible: hasDraw,
-        sampleScores,
-      };
-    }
-  }
-
+  // Nei campionati FITeT attuali si disputano sempre tutti e 7 gli incontri:
+  // 6 singolari + 1 doppio = 7 incontri totali (risultato finale sempre somma 7: 7-0, 6-1, 5-2, 4-3 e viceversa).
   return {
     formulaId,
-    label: 'Swaythling / Standard FITeT (al meglio delle 5 vittorie)',
-    expectedTotalMatches: 9,
-    winningThreshold: 5,
+    label: 'Mini-Swaythling con Doppio (7 incontri completi: 6 singolari + 1 doppio)',
+    expectedTotalMatches: 7,
+    winningThreshold: 4,
     drawsPossible: false,
-    sampleScores,
+    hasDoubles: true,
+    sampleScores: sampleScores.length > 0 ? sampleScores : ['7-0', '6-1', '5-2', '4-3'],
   };
+}
+
+export interface SwaythlingScheduleSlot {
+  numero: number;
+  slotLabel: string;
+  isDoppio: boolean;
+  atletaCasa: string;
+  atletaOspite: string;
+}
+
+/**
+ * Genera la sequenza ufficiale degli incontri in base alla formula del campionato
+ * e alle formazioni ABC (casa) / XYZ (ospite) + eventuale coppia di doppio.
+ */
+export function buildSwaythlingSchedule(
+  formulaInfo: TeamMatchFormulaInfo,
+  homeSingles: [string, string, string],
+  awaySingles: [string, string, string],
+  homeDoubles: [string, string],
+  awayDoubles: [string, string]
+): SwaythlingScheduleSlot[] {
+  const [A, B, C] = homeSingles;
+  const [X, Y, Z] = awaySingles;
+  const homeD = `${homeDoubles[0]} / ${homeDoubles[1]}`;
+  const awayD = `${awayDoubles[0]} / ${awayDoubles[1]}`;
+
+  if (formulaInfo.expectedTotalMatches === 7 && formulaInfo.hasDoubles) {
+    return [
+      { numero: 1, slotLabel: 'Doppio', isDoppio: true, atletaCasa: homeD, atletaOspite: awayD },
+      { numero: 2, slotLabel: 'A vs Y', isDoppio: false, atletaCasa: A, atletaOspite: Y },
+      { numero: 3, slotLabel: 'B vs X', isDoppio: false, atletaCasa: B, atletaOspite: X },
+      { numero: 4, slotLabel: 'C vs Z', isDoppio: false, atletaCasa: C, atletaOspite: Z },
+      { numero: 5, slotLabel: 'A vs X', isDoppio: false, atletaCasa: A, atletaOspite: X },
+      { numero: 6, slotLabel: 'C vs Y', isDoppio: false, atletaCasa: C, atletaOspite: Y },
+      { numero: 7, slotLabel: 'B vs Z', isDoppio: false, atletaCasa: B, atletaOspite: Z },
+    ];
+  }
+
+  if (formulaInfo.expectedTotalMatches === 6) {
+    return [
+      { numero: 1, slotLabel: 'A vs Y', isDoppio: false, atletaCasa: A, atletaOspite: Y },
+      { numero: 2, slotLabel: 'B vs X', isDoppio: false, atletaCasa: B, atletaOspite: X },
+      { numero: 3, slotLabel: 'C vs Z', isDoppio: false, atletaCasa: C, atletaOspite: Z },
+      { numero: 4, slotLabel: 'A vs X', isDoppio: false, atletaCasa: A, atletaOspite: X },
+      { numero: 5, slotLabel: 'C vs Y', isDoppio: false, atletaCasa: C, atletaOspite: Y },
+      { numero: 6, slotLabel: 'B vs Z', isDoppio: false, atletaCasa: B, atletaOspite: Z },
+    ];
+  }
+
+  if (formulaInfo.expectedTotalMatches === 5) {
+    return [
+      { numero: 1, slotLabel: 'A vs X', isDoppio: false, atletaCasa: A, atletaOspite: X },
+      { numero: 2, slotLabel: 'B vs Y', isDoppio: false, atletaCasa: B, atletaOspite: Y },
+      { numero: 3, slotLabel: 'Doppio', isDoppio: true, atletaCasa: homeD, atletaOspite: awayD },
+      { numero: 4, slotLabel: 'A vs Y', isDoppio: false, atletaCasa: A, atletaOspite: Y },
+      { numero: 5, slotLabel: 'B vs X', isDoppio: false, atletaCasa: B, atletaOspite: X },
+    ];
+  }
+
+  // Swaythling classico 9 singolari (vince chi arriva a 5)
+  return [
+    { numero: 1, slotLabel: 'A vs X', isDoppio: false, atletaCasa: A, atletaOspite: X },
+    { numero: 2, slotLabel: 'B vs Y', isDoppio: false, atletaCasa: B, atletaOspite: Y },
+    { numero: 3, slotLabel: 'C vs Z', isDoppio: false, atletaCasa: C, atletaOspite: Z },
+    { numero: 4, slotLabel: 'B vs X', isDoppio: false, atletaCasa: B, atletaOspite: X },
+    { numero: 5, slotLabel: 'A vs Z', isDoppio: false, atletaCasa: A, atletaOspite: Z },
+    { numero: 6, slotLabel: 'C vs Y', isDoppio: false, atletaCasa: C, atletaOspite: Y },
+    { numero: 7, slotLabel: 'B vs Z', isDoppio: false, atletaCasa: B, atletaOspite: Z },
+    { numero: 8, slotLabel: 'C vs X', isDoppio: false, atletaCasa: C, atletaOspite: X },
+    { numero: 9, slotLabel: 'A vs Y', isDoppio: false, atletaCasa: A, atletaOspite: Y },
+  ];
 }
 
 export function computeEvaluatedRoster(

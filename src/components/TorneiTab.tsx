@@ -21,6 +21,7 @@ import {
 import { AthleteAvatar } from './AthleteAvatar';
 import { MarqueeText } from './MarqueeText';
 import { TorneoBracket, BracketRoundData } from './TorneoBracket';
+import { sortBracketRounds } from '../utils/bracketRounds';
 import {
   EMPTY_MAP_SELECTION,
   TorneiItalyMap,
@@ -1407,12 +1408,13 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
         const allRounds = await Promise.all(roundPromises);
         const populatedRounds = allRounds.filter((r) => r.matches && r.matches.length > 0);
 
-        // Ordina i round dal primo turno (più partite, es. 32esimi o 16esimi) alla finale (1 partita)
-        populatedRounds.sort((a, b) => b.matches.length - a.matches.length);
+        // Ordina i turni per numero di turno FITeT (dal primo turno alla finale).
+        // Non usare il numero di partite: con i bye due turni possono averne lo stesso numero.
+        const orderedRounds = sortBracketRounds(populatedRounds);
 
         setFullBracketCache((prev) => ({
           ...prev,
-          [garaKey]: populatedRounds,
+          [garaKey]: orderedRounds,
         }));
       } catch (err) {
         console.error('Errore nel caricamento del tabellone completo:', err);
@@ -1456,15 +1458,17 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
 
   const currentFullBracketRounds: BracketRoundData[] = useMemo(() => {
     if (currentGaraKey && fullBracketCache[currentGaraKey]) {
-      return fullBracketCache[currentGaraKey];
+      return sortBracketRounds(fullBracketCache[currentGaraKey]);
     }
     if (garaData?.allTurniTabellone && garaData.allTurniTabellone.length > 0) {
-      return garaData.allTurniTabellone.map((t) => ({
-        tab: t.tab,
-        turno: t.turno,
-        roundLabel: t.label,
-        matches: t.matches,
-      }));
+      return sortBracketRounds(
+        garaData.allTurniTabellone.map((t) => ({
+          tab: t.tab,
+          turno: t.turno,
+          roundLabel: t.label,
+          matches: t.matches,
+        }))
+      );
     }
     return [];
   }, [currentGaraKey, fullBracketCache, garaData?.allTurniTabellone]);

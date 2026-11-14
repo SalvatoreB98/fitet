@@ -521,6 +521,8 @@ export interface TorneoGaraDettaglioResponse {
 
 export interface SimulatedIndividualMatch {
   numero: number;
+  slotLabel?: string;
+  isDoppio?: boolean;
   atletaCasa: string;
   atletaCasaId?: string;
   atletaOspite: string;
@@ -565,6 +567,13 @@ export interface TeamMatchAIPlayerInput {
   evaluationScore: number;
 }
 
+export interface TeamMatchLineupSlots {
+  /** Chiavi o nomi per i 3 singolaristi: [A, B, C] per casa o [X, Y, Z] per ospite */
+  singles: [string, string, string];
+  /** Coppia del doppio (2 nomi giocatore), usata nelle formule con doppio */
+  doubles: [string, string];
+}
+
 export interface TeamMatchAITeamInput {
   nome: string;
   posizione?: number | null;
@@ -581,6 +590,7 @@ export interface TeamMatchAITeamInput {
   puntiPersi?: number;
   forma?: string[];
   players: TeamMatchAIPlayerInput[];
+  lineup?: TeamMatchLineupSlots;
 }
 
 export interface TeamMatchFormulaInfo {
@@ -589,6 +599,7 @@ export interface TeamMatchFormulaInfo {
   expectedTotalMatches: number;
   winningThreshold: number | null;
   drawsPossible: boolean;
+  hasDoubles: boolean;
   sampleScores: string[];
 }
 

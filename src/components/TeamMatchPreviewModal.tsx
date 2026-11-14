@@ -69,8 +69,10 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
   const [loadingRosters, setLoadingRosters] = useState<boolean>(true);
   const [rosterError, setRosterError] = useState<string | null>(null);
 
-  const [selectedHomeKeys, setSelectedHomeKeys] = useState<string[]>([]);
-  const [selectedAwayKeys, setSelectedAwayKeys] = useState<string[]>([]);
+  const [homeSinglesKeys, setHomeSinglesKeys] = useState<[string, string, string]>(['', '', '']);
+  const [homeDoublesKeys, setHomeDoublesKeys] = useState<[string, string]>(['', '']);
+  const [awaySinglesKeys, setAwaySinglesKeys] = useState<[string, string, string]>(['', '', '']);
+  const [awayDoublesKeys, setAwayDoublesKeys] = useState<[string, string]>(['', '']);
 
   const [prediction, setPrediction] = useState<TeamMatchPrediction | null>(null);
   const [predictLoading, setPredictLoading] = useState<boolean>(false);
@@ -174,36 +176,87 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
   // Auto-select likely 3 starters per team whenever rosters load
   useEffect(() => {
     if (homeEvaluated.length > 0) {
-      setSelectedHomeKeys(selectLikelyStarters(homeEvaluated, 3));
+      const top3 = selectLikelyStarters(homeEvaluated, 3);
+      setHomeSinglesKeys([top3[0] || '', top3[1] || '', top3[2] || '']);
+      setHomeDoublesKeys([top3[0] || '', top3[1] || top3[0] || '']);
     } else {
-      setSelectedHomeKeys([]);
+      setHomeSinglesKeys(['', '', '']);
+      setHomeDoublesKeys(['', '']);
     }
   }, [homeEvaluated]);
 
   useEffect(() => {
     if (awayEvaluated.length > 0) {
-      setSelectedAwayKeys(selectLikelyStarters(awayEvaluated, 3));
+      const top3 = selectLikelyStarters(awayEvaluated, 3);
+      setAwaySinglesKeys([top3[0] || '', top3[1] || '', top3[2] || '']);
+      setAwayDoublesKeys([top3[0] || '', top3[1] || top3[0] || '']);
     } else {
-      setSelectedAwayKeys([]);
+      setAwaySinglesKeys(['', '', '']);
+      setAwayDoublesKeys(['', '']);
     }
   }, [awayEvaluated]);
 
+  const resolvePlayersByKeys = useCallback((evaluated: EvaluatedPlayer[], keys: string[]): EvaluatedPlayer[] => {
+    const byKey = new Map<string, EvaluatedPlayer>();
+    for (const p of evaluated) {
+      byKey.set(p.atletaId || p.nome, p);
+    }
+    return keys.map((k) => byKey.get(k)).filter((p): p is EvaluatedPlayer => Boolean(p));
+  }, []);
+
+  const homeSinglesPlayers = useMemo(
+    () => resolvePlayersByKeys(homeEvaluated, homeSinglesKeys),
+    [homeEvaluated, homeSinglesKeys, resolvePlayersByKeys],
+  );
+  const homeDoublesPlayers = useMemo(
+    () => resolvePlayersByKeys(homeEvaluated, homeDoublesKeys),
+    [homeEvaluated, homeDoublesKeys, resolvePlayersByKeys],
+  );
+  const awaySinglesPlayers = useMemo(
+    () => resolvePlayersByKeys(awayEvaluated, awaySinglesKeys),
+    [awayEvaluated, awaySinglesKeys, resolvePlayersByKeys],
+  );
+  const awayDoublesPlayers = useMemo(
+    () => resolvePlayersByKeys(awayEvaluated, awayDoublesKeys),
+    [awayEvaluated, awayDoublesKeys, resolvePlayersByKeys],
+  );
+
   const homeStarters = useMemo(() => {
-    const selected = homeEvaluated.filter((p) => selectedHomeKeys.includes(p.atletaId || p.nome));
-    return selected.length > 0 ? selected : homeEvaluated.slice(0, 3);
-  }, [homeEvaluated, selectedHomeKeys]);
+    const seen = new Set<string>();
+    const combined: EvaluatedPlayer[] = [];
+    const pool = formulaInfo.hasDoubles ? [...homeSinglesPlayers, ...homeDoublesPlayers] : homeSinglesPlayers;
+    for (const p of pool) {
+      const k = p.atletaId || p.nome;
+      if (!seen.has(k)) {
+        seen.add(k);
+        combined.push(p);
+      }
+    }
+    return combined.length > 0 ? combined : homeEvaluated.slice(0, 3);
+  }, [homeEvaluated, homeSinglesPlayers, homeDoublesPlayers, formulaInfo.hasDoubles]);
 
   const awayStarters = useMemo(() => {
-    const selected = awayEvaluated.filter((p) => selectedAwayKeys.includes(p.atletaId || p.nome));
-    return selected.length > 0 ? selected : awayEvaluated.slice(0, 3);
-  }, [awayEvaluated, selectedAwayKeys]);
+    const seen = new Set<string>();
+    const combined: EvaluatedPlayer[] = [];
+    const pool = formulaInfo.hasDoubles ? [...awaySinglesPlayers, ...awayDoublesPlayers] : awaySinglesPlayers;
+    for (const p of pool) {
+      const k = p.atletaId || p.nome;
+      if (!seen.has(k)) {
+        seen.add(k);
+        combined.push(p);
+      }
+    }
+    return combined.length > 0 ? combined : awayEvaluated.slice(0, 3);
+  }, [awayEvaluated, awaySinglesPlayers, awayDoublesPlayers, formulaInfo.hasDoubles]);
 
-  // Cache key includes selected starters so changing lineup updates prediction cleanly
+  // Cache key preserves exact ABC / XYZ / Doppio order so swapping slots invalidates cache cleanly
   const cacheKey = useMemo(() => {
-    const hLineup = [...selectedHomeKeys].sort().join(',');
-    const aLineup = [...selectedAwayKeys].sort().join(',');
-    return `team_match_pred_${camId}_${match.id}_${hLineup}_${aLineup}`;
-  }, [camId, match.id, selectedHomeKeys, selectedAwayKeys]);
+    const hS = homeSinglesKeys.join(',');
+    const hD = formulaInfo.hasDoubles ? homeDoublesKeys.join('+') : '';
+    const aS = awaySinglesKeys.join(',');
+    const aD = formulaInfo.hasDoubles ? awayDoublesKeys.join('+') : '';
+    return `team_match_pred_v3_${camId}_${match.id}_${hS}_${hD}_${aS}_${aD}`;
+  }, [camId, match.id, homeSinglesKeys, homeDoublesKeys, awaySinglesKeys, awayDoublesKeys, formulaInfo.hasDoubles]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -236,17 +289,25 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [isOpen, isSubmodalOpen, h2hPair, onClose]);
 
-  const toggleStarter = (side: 'home' | 'away', playerKey: string) => {
-    const setter = side === 'home' ? setSelectedHomeKeys : setSelectedAwayKeys;
+  const assignSinglesSlot = (side: 'home' | 'away', slotIndex: 0 | 1 | 2, playerKey: string) => {
+    const setter = side === 'home' ? setHomeSinglesKeys : setAwaySinglesKeys;
     setter((prev) => {
-      if (prev.includes(playerKey)) {
-        if (prev.length <= 1) return prev; // Keep at least 1 starter
-        return prev.filter((k) => k !== playerKey);
+      if (prev[slotIndex] === playerKey) return prev;
+      const next: [string, string, string] = [...prev] as [string, string, string];
+      const existingIdx = next.indexOf(playerKey);
+      if (existingIdx !== -1) {
+        next[existingIdx] = next[slotIndex];
       }
-      if (prev.length >= 4) {
-        return [...prev.slice(1), playerKey];
-      }
-      return [...prev, playerKey];
+      next[slotIndex] = playerKey;
+      return next;
+    });
+  };
+
+  const toggleDoublesPlayer = (side: 'home' | 'away', playerKey: string) => {
+    const setter = side === 'home' ? setHomeDoublesKeys : setAwayDoublesKeys;
+    setter((prev) => {
+      if (prev.includes(playerKey)) return prev;
+      return [prev[1] || prev[0] || playerKey, playerKey];
     });
   };
 
@@ -290,6 +351,17 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
               puntiPersi: homeStanding?.puntiPersi ?? 0,
               forma: homeStanding?.forma ?? homeRecent.map((r) => r.outcome),
               players: homeStarters,
+              lineup: {
+                singles: [
+                  homeSinglesPlayers[0]?.nome || homeStarters[0]?.nome || '',
+                  homeSinglesPlayers[1]?.nome || homeStarters[1]?.nome || homeStarters[0]?.nome || '',
+                  homeSinglesPlayers[2]?.nome || homeStarters[2]?.nome || homeStarters[1]?.nome || homeStarters[0]?.nome || '',
+                ] as [string, string, string],
+                doubles: [
+                  homeDoublesPlayers[0]?.nome || homeSinglesPlayers[0]?.nome || homeStarters[0]?.nome || '',
+                  homeDoublesPlayers[1]?.nome || homeSinglesPlayers[1]?.nome || homeStarters[1]?.nome || homeStarters[0]?.nome || '',
+                ] as [string, string],
+              },
             },
             awayTeam: {
               nome: match.squadraOspite,
@@ -307,6 +379,17 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
               puntiPersi: awayStanding?.puntiPersi ?? 0,
               forma: awayStanding?.forma ?? awayRecent.map((r) => r.outcome),
               players: awayStarters,
+              lineup: {
+                singles: [
+                  awaySinglesPlayers[0]?.nome || awayStarters[0]?.nome || '',
+                  awaySinglesPlayers[1]?.nome || awayStarters[1]?.nome || awayStarters[0]?.nome || '',
+                  awaySinglesPlayers[2]?.nome || awayStarters[2]?.nome || awayStarters[1]?.nome || awayStarters[0]?.nome || '',
+                ] as [string, string, string],
+                doubles: [
+                  awayDoublesPlayers[0]?.nome || awaySinglesPlayers[0]?.nome || awayStarters[0]?.nome || '',
+                  awayDoublesPlayers[1]?.nome || awaySinglesPlayers[1]?.nome || awayStarters[1]?.nome || awayStarters[0]?.nome || '',
+                ] as [string, string],
+              },
             },
             reverseFixture: directPrecedent
               ? {
@@ -352,6 +435,10 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
       awayRecent,
       homeStarters,
       awayStarters,
+      homeSinglesPlayers,
+      homeDoublesPlayers,
+      awaySinglesPlayers,
+      awayDoublesPlayers,
       directPrecedent,
     ]
   );
@@ -418,7 +505,7 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
     return matchPlayer?.atletaId || undefined;
   };
 
-  const renderRosterTable = (players: EvaluatedPlayer[], side: 'home' | 'away', selectedKeys: string[]) => {
+  const renderRosterTable = (players: EvaluatedPlayer[], side: 'home' | 'away') => {
     if (players.length === 0) {
       return (
         <div className="h2h-empty-box">
@@ -427,13 +514,24 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
       );
     }
 
+    const slotLetters = side === 'home' ? (['A', 'B', 'C'] as const) : (['X', 'Y', 'Z'] as const);
+    const singlesKeys = side === 'home' ? homeSinglesKeys : awaySinglesKeys;
+    const doublesKeys = side === 'home' ? homeDoublesKeys : awayDoublesKeys;
+
     return (
       <div className="tmp-table-wrap">
         <table className="tmp-eval-table">
           <thead>
             <tr>
-              <th style={{ width: '34px', textAlign: 'center' }} title="Includi tra i titolari per il pronostico IA">
-                Tit.
+              <th
+                style={{ width: formulaInfo.hasDoubles ? '118px' : '90px', textAlign: 'center' }}
+                title={
+                  formulaInfo.hasDoubles
+                    ? `Scegli ${slotLetters.join('/')} per i singolari e D (2 giocatori) per il doppio`
+                    : `Scegli ${slotLetters.join('/')} per i singolari`
+                }
+              >
+                {formulaInfo.hasDoubles ? `${slotLetters.join('/')} + D` : slotLetters.join(' / ')}
               </th>
               <th>Atleta</th>
               <th style={{ textAlign: 'center' }}>Rank / Pt</th>
@@ -449,7 +547,9 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
           <tbody>
             {players.map((p) => {
               const pKey = p.atletaId || p.nome;
-              const isStarter = selectedKeys.includes(pKey);
+              const isSinglesStarter = singlesKeys.includes(pKey);
+              const isDoublesStarter = formulaInfo.hasDoubles && doublesKeys.includes(pKey);
+              const isStarter = isSinglesStarter || isDoublesStarter;
               const winColor =
                 p.percentualeVittorie >= 65
                   ? '#16a34a'
@@ -461,15 +561,34 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
               return (
                 <tr key={pKey} className={isStarter ? 'is-starter' : ''}>
                   <td style={{ textAlign: 'center' }}>
-                    <button
-                      type="button"
-                      className={`tmp-starter-toggle ${isStarter ? 'is-selected' : ''}`}
-                      onClick={() => toggleStarter(side, pKey)}
-                      title={isStarter ? 'Rimuovi dai titolari' : 'Seleziona come titolare'}
-                      aria-pressed={isStarter}
-                    >
-                      <i className={`bi ${isStarter ? 'bi-check-lg' : 'bi-plus'}`}></i>
-                    </button>
+                    <div className="tmp-slot-btn-group">
+                      {slotLetters.map((letter, idx) => {
+                        const isAssigned = singlesKeys[idx] === pKey;
+                        return (
+                          <button
+                            key={letter}
+                            type="button"
+                            className={`tmp-slot-btn ${isAssigned ? `is-active is-${side}` : ''}`}
+                            onClick={() => assignSinglesSlot(side, idx as 0 | 1 | 2, pKey)}
+                            title={`Schiera come ${letter}`}
+                            aria-pressed={isAssigned}
+                          >
+                            {letter}
+                          </button>
+                        );
+                      })}
+                      {formulaInfo.hasDoubles && (
+                        <button
+                          type="button"
+                          className={`tmp-slot-btn is-doubles ${isDoublesStarter ? 'is-active-doubles' : ''}`}
+                          onClick={() => toggleDoublesPlayer(side, pKey)}
+                          title="Includi nella coppia di Doppio (clicca 2 atleti)"
+                          aria-pressed={isDoublesStarter}
+                        >
+                          D
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td>
                     <div
@@ -818,16 +937,28 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
               {!predictLoading && !predictError && !prediction && (
                 <div className="tmp-ai-cta-box">
                   <p className="small mb-2" style={{ color: 'var(--text-muted)' }}>
-                    Genera una simulazione completa dell&apos;incontro con <strong>risultato potenziale</strong>,{' '}
-                    <strong>set vinti</strong>, <strong>punti stimati</strong> e dettaglio partita per partita. Puoi
-                    personalizzare i titolari nella tabella sotto.
+                    Simulazione basata sulla formula <strong>{formulaInfo.label}</strong>. Componi{' '}
+                    <strong>A/B/C</strong>, <strong>X/Y/Z</strong>
+                    {formulaInfo.hasDoubles ? <> e il <strong>Doppio</strong></> : null} nelle schede squadra qui sotto.
                   </p>
                   <div className="tmp-lineup-preview-pills">
                     <span className="tmp-lineup-pill is-home">
-                      Casa: {homeStarters.map((p) => shortenName(p.nome)).join(', ') || match.squadraCasa}
+                      Casa:{' '}
+                      {(['A', 'B', 'C'] as const)
+                        .map((l, i) => `${l}:${homeSinglesPlayers[i] ? shortenName(homeSinglesPlayers[i].nome) : '?'}`)
+                        .join(' · ')}
+                      {formulaInfo.hasDoubles && homeDoublesPlayers.length > 0
+                        ? ` | D:${homeDoublesPlayers.map((p) => shortenName(p.nome)).join('/')}`
+                        : ''}
                     </span>
                     <span className="tmp-lineup-pill is-away">
-                      Ospite: {awayStarters.map((p) => shortenName(p.nome)).join(', ') || match.squadraOspite}
+                      Ospite:{' '}
+                      {(['X', 'Y', 'Z'] as const)
+                        .map((l, i) => `${l}:${awaySinglesPlayers[i] ? shortenName(awaySinglesPlayers[i].nome) : '?'}`)
+                        .join(' · ')}
+                      {formulaInfo.hasDoubles && awayDoublesPlayers.length > 0
+                        ? ` | D:${awayDoublesPlayers.map((p) => shortenName(p.nome)).join('/')}`
+                        : ''}
                     </span>
                   </div>
                   <button
@@ -921,16 +1052,25 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
                           </thead>
                           <tbody>
                             {prediction.incontriSimulati.map((sim, idx) => {
-                              const homeId = sim.atletaCasaId || findAthleteIdByName(sim.atletaCasa, homeEvaluated);
-                              const awayId = sim.atletaOspiteId || findAthleteIdByName(sim.atletaOspite, awayEvaluated);
-                              const canH2H = Boolean(homeId && awayId);
+                              const homeId = sim.isDoppio
+                                ? undefined
+                                : sim.atletaCasaId || findAthleteIdByName(sim.atletaCasa, homeEvaluated);
+                              const awayId = sim.isDoppio
+                                ? undefined
+                                : sim.atletaOspiteId || findAthleteIdByName(sim.atletaOspite, awayEvaluated);
+                              const canH2H = !sim.isDoppio && Boolean(homeId && awayId);
                               const probWinner =
                                 sim.vincitore === 'casa' ? sim.probCasa : Math.max(1, 100 - sim.probCasa);
 
                               return (
                                 <tr key={`${sim.numero}_${idx}`}>
                                   <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-muted)' }}>
-                                    {sim.numero}
+                                    <div>{sim.numero}</div>
+                                    {sim.slotLabel && (
+                                      <span className={`tmp-slot-tag ${sim.isDoppio ? 'is-doubles' : ''}`}>
+                                        {sim.slotLabel}
+                                      </span>
+                                    )}
                                   </td>
                                   <td>
                                     <div
@@ -1198,14 +1338,15 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
                   <div className="tmp-roster-hint">
                     <i className="bi bi-info-circle me-1"></i>
                     Passa alle schede <strong>{shortenName(match.squadraCasa)}</strong> o{' '}
-                    <strong>{shortenName(match.squadraOspite)}</strong> per modificare i titolari e vedere l&apos;intero
-                    roster.
+                    <strong>{shortenName(match.squadraOspite)}</strong> per comporre la formazione{' '}
+                    <strong>A/B/C</strong>, <strong>X/Y/Z</strong>
+                    {formulaInfo.hasDoubles ? <> e <strong>Doppio (D)</strong></> : null} con un click.
                   </div>
                 </>
               )}
 
-              {rosterViewTab === 'casa' && renderRosterTable(homeEvaluated, 'home', selectedHomeKeys)}
-              {rosterViewTab === 'ospite' && renderRosterTable(awayEvaluated, 'away', selectedAwayKeys)}
+              {rosterViewTab === 'casa' && renderRosterTable(homeEvaluated, 'home')}
+              {rosterViewTab === 'ospite' && renderRosterTable(awayEvaluated, 'away')}
             </section>
           )}
 
