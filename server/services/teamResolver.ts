@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import * as cheerio from 'cheerio';
+import { FitetClient } from './fitetClient';
 import { getRuntimeCacheDir } from './runtimeCacheDir';
 
 export class TeamResolver {
@@ -74,8 +75,7 @@ export class TeamResolver {
       toFetch.map(async (t) => {
         try {
           const url = `https://portale.fitet.org/risultati/campionati/DatiSquadra.asp?SQUADRA=${t.squadraId}&CAM=${cam}&ANNO=${anno}`;
-          const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-          const text = new TextDecoder('iso-8859-1').decode(await res.arrayBuffer());
+          const text = await FitetClient.fetchHtml(url);
           const $ = cheerio.load(text);
 
           const img = $('img[src*="/societa/"]').first().attr('src');

@@ -107,10 +107,9 @@ export class AthleteResolver {
     await Promise.all(
       squadraIds.map(async (sqId) => {
         try {
-          const res = await fetch(`https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${sqId}&CAM=${cam}`, {
-            headers: { 'User-Agent': 'Mozilla/5.0' },
-          });
-          const text = new TextDecoder('iso-8859-1').decode(await res.arrayBuffer());
+          const text = await FitetClient.fetchHtml(
+            `https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${sqId}&CAM=${cam}`
+          );
           const $p = cheerio.load(text);
           $p('a[href*="IDA="]').each((_, a) => {
             const href = $p(a).attr('href') || '';
