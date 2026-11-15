@@ -3,12 +3,52 @@
 
 const DEFAULT_ICON = '/icon.png';
 
+// Cache usata per passare l'URL di destinazione alla pagina quando la
+// piattaforma ignora l'URL di `clients.openWindow()` (tipico delle PWA iOS).
+const PENDING_NAV_CACHE = 'fitet-pending-nav-v1';
+const PENDING_NAV_KEY = '/__pending_notification_nav__';
+const PENDING_NAV_MAX_AGE_MS = 2 * 60 * 1000;
+
+async function storePendingNotificationNavigation(url, data) {
+  try {
+    const cache = await self.caches.open(PENDING_NAV_CACHE);
+    const payload = JSON.stringify({ url, data, timestamp: Date.now() });
+    await cache.put(
+      PENDING_NAV_KEY,
+      new Response(payload, { headers: { 'Content-Type': 'application/json' } })
+    );
+  } catch (err) {
+    // Ignora: l'apertura dell'URL classica resta comunque disponibile.
+  }
+}
+
+async function clearStalePendingNotificationNavigation() {
+  try {
+    const cache = await self.caches.open(PENDING_NAV_CACHE);
+    const response = await cache.match(PENDING_NAV_KEY);
+    if (!response) return;
+
+    const payload = await response.json().catch(() => null);
+    const timestamp = payload && typeof payload.timestamp === 'number' ? payload.timestamp : 0;
+    if (!timestamp || Date.now() - timestamp > PENDING_NAV_MAX_AGE_MS) {
+      await cache.delete(PENDING_NAV_KEY);
+    }
+  } catch (err) {
+    // Ignora.
+  }
+}
+
 self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    Promise.all([
+      self.clients.claim(),
+      clearStalePendingNotificationNavigation(),
+    ])
+  );
 });
 
 /**
@@ -90,6 +130,10 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     (async () => {
+      // Salva subito la destinazione: se la piattaforma apre l'app sullo
+      // start_url, la pagina la recupererà all'avvio (fallback iOS/PWA).
+      await storePendingNotificationNavigation(absoluteUrl, data);
+
       const windowClients = await clients.matchAll({
         type: 'window',
         includeUncontrolled: true,

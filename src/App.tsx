@@ -43,6 +43,11 @@ import {
   regionToSlug,
   setUserRegion,
 } from './utils/geolocation';
+import {
+  clearPendingNotificationNavigation,
+  consumePendingNotificationNavigation,
+  navigateToNotificationUrl,
+} from './utils/notificationNavigation';
 
 const getAthleteFromUrl = (): { id: string; name: string } | null => {
   if (typeof window === 'undefined') return null;
@@ -854,24 +859,42 @@ export const App: React.FC = () => {
 
     const handleServiceWorkerMessage = (event: MessageEvent) => {
       if (event.data?.type !== 'PUSH_NOTIFICATION_CLICK' || !event.data?.url) return;
-      try {
-        const targetUrl = new URL(event.data.url, window.location.origin);
-        if (targetUrl.origin !== window.location.origin) return;
-        if (window.location.href !== targetUrl.href) {
-          window.history.pushState({ ...(window.history.state || {}) }, '', targetUrl.toString());
-        }
+      if (!navigateToNotificationUrl(event.data.url, 'push')) return;
+      void clearPendingNotificationNavigation();
+      syncFromCurrentUrl();
+    };
+
+    // Fallback per le piattaforme che non consegnano il messaggio del service
+    // worker (tipicamente PWA iOS): quando l'app torna in primo piano leggiamo
+    // l'URL pendente salvato in Cache Storage dal click sulla notifica.
+    const handleAppBecameVisible = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      void (async () => {
+        const pendingUrl = await consumePendingNotificationNavigation();
+        if (!pendingUrl) return;
+        if (!navigateToNotificationUrl(pendingUrl, 'push')) return;
         syncFromCurrentUrl();
-      } catch {
-        // Ignora URL non validi
-      }
+      })();
     };
 
     window.addEventListener('popstate', syncFromCurrentUrl);
+    document.addEventListener('visibilitychange', handleAppBecameVisible);
+    window.addEventListener('focus', handleAppBecameVisible);
+
+    // All'avvio la scrittura della cache da parte del service worker può
+    // arrivare qualche istante dopo: riprova senza bloccare il rendering.
+    const pendingNavRetryTimers = [0, 250, 750, 1500].map((delay) =>
+      window.setTimeout(handleAppBecameVisible, delay)
+    );
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
     }
     return () => {
       window.removeEventListener('popstate', syncFromCurrentUrl);
+      document.removeEventListener('visibilitychange', handleAppBecameVisible);
+      window.removeEventListener('focus', handleAppBecameVisible);
+      pendingNavRetryTimers.forEach((timer) => window.clearTimeout(timer));
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
       }

@@ -19,14 +19,34 @@ import './transitions.css';
 import { App } from './App';
 import { registerServiceWorker } from './services/pushNotifications';
 import { initDelegatedClickTracking } from './utils/analyticsTracker';
+import {
+  consumePendingNotificationNavigation,
+  navigateToNotificationUrl,
+} from './utils/notificationNavigation';
 
 // Registra il service worker per le Web Push Notifications (PWA).
 // È idempotente e non blocca il rendering dell'app.
 registerServiceWorker().catch(() => undefined);
 initDelegatedClickTracking();
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+async function bootstrap(): Promise<void> {
+  // Su alcune piattaforme (es. PWA iOS) il click sulla notifica apre lo
+  // start_url: recuperiamo l'URL reale salvato dal service worker prima di
+  // inizializzare lo stato della SPA.
+  try {
+    const pendingUrl = await consumePendingNotificationNavigation();
+    if (pendingUrl) {
+      navigateToNotificationUrl(pendingUrl, 'replace');
+    }
+  } catch {
+    // Ignora: l'app deve avviarsi comunque.
+  }
+
+  ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+}
+
+void bootstrap();
