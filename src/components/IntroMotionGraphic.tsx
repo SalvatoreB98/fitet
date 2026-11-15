@@ -43,7 +43,7 @@ export const IntroMotionGraphic: React.FC<IntroMotionGraphicProps> = ({ onComple
         {/* Grand Hero Titles */}
         <div className="motion-intro-title">
           <span className="title-fitet">
-            <img src="bw.png" alt="" />
+            <img src="/bw.png" alt="" />
           </span>
           <span className="title-campionati">CAMPIONATI</span>
         </div>

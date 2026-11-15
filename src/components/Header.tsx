@@ -154,7 +154,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="portal-header">
           <div className='portal-header-logo'>
             <a href="https://portale.fitet.org/" target="_blank" rel="noopener noreferrer">
-              <img className='logo-fitet' src="bw.png" alt="FITeT" />
+              <img className='logo-fitet' src="/bw.png" alt="FITeT" />
             </a>
           </div>
 
@@ -204,7 +204,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
 
           <div className="portal-header-sponsor">
-            <img className='logo-stag' src="STAG.png" alt="STAG" />
+            <img className='logo-stag' src="/STAG.png" alt="STAG" />
           </div>
 
           <div className="portal-header-actions" ref={menuRef}>
