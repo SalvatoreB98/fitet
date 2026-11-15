@@ -125,10 +125,119 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [h2hScores, setH2hScores] = useState<Record<string, { punteggio: string; data?: string }>>({});
   const [loadingH2h, setLoadingH2h] = useState<Record<string, boolean>>({});
 
-  // Slider navigation
+  // Slider navigation & desktop drag-to-scroll with smooth momentum + snap
   const sliderRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState<boolean>(false);
   const [canScrollRight, setCanScrollRight] = useState<boolean>(true);
+  const [isDraggingSlider, setIsDraggingSlider] = useState<boolean>(false);
+  const [isSettlingSlider, setIsSettlingSlider] = useState<boolean>(false);
+  const sliderSettleTimerRef = useRef<number | null>(null);
+  const sliderDragRef = useRef({
+    isDown: false,
+    startX: 0,
+    scrollLeft: 0,
+    moved: false,
+    lastX: 0,
+    lastTime: 0,
+    velocity: 0,
+  });
+
+  useEffect(() => {
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      const state = sliderDragRef.current;
+      const el = sliderRef.current;
+      if (!state.isDown || !el) return;
+
+      const now = performance.now();
+      const dxTotal = e.pageX - state.startX;
+      if (Math.abs(dxTotal) > 5) {
+        state.moved = true;
+      }
+
+      const dt = now - state.lastTime;
+      if (dt > 0) {
+        const instantVel = (e.pageX - state.lastX) / dt;
+        state.velocity = state.velocity * 0.65 + instantVel * 0.35;
+      }
+      state.lastX = e.pageX;
+      state.lastTime = now;
+
+      el.scrollLeft = state.scrollLeft - dxTotal;
+    };
+
+    const handleWindowMouseUp = () => {
+      const state = sliderDragRef.current;
+      const el = sliderRef.current;
+      if (!state.isDown) return;
+      state.isDown = false;
+      setIsDraggingSlider(false);
+
+      if (!el || !state.moved) return;
+
+      const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+      const projectedLeft = Math.max(0, Math.min(maxScroll, el.scrollLeft - state.velocity * 180));
+
+      // Find nearest card offsetLeft for a fluid smooth snap
+      const cards = Array.from(el.children) as HTMLElement[];
+      let targetLeft = projectedLeft;
+      let minDist = Infinity;
+      for (const card of cards) {
+        const cardLeft = Math.min(maxScroll, card.offsetLeft);
+        const dist = Math.abs(cardLeft - projectedLeft);
+        if (dist < minDist) {
+          minDist = dist;
+          targetLeft = cardLeft - 25;
+        }
+      }
+
+      setIsSettlingSlider(true);
+      el.scrollTo({ left: targetLeft, behavior: 'smooth' });
+      if (sliderSettleTimerRef.current !== null) {
+        window.clearTimeout(sliderSettleTimerRef.current);
+      }
+      sliderSettleTimerRef.current = window.setTimeout(() => {
+        setIsSettlingSlider(false);
+        sliderSettleTimerRef.current = null;
+      }, 380);
+    };
+
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      if (sliderSettleTimerRef.current !== null) {
+        window.clearTimeout(sliderSettleTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleSliderMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || !sliderRef.current) return;
+    if (sliderSettleTimerRef.current !== null) {
+      window.clearTimeout(sliderSettleTimerRef.current);
+      sliderSettleTimerRef.current = null;
+    }
+    setIsSettlingSlider(false);
+    sliderDragRef.current = {
+      isDown: true,
+      startX: e.pageX,
+      scrollLeft: sliderRef.current.scrollLeft,
+      moved: false,
+      lastX: e.pageX,
+      lastTime: performance.now(),
+      velocity: 0,
+    };
+    setIsDraggingSlider(true);
+  };
+
+  const handleSliderClickCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (sliderDragRef.current.moved) {
+      e.preventDefault();
+      e.stopPropagation();
+      sliderDragRef.current.moved = false;
+    }
+  };
 
   const handleSliderScroll = () => {
     if (!sliderRef.current) return;
@@ -1287,7 +1396,9 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               <div
                                 ref={sliderRef}
                                 onScroll={handleSliderScroll}
-                                className="atleta-match-slider-container"
+                                onMouseDown={handleSliderMouseDown}
+                                onClickCapture={handleSliderClickCapture}
+                                className={`atleta-match-slider-container${isDraggingSlider ? ' is-dragging' : ''}${isSettlingSlider ? ' is-settling' : ''}`}
                               >
                                 {[...matchesToDisplay].reverse().map((m, idx) => {
                                   const matchDateNorm = normDate(m.data);

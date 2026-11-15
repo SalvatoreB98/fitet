@@ -6551,6 +6551,17 @@ body.modal-open {
   padding-bottom: 6px;
   scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
+  cursor: grab;
+}
+
+.atleta-match-slider-container.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+  scroll-snap-type: none;
+}
+
+.atleta-match-slider-container.is-settling {
+  scroll-snap-type: none;
 }
 
 .atleta-match-slider-card {
