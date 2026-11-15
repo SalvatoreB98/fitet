@@ -132,6 +132,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [isDraggingSlider, setIsDraggingSlider] = useState<boolean>(false);
   const [isSettlingSlider, setIsSettlingSlider] = useState<boolean>(false);
   const sliderSettleTimerRef = useRef<number | null>(null);
+  const backdropMouseDownTargetRef = useRef<EventTarget | null>(null);
+  const suppressBackdropClickUntilRef = useRef<number>(0);
   const sliderDragRef = useRef({
     isDown: false,
     startX: 0,
@@ -171,6 +173,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       if (!state.isDown) return;
       state.isDown = false;
       setIsDraggingSlider(false);
+      suppressBackdropClickUntilRef.current = Date.now() + 200;
 
       if (!el || !state.moved) return;
 
@@ -673,7 +676,18 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="modal-backdrop-simple modal-athlete-backdrop" onClick={onClose}>
+    <div
+      className="modal-backdrop-simple modal-athlete-backdrop"
+      onMouseDown={(e) => {
+        backdropMouseDownTargetRef.current = e.target;
+      }}
+      onClick={(e) => {
+        if (Date.now() < suppressBackdropClickUntilRef.current) return;
+        if (e.target === e.currentTarget && backdropMouseDownTargetRef.current === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div className="modal-card-simple" onClick={(e) => e.stopPropagation()}>
         {/* Simple Blue Header */}
         <div className="modal-header-simple">
