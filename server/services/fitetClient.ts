@@ -15,13 +15,62 @@ import { cacheService } from './cacheService';
 const BASE_URL = 'https://portale.fitet.org';
 const CONNECT_TIMEOUT_MS = 25_000;
 const REQUEST_TIMEOUT_MS = 30_000;
+const MAX_CONCURRENT_UPSTREAM = 3;
+const MIN_DISPATCH_GAP_MS = 200;
+const STALE_FALLBACK_MEMORY_TTL_MS = 5 * 60 * 1000;
 const SUPABASE_CACHE_PREFIX = 'fitet_cache:';
 
 const fitetDispatcher = new Agent({
+  connections: MAX_CONCURRENT_UPSTREAM,
+  pipelining: 1,
+  keepAliveTimeout: 10_000,
+  keepAliveMaxTimeout: 30_000,
   connect: {
     timeout: CONNECT_TIMEOUT_MS,
   },
 });
+
+let activeUpstreamCount = 0;
+let lastDispatchAt = 0;
+const upstreamWaitQueue: Array<() => void> = [];
+
+async function runWithUpstreamSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (activeUpstreamCount >= MAX_CONCURRENT_UPSTREAM) {
+    await new Promise<void>((resolve) => upstreamWaitQueue.push(resolve));
+  }
+  activeUpstreamCount++;
+  try {
+    const now = Date.now();
+    const waitMs = Math.max(0, lastDispatchAt + MIN_DISPATCH_GAP_MS - now);
+    lastDispatchAt = now + waitMs;
+    if (waitMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+    return await fn();
+  } finally {
+    activeUpstreamCount--;
+    const next = upstreamWaitQueue.shift();
+    if (next) next();
+  }
+}
+
+function isTransientUpstreamError(err: any): boolean {
+  const code = err?.cause?.code || err?.code || '';
+  const name = err?.name || '';
+  const msg = String(err?.message || '');
+  return (
+    code === 'UND_ERR_CONNECT_TIMEOUT' ||
+    code === 'UND_ERR_SOCKET' ||
+    code === 'ECONNRESET' ||
+    code === 'ETIMEDOUT' ||
+    code === 'EAI_AGAIN' ||
+    name === 'AbortError' ||
+    msg.includes('Connect Timeout Error') ||
+    msg.includes('FITeT HTTP error: 502') ||
+    msg.includes('FITeT HTTP error: 503') ||
+    msg.includes('FITeT HTTP error: 504')
+  );
+}
 
 let supabaseClient: SupabaseClient | null | undefined;
 function getSupabaseClient(): SupabaseClient | null {
@@ -128,7 +177,9 @@ function shouldPersistInSupabase(url: string): boolean {
   return !normalized.includes('ajax.php') && !normalized.includes('scelta_atleta');
 }
 
-async function getSupabaseCachedHtml(cacheKey: string): Promise<{ html: string; remainingTtlMs: number } | null> {
+async function getSupabaseCachedHtml(
+  cacheKey: string
+): Promise<{ html: string; remainingTtlMs: number; isStale: boolean } | null> {
   const supabase = getSupabaseClient();
   if (!supabase) return null;
 
@@ -146,8 +197,11 @@ async function getSupabaseCachedHtml(cacheKey: string): Promise<{ html: string; 
     }
 
     const remainingTtlMs = parsed.expiresAt - Date.now();
-    if (remainingTtlMs <= 0) return null;
-    return { html: parsed.html, remainingTtlMs };
+    return {
+      html: parsed.html,
+      remainingTtlMs: Math.max(0, remainingTtlMs),
+      isStale: remainingTtlMs <= 0,
+    };
   } catch {
     return null;
   }
@@ -198,23 +252,37 @@ async function withUpstreamCache(
   }
 
   const task = (async () => {
-    if (!bypassed && useSupabaseCache) {
+    let staleHtml: string | null = null;
+
+    if (useSupabaseCache) {
       const remoteCached = await getSupabaseCachedHtml(cacheKey);
       if (remoteCached) {
-        cacheService.set(cacheKey, remoteCached.html, remoteCached.remainingTtlMs);
-        return remoteCached.html;
+        if (!bypassed && !remoteCached.isStale) {
+          cacheService.set(cacheKey, remoteCached.html, remoteCached.remainingTtlMs);
+          return remoteCached.html;
+        }
+        staleHtml = remoteCached.html;
       }
     }
 
-    const html = await loader();
-    if (html) {
-      const ttlMs = resolveUpstreamTtlMs(url);
-      cacheService.set(cacheKey, html, ttlMs);
-      if (useSupabaseCache) {
-        void setSupabaseCachedHtml(cacheKey, html, ttlMs);
+    try {
+      const html = await loader();
+      if (html) {
+        const ttlMs = resolveUpstreamTtlMs(url);
+        cacheService.set(cacheKey, html, ttlMs);
+        if (useSupabaseCache) {
+          void setSupabaseCachedHtml(cacheKey, html, ttlMs);
+        }
       }
+      return html;
+    } catch (err) {
+      if (staleHtml) {
+        console.warn(`[FitetClient] Upstream fallito per ${url}, uso cache stale da Supabase`);
+        cacheService.set(cacheKey, staleHtml, STALE_FALLBACK_MEMORY_TTL_MS);
+        return staleHtml;
+      }
+      throw err;
     }
-    return html;
   })().finally(() => {
     if (inFlightFetches.get(cacheKey) === task) {
       inFlightFetches.delete(cacheKey);
@@ -249,6 +317,50 @@ export class FitetClient {
     return withUpstreamCache(cacheKey, url, () => this.requestHtml(url, isAjax, customReferer));
   }
 
+  private static async executeUpstreamRequest(
+    url: string,
+    init: Omit<RequestInit, 'signal'>
+  ): Promise<string> {
+    const maxAttempts = 2;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await runWithUpstreamSlot(async () => {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+          try {
+            const fetchOptions: RequestInit & { dispatcher?: unknown } = {
+              ...init,
+              signal: controller.signal,
+              dispatcher: fitetDispatcher,
+            };
+            const response = await fetch(url, fetchOptions);
+
+            if (!response.ok) {
+              throw new Error(`FITeT HTTP error: ${response.status} ${response.statusText} on ${url}`);
+            }
+
+            // Read array buffer and decode using ISO-8859-1
+            const buffer = await response.arrayBuffer();
+            const decoder = new TextDecoder('iso-8859-1');
+            return decoder.decode(buffer);
+          } finally {
+            clearTimeout(timeout);
+          }
+        });
+      } catch (err) {
+        if (attempt < maxAttempts && isTransientUpstreamError(err)) {
+          await this.sleepWithJitter(1500, 2500);
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw new Error(`FITeT upstream request failed on ${url}`);
+  }
+
   private static async requestHtml(url: string, isAjax = false, customReferer?: string): Promise<string> {
     const headers: Record<string, string> = {
       ...DEFAULT_HEADERS,
@@ -259,28 +371,7 @@ export class FitetClient {
       headers['Referer'] = customReferer || 'https://portale.fitet.org/risultati/new_rank/testaclassifica_auto.php?ID_CLASS=248&ID=1&PASS=20';
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    try {
-      const fetchOptions: RequestInit & { dispatcher?: unknown } = {
-        headers,
-        signal: controller.signal,
-        dispatcher: fitetDispatcher,
-      };
-      const response = await fetch(url, fetchOptions);
-
-      if (!response.ok) {
-        throw new Error(`FITeT HTTP error: ${response.status} ${response.statusText} on ${url}`);
-      }
-
-      // Read array buffer and decode using ISO-8859-1
-      const buffer = await response.arrayBuffer();
-      const decoder = new TextDecoder('iso-8859-1');
-      return decoder.decode(buffer);
-    } finally {
-      clearTimeout(timeout);
-    }
+    return this.executeUpstreamRequest(url, { headers });
   }
 
   /**
@@ -314,29 +405,11 @@ export class FitetClient {
       'Referer': customReferer || `${BASE_URL}/risultati/new_rank/scelta_atleta.php`,
     };
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    try {
-      const fetchOptions: RequestInit & { dispatcher?: unknown } = {
-        method: 'POST',
-        headers,
-        body: serializedBody,
-        signal: controller.signal,
-        dispatcher: fitetDispatcher,
-      };
-      const response = await fetch(url, fetchOptions);
-
-      if (!response.ok) {
-        throw new Error(`FITeT HTTP error: ${response.status} ${response.statusText} on ${url}`);
-      }
-
-      const buffer = await response.arrayBuffer();
-      const decoder = new TextDecoder('iso-8859-1');
-      return decoder.decode(buffer);
-    } finally {
-      clearTimeout(timeout);
-    }
+    return this.executeUpstreamRequest(url, {
+      method: 'POST',
+      headers,
+      body: serializedBody,
+    });
   }
 
   /**
