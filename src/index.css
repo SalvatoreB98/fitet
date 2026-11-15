@@ -4780,9 +4780,20 @@ body.modal-open {
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
   border-bottom: 1px solid var(--border-color, #e2e8f0);
   background: var(--bg-card, #ffffff);
   flex-shrink: 0;
+  cursor: grab;
+}
+
+.championship-regions-bar.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.championship-regions-bar.is-dragging .region-pill {
+  cursor: grabbing;
 }
 
 .championship-regions-bar::-webkit-scrollbar {

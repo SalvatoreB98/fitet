@@ -47,28 +47,6 @@
       ]
     }
   ],
-  "crons": [
-    {
-      "path": "/api/push/check-ranking",
-      "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/push/check-tornei",
-      "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/push/check-campionati",
-      "schedule": "0 18 * * *"
-    },
-    {
-      "path": "/api/push/check-matchday",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/videos/sync",
-      "schedule": "0 6 * * *"
-    }
-  ],
   "rewrites": [
     {
       "source": "/api/(.*)",

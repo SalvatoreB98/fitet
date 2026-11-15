@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChampionshipItem } from '../types/fitet';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { useDragScroll } from '../utils/useDragScroll';
 import {
   getCachedUserRegion,
   setUserRegion as saveUserRegion,
@@ -40,6 +41,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
   onSelectChampionship,
 }) => {
   useBodyScrollLock(isOpen);
+  const { ref: regionsBarRef, isDragging: isDraggingRegions, dragProps: regionsDragProps } = useDragScroll<HTMLDivElement>();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGender, setSelectedGender] = useState<'all' | 'M' | 'F'>('all');
@@ -347,7 +349,11 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
         </div>
 
         {/* Region Filter Tabs */}
-        <div className="championship-regions-bar">
+        <div
+          ref={regionsBarRef}
+          className={`championship-regions-bar${isDraggingRegions ? ' is-dragging' : ''}`}
+          {...regionsDragProps}
+        >
           <button
             type="button"
             className={`region-pill ${selectedRegion === 'Tutti' && !searchQuery ? 'active' : ''}`}

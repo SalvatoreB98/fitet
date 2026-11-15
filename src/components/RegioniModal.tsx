@@ -1,7 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { ChampionshipItem } from '../types/fitet';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { useDragScroll } from '../utils/useDragScroll';
 import {
   getCachedUserRegion,
   setUserRegion as saveUserRegion,
@@ -43,6 +44,13 @@ export const RegioniModal: React.FC<RegioniModalProps> = ({
   onClose,
 }) => {
   useBodyScrollLock(isOpen);
+  const {
+    ref: regionsBarRef,
+    isDragging: isDraggingRegions,
+    wasDraggingRecently: wasDraggingRegionsRecently,
+    dragProps: regionsDragProps,
+  } = useDragScroll<HTMLDivElement>();
+  const backdropMouseDownTargetRef = useRef<EventTarget | null>(null);
 
   const [userRegion, setUserRegionState] = useState<string>(getCachedUserRegion);
   const [searchQuery, setSearchQuery] = useState('');
@@ -209,8 +217,14 @@ export const RegioniModal: React.FC<RegioniModalProps> = ({
   return createPortal(
     <div
       className="championship-modal-backdrop"
+      onMouseDown={(e) => {
+        backdropMouseDownTargetRef.current = e.target;
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (isDraggingRegions || wasDraggingRegionsRecently()) return;
+        if (e.target === e.currentTarget && backdropMouseDownTargetRef.current === e.currentTarget) {
+          onClose();
+        }
       }}
       role="dialog"
       aria-modal="true"
@@ -244,7 +258,11 @@ export const RegioniModal: React.FC<RegioniModalProps> = ({
         </div>
 
         {/* Barra rapida di navigazione tra i 21 Comitati Regionali */}
-        <div className="championship-regions-bar">
+        <div
+          ref={regionsBarRef}
+          className={`championship-regions-bar${isDraggingRegions ? ' is-dragging' : ''}`}
+          {...regionsDragProps}
+        >
           <button
             type="button"
             className={`region-pill ${!selectedRegion ? 'active' : ''}`}

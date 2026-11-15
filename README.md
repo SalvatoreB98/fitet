@@ -110,7 +110,7 @@ Genera una coppia di chiavi (una sola volta per progetto):
 npx web-push generate-vapid-keys
 ```
 
-Aggiungi su Vercel (e nel `.env` locale) le variabili:
+Aggiungi su Railway (e nel `.env` locale) le variabili:
 
 ```env
 VAPID_PUBLIC_KEY=...
@@ -126,14 +126,32 @@ Il backend confronta l'`ID_CLASS` rilevato da `portale.fitet.org/menu.php` con l
 - primo avvio: salva il baseline senza notificare;
 - `ID_CLASS` aumentato: invia la push a tutti i dispositivi e aggiorna lo stato.
 
-Il controllo avviene automaticamente quando la cache dell'`ID_CLASS` scade (ogni 4 ore) e tramite l'endpoint protetto:
+Il controllo viene eseguito automaticamente dallo scheduler `node-cron` del server Node (Railway), con orari nel fuso `Europe/Rome`:
+
+| Job | Orario (Europe/Rome) | Endpoint equivalente |
+| :--- | :--- | :--- |
+| `check-ranking` | 09:00 | `/api/push/check-ranking` |
+| `check-tornei` | 09:00 | `/api/push/check-tornei` |
+| `check-campionati` | 19:00 | `/api/push/check-campionati` |
+| `check-matchday` | 08:00 | `/api/push/check-matchday` |
+| `videos-sync` | 07:00 | `/api/videos/sync` |
+
+Lo scheduler viene inizializzato una sola volta all'avvio (`server/index.ts`), attivo con `NODE_ENV=production` o su Railway. Ogni job ha un lock `isRunning` che impedisce esecuzioni sovrapposte. Per disattivarlo: `CRON_DISABLED=true`; per attivarlo in locale: `FORCE_CRON_SCHEDULER=true`.
+
+Le route restano disponibili per test manuali, protette da `CRON_SECRET`:
 
 ```text
 GET /api/push/check-ranking
 Authorization: Bearer <CRON_SECRET>
 ```
 
-Su Vercel è configurato un cron giornaliero in `vercel.json`. Per controlli più frequenti puoi usare un cron esterno (es. cron-job.org o GitHub Actions) che chiami lo stesso endpoint con il token.
+Per inviare una notifica push manuale a tutti gli iscritti dalla console di Railway:
+
+```bash
+npm run notify -- --title "Nuova classifica" --body "È uscita la classifica di novembre" --url "/?view=classifiche"
+```
+
+Le subscription scadute o non più valide (HTTP 404/410) vengono rimosse automaticamente durante l'invio. `--url` è opzionale (default `/`).
 
 ### 4. Endpoint Web Push
 

@@ -1037,32 +1037,3 @@ export async function checkMatchdayAndNotify(
   };
 }
 
-let championshipSchedulerTimer: NodeJS.Timeout | null = null;
-
-/**
- * Avvia un controllo periodico (ogni 60 minuti) sui campionati seguiti dagli iscritti
- * quando il server gira come processo Node continuativo.
- */
-export function startChampionshipScheduler(): void {
-  if (championshipSchedulerTimer) return;
-
-  const intervalMs = 60 * 60 * 1000; // 60 minuti
-  championshipSchedulerTimer = setInterval(() => {
-    checkChampionshipsAndNotify().catch((err) => {
-      console.warn(
-        '[CampionatoNotifier] Errore durante il controllo periodico campionati:',
-        err
-      );
-    });
-    checkMatchdayAndNotify().catch((err) => {
-      console.warn(
-        '[CampionatoNotifier] Errore durante il controllo periodico matchday:',
-        err
-      );
-    });
-  }, intervalMs);
-
-  if (typeof championshipSchedulerTimer.unref === 'function') {
-    championshipSchedulerTimer.unref();
-  }
-}

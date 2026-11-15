@@ -5486,6 +5486,721 @@ var YouTubeSyncService = class {
 };
 var youtubeSyncService = new YouTubeSyncService();
 
+// server/services/rankingClassService.ts
+var DEFAULT_ID_CLASS2 = 248;
+async function getLatestIdClass(forceRefresh = false, notifyOnChange = true) {
+  const cacheKey = "latest_ranking_id_class";
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached && typeof cached === "number" && cached >= DEFAULT_ID_CLASS2) {
+      return cached;
+    }
+  }
+  try {
+    const html = await FitetClient.fetchHtml("https://portale.fitet.org/menu.php");
+    const match = html.match(/testaclassifica_auto\.php\?ID_CLASS=(\d+)/i);
+    if (match && match[1]) {
+      const detected = parseInt(match[1], 10);
+      if (detected >= DEFAULT_ID_CLASS2) {
+        cacheService.set(cacheKey, detected, 4 * 60 * 60 * 1e3);
+        if (notifyOnChange) {
+          notifyRankingChangeIfNeeded(detected).catch((pushErr) => {
+            console.warn("[PushService] Errore notifica cambio ID_CLASS:", pushErr);
+          });
+        }
+        return detected;
+      }
+    }
+  } catch (err) {
+    console.warn("[Ranking] Impossibile rilevare automaticamente ID_CLASS da menu.php, uso fallback:", err);
+  }
+  return DEFAULT_ID_CLASS2;
+}
+
+// server/services/campionatoNotificationService.ts
+var CHAMPIONSHIP_STATE_KEY_PREFIX = "championship_state_";
+function getChampionshipStateKey(camId) {
+  return `${CHAMPIONSHIP_STATE_KEY_PREFIX}${camId}`;
+}
+var cachedSnapshots = /* @__PURE__ */ new Map();
+var SNAPSHOT_CACHE_TTL_MS = 30 * 60 * 1e3;
+var inFlightChecks = /* @__PURE__ */ new Set();
+function normKey(value) {
+  return (value || "").trim().toUpperCase().replace(/\s+/g, " ");
+}
+function buildChampionshipSnapshot(input) {
+  const {
+    camId,
+    annoId = 41,
+    championshipName = `Campionato #${camId}`,
+    classifica = [],
+    calendario = [],
+    statisticheAtleti = []
+  } = input;
+  if (!Number.isFinite(camId) || camId <= 0) {
+    return null;
+  }
+  if (classifica.length === 0 && calendario.length === 0) {
+    return null;
+  }
+  const playedMatchesMap = /* @__PURE__ */ new Map();
+  for (const g of calendario) {
+    const allMatches = [...g.partiteAndata || [], ...g.partiteRitorno || []];
+    for (const m of allMatches) {
+      const hasScore = m.puntiCasa !== null && m.puntiOspite !== null;
+      const isPlayed = Boolean(m.disputato || hasScore || m.incontroId);
+      if (!isPlayed) continue;
+      const key = `${m.giornata}_${m.tipo}_${normKey(m.squadraCasa)}_${normKey(m.squadraOspite)}`;
+      playedMatchesMap.set(key, {
+        key,
+        giornata: m.giornata,
+        tipo: m.tipo,
+        squadraCasa: m.squadraCasa.trim(),
+        squadraOspite: m.squadraOspite.trim(),
+        puntiCasa: m.puntiCasa,
+        puntiOspite: m.puntiOspite,
+        risultato: (m.risultato || "").trim(),
+        incontroId: m.incontroId || null
+      });
+    }
+  }
+  const snapshotClassifica = classifica.map((t, index) => ({
+    key: normKey(t.nome),
+    nome: t.nome.trim(),
+    posizione: t.posizione || index + 1,
+    punti: t.punti ?? 0,
+    incontriGiocati: t.incontriDisputati ?? 0,
+    vittorie: t.incontriVinti ?? 0,
+    pareggi: t.incontriPareggiati ?? 0,
+    sconfitte: t.incontriPersi ?? 0,
+    partiteVinte: t.partiteVinte ?? 0,
+    partitePerse: t.partitePerse ?? 0
+  }));
+  const snapshotStatistiche = (statisticheAtleti || []).filter((a) => Boolean(a.atleta)).map((a) => ({
+    key: `${normKey(a.atleta)}__${normKey(a.squadra)}`,
+    atleta: a.atleta.trim(),
+    squadra: (a.squadra || "").trim(),
+    incontriDisputati: a.incontriDisputati ?? 0,
+    partiteDisputate: a.partiteDisputate ?? 0,
+    partiteVinte: a.partiteVinte ?? 0,
+    partitePerse: a.partitePerse ?? 0,
+    setVinti: a.setVinti ?? 0,
+    setPersi: a.setPersi ?? 0
+  }));
+  return {
+    camId,
+    annoId,
+    championshipName: championshipName.trim() || `Campionato #${camId}`,
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    playedMatches: Array.from(playedMatchesMap.values()),
+    classifica: snapshotClassifica,
+    statistiche: snapshotStatistiche
+  };
+}
+function diffChampionshipSnapshots(prev, curr) {
+  const emptyDiff = {
+    hasChanges: false,
+    newPlayedMatches: [],
+    updatedMatches: [],
+    classificaChanged: false,
+    statisticheChanged: false
+  };
+  const prevMatches = prev.playedMatches || [];
+  const currMatches = curr.playedMatches || [];
+  if (prevMatches.length > 0 && currMatches.length < prevMatches.length) {
+    return emptyDiff;
+  }
+  const prevMatchMap = new Map(
+    prevMatches.map((m) => [m.key, m])
+  );
+  const newPlayedMatches = [];
+  const updatedMatches = [];
+  for (const m of currMatches) {
+    const old = prevMatchMap.get(m.key);
+    if (!old) {
+      newPlayedMatches.push(m);
+      continue;
+    }
+    const scoreChanged = old.puntiCasa !== m.puntiCasa || old.puntiOspite !== m.puntiOspite;
+    const refertoAdded = !old.incontroId && Boolean(m.incontroId);
+    if (scoreChanged || refertoAdded) {
+      updatedMatches.push(m);
+    }
+  }
+  let classificaChanged = false;
+  const prevClassifica = prev.classifica || [];
+  const currClassifica = curr.classifica || [];
+  const prevTotalTeamPlayed = prevClassifica.reduce(
+    (sum, t) => sum + (t.incontriGiocati || 0),
+    0
+  );
+  const currTotalTeamPlayed = currClassifica.reduce(
+    (sum, t) => sum + (t.incontriGiocati || 0),
+    0
+  );
+  if (currClassifica.length > 0 && currTotalTeamPlayed >= prevTotalTeamPlayed) {
+    if (prevClassifica.length === 0 && currTotalTeamPlayed > 0) {
+      classificaChanged = true;
+    } else if (prevClassifica.length > 0) {
+      const prevTeamMap = new Map(
+        prevClassifica.map((t) => [t.key, t])
+      );
+      for (const team of currClassifica) {
+        const oldTeam = prevTeamMap.get(team.key);
+        if (!oldTeam) continue;
+        if (oldTeam.punti !== team.punti || oldTeam.incontriGiocati !== team.incontriGiocati || oldTeam.vittorie !== team.vittorie || oldTeam.pareggi !== team.pareggi || oldTeam.sconfitte !== team.sconfitte || oldTeam.partiteVinte !== team.partiteVinte || oldTeam.partitePerse !== team.partitePerse || oldTeam.posizione !== team.posizione) {
+          classificaChanged = true;
+          break;
+        }
+      }
+    }
+  }
+  let statisticheChanged = false;
+  const prevStats = prev.statistiche || [];
+  const currStats = curr.statistiche || [];
+  const prevTotalIndPlayed = prevStats.reduce(
+    (sum, a) => sum + (a.partiteDisputate || 0),
+    0
+  );
+  const currTotalIndPlayed = currStats.reduce(
+    (sum, a) => sum + (a.partiteDisputate || 0),
+    0
+  );
+  if (currStats.length > 0 && currTotalIndPlayed >= prevTotalIndPlayed) {
+    if (currTotalIndPlayed > prevTotalIndPlayed) {
+      statisticheChanged = true;
+    } else if (prevStats.length > 0) {
+      const prevStatMap = new Map(
+        prevStats.map((a) => [a.key, a])
+      );
+      for (const stat of currStats) {
+        const oldStat = prevStatMap.get(stat.key);
+        if (!oldStat) {
+          if (stat.partiteDisputate > 0) {
+            statisticheChanged = true;
+            break;
+          }
+          continue;
+        }
+        if (oldStat.incontriDisputati !== stat.incontriDisputati || oldStat.partiteDisputate !== stat.partiteDisputate || oldStat.partiteVinte !== stat.partiteVinte || oldStat.partitePerse !== stat.partitePerse || oldStat.setVinti !== stat.setVinti || oldStat.setPersi !== stat.setPersi) {
+          statisticheChanged = true;
+          break;
+        }
+      }
+    }
+  }
+  const hasChanges = newPlayedMatches.length > 0 || updatedMatches.length > 0 || classificaChanged || statisticheChanged;
+  return {
+    hasChanges,
+    newPlayedMatches,
+    updatedMatches,
+    classificaChanged,
+    statisticheChanged
+  };
+}
+function formatMatchPreview(m) {
+  if (m.puntiCasa !== null && m.puntiOspite !== null) {
+    return `${m.squadraCasa} ${m.puntiCasa}-${m.puntiOspite} ${m.squadraOspite}`;
+  }
+  return `${m.squadraCasa} vs ${m.squadraOspite}`;
+}
+function buildChampionshipNotificationPayload(camId, championshipName, diff) {
+  const cleanTitleName = championshipName?.trim() || `Campionato #${camId}`;
+  const changedMatches = [...diff.newPlayedMatches, ...diff.updatedMatches];
+  const title = `\u{1F3D3} ${cleanTitleName}`;
+  let body;
+  if (changedMatches.length === 1) {
+    const matchStr = formatMatchPreview(changedMatches[0]);
+    body = `Nuovi match del tuo campionato disponibili (${matchStr}), vai a vedere le partite e statistiche!`;
+  } else if (changedMatches.length > 1) {
+    const previews = changedMatches.slice(0, 2).map(formatMatchPreview).join(", ");
+    const extra = changedMatches.length > 2 ? ` e altri ${changedMatches.length - 2}` : "";
+    body = `Nuovi match del tuo campionato disponibili (${previews}${extra}), vai a vedere le partite e statistiche!`;
+  } else if (diff.classificaChanged) {
+    body = "Nuovi match del tuo campionato disponibili: la classifica \xE8 aggiornata, vai a vedere le partite e statistiche!";
+  } else {
+    body = "Nuovi match del tuo campionato disponibili, vai a vedere le partite e statistiche!";
+  }
+  const targetTab = changedMatches.length > 0 ? "calendario" : diff.classificaChanged ? "classifica" : "statistiche";
+  return {
+    title,
+    body,
+    url: `/?view=campionato&cam=${camId}&tab=${targetTab}`,
+    icon: "/icon.png",
+    badge: "/icon.png",
+    tag: `campionato-${camId}-${Date.now()}`,
+    renotify: true,
+    data: {
+      type: "championship_update",
+      camId,
+      championshipName: cleanTitleName,
+      newPlayedMatchesCount: diff.newPlayedMatches.length,
+      updatedMatchesCount: diff.updatedMatches.length,
+      classificaChanged: diff.classificaChanged,
+      statisticheChanged: diff.statisticheChanged
+    }
+  };
+}
+async function evaluateSnapshotAndNotify(currSnapshot, options = {}) {
+  const { camId, championshipName } = currSnapshot;
+  const { dryRun = false, init = false } = options;
+  const stateKey = getChampionshipStateKey(camId);
+  const rawPrev = await pushService.getState(stateKey);
+  if (rawPrev === null || init) {
+    if (!dryRun) {
+      await pushService.setState(stateKey, JSON.stringify(currSnapshot));
+      cachedSnapshots.set(camId, {
+        snapshot: currSnapshot,
+        timestamp: Date.now()
+      });
+    }
+    return {
+      camId,
+      championshipName,
+      changed: false,
+      initialized: true,
+      newPlayedMatchesCount: 0,
+      updatedMatchesCount: 0,
+      classificaChanged: false,
+      statisticheChanged: false,
+      notificationSent: false
+    };
+  }
+  let prevSnapshot = null;
+  try {
+    prevSnapshot = JSON.parse(rawPrev);
+  } catch (err) {
+    console.warn(
+      `[CampionatoNotifier] Stato JSON non valido per cam=${camId}, reinizializzazione baseline...`
+    );
+  }
+  if (!prevSnapshot || typeof prevSnapshot !== "object") {
+    if (!dryRun) {
+      await pushService.setState(stateKey, JSON.stringify(currSnapshot));
+      cachedSnapshots.set(camId, {
+        snapshot: currSnapshot,
+        timestamp: Date.now()
+      });
+    }
+    return {
+      camId,
+      championshipName,
+      changed: false,
+      initialized: true,
+      newPlayedMatchesCount: 0,
+      updatedMatchesCount: 0,
+      classificaChanged: false,
+      statisticheChanged: false,
+      notificationSent: false
+    };
+  }
+  const mergedCurrSnapshot = {
+    ...currSnapshot,
+    statistiche: currSnapshot.statistiche.length > 0 ? currSnapshot.statistiche : prevSnapshot.statistiche || [],
+    classifica: currSnapshot.classifica.length > 0 ? currSnapshot.classifica : prevSnapshot.classifica || []
+  };
+  const diff = diffChampionshipSnapshots(prevSnapshot, mergedCurrSnapshot);
+  if (!diff.hasChanges) {
+    cachedSnapshots.set(camId, {
+      snapshot: mergedCurrSnapshot,
+      timestamp: Date.now()
+    });
+    return {
+      camId,
+      championshipName,
+      changed: false,
+      newPlayedMatchesCount: 0,
+      updatedMatchesCount: 0,
+      classificaChanged: false,
+      statisticheChanged: false,
+      notificationSent: false
+    };
+  }
+  let broadcastResult;
+  let notificationSent = false;
+  if (!dryRun) {
+    const claimed = await pushService.compareAndSetState(
+      stateKey,
+      rawPrev,
+      JSON.stringify(mergedCurrSnapshot)
+    );
+    if (!claimed) {
+      return {
+        camId,
+        championshipName,
+        changed: false,
+        newPlayedMatchesCount: 0,
+        updatedMatchesCount: 0,
+        classificaChanged: false,
+        statisticheChanged: false,
+        notificationSent: false
+      };
+    }
+    cachedSnapshots.set(camId, {
+      snapshot: mergedCurrSnapshot,
+      timestamp: Date.now()
+    });
+    cacheService.delete(`classifica_${camId}`);
+    cacheService.delete(`calendario_${camId}_${currSnapshot.annoId || 41}`);
+    cacheService.delete(`statistiche_${camId}`);
+    if (pushService.isReady()) {
+      const payload = buildChampionshipNotificationPayload(
+        camId,
+        championshipName,
+        diff
+      );
+      console.log(
+        `[CampionatoNotifier] Rilevato aggiornamento per ${championshipName} (cam=${camId}): nuoviMatch=${diff.newPlayedMatches.length}, matchAggiornati=${diff.updatedMatches.length}, classifica=${diff.classificaChanged}, statistiche=${diff.statisticheChanged}. Invio push...`
+      );
+      broadcastResult = await pushService.sendToChampionshipSubscribers(
+        camId,
+        payload
+      );
+      notificationSent = broadcastResult.sent > 0;
+      console.log(
+        `[CampionatoNotifier] Notifiche inviate per cam=${camId}: ${broadcastResult.sent}/${broadcastResult.total}.`
+      );
+    }
+  }
+  return {
+    camId,
+    championshipName,
+    changed: true,
+    newPlayedMatchesCount: diff.newPlayedMatches.length,
+    updatedMatchesCount: diff.updatedMatches.length,
+    classificaChanged: diff.classificaChanged,
+    statisticheChanged: diff.statisticheChanged,
+    notificationSent,
+    broadcastResult
+  };
+}
+var SUBSCRIBED_CAMS_TTL_MS = 30 * 60 * 1e3;
+var subscribedCamsCache = null;
+function invalidateSubscribedChampionshipsCache() {
+  subscribedCamsCache = null;
+}
+async function isChampionshipFollowed(camId) {
+  if (!subscribedCamsCache || Date.now() - subscribedCamsCache.timestamp > SUBSCRIBED_CAMS_TTL_MS) {
+    const ids = await pushService.getSubscribedChampionshipIds();
+    subscribedCamsCache = { ids: new Set(ids), timestamp: Date.now() };
+  }
+  return subscribedCamsCache.ids.has(camId);
+}
+async function notifyObservedChampionshipIfNeeded(input) {
+  if (!pushService.isSupabaseConfigured()) {
+    return null;
+  }
+  try {
+    if (!await isChampionshipFollowed(input.camId)) {
+      return null;
+    }
+  } catch (err) {
+    console.warn(`[CampionatoNotifier] Impossibile leggere le iscrizioni per cam=${input.camId}:`, err);
+    return null;
+  }
+  const currSnapshot = buildChampionshipSnapshot(input);
+  if (!currSnapshot) {
+    return null;
+  }
+  const { camId } = currSnapshot;
+  if (inFlightChecks.has(camId)) {
+    return null;
+  }
+  const cached = cachedSnapshots.get(camId);
+  if (cached && Date.now() - cached.timestamp < SNAPSHOT_CACHE_TTL_MS) {
+    const quickDiff = diffChampionshipSnapshots(cached.snapshot, currSnapshot);
+    if (!quickDiff.hasChanges) {
+      return null;
+    }
+  }
+  inFlightChecks.add(camId);
+  try {
+    return await evaluateSnapshotAndNotify(currSnapshot);
+  } catch (err) {
+    console.warn(
+      `[CampionatoNotifier] Errore controllo passivo campionato ${camId}:`,
+      err
+    );
+    return null;
+  } finally {
+    inFlightChecks.delete(camId);
+  }
+}
+async function fetchChampionshipSnapshotFromFitet(camId, annoId = 41) {
+  const [classificaHtml, calendarioHtml, statisticheHtml, champMeta] = await withFitetCacheBypass(
+    () => Promise.all([
+      FitetClient.fetchClassifica(camId).catch(() => ""),
+      FitetClient.fetchCalendario(camId, annoId).catch(() => ""),
+      FitetClient.fetchStatisticheAtleti(camId).catch(() => ""),
+      championshipCatalog.getChampionship(camId).catch(() => void 0)
+    ])
+  );
+  const classifica = classificaHtml ? parseClassifica(classificaHtml) : [];
+  const calendario = calendarioHtml ? parseCalendario(calendarioHtml) : [];
+  const statisticheAtleti = statisticheHtml ? parseStatisticheAtleti(statisticheHtml, {}) : [];
+  return buildChampionshipSnapshot({
+    camId,
+    annoId: champMeta?.anno || annoId,
+    championshipName: champMeta?.nome || `Campionato #${camId}`,
+    classifica,
+    calendario,
+    statisticheAtleti
+  });
+}
+async function ensureChampionshipBaseline(camId, annoId = 41) {
+  if (!Number.isFinite(camId) || camId <= 0 || !pushService.isSupabaseConfigured()) {
+    return;
+  }
+  try {
+    const stateKey = getChampionshipStateKey(camId);
+    const existing = await pushService.getState(stateKey);
+    if (existing !== null) return;
+    const snapshot = await fetchChampionshipSnapshotFromFitet(camId, annoId);
+    if (!snapshot) return;
+    await pushService.setState(stateKey, JSON.stringify(snapshot));
+    cachedSnapshots.set(camId, {
+      snapshot,
+      timestamp: Date.now()
+    });
+    console.log(
+      `[CampionatoNotifier] Baseline inizializzato per ${snapshot.championshipName} (cam=${camId}).`
+    );
+  } catch (err) {
+    console.warn(
+      `[CampionatoNotifier] Impossibile inizializzare baseline per cam=${camId}:`,
+      err
+    );
+  }
+}
+async function checkChampionshipsAndNotify(options = {}) {
+  const startTime = Date.now();
+  const { annoId = 41, dryRun = false, init = false } = options;
+  let targetCamIds = [];
+  if (Array.isArray(options.camIds) && options.camIds.length > 0) {
+    targetCamIds = Array.from(
+      new Set(options.camIds.filter((id) => Number.isFinite(id) && id > 0))
+    );
+  } else {
+    targetCamIds = await pushService.getSubscribedChampionshipIds();
+  }
+  if (targetCamIds.length === 0) {
+    return {
+      checkedCount: 0,
+      changedCount: 0,
+      initializedCount: 0,
+      results: [],
+      durationMs: Date.now() - startTime
+    };
+  }
+  const results = [];
+  for (let i = 0; i < targetCamIds.length; i++) {
+    const camId = targetCamIds[i];
+    if (i > 0) {
+      await FitetClient.sleepWithJitter(1500, 3e3);
+    }
+    try {
+      const snapshot = await fetchChampionshipSnapshotFromFitet(camId, annoId);
+      if (!snapshot) {
+        continue;
+      }
+      const res = await evaluateSnapshotAndNotify(snapshot, { dryRun, init });
+      if (res) results.push(res);
+    } catch (err) {
+      console.warn(
+        `[CampionatoNotifier] Errore controllo campionato ${camId}:`,
+        err
+      );
+    }
+  }
+  const changedCount = results.filter((r) => r.changed).length;
+  const initializedCount = results.filter((r) => r.initialized).length;
+  return {
+    checkedCount: results.length,
+    changedCount,
+    initializedCount,
+    results,
+    durationMs: Date.now() - startTime
+  };
+}
+function getTodayDateRome() {
+  const now = /* @__PURE__ */ new Date();
+  const options = {
+    timeZone: "Europe/Rome",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  };
+  const parts = new Intl.DateTimeFormat("it-IT", options).formatToParts(now);
+  const day = parts.find((p) => p.type === "day")?.value || "01";
+  const month = parts.find((p) => p.type === "month")?.value || "01";
+  const year = parts.find((p) => p.type === "year")?.value || "2026";
+  return {
+    dateIT: `${day}/${month}/${year}`,
+    dateISO: `${year}-${month}-${day}`
+  };
+}
+function parseDateInput(raw) {
+  if (!raw) return getTodayDateRome();
+  const trimmed = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [y, m, d] = trimmed.split("-");
+    return {
+      dateISO: trimmed,
+      dateIT: `${d}/${m}/${y}`
+    };
+  }
+  const parts = trimmed.split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    const d = parts[0].padStart(2, "0");
+    const m = parts[1].padStart(2, "0");
+    let y = parts[2];
+    if (y.length === 2) y = `20${y}`;
+    return {
+      dateISO: `${y}-${m}-${d}`,
+      dateIT: `${d}/${m}/${y}`
+    };
+  }
+  return getTodayDateRome();
+}
+function normalizeDateMatch(dateStr) {
+  if (!dateStr) return "";
+  const parts = dateStr.trim().split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    const d = String(parseInt(parts[0], 10)).padStart(2, "0");
+    const m = String(parseInt(parts[1], 10)).padStart(2, "0");
+    let y = parts[2];
+    if (y.length === 2) y = `20${y}`;
+    return `${d}/${m}/${y}`;
+  }
+  return dateStr.trim();
+}
+async function checkMatchdayAndNotify(options = {}) {
+  const startTime = Date.now();
+  const { annoId = 41, dryRun = false, force = false } = options;
+  const { dateIT, dateISO } = parseDateInput(options.date);
+  const targetTag = `matchday-${dateISO}`;
+  let targetCamIds = [];
+  if (Array.isArray(options.camIds) && options.camIds.length > 0) {
+    targetCamIds = Array.from(
+      new Set(options.camIds.filter((id) => Number.isFinite(id) && id > 0))
+    );
+  } else {
+    targetCamIds = await pushService.getSubscribedChampionshipIds();
+  }
+  if (targetCamIds.length === 0) {
+    return {
+      dateISO,
+      dateIT,
+      checkedCount: 0,
+      matchdayChampionshipsCount: 0,
+      notificationsSentCount: 0,
+      results: [],
+      durationMs: Date.now() - startTime
+    };
+  }
+  const results = [];
+  const normalizedTargetIT = normalizeDateMatch(dateIT);
+  for (let i = 0; i < targetCamIds.length; i++) {
+    const camId = targetCamIds[i];
+    if (i > 0) {
+      await FitetClient.sleepWithJitter(1500, 3e3);
+    }
+    try {
+      const [calendarioHtml, champMeta] = await Promise.all([
+        FitetClient.fetchCalendario(camId, annoId).catch(() => ""),
+        championshipCatalog.getChampionship(camId).catch(() => void 0)
+      ]);
+      const championshipName = champMeta?.nome?.trim() || `Campionato #${camId}`;
+      const calendario = calendarioHtml ? parseCalendario(calendarioHtml) : [];
+      let matchesTodayCount = 0;
+      for (const g of calendario) {
+        const allMatches = [...g.partiteAndata || [], ...g.partiteRitorno || []];
+        for (const m of allMatches) {
+          if (normalizeDateMatch(m.data) === normalizedTargetIT) {
+            matchesTodayCount++;
+          }
+        }
+      }
+      const isMatchday = matchesTodayCount > 0;
+      if (!isMatchday) {
+        results.push({
+          camId,
+          championshipName,
+          isMatchday: false,
+          matchesCount: 0,
+          alreadyNotified: false,
+          notificationSent: false,
+          tag: targetTag
+        });
+        continue;
+      }
+      const stateKey = `matchday_notified_${camId}_${dateISO}`;
+      const existing = await pushService.getState(stateKey);
+      const alreadyNotified = Boolean(existing && existing === "sent");
+      if (alreadyNotified && !force) {
+        results.push({
+          camId,
+          championshipName,
+          isMatchday: true,
+          matchesCount: matchesTodayCount,
+          alreadyNotified: true,
+          notificationSent: false,
+          tag: targetTag
+        });
+        continue;
+      }
+      const payload = {
+        title: "\u{1F3D3} Oggi \xE8 giorno di campionato!",
+        body: "Buona fortuna al tavolo! Stasera passa dal portale a controllare referti e variazione punti.",
+        url: `/?view=campionato&cam=${camId}&tab=calendario`,
+        icon: "/icon.png",
+        badge: "/icon.png",
+        tag: targetTag,
+        renotify: false,
+        data: {
+          type: "championship_matchday",
+          camId,
+          date: dateISO,
+          url: `/?view=campionato&cam=${camId}&tab=calendario`
+        }
+      };
+      let broadcastResult = void 0;
+      let notificationSent = false;
+      if (!dryRun && pushService.isReady()) {
+        console.log(
+          `[CampionatoNotifier] Oggi \xE8 giorno di campionato per ${championshipName} (${matchesTodayCount} match il ${dateIT}). Invio push (tag=${targetTag})...`
+        );
+        broadcastResult = await pushService.sendToChampionshipSubscribers(camId, payload);
+        notificationSent = (broadcastResult?.sent || 0) > 0;
+        await pushService.setState(stateKey, "sent");
+      }
+      results.push({
+        camId,
+        championshipName,
+        isMatchday: true,
+        matchesCount: matchesTodayCount,
+        alreadyNotified,
+        notificationSent,
+        tag: targetTag,
+        broadcastResult
+      });
+    } catch (err) {
+      console.warn(`[CampionatoNotifier] Errore verifica matchday per cam=${camId}:`, err);
+    }
+  }
+  const matchdayChampionshipsCount = results.filter((r) => r.isMatchday).length;
+  const notificationsSentCount = results.filter((r) => r.notificationSent).length;
+  return {
+    dateISO,
+    dateIT,
+    checkedCount: results.length,
+    matchdayChampionshipsCount,
+    notificationsSentCount,
+    results,
+    durationMs: Date.now() - startTime
+  };
+}
+
 // server/parsers/torneiParser.ts
 import * as cheerio9 from "cheerio";
 var COMIT_NAMES = {
@@ -6645,752 +7360,39 @@ async function checkNewTorneiAndNotify(options = {}) {
     durationMs: Date.now() - startTime
   };
 }
-var dailySchedulerTimer = null;
-var lastDailyCheckDate = "";
-function getRomeDateHour() {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Rome",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  });
-  const parts = formatter.formatToParts(/* @__PURE__ */ new Date());
-  const map = {};
-  for (const p of parts) {
-    map[p.type] = p.value;
-  }
-  const dateStr = `${map.year}-${map.month}-${map.day}`;
-  const hour = parseInt(map.hour || "0", 10) % 24;
-  const minute = parseInt(map.minute || "0", 10);
-  return { dateStr, hour, minute };
-}
-function startDailyTorneiScheduler() {
-  if (dailySchedulerTimer) return;
-  const checkTick = async () => {
-    try {
-      const { dateStr, hour } = getRomeDateHour();
-      if (hour === 9 && lastDailyCheckDate !== dateStr) {
-        lastDailyCheckDate = dateStr;
-        console.log(`[TorneiScanner] Trigger giornaliero delle 09:00 (${dateStr}) avviato...`);
-        await checkNewTorneiAndNotify();
-      }
-    } catch (err) {
-      console.warn("[TorneiScanner] Errore durante il controllo giornaliero delle 09:00:", err);
-    }
-  };
-  dailySchedulerTimer = setInterval(checkTick, 60 * 1e3);
-  if (typeof dailySchedulerTimer.unref === "function") {
-    dailySchedulerTimer.unref();
-  }
-}
 
-// server/services/campionatoNotificationService.ts
-var CHAMPIONSHIP_STATE_KEY_PREFIX = "championship_state_";
-function getChampionshipStateKey(camId) {
-  return `${CHAMPIONSHIP_STATE_KEY_PREFIX}${camId}`;
-}
-var cachedSnapshots = /* @__PURE__ */ new Map();
-var SNAPSHOT_CACHE_TTL_MS = 30 * 60 * 1e3;
-var inFlightChecks = /* @__PURE__ */ new Set();
-function normKey(value) {
-  return (value || "").trim().toUpperCase().replace(/\s+/g, " ");
-}
-function buildChampionshipSnapshot(input) {
-  const {
-    camId,
-    annoId = 41,
-    championshipName = `Campionato #${camId}`,
-    classifica = [],
-    calendario = [],
-    statisticheAtleti = []
-  } = input;
-  if (!Number.isFinite(camId) || camId <= 0) {
-    return null;
-  }
-  if (classifica.length === 0 && calendario.length === 0) {
-    return null;
-  }
-  const playedMatchesMap = /* @__PURE__ */ new Map();
-  for (const g of calendario) {
-    const allMatches = [...g.partiteAndata || [], ...g.partiteRitorno || []];
-    for (const m of allMatches) {
-      const hasScore = m.puntiCasa !== null && m.puntiOspite !== null;
-      const isPlayed = Boolean(m.disputato || hasScore || m.incontroId);
-      if (!isPlayed) continue;
-      const key = `${m.giornata}_${m.tipo}_${normKey(m.squadraCasa)}_${normKey(m.squadraOspite)}`;
-      playedMatchesMap.set(key, {
-        key,
-        giornata: m.giornata,
-        tipo: m.tipo,
-        squadraCasa: m.squadraCasa.trim(),
-        squadraOspite: m.squadraOspite.trim(),
-        puntiCasa: m.puntiCasa,
-        puntiOspite: m.puntiOspite,
-        risultato: (m.risultato || "").trim(),
-        incontroId: m.incontroId || null
-      });
-    }
-  }
-  const snapshotClassifica = classifica.map((t, index) => ({
-    key: normKey(t.nome),
-    nome: t.nome.trim(),
-    posizione: t.posizione || index + 1,
-    punti: t.punti ?? 0,
-    incontriGiocati: t.incontriDisputati ?? 0,
-    vittorie: t.incontriVinti ?? 0,
-    pareggi: t.incontriPareggiati ?? 0,
-    sconfitte: t.incontriPersi ?? 0,
-    partiteVinte: t.partiteVinte ?? 0,
-    partitePerse: t.partitePerse ?? 0
-  }));
-  const snapshotStatistiche = (statisticheAtleti || []).filter((a) => Boolean(a.atleta)).map((a) => ({
-    key: `${normKey(a.atleta)}__${normKey(a.squadra)}`,
-    atleta: a.atleta.trim(),
-    squadra: (a.squadra || "").trim(),
-    incontriDisputati: a.incontriDisputati ?? 0,
-    partiteDisputate: a.partiteDisputate ?? 0,
-    partiteVinte: a.partiteVinte ?? 0,
-    partitePerse: a.partitePerse ?? 0,
-    setVinti: a.setVinti ?? 0,
-    setPersi: a.setPersi ?? 0
-  }));
-  return {
-    camId,
-    annoId,
-    championshipName: championshipName.trim() || `Campionato #${camId}`,
-    updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    playedMatches: Array.from(playedMatchesMap.values()),
-    classifica: snapshotClassifica,
-    statistiche: snapshotStatistiche
-  };
-}
-function diffChampionshipSnapshots(prev, curr) {
-  const emptyDiff = {
-    hasChanges: false,
-    newPlayedMatches: [],
-    updatedMatches: [],
-    classificaChanged: false,
-    statisticheChanged: false
-  };
-  const prevMatches = prev.playedMatches || [];
-  const currMatches = curr.playedMatches || [];
-  if (prevMatches.length > 0 && currMatches.length < prevMatches.length) {
-    return emptyDiff;
-  }
-  const prevMatchMap = new Map(
-    prevMatches.map((m) => [m.key, m])
-  );
-  const newPlayedMatches = [];
-  const updatedMatches = [];
-  for (const m of currMatches) {
-    const old = prevMatchMap.get(m.key);
-    if (!old) {
-      newPlayedMatches.push(m);
-      continue;
-    }
-    const scoreChanged = old.puntiCasa !== m.puntiCasa || old.puntiOspite !== m.puntiOspite;
-    const refertoAdded = !old.incontroId && Boolean(m.incontroId);
-    if (scoreChanged || refertoAdded) {
-      updatedMatches.push(m);
-    }
-  }
-  let classificaChanged = false;
-  const prevClassifica = prev.classifica || [];
-  const currClassifica = curr.classifica || [];
-  const prevTotalTeamPlayed = prevClassifica.reduce(
-    (sum, t) => sum + (t.incontriGiocati || 0),
-    0
-  );
-  const currTotalTeamPlayed = currClassifica.reduce(
-    (sum, t) => sum + (t.incontriGiocati || 0),
-    0
-  );
-  if (currClassifica.length > 0 && currTotalTeamPlayed >= prevTotalTeamPlayed) {
-    if (prevClassifica.length === 0 && currTotalTeamPlayed > 0) {
-      classificaChanged = true;
-    } else if (prevClassifica.length > 0) {
-      const prevTeamMap = new Map(
-        prevClassifica.map((t) => [t.key, t])
-      );
-      for (const team of currClassifica) {
-        const oldTeam = prevTeamMap.get(team.key);
-        if (!oldTeam) continue;
-        if (oldTeam.punti !== team.punti || oldTeam.incontriGiocati !== team.incontriGiocati || oldTeam.vittorie !== team.vittorie || oldTeam.pareggi !== team.pareggi || oldTeam.sconfitte !== team.sconfitte || oldTeam.partiteVinte !== team.partiteVinte || oldTeam.partitePerse !== team.partitePerse || oldTeam.posizione !== team.posizione) {
-          classificaChanged = true;
-          break;
-        }
-      }
-    }
-  }
-  let statisticheChanged = false;
-  const prevStats = prev.statistiche || [];
-  const currStats = curr.statistiche || [];
-  const prevTotalIndPlayed = prevStats.reduce(
-    (sum, a) => sum + (a.partiteDisputate || 0),
-    0
-  );
-  const currTotalIndPlayed = currStats.reduce(
-    (sum, a) => sum + (a.partiteDisputate || 0),
-    0
-  );
-  if (currStats.length > 0 && currTotalIndPlayed >= prevTotalIndPlayed) {
-    if (currTotalIndPlayed > prevTotalIndPlayed) {
-      statisticheChanged = true;
-    } else if (prevStats.length > 0) {
-      const prevStatMap = new Map(
-        prevStats.map((a) => [a.key, a])
-      );
-      for (const stat of currStats) {
-        const oldStat = prevStatMap.get(stat.key);
-        if (!oldStat) {
-          if (stat.partiteDisputate > 0) {
-            statisticheChanged = true;
-            break;
-          }
-          continue;
-        }
-        if (oldStat.incontriDisputati !== stat.incontriDisputati || oldStat.partiteDisputate !== stat.partiteDisputate || oldStat.partiteVinte !== stat.partiteVinte || oldStat.partitePerse !== stat.partitePerse || oldStat.setVinti !== stat.setVinti || oldStat.setPersi !== stat.setPersi) {
-          statisticheChanged = true;
-          break;
-        }
-      }
-    }
-  }
-  const hasChanges = newPlayedMatches.length > 0 || updatedMatches.length > 0 || classificaChanged || statisticheChanged;
-  return {
-    hasChanges,
-    newPlayedMatches,
-    updatedMatches,
-    classificaChanged,
-    statisticheChanged
-  };
-}
-function formatMatchPreview(m) {
-  if (m.puntiCasa !== null && m.puntiOspite !== null) {
-    return `${m.squadraCasa} ${m.puntiCasa}-${m.puntiOspite} ${m.squadraOspite}`;
-  }
-  return `${m.squadraCasa} vs ${m.squadraOspite}`;
-}
-function buildChampionshipNotificationPayload(camId, championshipName, diff) {
-  const cleanTitleName = championshipName?.trim() || `Campionato #${camId}`;
-  const changedMatches = [...diff.newPlayedMatches, ...diff.updatedMatches];
-  const title = `\u{1F3D3} ${cleanTitleName}`;
-  let body;
-  if (changedMatches.length === 1) {
-    const matchStr = formatMatchPreview(changedMatches[0]);
-    body = `Nuovi match del tuo campionato disponibili (${matchStr}), vai a vedere le partite e statistiche!`;
-  } else if (changedMatches.length > 1) {
-    const previews = changedMatches.slice(0, 2).map(formatMatchPreview).join(", ");
-    const extra = changedMatches.length > 2 ? ` e altri ${changedMatches.length - 2}` : "";
-    body = `Nuovi match del tuo campionato disponibili (${previews}${extra}), vai a vedere le partite e statistiche!`;
-  } else if (diff.classificaChanged) {
-    body = "Nuovi match del tuo campionato disponibili: la classifica \xE8 aggiornata, vai a vedere le partite e statistiche!";
-  } else {
-    body = "Nuovi match del tuo campionato disponibili, vai a vedere le partite e statistiche!";
-  }
-  const targetTab = changedMatches.length > 0 ? "calendario" : diff.classificaChanged ? "classifica" : "statistiche";
-  return {
-    title,
-    body,
-    url: `/?view=campionato&cam=${camId}&tab=${targetTab}`,
-    icon: "/icon.png",
-    badge: "/icon.png",
-    tag: `campionato-${camId}-${Date.now()}`,
-    renotify: true,
-    data: {
-      type: "championship_update",
-      camId,
-      championshipName: cleanTitleName,
-      newPlayedMatchesCount: diff.newPlayedMatches.length,
-      updatedMatchesCount: diff.updatedMatches.length,
-      classificaChanged: diff.classificaChanged,
-      statisticheChanged: diff.statisticheChanged
-    }
-  };
-}
-async function evaluateSnapshotAndNotify(currSnapshot, options = {}) {
-  const { camId, championshipName } = currSnapshot;
-  const { dryRun = false, init = false } = options;
-  const stateKey = getChampionshipStateKey(camId);
-  const rawPrev = await pushService.getState(stateKey);
-  if (rawPrev === null || init) {
-    if (!dryRun) {
-      await pushService.setState(stateKey, JSON.stringify(currSnapshot));
-      cachedSnapshots.set(camId, {
-        snapshot: currSnapshot,
-        timestamp: Date.now()
-      });
-    }
-    return {
-      camId,
-      championshipName,
-      changed: false,
-      initialized: true,
-      newPlayedMatchesCount: 0,
-      updatedMatchesCount: 0,
-      classificaChanged: false,
-      statisticheChanged: false,
-      notificationSent: false
-    };
-  }
-  let prevSnapshot = null;
-  try {
-    prevSnapshot = JSON.parse(rawPrev);
-  } catch (err) {
-    console.warn(
-      `[CampionatoNotifier] Stato JSON non valido per cam=${camId}, reinizializzazione baseline...`
-    );
-  }
-  if (!prevSnapshot || typeof prevSnapshot !== "object") {
-    if (!dryRun) {
-      await pushService.setState(stateKey, JSON.stringify(currSnapshot));
-      cachedSnapshots.set(camId, {
-        snapshot: currSnapshot,
-        timestamp: Date.now()
-      });
-    }
-    return {
-      camId,
-      championshipName,
-      changed: false,
-      initialized: true,
-      newPlayedMatchesCount: 0,
-      updatedMatchesCount: 0,
-      classificaChanged: false,
-      statisticheChanged: false,
-      notificationSent: false
-    };
-  }
-  const mergedCurrSnapshot = {
-    ...currSnapshot,
-    statistiche: currSnapshot.statistiche.length > 0 ? currSnapshot.statistiche : prevSnapshot.statistiche || [],
-    classifica: currSnapshot.classifica.length > 0 ? currSnapshot.classifica : prevSnapshot.classifica || []
-  };
-  const diff = diffChampionshipSnapshots(prevSnapshot, mergedCurrSnapshot);
-  if (!diff.hasChanges) {
-    cachedSnapshots.set(camId, {
-      snapshot: mergedCurrSnapshot,
-      timestamp: Date.now()
-    });
-    return {
-      camId,
-      championshipName,
-      changed: false,
-      newPlayedMatchesCount: 0,
-      updatedMatchesCount: 0,
-      classificaChanged: false,
-      statisticheChanged: false,
-      notificationSent: false
-    };
-  }
-  let broadcastResult;
-  let notificationSent = false;
-  if (!dryRun) {
-    const claimed = await pushService.compareAndSetState(
-      stateKey,
-      rawPrev,
-      JSON.stringify(mergedCurrSnapshot)
-    );
-    if (!claimed) {
-      return {
-        camId,
-        championshipName,
-        changed: false,
-        newPlayedMatchesCount: 0,
-        updatedMatchesCount: 0,
-        classificaChanged: false,
-        statisticheChanged: false,
-        notificationSent: false
-      };
-    }
-    cachedSnapshots.set(camId, {
-      snapshot: mergedCurrSnapshot,
-      timestamp: Date.now()
-    });
-    cacheService.delete(`classifica_${camId}`);
-    cacheService.delete(`calendario_${camId}_${currSnapshot.annoId || 41}`);
-    cacheService.delete(`statistiche_${camId}`);
-    if (pushService.isReady()) {
-      const payload = buildChampionshipNotificationPayload(
-        camId,
-        championshipName,
-        diff
-      );
-      console.log(
-        `[CampionatoNotifier] Rilevato aggiornamento per ${championshipName} (cam=${camId}): nuoviMatch=${diff.newPlayedMatches.length}, matchAggiornati=${diff.updatedMatches.length}, classifica=${diff.classificaChanged}, statistiche=${diff.statisticheChanged}. Invio push...`
-      );
-      broadcastResult = await pushService.sendToChampionshipSubscribers(
-        camId,
-        payload
-      );
-      notificationSent = broadcastResult.sent > 0;
-      console.log(
-        `[CampionatoNotifier] Notifiche inviate per cam=${camId}: ${broadcastResult.sent}/${broadcastResult.total}.`
-      );
-    }
-  }
-  return {
-    camId,
-    championshipName,
-    changed: true,
-    newPlayedMatchesCount: diff.newPlayedMatches.length,
-    updatedMatchesCount: diff.updatedMatches.length,
-    classificaChanged: diff.classificaChanged,
-    statisticheChanged: diff.statisticheChanged,
-    notificationSent,
-    broadcastResult
-  };
-}
-var SUBSCRIBED_CAMS_TTL_MS = 30 * 60 * 1e3;
-var subscribedCamsCache = null;
-function invalidateSubscribedChampionshipsCache() {
-  subscribedCamsCache = null;
-}
-async function isChampionshipFollowed(camId) {
-  if (!subscribedCamsCache || Date.now() - subscribedCamsCache.timestamp > SUBSCRIBED_CAMS_TTL_MS) {
-    const ids = await pushService.getSubscribedChampionshipIds();
-    subscribedCamsCache = { ids: new Set(ids), timestamp: Date.now() };
-  }
-  return subscribedCamsCache.ids.has(camId);
-}
-async function notifyObservedChampionshipIfNeeded(input) {
-  if (!pushService.isSupabaseConfigured()) {
-    return null;
-  }
-  try {
-    if (!await isChampionshipFollowed(input.camId)) {
-      return null;
-    }
-  } catch (err) {
-    console.warn(`[CampionatoNotifier] Impossibile leggere le iscrizioni per cam=${input.camId}:`, err);
-    return null;
-  }
-  const currSnapshot = buildChampionshipSnapshot(input);
-  if (!currSnapshot) {
-    return null;
-  }
-  const { camId } = currSnapshot;
-  if (inFlightChecks.has(camId)) {
-    return null;
-  }
-  const cached = cachedSnapshots.get(camId);
-  if (cached && Date.now() - cached.timestamp < SNAPSHOT_CACHE_TTL_MS) {
-    const quickDiff = diffChampionshipSnapshots(cached.snapshot, currSnapshot);
-    if (!quickDiff.hasChanges) {
-      return null;
-    }
-  }
-  inFlightChecks.add(camId);
-  try {
-    return await evaluateSnapshotAndNotify(currSnapshot);
-  } catch (err) {
-    console.warn(
-      `[CampionatoNotifier] Errore controllo passivo campionato ${camId}:`,
-      err
-    );
-    return null;
-  } finally {
-    inFlightChecks.delete(camId);
-  }
-}
-async function fetchChampionshipSnapshotFromFitet(camId, annoId = 41) {
-  const [classificaHtml, calendarioHtml, statisticheHtml, champMeta] = await withFitetCacheBypass(
-    () => Promise.all([
-      FitetClient.fetchClassifica(camId).catch(() => ""),
-      FitetClient.fetchCalendario(camId, annoId).catch(() => ""),
-      FitetClient.fetchStatisticheAtleti(camId).catch(() => ""),
-      championshipCatalog.getChampionship(camId).catch(() => void 0)
-    ])
-  );
-  const classifica = classificaHtml ? parseClassifica(classificaHtml) : [];
-  const calendario = calendarioHtml ? parseCalendario(calendarioHtml) : [];
-  const statisticheAtleti = statisticheHtml ? parseStatisticheAtleti(statisticheHtml, {}) : [];
-  return buildChampionshipSnapshot({
-    camId,
-    annoId: champMeta?.anno || annoId,
-    championshipName: champMeta?.nome || `Campionato #${camId}`,
-    classifica,
-    calendario,
-    statisticheAtleti
-  });
-}
-async function ensureChampionshipBaseline(camId, annoId = 41) {
-  if (!Number.isFinite(camId) || camId <= 0 || !pushService.isSupabaseConfigured()) {
-    return;
-  }
-  try {
-    const stateKey = getChampionshipStateKey(camId);
-    const existing = await pushService.getState(stateKey);
-    if (existing !== null) return;
-    const snapshot = await fetchChampionshipSnapshotFromFitet(camId, annoId);
-    if (!snapshot) return;
-    await pushService.setState(stateKey, JSON.stringify(snapshot));
-    cachedSnapshots.set(camId, {
-      snapshot,
-      timestamp: Date.now()
-    });
-    console.log(
-      `[CampionatoNotifier] Baseline inizializzato per ${snapshot.championshipName} (cam=${camId}).`
-    );
-  } catch (err) {
-    console.warn(
-      `[CampionatoNotifier] Impossibile inizializzare baseline per cam=${camId}:`,
-      err
-    );
-  }
-}
-async function checkChampionshipsAndNotify(options = {}) {
-  const startTime = Date.now();
-  const { annoId = 41, dryRun = false, init = false } = options;
-  let targetCamIds = [];
-  if (Array.isArray(options.camIds) && options.camIds.length > 0) {
-    targetCamIds = Array.from(
-      new Set(options.camIds.filter((id) => Number.isFinite(id) && id > 0))
-    );
-  } else {
-    targetCamIds = await pushService.getSubscribedChampionshipIds();
-  }
-  if (targetCamIds.length === 0) {
-    return {
-      checkedCount: 0,
-      changedCount: 0,
-      initializedCount: 0,
-      results: [],
-      durationMs: Date.now() - startTime
-    };
-  }
-  const results = [];
-  for (let i = 0; i < targetCamIds.length; i++) {
-    const camId = targetCamIds[i];
-    if (i > 0) {
-      await FitetClient.sleepWithJitter(1500, 3e3);
-    }
-    try {
-      const snapshot = await fetchChampionshipSnapshotFromFitet(camId, annoId);
-      if (!snapshot) {
-        continue;
-      }
-      const res = await evaluateSnapshotAndNotify(snapshot, { dryRun, init });
-      if (res) results.push(res);
-    } catch (err) {
-      console.warn(
-        `[CampionatoNotifier] Errore controllo campionato ${camId}:`,
-        err
-      );
-    }
-  }
-  const changedCount = results.filter((r) => r.changed).length;
-  const initializedCount = results.filter((r) => r.initialized).length;
-  return {
-    checkedCount: results.length,
-    changedCount,
-    initializedCount,
-    results,
-    durationMs: Date.now() - startTime
-  };
-}
-function getTodayDateRome() {
-  const now = /* @__PURE__ */ new Date();
-  const options = {
-    timeZone: "Europe/Rome",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  };
-  const parts = new Intl.DateTimeFormat("it-IT", options).formatToParts(now);
-  const day = parts.find((p) => p.type === "day")?.value || "01";
-  const month = parts.find((p) => p.type === "month")?.value || "01";
-  const year = parts.find((p) => p.type === "year")?.value || "2026";
-  return {
-    dateIT: `${day}/${month}/${year}`,
-    dateISO: `${year}-${month}-${day}`
-  };
-}
-function parseDateInput(raw) {
-  if (!raw) return getTodayDateRome();
-  const trimmed = raw.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    const [y, m, d] = trimmed.split("-");
-    return {
-      dateISO: trimmed,
-      dateIT: `${d}/${m}/${y}`
-    };
-  }
-  const parts = trimmed.split(/[\/\-\.]/);
-  if (parts.length === 3) {
-    const d = parts[0].padStart(2, "0");
-    const m = parts[1].padStart(2, "0");
-    let y = parts[2];
-    if (y.length === 2) y = `20${y}`;
-    return {
-      dateISO: `${y}-${m}-${d}`,
-      dateIT: `${d}/${m}/${y}`
-    };
-  }
-  return getTodayDateRome();
-}
-function normalizeDateMatch(dateStr) {
-  if (!dateStr) return "";
-  const parts = dateStr.trim().split(/[\/\-\.]/);
-  if (parts.length === 3) {
-    const d = String(parseInt(parts[0], 10)).padStart(2, "0");
-    const m = String(parseInt(parts[1], 10)).padStart(2, "0");
-    let y = parts[2];
-    if (y.length === 2) y = `20${y}`;
-    return `${d}/${m}/${y}`;
-  }
-  return dateStr.trim();
-}
-async function checkMatchdayAndNotify(options = {}) {
-  const startTime = Date.now();
-  const { annoId = 41, dryRun = false, force = false } = options;
-  const { dateIT, dateISO } = parseDateInput(options.date);
-  const targetTag = `matchday-${dateISO}`;
-  let targetCamIds = [];
-  if (Array.isArray(options.camIds) && options.camIds.length > 0) {
-    targetCamIds = Array.from(
-      new Set(options.camIds.filter((id) => Number.isFinite(id) && id > 0))
-    );
-  } else {
-    targetCamIds = await pushService.getSubscribedChampionshipIds();
-  }
-  if (targetCamIds.length === 0) {
-    return {
-      dateISO,
-      dateIT,
-      checkedCount: 0,
-      matchdayChampionshipsCount: 0,
-      notificationsSentCount: 0,
-      results: [],
-      durationMs: Date.now() - startTime
-    };
-  }
-  const results = [];
-  const normalizedTargetIT = normalizeDateMatch(dateIT);
-  for (let i = 0; i < targetCamIds.length; i++) {
-    const camId = targetCamIds[i];
-    if (i > 0) {
-      await FitetClient.sleepWithJitter(1500, 3e3);
-    }
-    try {
-      const [calendarioHtml, champMeta] = await Promise.all([
-        FitetClient.fetchCalendario(camId, annoId).catch(() => ""),
-        championshipCatalog.getChampionship(camId).catch(() => void 0)
-      ]);
-      const championshipName = champMeta?.nome?.trim() || `Campionato #${camId}`;
-      const calendario = calendarioHtml ? parseCalendario(calendarioHtml) : [];
-      let matchesTodayCount = 0;
-      for (const g of calendario) {
-        const allMatches = [...g.partiteAndata || [], ...g.partiteRitorno || []];
-        for (const m of allMatches) {
-          if (normalizeDateMatch(m.data) === normalizedTargetIT) {
-            matchesTodayCount++;
-          }
-        }
-      }
-      const isMatchday = matchesTodayCount > 0;
-      if (!isMatchday) {
-        results.push({
-          camId,
-          championshipName,
-          isMatchday: false,
-          matchesCount: 0,
-          alreadyNotified: false,
-          notificationSent: false,
-          tag: targetTag
-        });
-        continue;
-      }
-      const stateKey = `matchday_notified_${camId}_${dateISO}`;
-      const existing = await pushService.getState(stateKey);
-      const alreadyNotified = Boolean(existing && existing === "sent");
-      if (alreadyNotified && !force) {
-        results.push({
-          camId,
-          championshipName,
-          isMatchday: true,
-          matchesCount: matchesTodayCount,
-          alreadyNotified: true,
-          notificationSent: false,
-          tag: targetTag
-        });
-        continue;
-      }
-      const payload = {
-        title: "\u{1F3D3} Oggi \xE8 giorno di campionato!",
-        body: "Buona fortuna al tavolo! Stasera passa dal portale a controllare referti e variazione punti.",
-        url: `/?view=campionato&cam=${camId}&tab=calendario`,
-        icon: "/icon.png",
-        badge: "/icon.png",
-        tag: targetTag,
-        renotify: false,
-        data: {
-          type: "championship_matchday",
-          camId,
-          date: dateISO,
-          url: `/?view=campionato&cam=${camId}&tab=calendario`
-        }
-      };
-      let broadcastResult = void 0;
-      let notificationSent = false;
-      if (!dryRun && pushService.isReady()) {
-        console.log(
-          `[CampionatoNotifier] Oggi \xE8 giorno di campionato per ${championshipName} (${matchesTodayCount} match il ${dateIT}). Invio push (tag=${targetTag})...`
-        );
-        broadcastResult = await pushService.sendToChampionshipSubscribers(camId, payload);
-        notificationSent = (broadcastResult?.sent || 0) > 0;
-        await pushService.setState(stateKey, "sent");
-      }
-      results.push({
-        camId,
-        championshipName,
-        isMatchday: true,
-        matchesCount: matchesTodayCount,
-        alreadyNotified,
-        notificationSent,
-        tag: targetTag,
-        broadcastResult
-      });
-    } catch (err) {
-      console.warn(`[CampionatoNotifier] Errore verifica matchday per cam=${camId}:`, err);
-    }
-  }
-  const matchdayChampionshipsCount = results.filter((r) => r.isMatchday).length;
-  const notificationsSentCount = results.filter((r) => r.notificationSent).length;
-  return {
-    dateISO,
-    dateIT,
-    checkedCount: results.length,
-    matchdayChampionshipsCount,
-    notificationsSentCount,
-    results,
-    durationMs: Date.now() - startTime
-  };
-}
-var championshipSchedulerTimer = null;
-function startChampionshipScheduler() {
-  if (championshipSchedulerTimer) return;
-  const intervalMs = 60 * 60 * 1e3;
-  championshipSchedulerTimer = setInterval(() => {
+// server/services/cronJobs.ts
+async function runRankingCheck() {
+  const idClass = await getLatestIdClass(true, false);
+  const [ranking, championshipsResult, matchdayResult] = await Promise.all([
+    notifyRankingChangeIfNeeded(idClass),
     checkChampionshipsAndNotify().catch((err) => {
-      console.warn(
-        "[CampionatoNotifier] Errore durante il controllo periodico campionati:",
-        err
-      );
-    });
+      console.warn("[CronJobs] Errore controllo campionati durante check-ranking:", err);
+      return null;
+    }),
     checkMatchdayAndNotify().catch((err) => {
-      console.warn(
-        "[CampionatoNotifier] Errore durante il controllo periodico matchday:",
-        err
-      );
-    });
-  }, intervalMs);
-  if (typeof championshipSchedulerTimer.unref === "function") {
-    championshipSchedulerTimer.unref();
-  }
+      console.warn("[CronJobs] Errore controllo matchday durante check-ranking:", err);
+      return null;
+    })
+  ]);
+  return {
+    idClass,
+    ranking,
+    championships: championshipsResult,
+    matchday: matchdayResult
+  };
+}
+async function runChampionshipsCheck(options = {}) {
+  return checkChampionshipsAndNotify(options);
+}
+async function runMatchdayCheck(options = {}) {
+  return checkMatchdayAndNotify(options);
+}
+async function runTorneiCheck(options = {}) {
+  return checkNewTorneiAndNotify(options);
+}
+async function runVideoSync() {
+  return youtubeSyncService.syncAllChannels();
 }
 
 // server/parsers/squadraParser.ts
@@ -8765,35 +8767,6 @@ app.get("/api/statistiche", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-var DEFAULT_ID_CLASS2 = 248;
-async function getLatestIdClass(forceRefresh = false, notifyOnChange = true) {
-  const cacheKey = "latest_ranking_id_class";
-  if (!forceRefresh) {
-    const cached = cacheService.get(cacheKey);
-    if (cached && typeof cached === "number" && cached >= DEFAULT_ID_CLASS2) {
-      return cached;
-    }
-  }
-  try {
-    const html = await FitetClient.fetchHtml("https://portale.fitet.org/menu.php");
-    const match = html.match(/testaclassifica_auto\.php\?ID_CLASS=(\d+)/i);
-    if (match && match[1]) {
-      const detected = parseInt(match[1], 10);
-      if (detected >= DEFAULT_ID_CLASS2) {
-        cacheService.set(cacheKey, detected, 4 * 60 * 60 * 1e3);
-        if (notifyOnChange) {
-          notifyRankingChangeIfNeeded(detected).catch((pushErr) => {
-            console.warn("[PushService] Errore notifica cambio ID_CLASS:", pushErr);
-          });
-        }
-        return detected;
-      }
-    }
-  } catch (err) {
-    console.warn("[Ranking] Impossibile rilevare automaticamente ID_CLASS da menu.php, uso fallback:", err);
-  }
-  return DEFAULT_ID_CLASS2;
-}
 app.get("/api/ranking", async (req, res) => {
   const sesso = req.query.sesso === "F" ? "F" : "M";
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -10064,23 +10037,13 @@ app.get("/api/push/check-ranking", async (req, res) => {
     return res.status(401).json({ error: "Non autorizzato." });
   }
   try {
-    const idClass = await getLatestIdClass(true, false);
-    const [result, championshipsResult, matchdayResult] = await Promise.all([
-      notifyRankingChangeIfNeeded(idClass),
-      checkChampionshipsAndNotify().catch((err) => {
-        console.warn("[PushService] Errore controllo campionati durante check-ranking:", err);
-        return null;
-      }),
-      checkMatchdayAndNotify().catch((err) => {
-        console.warn("[PushService] Errore controllo matchday durante check-ranking:", err);
-        return null;
-      })
-    ]);
+    const result = await runRankingCheck();
     return res.json({
       success: true,
-      ...result,
-      championships: championshipsResult,
-      matchday: matchdayResult
+      ...result.ranking,
+      idClass: result.idClass,
+      championships: result.championships,
+      matchday: result.matchday
     });
   } catch (error) {
     console.error("[PushService] Errore controllo cambio ranking:", error);
@@ -10099,7 +10062,7 @@ app.get("/api/push/check-campionati", async (req, res) => {
   const rawCam = typeof req.query.cam === "string" ? req.query.cam : "";
   const camIds = rawCam ? rawCam.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isFinite(n) && n > 0) : void 0;
   try {
-    const result = await checkChampionshipsAndNotify({ camIds, dryRun, init });
+    const result = await runChampionshipsCheck({ camIds, dryRun, init });
     return res.json({ success: true, ...result });
   } catch (error) {
     console.error("[PushService] Errore controllo campionati:", error);
@@ -10119,7 +10082,7 @@ app.get("/api/push/check-matchday", async (req, res) => {
   const rawCam = typeof req.query.cam === "string" ? req.query.cam : "";
   const camIds = rawCam ? rawCam.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isFinite(n) && n > 0) : void 0;
   try {
-    const result = await checkMatchdayAndNotify({ camIds, date, dryRun, force });
+    const result = await runMatchdayCheck({ camIds, date, dryRun, force });
     return res.json({ success: true, ...result });
   } catch (error) {
     console.error("[PushService] Errore controllo matchday:", error);
@@ -10137,7 +10100,7 @@ app.get("/api/push/check-tornei", async (req, res) => {
   const init = req.query.init === "true";
   const concurrency = req.query.concurrency ? parseInt(req.query.concurrency, 10) : void 0;
   try {
-    const result = await checkNewTorneiAndNotify({ dryRun, init, concurrency });
+    const result = await runTorneiCheck({ dryRun, init, concurrency });
     return res.json({ success: true, ...result });
   } catch (error) {
     console.error("[PushService] Errore controllo nuovi tornei:", error);
@@ -10148,8 +10111,11 @@ app.get("/api/push/check-tornei", async (req, res) => {
   }
 });
 app.all(["/api/videos/sync", "/api/sync-youtube"], async (req, res) => {
+  if (!isPushCronAuthorized(req)) {
+    return res.status(401).json({ error: "Non autorizzato." });
+  }
   try {
-    const result = await youtubeSyncService.syncAllChannels();
+    const result = await runVideoSync();
     return res.json({
       success: true,
       totalFetched: result.total,
@@ -10527,8 +10493,6 @@ app.get("/admin/analytics", requireAnalyticsBasicAuth, (_req, res) => {
   return res.type("html").send(renderAnalyticsAdminHtml());
 });
 if (!process.env.VERCEL) {
-  startDailyTorneiScheduler();
-  startChampionshipScheduler();
   const distPath = path7.resolve(process.cwd(), "dist");
   app.use(express.static(distPath));
   app.get(["/regioni/:slug", "/regione/:slug"], async (req, res, next) => {
@@ -10598,8 +10562,6 @@ if (!process.env.VERCEL) {
 }
 var app_default = app;
 export {
-  DEFAULT_ID_CLASS2 as DEFAULT_ID_CLASS,
   app,
-  app_default as default,
-  getLatestIdClass
+  app_default as default
 };

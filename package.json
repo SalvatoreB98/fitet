@@ -15,6 +15,7 @@
     "update:catalog": "tsx server/scripts/buildCatalog.ts",
     "preview": "vite preview",
     "start": "tsx server/index.ts",
+    "notify": "tsx scripts/send-push.ts",
     "test": "tsx test.ts",
     "test:watch": "tsx test.ts --watch"
   },
@@ -35,6 +36,7 @@
     "dotenv": "^18.0.9",
     "express": "^4.21.2",
     "lucide-react": "^0.475.0",
+    "node-cron": "^4.6.0",
     "pg": "^8.23.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

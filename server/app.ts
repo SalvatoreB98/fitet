@@ -21,20 +21,20 @@ import { handlePredictTeamMatch } from '../api/predict-team-match';
 import { generateAthleteOgCard, generateAthleteStoryCard } from './services/socialCardService';
 import {
     pushService,
-    notifyRankingChangeIfNeeded,
 } from './services/pushService';
 import { youtubeSyncService } from './services/youtubeSyncService';
+import { getLatestIdClass } from './services/rankingClassService';
 import {
-    checkNewTorneiAndNotify,
-    startDailyTorneiScheduler,
-} from './services/torneiNotificationService';
+    runRankingCheck,
+    runChampionshipsCheck,
+    runMatchdayCheck,
+    runTorneiCheck,
+    runVideoSync,
+} from './services/cronJobs';
 import {
     notifyObservedChampionshipIfNeeded,
     invalidateSubscribedChampionshipsCache,
     ensureChampionshipBaseline,
-    checkChampionshipsAndNotify,
-    checkMatchdayAndNotify,
-    startChampionshipScheduler,
 } from './services/campionatoNotificationService';
 import type { PushSubscriptionPayload, PushSubscriptionContext } from './services/pushService';
 import { parseDettaglioSquadra } from './parsers/squadraParser';
@@ -565,50 +565,6 @@ app.get('/api/statistiche', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-
-export const DEFAULT_ID_CLASS = 248;
-
-/**
- * Rileva dinamicamente l'ID_CLASS della classifica più recente da portale.fitet.org/menu.php.
- * Quando esce il mese nuovo (es. 249, 250...), viene rilevato automaticamente senza modifiche al codice.
- * Se non disponibile o in caso di errore, fa fallback sicuro su DEFAULT_ID_CLASS.
- */
-export async function getLatestIdClass(
-    forceRefresh = false,
-    notifyOnChange = true
-): Promise<number> {
-    const cacheKey = 'latest_ranking_id_class';
-    if (!forceRefresh) {
-        const cached = cacheService.get<number>(cacheKey);
-        if (cached && typeof cached === 'number' && cached >= DEFAULT_ID_CLASS) {
-            return cached;
-        }
-    }
-    try {
-        const html = await FitetClient.fetchHtml('https://portale.fitet.org/menu.php');
-        const match = html.match(/testaclassifica_auto\.php\?ID_CLASS=(\d+)/i);
-        if (match && match[1]) {
-            const detected = parseInt(match[1], 10);
-            if (detected >= DEFAULT_ID_CLASS) {
-                cacheService.set(cacheKey, detected, 4 * 60 * 60 * 1000); // 4 ore di cache
-
-                // Trigger automatico: se l'ID_CLASS è cambiato rispetto all'ultima
-                // notifica salvata su Supabase, invia la push a tutti i dispositivi.
-                // Fire-and-forget: non blocca la risposta API.
-                if (notifyOnChange) {
-                    notifyRankingChangeIfNeeded(detected).catch((pushErr) => {
-                        console.warn('[PushService] Errore notifica cambio ID_CLASS:', pushErr);
-                    });
-                }
-
-                return detected;
-            }
-        }
-    } catch (err) {
-        console.warn('[Ranking] Impossibile rilevare automaticamente ID_CLASS da menu.php, uso fallback:', err);
-    }
-    return DEFAULT_ID_CLASS;
-}
 
 // 4b. Classifiche Nazionali e Regionali FITeT
 app.get('/api/ranking', async (req, res) => {
@@ -2245,23 +2201,13 @@ app.get('/api/push/check-ranking', async (req, res) => {
     }
 
     try {
-        const idClass = await getLatestIdClass(true, false);
-        const [result, championshipsResult, matchdayResult] = await Promise.all([
-            notifyRankingChangeIfNeeded(idClass),
-            checkChampionshipsAndNotify().catch((err) => {
-                console.warn('[PushService] Errore controllo campionati durante check-ranking:', err);
-                return null;
-            }),
-            checkMatchdayAndNotify().catch((err) => {
-                console.warn('[PushService] Errore controllo matchday durante check-ranking:', err);
-                return null;
-            }),
-        ]);
+        const result = await runRankingCheck();
         return res.json({
             success: true,
-            ...result,
-            championships: championshipsResult,
-            matchday: matchdayResult,
+            ...result.ranking,
+            idClass: result.idClass,
+            championships: result.championships,
+            matchday: result.matchday,
         });
     } catch (error: any) {
         console.error('[PushService] Errore controllo cambio ranking:', error);
@@ -2290,7 +2236,7 @@ app.get('/api/push/check-campionati', async (req, res) => {
         : undefined;
 
     try {
-        const result = await checkChampionshipsAndNotify({ camIds, dryRun, init });
+        const result = await runChampionshipsCheck({ camIds, dryRun, init });
         return res.json({ success: true, ...result });
     } catch (error: any) {
         console.error('[PushService] Errore controllo campionati:', error);
@@ -2320,7 +2266,7 @@ app.get('/api/push/check-matchday', async (req, res) => {
         : undefined;
 
     try {
-        const result = await checkMatchdayAndNotify({ camIds, date, dryRun, force });
+        const result = await runMatchdayCheck({ camIds, date, dryRun, force });
         return res.json({ success: true, ...result });
     } catch (error: any) {
         console.error('[PushService] Errore controllo matchday:', error);
@@ -2343,7 +2289,7 @@ app.get('/api/push/check-tornei', async (req, res) => {
     const concurrency = req.query.concurrency ? parseInt(req.query.concurrency as string, 10) : undefined;
 
     try {
-        const result = await checkNewTorneiAndNotify({ dryRun, init, concurrency });
+        const result = await runTorneiCheck({ dryRun, init, concurrency });
         return res.json({ success: true, ...result });
     } catch (error: any) {
         console.error('[PushService] Errore controllo nuovi tornei:', error);
@@ -2360,8 +2306,12 @@ app.get('/api/push/check-tornei', async (req, res) => {
 
 // Sincronizza i video dei canali YouTube (@GiacomoCerea, @Fitetofficial, @FilippoCantellaTT)
 app.all(['/api/videos/sync', '/api/sync-youtube'], async (req, res) => {
+    if (!isPushCronAuthorized(req)) {
+        return res.status(401).json({ error: 'Non autorizzato.' });
+    }
+
     try {
-        const result = await youtubeSyncService.syncAllChannels();
+        const result = await runVideoSync();
         return res.json({
             success: true,
             totalFetched: result.total,
@@ -2831,8 +2781,6 @@ app.get('/admin/analytics', requireAnalyticsBasicAuth, (_req, res) => {
 
 // Serve static frontend files in production only when running as standalone node server (not on Vercel)
 if (!process.env.VERCEL) {
-    startDailyTorneiScheduler();
-    startChampionshipScheduler();
     const distPath = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distPath));
 
