@@ -87,7 +87,7 @@ export const VenueConnectionBanner: React.FC<VenueConnectionBannerProps> = ({
       >
         <span className="pulse-indicator"></span>
         <i className="bi bi-reception-1 me-1"></i>
-        <span>Offline Palestra</span>
+        <span>Offline</span>
       </button>
     );
   }
