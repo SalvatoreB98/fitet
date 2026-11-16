@@ -137,38 +137,33 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
       <div
         className="modal-card-simple referto-modal-card"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '880px', width: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
+        style={{ maxWidth: '860px', width: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
       >
         {/* Modal Header */}
-        <div className="modal-header-simple">
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Referto Ufficiale di Gara</h3>
-            </div>
-            <div style={{ fontSize: '11.5px', color: '#bfdbfe', marginTop: '3px' }}>
-              {referto?.giornata || 'Incontro Campionato'} • ID Incontro: {incontroId}
+        <div className="referto-modal-header">
+          <div className="referto-header-title-group">
+            <h3 className="referto-modal-title">Referto Ufficiale</h3>
+            <div className="referto-modal-subtitle">
+              <span>{referto?.giornata || 'Incontro Campionato'}</span>
+              <span className="referto-dot-sep" aria-hidden="true">·</span>
+              <span className="referto-id-mono">ID {incontroId}</span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="referto-header-actions">
             <button
               type="button"
-              className="btn-action btn-modal-refresh"
+              className="referto-icon-btn"
               onClick={() => loadRefertoData(true)}
               disabled={refreshing || loading}
               title="Aggiorna referto da portale FITeT"
+              aria-label="Aggiorna referto"
             >
-              {refreshing ? (
-                <>
-                  <i className="bi bi-arrow-repeat spin-anim me-1"></i>Aggiornamento...
-                </>
-              ) : (
-                <i className="bi bi-arrow-clockwise" style={{ fontSize: '13px' }}></i>
-              )}
+              <i className={`bi ${refreshing ? 'bi-arrow-repeat spin-anim' : 'bi-arrow-clockwise'}`}></i>
             </button>
             <button
               type="button"
-              className="modal-close-btn"
+              className="referto-icon-btn referto-close-btn"
               onClick={onClose}
               title="Chiudi finestra (ESC)"
               aria-label="Chiudi finestra"
@@ -179,7 +174,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="modal-body-simple" style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
+        <div className="modal-body-simple referto-modal-body" style={{ flex: 1, overflowY: 'auto' }}>
           {loading && !referto && (
             <div style={{ textAlign: 'center', padding: '50px 20px', color: 'var(--text-muted)' }}>
               <div className="spinner-border text-primary mb-3" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
@@ -203,11 +198,11 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
           )}
 
           {referto && (
-            <div>
+            <div className="referto-content-enter">
               {/* Top Scoreboard Hero Banner */}
               <div className="referto-hero-card">
                 {/* Squadra Casa */}
-                <div className={`referto-team-box ${isCasaWinner ? 'is-winner' : ''}`}>
+                <div className={`referto-team-box ${isCasaWinner ? 'is-winner' : 'is-non-winner'}`}>
                   <div className="referto-logo-wrapper">
                     <TeamLogo
                       teamName={referto.squadraCasa.nome}
@@ -216,13 +211,9 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                     />
                   </div>
                   <div className="referto-team-name-group">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span className="team-role-tag role-casa">CASA</span>
-                      {isCasaWinner && (
-                        <span className="referto-winner-badge">
-                          <i className="bi bi-trophy-fill text-warning me-1"></i>Vincitore incontro
-                        </span>
-                      )}
+                    <div className="referto-team-eyebrow">
+                      <span className="referto-role-label">CASA</span>
+                      {isCasaWinner && <span className="referto-winner-dot" title="Vincitore incontro">· Vincente</span>}
                     </div>
                     <h4 className="referto-team-name" title={referto.squadraCasa.nome}>
                       {referto.squadraCasa.nome || squadraCasaNome}
@@ -233,45 +224,42 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                 {/* Scoreboard Center */}
                 <div className="referto-score-center">
                   <div className="referto-main-score">
-                    <span className={`score-digit ${isCasaWinner ? 'digit-winner' : ''}`}>
+                    <span className={`score-digit ${isCasaWinner ? 'digit-winner' : 'digit-loser'}`}>
                       {referto.squadraCasa.punti}
                     </span>
                     <span className="score-divider">:</span>
-                    <span className={`score-digit ${isOspiteWinner ? 'digit-winner' : ''}`}>
+                    <span className={`score-digit ${isOspiteWinner ? 'digit-winner' : 'digit-loser'}`}>
                       {referto.squadraOspite.punti}
                     </span>
                   </div>
 
                   <div className="referto-substats-group">
                     <div className="referto-substat-pill">
-                      <span className="substat-label">SET</span>
+                      <span className="substat-label">Set</span>
                       <span className="substat-value">
-                        {referto.squadraCasa.setTotali} - {referto.squadraOspite.setTotali}
+                        {referto.squadraCasa.setTotali}–{referto.squadraOspite.setTotali}
                       </span>
                     </div>
+                    <span className="referto-substat-sep" aria-hidden="true">·</span>
                     <div className="referto-substat-pill">
-                      <span className="substat-label">PUNTI</span>
+                      <span className="substat-label">Punti</span>
                       <span className="substat-value">
-                        {referto.squadraCasa.puntiTotali} - {referto.squadraOspite.puntiTotali}
+                        {referto.squadraCasa.puntiTotali}–{referto.squadraOspite.puntiTotali}
                       </span>
                     </div>
                   </div>
 
                   {isPareggio && (
-                    <div className="referto-pareggio-pill">PAREGGIO</div>
+                    <div className="referto-pareggio-pill">Pareggio</div>
                   )}
                 </div>
 
                 {/* Squadra Ospite */}
-                <div className={`referto-team-box ospite-box ${isOspiteWinner ? 'is-winner' : ''}`}>
+                <div className={`referto-team-box ospite-box ${isOspiteWinner ? 'is-winner' : 'is-non-winner'}`}>
                   <div className="referto-team-name-group ospite-name-group">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end' }}>
-                      {isOspiteWinner && (
-                        <span className="referto-winner-badge">
-                          <i className="bi bi-trophy-fill text-warning me-1"></i>Vincitore incontro
-                        </span>
-                      )}
-                      <span className="team-role-tag role-ospite">OSPITE</span>
+                    <div className="referto-team-eyebrow ospite-eyebrow">
+                      {isOspiteWinner && <span className="referto-winner-dot" title="Vincitore incontro">Vincente ·</span>}
+                      <span className="referto-role-label">OSPITE</span>
                     </div>
                     <h4 className="referto-team-name" title={referto.squadraOspite.nome}>
                       {referto.squadraOspite.nome || squadraOspiteNome}
@@ -288,36 +276,24 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
               </div>
 
               {/* Grid Table Container */}
-              <div className="referto-grid-table mt-3">
-                {/* Grid Header Row with Society Logos & Team Names */}
+              <div className="referto-grid-table">
+                {/* Grid Header Row */}
                 <div className="referto-grid-header">
                   <div className="r-th r-th-num">#</div>
                   <div className="r-th r-th-casa">
-                    <TeamLogo
-                      teamName={referto.squadraCasa.nome}
-                      logoUrl={logoCasa}
-                      className="r-th-society-img"
-                    />
                     <span className="r-th-team-text">{referto.squadraCasa.nome}</span>
-                    <span className="team-role-tag role-casa">CASA</span>
                   </div>
-                  <div className="r-th r-th-score">SET</div>
+                  <div className="r-th r-th-score">Set</div>
                   <div className="r-th r-th-ospite">
-                    <span className="team-role-tag role-ospite">OSPITE</span>
                     <span className="r-th-team-text">{referto.squadraOspite.nome}</span>
-                    <TeamLogo
-                      teamName={referto.squadraOspite.nome}
-                      logoUrl={logoOspite}
-                      className="r-th-society-img"
-                    />
                   </div>
-                  <div className="r-th r-th-partials">PARZIALI SET (1°-5°)</div>
-                  <div className="r-th r-th-action">DETTAGLIO</div>
+                  <div className="r-th r-th-partials">Parziali</div>
+                  <div className="r-th r-th-action"></div>
                 </div>
 
                 {/* Matches List */}
                 <div className="referto-matches-list">
-                  {referto.partite.map((match) => {
+                  {referto.partite.map((match, idx) => {
                     const isExpanded = expandedMatchId === match.id;
                     const dettaglio = dettaglioCache[match.id];
                     const isLoadingDettaglio = loadingDettaglioId === match.id;
@@ -326,56 +302,44 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                       <div
                         key={match.id}
                         className={`referto-match-row ${isExpanded ? 'is-expanded' : ''}`}
+                        style={{ '--row-index': idx } as React.CSSProperties}
                       >
                         {/* Main Match Summary Row - Grid Layout */}
                         <div
                           className="referto-match-summary"
                           onClick={() => handleToggleExpandMatch(match)}
-                          title="Clicca per aprire/chiudere il dettaglio parziali e atleti"
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={isExpanded}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleToggleExpandMatch(match);
+                            }
+                          }}
+                          title="Clicca per aprire/chiudere il dettaglio parziali"
                         >
                           {/* 1. Numero incontro */}
-                          <div className="match-num-badge">#{match.numero}</div>
+                          <div className="match-num-badge">{String(match.numero).padStart(2, '0')}</div>
 
                           {/* 2. Atleta Casa */}
-                          <div className={`match-player casa-player ${match.isCasaWinner ? 'is-winner' : ''}`}>
+                          <div className={`match-player casa-player ${match.isCasaWinner ? 'is-winner' : 'is-non-winner'}`}>
                             <span className="player-name">{match.atletaCasa}</span>
-                            {match.isCasaWinner && (
-                              <span className="trophy-small" title="Vincitore incontro">
-                                <i className="bi bi-trophy-fill text-warning"></i>
-                              </span>
-                            )}
-                            <TeamLogo
-                              teamName={referto.squadraCasa.nome}
-                              logoUrl={logoCasa}
-                              className="player-society-badge"
-                              title={referto.squadraCasa.nome}
-                            />
                           </div>
 
                           {/* 3. Risultato Set (Score) */}
                           <div className="match-sets-badge">
-                            <span className={`sets-digit ${match.isCasaWinner ? 'winner-digit' : ''}`}>
+                            <span className={`sets-digit ${match.isCasaWinner ? 'winner-digit' : 'loser-digit'}`}>
                               {match.setVintiCasa}
                             </span>
-                            <span className="sets-divider">-</span>
-                            <span className={`sets-digit ${match.isOspiteWinner ? 'winner-digit' : ''}`}>
+                            <span className="sets-divider">–</span>
+                            <span className={`sets-digit ${match.isOspiteWinner ? 'winner-digit' : 'loser-digit'}`}>
                               {match.setVintiOspite}
                             </span>
                           </div>
 
                           {/* 4. Atleta Ospite */}
-                          <div className={`match-player ospite-player ${match.isOspiteWinner ? 'is-winner' : ''}`}>
-                            <TeamLogo
-                              teamName={referto.squadraOspite.nome}
-                              logoUrl={logoOspite}
-                              className="player-society-badge"
-                              title={referto.squadraOspite.nome}
-                            />
-                            {match.isOspiteWinner && (
-                              <span className="trophy-small" title="Vincitore incontro">
-                                <i className="bi bi-trophy-fill text-warning"></i>
-                              </span>
-                            )}
+                          <div className={`match-player ospite-player ${match.isOspiteWinner ? 'is-winner' : 'is-non-winner'}`}>
                             <span className="player-name">{match.atletaOspite}</span>
                           </div>
 
@@ -385,8 +349,8 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                               const set = match.sets.find((s) => s.setNumero === slotIdx);
                               if (!set) {
                                 return (
-                                  <span key={slotIdx} className="set-slot empty" title="Set non disputato">
-                                    -
+                                  <span key={slotIdx} className="set-slot empty" aria-hidden="true">
+                                    ·
                                   </span>
                                 );
                               }
@@ -394,17 +358,19 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                               return (
                                 <span
                                   key={slotIdx}
-                                  className={`set-slot filled ${isCasaSetWinner ? 'set-casa-win' : 'set-ospite-win'}`}
+                                  className="set-slot filled"
                                   title={`${slotIdx}° set: ${set.puntiCasa}-${set.puntiOspite}`}
                                 >
-                                  {set.puntiCasa}-{set.puntiOspite}
+                                  <span className={isCasaSetWinner ? 'set-pt-win' : 'set-pt-lose'}>{set.puntiCasa}</span>
+                                  <span className="set-pt-sep">-</span>
+                                  <span className={!isCasaSetWinner ? 'set-pt-win' : 'set-pt-lose'}>{set.puntiOspite}</span>
                                 </span>
                               );
                             })}
                           </div>
 
                           {/* 6. Bottone Espandi / Dettaglio */}
-                          <div className="match-expand-btn" aria-label="Espandi">
+                          <div className="match-expand-btn" aria-hidden="true">
                             <span className="expand-label">{isExpanded ? 'Chiudi' : 'Dettagli'}</span>
                             <svg
                               width="14"
@@ -412,92 +378,124 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                               viewBox="0 0 24 24"
                               fill="none"
                               stroke="currentColor"
-                              strokeWidth="2.5"
+                              strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
-                              style={{
-                                transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                                transition: 'transform 0.2s ease',
-                              }}
+                              className="expand-chevron"
                             >
                               <polyline points="6 9 12 15 18 9"></polyline>
                             </svg>
                           </div>
                         </div>
 
-                        {/* Expanded View: Full Game Details */}
-                        {isExpanded && (
-                          <div className="referto-expanded-panel">
-                            {isLoadingDettaglio && (
-                              <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>
-                                <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
-                                <span style={{ fontSize: '12.5px' }}>Caricamento parziali e dati atleti...</span>
-                              </div>
-                            )}
+                        {/* Expanded View: Smooth Accordion */}
+                        <div className={`referto-accordion-wrap ${isExpanded ? 'is-open' : ''}`}>
+                          <div className="referto-accordion-inner">
+                            {isExpanded && (
+                              <div className="referto-expanded-panel">
+                                {isLoadingDettaglio && (
+                                  <div className="referto-detail-loading">
+                                    <div className="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
+                                    <span>Caricamento parziali e dati atleti...</span>
+                                  </div>
+                                )}
 
-                            {/* Individual match detail view */}
-                            <div className="expanded-detail-grid">
-
-
-                              {/* Sets Progression Table */}
-                              <div className="sets-table-box">
-                                <table className="sets-progression-table">
-                                  <thead>
-                                    <tr>
-                                      <th>                                       <AthleteAvatar
-                                        atletaId={dettaglio?.atletaCasa.atletaId || athleteIdMap[match.atletaCasa.trim().toUpperCase()]}
-                                        nome={match.atletaCasa}
-                                        size={20}
-                                        className="athlete-photo"
-                                      />
-                                        <span className='casa-ospite-detail ms-1'>
-                                          <MarqueeText>{match.atletaCasa}</MarqueeText>
-                                        </span>
-                                      </th>
-                                      <th>SET</th>
-                                      <th>                                      <AthleteAvatar
-                                        atletaId={dettaglio?.atletaOspite.atletaId || athleteIdMap[match.atletaOspite.trim().toUpperCase()]}
-                                        nome={match.atletaOspite}
-                                        size={20}
-                                        className="athlete-photo"
-                                      />
-                                        <span className='casa-ospite-detail ms-1'>
-                                          <MarqueeText>{match.atletaOspite}</MarqueeText>
-                                        </span></th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {(dettaglio?.sets && dettaglio.sets.length > 0 ? dettaglio.sets : match.sets).map(
-                                      (s) => {
-                                        const casaWonSet = s.puntiCasa > s.puntiOspite;
-                                        return (
-                                          <tr key={s.setNumero}>
-                                            <td className={`set-pts ${casaWonSet ? 'set-winner-pts' : ''}`}>
-                                              {s.puntiCasa}
-                                            </td>
-                                            <td className="set-label">{s.setNumero}° set</td>
-                                            <td className={`set-pts ${!casaWonSet ? 'set-winner-pts' : ''}`}>
-                                              {s.puntiOspite}
+                                <div className="expanded-detail-grid">
+                                  <div className="sets-table-box">
+                                    <table className="sets-progression-table">
+                                      <thead>
+                                        <tr>
+                                          <th>
+                                            <button
+                                              type="button"
+                                              className={`referto-athlete-btn ${onOpenAtletaModal ? 'is-clickable' : ''}`}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleOpenAthlete(
+                                                  dettaglio?.atletaCasa.atletaId,
+                                                  match.atletaCasa
+                                                );
+                                              }}
+                                              disabled={!onOpenAtletaModal}
+                                              title={onOpenAtletaModal ? `Apri scheda ${match.atletaCasa}` : undefined}
+                                            >
+                                              <AthleteAvatar
+                                                atletaId={dettaglio?.atletaCasa.atletaId || athleteIdMap[match.atletaCasa.trim().toUpperCase()]}
+                                                nome={match.atletaCasa}
+                                                size={22}
+                                                className="athlete-photo"
+                                              />
+                                              <span className="casa-ospite-detail">
+                                                <MarqueeText>{match.atletaCasa}</MarqueeText>
+                                              </span>
+                                            </button>
+                                          </th>
+                                          <th className="sets-th-center">Set</th>
+                                          <th>
+                                            <button
+                                              type="button"
+                                              className={`referto-athlete-btn ${onOpenAtletaModal ? 'is-clickable' : ''}`}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleOpenAthlete(
+                                                  dettaglio?.atletaOspite.atletaId,
+                                                  match.atletaOspite
+                                                );
+                                              }}
+                                              disabled={!onOpenAtletaModal}
+                                              title={onOpenAtletaModal ? `Apri scheda ${match.atletaOspite}` : undefined}
+                                            >
+                                              <AthleteAvatar
+                                                atletaId={dettaglio?.atletaOspite.atletaId || athleteIdMap[match.atletaOspite.trim().toUpperCase()]}
+                                                nome={match.atletaOspite}
+                                                size={22}
+                                                className="athlete-photo"
+                                              />
+                                              <span className="casa-ospite-detail">
+                                                <MarqueeText>{match.atletaOspite}</MarqueeText>
+                                              </span>
+                                            </button>
+                                          </th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {(dettaglio?.sets && dettaglio.sets.length > 0 ? dettaglio.sets : match.sets).map(
+                                          (s) => {
+                                            const casaWonSet = s.puntiCasa > s.puntiOspite;
+                                            return (
+                                              <tr key={s.setNumero}>
+                                                <td className={`set-pts ${casaWonSet ? 'set-winner-pts' : 'set-loser-pts'}`}>
+                                                  {s.puntiCasa}
+                                                </td>
+                                                <td className="set-label">{s.setNumero}°</td>
+                                                <td className={`set-pts ${!casaWonSet ? 'set-winner-pts' : 'set-loser-pts'}`}>
+                                                  {s.puntiOspite}
+                                                </td>
+                                              </tr>
+                                            );
+                                          }
+                                        )}
+                                      </tbody>
+                                      {(dettaglio?.puntiTotali || match.sets.length > 0) && (
+                                        <tfoot>
+                                          <tr>
+                                            <td colSpan={3} className="total-pts-row">
+                                              Totale punti{' '}
+                                              <strong>
+                                                {dettaglio?.puntiTotali ||
+                                                  `${match.sets.reduce((a, b) => a + b.puntiCasa, 0)} – ${match.sets.reduce((a, b) => a + b.puntiOspite, 0)}`}
+                                              </strong>
                                             </td>
                                           </tr>
-                                        );
-                                      }
-                                    )}
-                                  </tbody>
-                                  {(dettaglio?.puntiTotali || match.sets.length > 0) && (
-                                    <tfoot>
-                                      <tr>
-                                        <td colSpan={3} className="total-pts-row">
-                                          Totale Punti: <strong>{dettaglio?.puntiTotali || `${match.sets.reduce((a, b) => a + b.puntiCasa, 0)} : ${match.sets.reduce((a, b) => a + b.puntiOspite, 0)}`}</strong>
-                                        </td>
-                                      </tr>
-                                    </tfoot>
-                                  )}
-                                </table>
+                                        </tfoot>
+                                      )}
+                                    </table>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     );
                   })}
