@@ -223,7 +223,8 @@ class ChampionshipCatalog {
     atletaId: string,
     atletaNome?: string,
     regione?: string,
-    sesso?: 'M' | 'F' | string | null
+    sesso?: 'M' | 'F' | string | null,
+    options?: { cacheOnly?: boolean; maxDurationMs?: number }
   ): Promise<(ChampionshipItem & { squadra?: string }) | undefined> {
     if (!atletaId && !atletaNome) return undefined;
 
@@ -231,6 +232,9 @@ class ChampionshipCatalog {
     const cacheKey = `athlete_champ_${atletaId || atletaNome}_${targetSesso || 'any'}`;
     const cached = cacheService.get<ChampionshipItem & { squadra?: string }>(cacheKey);
     if (cached) return cached;
+
+    const negCacheKey = `athlete_champ_none_${atletaId || atletaNome}_${targetSesso || 'any'}`;
+    if (cacheService.get<boolean>(negCacheKey)) return undefined;
 
     const allCamps = await this.getAllCampionati();
     if (!allCamps || allCamps.length === 0) return undefined;
@@ -277,14 +281,30 @@ class ChampionshipCatalog {
       }
     }
 
-    // 3. Se non ancora in cache, facciamo il fetch delle statistiche dei campionati regionali a piccoli batch.
-    // Con sesso noto evitiamo di interrogare i campionati del sesso opposto (fetch inutili e rischio di match errato).
+    // Se richiesto solo controllo cache (es. endpoint /api/atleta/:id), non avviare scan di rete lenti
+    if (options?.cacheOnly) {
+      return undefined;
+    }
+
+    // 3. Se non ancora in cache, facciamo il fetch delle statistiche dei campionati regionali a piccoli batch,
+    // rispettando un budget temporale massimo per evitare timeout HTTP.
+    const startedAt = Date.now();
+    const maxDurationMs = options?.maxDurationMs ?? 8000;
     const fetchPool = targetSesso ? genderMatches : searchPool;
     const mapping = athleteResolver.getMapping();
     const batchSize = 2;
+    let completedFullScan = true;
     for (let i = 0; i < fetchPool.length; i += batchSize) {
+      if (Date.now() - startedAt >= maxDurationMs) {
+        completedFullScan = false;
+        break;
+      }
       if (i > 0) {
         await FitetClient.sleepWithJitter(1500, 3000);
+        if (Date.now() - startedAt >= maxDurationMs) {
+          completedFullScan = false;
+          break;
+        }
       }
       const batch = fetchPool.slice(i, i + batchSize);
       const batchResults = await Promise.all(
@@ -323,6 +343,9 @@ class ChampionshipCatalog {
       }
     }
 
+    if (completedFullScan) {
+      cacheService.set(negCacheKey, true, 60 * 60 * 1000); // 1h
+    }
     return undefined;
   }
 

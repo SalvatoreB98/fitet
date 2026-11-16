@@ -2898,12 +2898,14 @@ var ChampionshipCatalog = class {
    * controllando le statistiche dei campionati regionali (e se necessario nazionali).
    * Risultato memorizzato in cache per risposta istantanea.
    */
-  async findAthleteChampionship(atletaId, atletaNome, regione, sesso) {
+  async findAthleteChampionship(atletaId, atletaNome, regione, sesso, options) {
     if (!atletaId && !atletaNome) return void 0;
     const targetSesso = normalizeChampionshipGender(sesso);
     const cacheKey = `athlete_champ_${atletaId || atletaNome}_${targetSesso || "any"}`;
     const cached = cacheService.get(cacheKey);
     if (cached) return cached;
+    const negCacheKey = `athlete_champ_none_${atletaId || atletaNome}_${targetSesso || "any"}`;
+    if (cacheService.get(negCacheKey)) return void 0;
     const allCamps = await this.getAllCampionati();
     if (!allCamps || allCamps.length === 0) return void 0;
     const cleanNorm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -2934,12 +2936,26 @@ var ChampionshipCatalog = class {
         }
       }
     }
+    if (options?.cacheOnly) {
+      return void 0;
+    }
+    const startedAt = Date.now();
+    const maxDurationMs = options?.maxDurationMs ?? 8e3;
     const fetchPool = targetSesso ? genderMatches : searchPool;
     const mapping = athleteResolver.getMapping();
     const batchSize = 2;
+    let completedFullScan = true;
     for (let i = 0; i < fetchPool.length; i += batchSize) {
+      if (Date.now() - startedAt >= maxDurationMs) {
+        completedFullScan = false;
+        break;
+      }
       if (i > 0) {
         await FitetClient.sleepWithJitter(1500, 3e3);
+        if (Date.now() - startedAt >= maxDurationMs) {
+          completedFullScan = false;
+          break;
+        }
       }
       const batch = fetchPool.slice(i, i + batchSize);
       const batchResults = await Promise.all(
@@ -2973,6 +2989,9 @@ var ChampionshipCatalog = class {
         cacheService.set(cacheKey, res, 24 * 60 * 60 * 1e3);
         return res;
       }
+    }
+    if (completedFullScan) {
+      cacheService.set(negCacheKey, true, 60 * 60 * 1e3);
     }
     return void 0;
   }
@@ -9410,12 +9429,14 @@ app.get("/api/atleta/:id", async (req, res) => {
       campRanking,
       atleta.anagrafica?.regione
     );
+    const inferredSesso = athleteSesso || (iframeUrl?.includes("/Femminile/") ? "F" : iframeUrl?.includes("/Maschile/") ? "M" : null);
     if (playedCamps.length === 0) {
       const fallback = await championshipCatalog.findAthleteChampionship(
         id,
         atleta.anagrafica?.nome,
         atleta.anagrafica?.regione,
-        athleteSesso
+        inferredSesso,
+        { cacheOnly: true }
       );
       if (fallback && !playedCamps.some((pc) => pc.camId === fallback.id)) {
         playedCamps.push({

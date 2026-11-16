@@ -1405,12 +1405,16 @@ app.get('/api/atleta/:id', async (req, res) => {
             campRanking,
             atleta.anagrafica?.regione
         );
+        const inferredSesso = athleteSesso
+            || (iframeUrl?.includes('/Femminile/') ? 'F' : iframeUrl?.includes('/Maschile/') ? 'M' : null);
+
         if (playedCamps.length === 0) {
             const fallback = await championshipCatalog.findAthleteChampionship(
                 id,
                 atleta.anagrafica?.nome,
                 atleta.anagrafica?.regione,
-                athleteSesso
+                inferredSesso,
+                { cacheOnly: true }
             );
             if (fallback && !playedCamps.some(pc => pc.camId === fallback.id)) {
                 playedCamps.push({
