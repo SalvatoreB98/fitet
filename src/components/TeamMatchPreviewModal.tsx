@@ -255,7 +255,7 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
     const hD = formulaInfo.hasDoubles ? homeDoublesKeys.join('+') : '';
     const aS = awaySinglesKeys.join(',');
     const aD = formulaInfo.hasDoubles ? awayDoublesKeys.join('+') : '';
-    return `team_match_pred_v3_${camId}_${match.id}_${hS}_${hD}_${aS}_${aD}`;
+    return `team_match_pred_v4_${camId}_${match.id}_${hS}_${hD}_${aS}_${aD}`;
   }, [camId, match.id, homeSinglesKeys, homeDoublesKeys, awaySinglesKeys, awayDoublesKeys, formulaInfo.hasDoubles]);
 
   useEffect(() => {

@@ -112,13 +112,13 @@ export function buildSwaythlingSchedule(
 
   if (formulaInfo.expectedTotalMatches === 7 && formulaInfo.hasDoubles) {
     return [
-      { numero: 1, slotLabel: 'Doppio', isDoppio: true, atletaCasa: homeD, atletaOspite: awayD },
-      { numero: 2, slotLabel: 'A vs Y', isDoppio: false, atletaCasa: A, atletaOspite: Y },
-      { numero: 3, slotLabel: 'B vs X', isDoppio: false, atletaCasa: B, atletaOspite: X },
-      { numero: 4, slotLabel: 'C vs Z', isDoppio: false, atletaCasa: C, atletaOspite: Z },
-      { numero: 5, slotLabel: 'A vs X', isDoppio: false, atletaCasa: A, atletaOspite: X },
-      { numero: 6, slotLabel: 'C vs Y', isDoppio: false, atletaCasa: C, atletaOspite: Y },
-      { numero: 7, slotLabel: 'B vs Z', isDoppio: false, atletaCasa: B, atletaOspite: Z },
+      { numero: 1, slotLabel: 'A vs X', isDoppio: false, atletaCasa: A, atletaOspite: X },
+      { numero: 2, slotLabel: 'B vs Y', isDoppio: false, atletaCasa: B, atletaOspite: Y },
+      { numero: 3, slotLabel: 'C vs Z', isDoppio: false, atletaCasa: C, atletaOspite: Z },
+      { numero: 4, slotLabel: 'Doppio', isDoppio: true, atletaCasa: homeD, atletaOspite: awayD },
+      { numero: 5, slotLabel: 'B vs X', isDoppio: false, atletaCasa: B, atletaOspite: X },
+      { numero: 6, slotLabel: 'A vs Z', isDoppio: false, atletaCasa: A, atletaOspite: Z },
+      { numero: 7, slotLabel: 'C vs Y', isDoppio: false, atletaCasa: C, atletaOspite: Y },
     ];
   }
 
