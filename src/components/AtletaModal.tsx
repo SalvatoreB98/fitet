@@ -862,12 +862,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-dark)', fontFamily: 'var(--font-serif)' }}>
                     {atleta.anagrafica.nome}
                   </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
-                    <TeamLogo
-                      teamName={atleta.anagrafica.societa}
-                      logoUrl={atleta.anagrafica.logoUrl}
-                      className="atleta-modal-team-logo me-1"
-                    />
+                  <div className='societa-atleta' style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px', alignItems: 'center', gap: '4px' }}>
+
                     {atleta.anagrafica.societa && onOpenSociety ? (
                       <button
                         type="button"
@@ -888,13 +884,19 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                           gap: '4px',
                         }}
                       >
-                        <i className="bi bi-building" style={{ fontSize: '12px' }} aria-hidden="true"></i>
-                        <span>{atleta.anagrafica.societa}</span>
+                        <TeamLogo
+                          teamName={atleta.anagrafica.societa}
+                          logoUrl={atleta.anagrafica.logoUrl}
+                          className="atleta-modal-team-logo me-1"
+                        />
+                        <span className='text-left'>{atleta.anagrafica.societa}</span>
                       </button>
                     ) : (
                       <span>{atleta.anagrafica.societa || 'N.D.'}</span>
                     )}
-                    {atleta.anagrafica.regione && <span>({atleta.anagrafica.regione})</span>}
+                    <span className='ms-4'>
+                      {atleta.anagrafica.regione && <span>({atleta.anagrafica.regione})</span>}
+                    </span>
                   </div>
 
                   {/* Secondary subtle metadata text: Birth date and Profile Views */}
