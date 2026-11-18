@@ -356,6 +356,7 @@ export const App: React.FC = () => {
   const [mySocietyId, setMySocietyId] = useState<string | null>(() => getMySocietyId());
   const [mySocietyInfo, setMySocietyInfo] = useState<SocietaInfo | null>(() => getMySocietyInfo());
   const [isSocietyModalOpen, setIsSocietyModalOpen] = useState(false);
+  const [returnToSociety, setReturnToSociety] = useState<{ id: string; name: string } | null>(null);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
@@ -613,7 +614,23 @@ export const App: React.FC = () => {
 
   const handleOpenMySociety = () => {
     trackClick('La mia società');
+    setReturnToSociety(null);
+    if (typeof window !== 'undefined' && !window.history.state?.societyModal) {
+      window.history.pushState(
+        { ...(window.history.state || {}), societyModal: true, societyId: mySocietyId || '' },
+        '',
+        window.location.href
+      );
+    }
     setIsSocietyModalOpen(true);
+  };
+
+  const handleCloseMySociety = () => {
+    if (typeof window !== 'undefined' && window.history.state?.societyModal) {
+      window.history.back();
+      return;
+    }
+    setIsSocietyModalOpen(false);
   };
 
 
@@ -677,7 +694,12 @@ export const App: React.FC = () => {
     setTimeout(() => setPrecacheStatus(null), 3500);
   };
 
-  const handleSelectChampionship = (newCam: number, newAnno = 41) => {
+  const selectChampionshipInternal = (
+    newCam: number,
+    newAnno = 41,
+    fromSociety?: { id: string; name: string } | null
+  ) => {
+    setReturnToSociety(fromSociety || null);
     setSelectedTeamFilter(null);
     setIsRegioniModalOpen(false);
     setActiveRegionPage(null);
@@ -707,9 +729,32 @@ export const App: React.FC = () => {
       url.searchParams.set('cam', String(newCam));
       url.searchParams.set('view', 'campionato');
       url.searchParams.set('tab', championshipTab);
-      window.history.pushState({ ...(window.history.state || {}), cam: newCam, view: 'campionato' }, '', url.toString());
+      window.history.pushState(
+        {
+          ...(window.history.state || {}),
+          cam: newCam,
+          view: 'campionato',
+          societyModal: false,
+          fromSocietyId: fromSociety?.id || '',
+          fromSocietyName: fromSociety?.name || '',
+        },
+        '',
+        url.toString()
+      );
     }
     trackClick(`Campionato: ${championshipTab}`);
+  };
+
+  const handleSelectChampionship = (newCam: number, newAnno = 41) => {
+    selectChampionshipInternal(newCam, newAnno, null);
+  };
+
+  const handleSelectChampionshipFromSociety = (newCam: number, newAnno = 41) => {
+    const societySnap = {
+      id: mySocietyId || '',
+      name: mySocietyInfo?.nome || 'Società',
+    };
+    selectChampionshipInternal(newCam, newAnno, societySnap);
   };
 
   const scrollToNav = () => {
@@ -922,6 +967,23 @@ export const App: React.FC = () => {
         });
       } else {
         setAthleteStack((prev) => (prev.length > 0 ? [] : prev));
+      }
+
+      // Sync SocietaModal and "Torna alla società" state with browser history
+      const histState = (window.history.state || {}) as Record<string, any>;
+      if (histState.societyModal) {
+        setIsSocietyModalOpen(true);
+        setReturnToSociety(null);
+      } else {
+        setIsSocietyModalOpen(false);
+        if (histState.fromSocietyName) {
+          setReturnToSociety({
+            id: histState.fromSocietyId || '',
+            name: histState.fromSocietyName,
+          });
+        } else {
+          setReturnToSociety(null);
+        }
       }
     };
 
@@ -1315,6 +1377,35 @@ export const App: React.FC = () => {
       {/* Promemoria discreto per sostenere il progetto (una sola volta) */}
       <CoffeeNudge isSuppressed={isAnyOverlayOpen} />
 
+      {/* Pillola flottante per tornare alla società dopo aver aperto un campionato */}
+      {returnToSociety && mainView === 'campionato' && !isSocietyModalOpen && (
+        <div className="return-society-pill-wrap" role="region" aria-label="Torna alla società">
+          <button
+            type="button"
+            className="return-society-pill-btn"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.history.state?.fromSocietyName) {
+                window.history.back();
+              } else {
+                handleOpenMySociety();
+              }
+            }}
+          >
+            <i className="bi bi-arrow-left"></i>
+            <span>Torna a {returnToSociety.name}</span>
+          </button>
+          <button
+            type="button"
+            className="return-society-pill-close"
+            onClick={() => setReturnToSociety(null)}
+            aria-label="Chiudi avviso"
+            title="Nascondi"
+          >
+            <i className="bi bi-x-lg"></i>
+          </button>
+        </div>
+      )}
+
       {/* Fixed Rounded Bottom Bar */}
       <BottomBar
         activeView={mainView}
@@ -1384,10 +1475,10 @@ export const App: React.FC = () => {
           societyId={mySocietyId}
           initialInfo={mySocietyInfo}
           annoId={SOCIETY_ANNO}
-          onClose={() => setIsSocietyModalOpen(false)}
+          onClose={handleCloseMySociety}
           onSocietySelected={handleSocietySelected}
           onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-          onSelectChampionship={handleSelectChampionship}
+          onSelectChampionship={handleSelectChampionshipFromSociety}
         />
       )}
 
