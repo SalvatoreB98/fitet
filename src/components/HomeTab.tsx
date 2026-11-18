@@ -79,6 +79,7 @@ interface HomeTabProps {
   activeRegionPage?: string | null;
   onSelectRegionPage?: (region: string | null) => void;
   onOpenMySociety?: () => void;
+  onOpenSociety?: (societyName?: string) => void;
   mySocietyInfo?: SocietaInfo | null;
 }
 
@@ -101,6 +102,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   activeRegionPage = null,
   onSelectRegionPage,
   onOpenMySociety,
+  onOpenSociety,
   mySocietyInfo,
 }) => {
   const {
@@ -652,6 +654,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
          ─────────────────────────────────────────────────────────── */}
       <MyProfileHero
         onOpenAtletaModal={onOpenAtletaModal}
+        onOpenSociety={onOpenSociety || (onOpenMySociety ? () => onOpenMySociety() : undefined)}
         onChampionshipDetected={handleProfileChampionshipDetected}
         onProfileStatusChange={setProfileStatus}
       />

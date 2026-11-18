@@ -356,6 +356,12 @@ export const App: React.FC = () => {
   const [mySocietyId, setMySocietyId] = useState<string | null>(() => getMySocietyId());
   const [mySocietyInfo, setMySocietyInfo] = useState<SocietaInfo | null>(() => getMySocietyInfo());
   const [isSocietyModalOpen, setIsSocietyModalOpen] = useState(false);
+  const [societyModalTarget, setSocietyModalTarget] = useState<{
+    societyId: string | null;
+    query?: string | null;
+    info?: SocietaInfo | null;
+    isOwnSociety: boolean;
+  } | null>(null);
   const [returnToSociety, setReturnToSociety] = useState<{ id: string; name: string } | null>(null);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -615,9 +621,43 @@ export const App: React.FC = () => {
   const handleOpenMySociety = () => {
     trackClick('La mia società');
     setReturnToSociety(null);
+    setSocietyModalTarget(null);
     if (typeof window !== 'undefined' && !window.history.state?.societyModal) {
       window.history.pushState(
         { ...(window.history.state || {}), societyModal: true, societyId: mySocietyId || '' },
+        '',
+        window.location.href
+      );
+    }
+    setIsSocietyModalOpen(true);
+  };
+
+  const handleOpenSocietyByName = (societyName?: string) => {
+    const clean = (societyName || '').trim();
+    if (!clean) {
+      handleOpenMySociety();
+      return;
+    }
+    const isOwn =
+      Boolean(mySocietyId && mySocietyInfo?.nome) &&
+      mySocietyInfo!.nome.trim().toLowerCase() === clean.toLowerCase();
+
+    if (isOwn) {
+      handleOpenMySociety();
+      return;
+    }
+
+    trackClick(`Società: ${clean}`);
+    setReturnToSociety(null);
+    setSocietyModalTarget({
+      societyId: null,
+      query: clean,
+      info: null,
+      isOwnSociety: false,
+    });
+    if (typeof window !== 'undefined' && !window.history.state?.societyModal) {
+      window.history.pushState(
+        { ...(window.history.state || {}), societyModal: true, societyQuery: clean },
         '',
         window.location.href
       );
@@ -631,6 +671,7 @@ export const App: React.FC = () => {
       return;
     }
     setIsSocietyModalOpen(false);
+    setSocietyModalTarget(null);
   };
 
 
@@ -1195,6 +1236,7 @@ export const App: React.FC = () => {
             onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
             dashboardData={data}
             onOpenMySociety={handleOpenMySociety}
+            onOpenSociety={handleOpenSocietyByName}
             mySocietyInfo={mySocietyInfo}
           />
         </div>
@@ -1469,14 +1511,20 @@ export const App: React.FC = () => {
         onClose={() => setIsInstallModalOpen(false)}
       />
 
-      {/* La mia società */}
+      {/* La mia società / Scheda società */}
       {isSocietyModalOpen && (
         <SocietaModal
-          societyId={mySocietyId}
-          initialInfo={mySocietyInfo}
+          societyId={societyModalTarget ? societyModalTarget.societyId : mySocietyId}
+          initialLookupQuery={societyModalTarget?.query || null}
+          initialInfo={societyModalTarget ? societyModalTarget.info : mySocietyInfo}
           annoId={SOCIETY_ANNO}
+          zIndex={athleteStack.length > 0 || selectedSquadra ? 1350 : undefined}
           onClose={handleCloseMySociety}
-          onSocietySelected={handleSocietySelected}
+          onSocietySelected={
+            societyModalTarget && !societyModalTarget.isOwnSociety
+              ? () => {}
+              : handleSocietySelected
+          }
           onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
           onSelectChampionship={handleSelectChampionshipFromSociety}
         />
@@ -1495,6 +1543,7 @@ export const App: React.FC = () => {
           onClose={closeTopAthlete}
           onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
           onResolveAthlete={handleResolveAthlete}
+          onOpenSociety={handleOpenSocietyByName}
         />
       ))}
 
@@ -1507,6 +1556,7 @@ export const App: React.FC = () => {
           annoId={annoId}
           onClose={() => setSelectedSquadra(null)}
           onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+          onOpenSociety={handleOpenSocietyByName}
           onFilterCalendario={(teamName) => {
             setSelectedTeamFilter(teamName);
             setMainView('campionato');

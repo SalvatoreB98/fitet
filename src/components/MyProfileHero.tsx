@@ -25,6 +25,7 @@ export interface PlayerChampionshipStatus {
 
 interface MyProfileHeroProps {
   onOpenAtletaModal: (id: string, name: string) => void;
+  onOpenSociety?: (societyName?: string) => void;
   onChampionshipDetected?: (championshipId: number) => void;
   onProfileStatusChange?: (status: PlayerChampionshipStatus) => void;
 }
@@ -82,6 +83,7 @@ const formatPoints = (points?: number | null): string => {
 
 export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
   onOpenAtletaModal,
+  onOpenSociety,
   onChampionshipDetected,
   onProfileStatusChange,
 }) => {
@@ -538,10 +540,32 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
 
             <div className="my-profile-hero-identity">
               <h2 className="my-profile-hero-name">{snapshot.name}</h2>
-              <p className="my-profile-hero-club">
-                <i className="bi bi-building" aria-hidden="true"></i>
-                <span>{snapshot.squadra || `Tessera #${snapshot.id}`}</span>
-              </p>
+              {snapshot.squadra && onOpenSociety ? (
+                <button
+                  type="button"
+                  className="my-profile-hero-club is-clickable"
+                  onClick={() => onOpenSociety(snapshot.squadra || undefined)}
+                  title={`Apri scheda società ${snapshot.squadra}`}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <i className="bi bi-building" aria-hidden="true"></i>
+                  <span style={{ textDecoration: 'underline', textUnderlineOffset: '3px', textDecorationColor: 'rgba(255,255,255,0.45)' }}>
+                    {snapshot.squadra}
+                  </span>
+                  <i className="bi bi-chevron-right" style={{ fontSize: '0.72rem', opacity: 0.75 }} aria-hidden="true"></i>
+                </button>
+              ) : (
+                <p className="my-profile-hero-club">
+                  <i className="bi bi-building" aria-hidden="true"></i>
+                  <span>{snapshot.squadra || `Tessera #${snapshot.id}`}</span>
+                </p>
+              )}
             </div>
 
             <div className="my-profile-hero-data">

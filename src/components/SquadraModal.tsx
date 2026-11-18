@@ -15,6 +15,7 @@ export interface SquadraModalProps {
   onClose: () => void;
   onOpenAtletaModal?: (id: string, name: string) => void;
   onFilterCalendario?: (teamName: string) => void;
+  onOpenSociety?: (societyName: string) => void;
 }
 
 export const SquadraModal: React.FC<SquadraModalProps> = ({
@@ -25,6 +26,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
   onClose,
   onOpenAtletaModal,
   onFilterCalendario,
+  onOpenSociety,
 }) => {
   useBodyScrollLock(true);
 
@@ -107,6 +109,17 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, marginLeft: '12px' }}>
+            {onOpenSociety && displayName && (
+              <button
+                type="button"
+                className="btn-action squadra-header-filter-btn"
+                onClick={() => onOpenSociety(displayName)}
+                title={`Apri scheda società ${displayName}`}
+              >
+                <i className="bi bi-building me-1"></i>
+                <span className="d-none d-sm-inline">Società</span>
+              </button>
+            )}
             {onFilterCalendario && (
               <button
                 type="button"

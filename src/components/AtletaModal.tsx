@@ -23,6 +23,7 @@ interface AtletaModalProps {
   onClose: () => void;
   onSelectAthlete?: (id: string, name: string) => void;
   onResolveAthlete?: (resolvedId: string, resolvedName: string) => void;
+  onOpenSociety?: (societyName: string) => void;
   isTopModal?: boolean;
 }
 
@@ -55,6 +56,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   onClose,
   onSelectAthlete,
   onResolveAthlete,
+  onOpenSociety,
   isTopModal = true,
 }) => {
   useBodyScrollLock(true);
@@ -860,12 +862,39 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-dark)', fontFamily: 'var(--font-serif)' }}>
                     {atleta.anagrafica.nome}
                   </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
                     <TeamLogo
                       teamName={atleta.anagrafica.societa}
                       logoUrl={atleta.anagrafica.logoUrl}
-                      className="atleta-modal-team-logo me-2"
-                    /> {atleta.anagrafica.societa || 'N.D.'} {atleta.anagrafica.regione && `(${atleta.anagrafica.regione})`}
+                      className="atleta-modal-team-logo me-1"
+                    />
+                    {atleta.anagrafica.societa && onOpenSociety ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenSociety(atleta.anagrafica.societa)}
+                        title={`Apri scheda società ${atleta.anagrafica.societa}`}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          padding: 0,
+                          color: 'inherit',
+                          font: 'inherit',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          textUnderlineOffset: '2px',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                      >
+                        <i className="bi bi-building" style={{ fontSize: '12px' }} aria-hidden="true"></i>
+                        <span>{atleta.anagrafica.societa}</span>
+                      </button>
+                    ) : (
+                      <span>{atleta.anagrafica.societa || 'N.D.'}</span>
+                    )}
+                    {atleta.anagrafica.regione && <span>({atleta.anagrafica.regione})</span>}
                   </div>
 
                   {/* Secondary subtle metadata text: Birth date and Profile Views */}

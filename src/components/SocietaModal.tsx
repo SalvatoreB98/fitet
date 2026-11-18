@@ -21,8 +21,10 @@ import './SocietaModal.css';
 
 export interface SocietaModalProps {
   societyId: string | null;
+  initialLookupQuery?: string | null;
   initialInfo?: SocietaInfo | null;
   annoId: number;
+  zIndex?: number;
   onClose: () => void;
   onSocietySelected: (societyId: string, info?: SocietaInfo) => void;
   onOpenAtletaModal?: (id: string, name: string) => void;
@@ -218,8 +220,10 @@ const SeasonChampionships: React.FC<{
 
 export const SocietaModal: React.FC<SocietaModalProps> = ({
   societyId,
+  initialLookupQuery,
   initialInfo,
   annoId,
+  zIndex,
   onClose,
   onSocietySelected,
   onOpenAtletaModal,
@@ -229,14 +233,14 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
 
   const [activeSocietyId, setActiveSocietyId] = useState<string | null>(societyId);
   const [data, setData] = useState<SocietaDettaglio | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(societyId || initialLookupQuery));
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [manualQuery, setManualQuery] = useState('');
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
-  const [showManual, setShowManual] = useState(!societyId);
+  const [showManual, setShowManual] = useState(!societyId && !initialLookupQuery);
 
   const [openSeasons, setOpenSeasons] = useState<number[]>([]);
   const [seasonData, setSeasonData] = useState<Record<number, SocietaStagione>>({});
@@ -249,10 +253,46 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
 
   useEffect(() => {
     setActiveSocietyId(societyId);
-    if (!societyId) {
+    if (!societyId && !initialLookupQuery) {
       setShowManual(true);
+    } else if (societyId) {
+      setShowManual(false);
     }
-  }, [societyId]);
+  }, [societyId, initialLookupQuery]);
+
+  // Risoluzione automatica quando la modale viene aperta per nome società (es. da AtletaModal o MyProfileHero)
+  useEffect(() => {
+    const q = (initialLookupQuery || '').trim();
+    if (societyId || !q) return;
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setShowManual(false);
+    setData(null);
+
+    lookupSocieta(q, annoId)
+      .then((result) => {
+        if (cancelled) return;
+        if (!result.found || !result.societyId) {
+          setLoading(false);
+          setManualQuery(q);
+          setShowManual(true);
+          setManualError(`Società "${q}" non trovata nell'Albo Federale.`);
+          return;
+        }
+        setActiveSocietyId(result.societyId);
+      })
+      .catch((err: any) => {
+        if (cancelled) return;
+        setLoading(false);
+        setError(err?.message || `Impossibile trovare la società "${q}".`);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [societyId, initialLookupQuery, annoId]);
 
   const loadSociety = (force = false) => {
     if (!activeSocietyId) return;
@@ -277,7 +317,9 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
   useEffect(() => {
     if (!activeSocietyId) {
       setData(null);
-      setLoading(false);
+      if (!initialLookupQuery) {
+        setLoading(false);
+      }
       return;
     }
     loadSociety();
@@ -426,6 +468,7 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
   return createPortal(
     <div
       className="modal-backdrop-simple modal-referto-backdrop"
+      style={zIndex ? { zIndex } : undefined}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
