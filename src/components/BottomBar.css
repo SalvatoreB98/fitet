@@ -134,7 +134,7 @@
   padding: 1px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 500px) {
   .bottom-bar-society-item {
     display: none;
   }
