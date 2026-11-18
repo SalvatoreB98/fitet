@@ -1131,7 +1131,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       <div className="modal-campionato-partite-section" style={{ marginTop: '20px', marginBottom: '20px' }}>
                         <div className="modal-empty-notice" style={{ padding: '20px', textAlign: 'center' }}>
                           <i className="bi bi-calendar-x me-2" style={{ fontSize: '18px' }}></i>
-                          Nessuna partita precedente registrata per questo atleta.
+                          Nessuna partita di questa stagione registrata per questo atleta.
                           <div style={{ marginTop: '10px' }}>
                             <button
                               type="button"
