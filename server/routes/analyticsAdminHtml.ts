@@ -174,16 +174,92 @@ export function renderAnalyticsAdminHtml(): string {
       right: 0;
       bottom: -1px;
       height: 2px;
-      background: #ededed;
+      background: var(--metric-color, #ededed);
+    }
+    .metric-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
     }
     .metric-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
       font-size: 0.8rem;
       color: var(--muted);
       font-weight: 500;
-      margin-bottom: 8px;
+    }
+    .metric-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--metric-color, #ededed);
+      opacity: 0.35;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .metric-tab.active .metric-dot {
+      opacity: 1;
+      transform: scale(1.1);
     }
     .metric-tab.active .metric-label {
       color: var(--text);
+    }
+    .metric-toggle-chip {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.02);
+      transition: all 0.15s ease;
+    }
+    .metric-tab.active .metric-toggle-chip {
+      border-color: var(--metric-color, #ededed);
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .chart-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px 18px 0;
+    }
+    .chart-toolbar-hint {
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+    .chart-toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .chart-tool-btn {
+      appearance: none;
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .chart-tool-btn:hover {
+      border-color: var(--border-strong);
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+    .chart-tool-btn.active {
+      background: #171717;
+      border-color: #444444;
+      color: #ffffff;
     }
     .metric-value-row {
       display: flex;
@@ -348,27 +424,43 @@ export function renderAnalyticsAdminHtml(): string {
 
     <div class="card main-card">
       <div class="metric-tabs">
-        <button class="metric-tab active" data-metric="visitors" id="tabVisitors">
-          <div class="metric-label">Visitatori</div>
+        <button class="metric-tab active" data-metric="visitors" id="tabVisitors" style="--metric-color: #0070f3;">
+          <div class="metric-label-row">
+            <div class="metric-label"><span class="metric-dot"></span>Visitatori</div>
+            <span class="metric-toggle-chip" data-chip="visitors">Attivo</span>
+          </div>
           <div class="metric-value-row">
             <span class="metric-value" id="kpiVisitors">-</span>
             <span class="metric-pill" id="kpiVisitorsAvg">-</span>
           </div>
         </button>
-        <button class="metric-tab" data-metric="pages" id="tabPages">
-          <div class="metric-label">Pagine Viste</div>
+        <button class="metric-tab" data-metric="pages" id="tabPages" style="--metric-color: #38bdf8;">
+          <div class="metric-label-row">
+            <div class="metric-label"><span class="metric-dot"></span>Pagine Viste</div>
+            <span class="metric-toggle-chip" data-chip="pages">+ Sovrapponi</span>
+          </div>
           <div class="metric-value-row">
             <span class="metric-value" id="kpiPages">-</span>
             <span class="metric-pill" id="kpiPagesAvg">-</span>
           </div>
         </button>
-        <button class="metric-tab" data-metric="clicks" id="tabClicks">
-          <div class="metric-label">Click</div>
+        <button class="metric-tab" data-metric="clicks" id="tabClicks" style="--metric-color: #10b981;">
+          <div class="metric-label-row">
+            <div class="metric-label"><span class="metric-dot"></span>Click</div>
+            <span class="metric-toggle-chip" data-chip="clicks">+ Sovrapponi</span>
+          </div>
           <div class="metric-value-row">
             <span class="metric-value" id="kpiClicks">-</span>
             <span class="metric-pill" id="kpiClicksAvg">-</span>
           </div>
         </button>
+      </div>
+      <div class="chart-toolbar">
+        <span class="chart-toolbar-hint">Clicca più schede per sovrapporre i grafici</span>
+        <div class="chart-toolbar-actions">
+          <button type="button" class="chart-tool-btn" id="btnOverlayAll">Sovrapposti (Tutti)</button>
+          <button type="button" class="chart-tool-btn" id="btnScaleMode" title="Adatta le scale verticali per confrontare gli andamenti relativi">Scala unica</button>
+        </div>
       </div>
       <div class="chart-wrap">
         <canvas id="trendChart"></canvas>
@@ -405,12 +497,43 @@ export function renderAnalyticsAdminHtml(): string {
 
   <script>
     let currentDays = 30;
-    let activeMetric = 'visitors';
+    const ALL_METRICS = ['visitors', 'pages', 'clicks'];
+    let activeMetrics = new Set(['visitors']);
+    let separateScales = false;
     let activeRightTab = 'clicks';
     let lastData = null;
     let trendChart = null;
 
     const IT_MONTHS = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+
+    const METRIC_CONFIGS = {
+      visitors: { label: 'Visitatori Unici', color: '#0070f3', fillTop: 'rgba(0, 112, 243, 0.22)', fillMultiTop: 'rgba(0, 112, 243, 0.12)' },
+      pages: { label: 'Pagine Viste', color: '#38bdf8', fillTop: 'rgba(56, 189, 248, 0.18)', fillMultiTop: 'rgba(56, 189, 248, 0.10)' },
+      clicks: { label: 'Click Utenti', color: '#10b981', fillTop: 'rgba(16, 185, 129, 0.18)', fillMultiTop: 'rgba(16, 185, 129, 0.10)' },
+    };
+
+    function syncMetricTabsUI() {
+      document.querySelectorAll('.metric-tab').forEach((el) => {
+        const key = el.dataset.metric;
+        const isActive = activeMetrics.has(key);
+        el.classList.toggle('active', isActive);
+        const chip = el.querySelector('[data-chip]');
+        if (chip) {
+          chip.textContent = isActive ? 'Attivo' : '+ Sovrapponi';
+        }
+      });
+      const allActive = ALL_METRICS.every((m) => activeMetrics.has(m));
+      const btnOverlayAll = document.getElementById('btnOverlayAll');
+      if (btnOverlayAll) {
+        btnOverlayAll.classList.toggle('active', allActive);
+        btnOverlayAll.textContent = allActive ? 'Tutti attivi' : 'Sovrapposti (Tutti)';
+      }
+      const btnScaleMode = document.getElementById('btnScaleMode');
+      if (btnScaleMode) {
+        btnScaleMode.classList.toggle('active', separateScales);
+        btnScaleMode.textContent = separateScales ? 'Scala adattata' : 'Scala unica';
+      }
+    }
 
     function escapeHtml(str) {
       return String(str || '')
@@ -436,40 +559,87 @@ export function renderAnalyticsAdminHtml(): string {
       const ctx2d = canvas.getContext('2d');
       if (trendChart) trendChart.destroy();
 
-      const metricConfig = {
-        visitors: { label: 'Visitatori Unici', color: '#0070f3', fillTop: 'rgba(0, 112, 243, 0.24)' },
-        pages: { label: 'Pagine Viste', color: '#38bdf8', fillTop: 'rgba(56, 189, 248, 0.22)' },
-        clicks: { label: 'Click Utenti', color: '#10b981', fillTop: 'rgba(16, 185, 129, 0.22)' },
-      }[activeMetric];
-
-      const gradient = ctx2d.createLinearGradient(0, 0, 0, 290);
-      gradient.addColorStop(0, metricConfig.fillTop);
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-      const values = series.map((d) => Number(d[activeMetric]) || 0);
+      const selectedKeys = ALL_METRICS.filter((k) => activeMetrics.has(k));
+      const isMulti = selectedKeys.length > 1;
       const lastIdx = series.length - 1;
+
+      const datasets = selectedKeys.map((key) => {
+        const cfg = METRIC_CONFIGS[key];
+        const gradient = ctx2d.createLinearGradient(0, 0, 0, 290);
+        gradient.addColorStop(0, isMulti ? cfg.fillMultiTop : cfg.fillTop);
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        const values = series.map((d) => Number(d[key]) || 0);
+
+        return {
+          label: cfg.label,
+          data: values,
+          yAxisID: separateScales && isMulti ? 'y_' + key : 'y',
+          borderColor: cfg.color,
+          backgroundColor: gradient,
+          fill: true,
+          tension: 0.25,
+          borderWidth: 2,
+          pointRadius: values.map((_, idx) => (idx === lastIdx ? 3.5 : 0)),
+          pointHoverRadius: 5,
+          pointBackgroundColor: cfg.color,
+          segment: {
+            borderDash: (segCtx) => (segCtx.p1DataIndex === lastIdx ? [5, 5] : undefined),
+          },
+        };
+      });
+
+      const scales = {
+        x: {
+          border: { display: false },
+          grid: { display: false },
+          ticks: {
+            color: '#737373',
+            maxRotation: 0,
+            autoSkip: true,
+            font: { size: 11 },
+          },
+        },
+      };
+
+      if (separateScales && isMulti) {
+        selectedKeys.forEach((key, idx) => {
+          scales['y_' + key] = {
+            type: 'linear',
+            display: idx === 0 || idx === selectedKeys.length - 1,
+            position: idx === 0 ? 'left' : 'right',
+            beginAtZero: true,
+            border: { display: false },
+            grid: {
+              drawOnChartArea: idx === 0,
+              color: 'rgba(255, 255, 255, 0.07)',
+            },
+            ticks: {
+              color: METRIC_CONFIGS[key].color,
+              precision: 0,
+              maxTicksLimit: 5,
+              font: { size: 11 },
+            },
+          };
+        });
+      } else {
+        scales.y = {
+          beginAtZero: true,
+          border: { display: false },
+          grid: { color: 'rgba(255, 255, 255, 0.07)' },
+          ticks: {
+            color: '#737373',
+            precision: 0,
+            maxTicksLimit: 5,
+            font: { size: 11 },
+          },
+        };
+      }
 
       trendChart = new Chart(canvas, {
         type: 'line',
         data: {
           labels: series.map((d) => formatShortDate(d.date)),
-          datasets: [
-            {
-              label: metricConfig.label,
-              data: values,
-              borderColor: metricConfig.color,
-              backgroundColor: gradient,
-              fill: true,
-              tension: 0.25,
-              borderWidth: 2,
-              pointRadius: values.map((_, idx) => (idx === lastIdx ? 3.5 : 0)),
-              pointHoverRadius: 5,
-              pointBackgroundColor: metricConfig.color,
-              segment: {
-                borderDash: (segCtx) => (segCtx.p1DataIndex === lastIdx ? [5, 5] : undefined),
-              },
-            },
-          ],
+          datasets,
         },
         options: {
           responsive: true,
@@ -484,7 +654,10 @@ export function renderAnalyticsAdminHtml(): string {
               titleColor: '#ededed',
               bodyColor: '#ededed',
               padding: 10,
-              displayColors: false,
+              displayColors: true,
+              usePointStyle: true,
+              boxWidth: 8,
+              boxHeight: 8,
               callbacks: {
                 title: (items) => {
                   const idx = items[0] ? items[0].dataIndex : -1;
@@ -495,29 +668,7 @@ export function renderAnalyticsAdminHtml(): string {
               },
             },
           },
-          scales: {
-            x: {
-              border: { display: false },
-              grid: { display: false },
-              ticks: {
-                color: '#737373',
-                maxRotation: 0,
-                autoSkip: true,
-                font: { size: 11 },
-              },
-            },
-            y: {
-              beginAtZero: true,
-              border: { display: false },
-              grid: { color: 'rgba(255, 255, 255, 0.07)' },
-              ticks: {
-                color: '#737373',
-                precision: 0,
-                maxTicksLimit: 5,
-                font: { size: 11 },
-              },
-            },
-          },
+          scales,
         },
       });
     }
@@ -616,13 +767,37 @@ export function renderAnalyticsAdminHtml(): string {
 
     document.querySelectorAll('.metric-tab').forEach((btn) => {
       btn.addEventListener('click', () => {
-        activeMetric = btn.dataset.metric || 'visitors';
-        document.querySelectorAll('.metric-tab').forEach((el) => {
-          el.classList.toggle('active', el === btn);
-        });
+        const key = btn.dataset.metric || 'visitors';
+        if (activeMetrics.has(key)) {
+          if (activeMetrics.size > 1) {
+            activeMetrics.delete(key);
+          }
+        } else {
+          activeMetrics.add(key);
+        }
+        syncMetricTabsUI();
         renderTrendChart();
       });
     });
+
+    document.getElementById('btnOverlayAll').addEventListener('click', () => {
+      const allActive = ALL_METRICS.every((m) => activeMetrics.has(m));
+      if (allActive) {
+        activeMetrics = new Set(['visitors']);
+      } else {
+        activeMetrics = new Set(ALL_METRICS);
+      }
+      syncMetricTabsUI();
+      renderTrendChart();
+    });
+
+    document.getElementById('btnScaleMode').addEventListener('click', () => {
+      separateScales = !separateScales;
+      syncMetricTabsUI();
+      renderTrendChart();
+    });
+
+    syncMetricTabsUI();
 
     document.getElementById('tabRightClicks').addEventListener('click', () => {
       activeRightTab = 'clicks';
