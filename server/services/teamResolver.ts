@@ -61,6 +61,25 @@ export class TeamResolver {
   }
 
   /**
+   * Returns every known team name whose logo resolves to the given society
+   * (Albo Federale) ID. The team_logos index is keyed by society image, so it
+   * doubles as a lightweight team → society association table.
+   */
+  public getTeamNamesForSociety(societyId: string): string[] {
+    const id = String(societyId || '').trim();
+    if (!id) return [];
+
+    const matches: string[] = [];
+    for (const [teamName, url] of Object.entries(this.logos)) {
+      const match = url.match(/\/societa\/(\d+)\.(?:jpg|jpeg|png|gif|webp)(?:\?.*)?$/i);
+      if (match && match[1] === id) {
+        matches.push(teamName);
+      }
+    }
+    return matches;
+  }
+
+  /**
    * Resolves logos for a list of teams from a championship by scraping DatiSquadra.asp
    */
   public async resolveLogosForTeams(

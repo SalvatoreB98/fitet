@@ -1,4 +1,5 @@
 import React from 'react';
+import type { SocietaInfo } from '../types/fitet';
 import './BottomBar.css';
 
 export type MainViewType = 'home' | 'campionato' | 'tornei' | 'classifiche';
@@ -7,12 +8,16 @@ export interface BottomBarProps {
   activeView: MainViewType;
   onChangeView: (view: MainViewType) => void;
   onOpenSearchModal: () => void;
+  onOpenMySociety?: () => void;
+  mySocietyInfo?: SocietaInfo | null;
 }
 
 export const BottomBar: React.FC<BottomBarProps> = ({
   activeView,
   onChangeView,
   onOpenSearchModal,
+  onOpenMySociety,
+  mySocietyInfo,
 }) => {
   return (
     <nav className="portal-bottom-bar-wrapper" aria-label="Navigazione principale">
@@ -86,6 +91,31 @@ export const BottomBar: React.FC<BottomBarProps> = ({
           </div>
           <span className="bottom-bar-label">Cerca Atleta</span>
         </button>
+        {/* 5. La mia società (solo desktop) */}
+        {onOpenMySociety && (
+          <button
+            type="button"
+            className="bottom-bar-item bottom-bar-society-item"
+            onClick={onOpenMySociety}
+            aria-label="La mia società"
+            title="La mia società"
+          >
+            <div className="bottom-bar-icon-wrap">
+              {mySocietyInfo?.logoUrl ? (
+                <img
+                  src={mySocietyInfo.logoUrl}
+                  alt=""
+                  className="bottom-bar-society-logo"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <i className="bi bi-buildings"></i>
+              )}
+            </div>
+            <span className="bottom-bar-label">Società</span>
+          </button>
+        )}
       </div>
     </nav>
   );

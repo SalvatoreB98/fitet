@@ -1,6 +1,7 @@
 import React, { useMemo, useEffect, useRef, useState } from 'react';
-import { ChampionshipItem, DashboardData, MatchVideoInfo } from '../types/fitet';
+import { ChampionshipItem, DashboardData, MatchVideoInfo, SocietaInfo } from '../types/fitet';
 import { MatchVideoModal } from './MatchVideoModal';
+import { TeamLogo } from './TeamLogo';
 import {
   useFavoriteAthletes,
   useFavoriteChampionships,
@@ -77,6 +78,8 @@ interface HomeTabProps {
   dashboardData?: DashboardData | null;
   activeRegionPage?: string | null;
   onSelectRegionPage?: (region: string | null) => void;
+  onOpenMySociety?: () => void;
+  mySocietyInfo?: SocietaInfo | null;
 }
 
 export const HomeTab: React.FC<HomeTabProps> = ({
@@ -97,6 +100,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   onOpenAtletaModal,
   activeRegionPage = null,
   onSelectRegionPage,
+  onOpenMySociety,
+  mySocietyInfo,
 }) => {
   const {
     favorites: favoriteAthletes,
@@ -886,6 +891,58 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           </>
         )}
       </section>
+      {onOpenMySociety && (
+        <section
+          className="home-hero home-hero-sub"
+          aria-label="La mia società"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: '1rem',
+          }}
+        >
+          <div
+            className="home-hero-content w-100"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', minWidth: 0 }}
+          >
+            <TeamLogo
+              teamName={mySocietyInfo?.nome || 'La mia società'}
+              logoUrl={mySocietyInfo?.logoUrl}
+              size={46}
+              className="societa-home-hero-logo"
+              style={{
+                borderRadius: 10,
+                background: '#ffffff',
+                padding: 3,
+                border: '1px solid rgba(148, 163, 184, 0.35)',
+                flexShrink: 0,
+              }}
+            />
+            <div style={{ minWidth: 0 }}>
+              <div className="my-profile-empty-eyebrow">La tua società</div>
+              <h3 className="home-hero-title" style={{ margin: 0 }}>
+                {mySocietyInfo?.nome || 'La mia società'}
+              </h3>
+              <p className="home-hero-subtitle" style={{ margin: 0 }}>
+                Squadre, punti, atleti e storico
+              </p>
+            </div>
+          </div>
+
+          <div className="home-hero-actions">
+            <button
+              type="button"
+              className="home-hero-btn home-hero-btn-primary"
+              onClick={onOpenMySociety}
+              title="Apri la scheda della tua società"
+            >
+              <i className="bi bi-buildings"></i>
+              <span>Apri</span>
+            </button>
+          </div>
+        </section>
+      )}
       <section
         className="home-hero home-hero-sub"
         aria-label="Archivio e Strumenti"

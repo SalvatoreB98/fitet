@@ -2651,6 +2651,23 @@ var TeamResolver = class {
     return void 0;
   }
   /**
+   * Returns every known team name whose logo resolves to the given society
+   * (Albo Federale) ID. The team_logos index is keyed by society image, so it
+   * doubles as a lightweight team → society association table.
+   */
+  getTeamNamesForSociety(societyId) {
+    const id = String(societyId || "").trim();
+    if (!id) return [];
+    const matches = [];
+    for (const [teamName, url] of Object.entries(this.logos)) {
+      const match = url.match(/\/societa\/(\d+)\.(?:jpg|jpeg|png|gif|webp)(?:\?.*)?$/i);
+      if (match && match[1] === id) {
+        matches.push(teamName);
+      }
+    }
+    return matches;
+  }
+  /**
    * Resolves logos for a list of teams from a championship by scraping DatiSquadra.asp
    */
   async resolveLogosForTeams(teams, cam, anno = 41) {
@@ -2685,6 +2702,540 @@ var TeamResolver = class {
   }
 };
 var teamResolver = new TeamResolver();
+
+// server/services/pushService.ts
+import webpush from "web-push";
+import { createClient as createClient4 } from "@supabase/supabase-js";
+import dotenv3 from "dotenv";
+dotenv3.config();
+var SUBSCRIPTION_CONTEXTS_STATE_KEY = "push_subscription_contexts";
+var PushService = class {
+  supabase = null;
+  vapidConfigured = false;
+  publicKey = null;
+  privateKey = null;
+  subject = "mailto:noreply@portale-risultati-tt.it";
+  constructor() {
+    this.initSupabase();
+    this.initVapid();
+  }
+  initSupabase() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      console.warn(
+        "\u26A0\uFE0F [PushService] SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY non configurate: le notifiche push non saranno salvate."
+      );
+      return;
+    }
+    try {
+      this.supabase = createClient4(url, key, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      });
+      console.log("\u2705 [PushService] Supabase connesso.");
+    } catch (err) {
+      console.error("\u274C [PushService] Errore inizializzazione Supabase:", err);
+      this.supabase = null;
+    }
+  }
+  initVapid() {
+    const publicKey = process.env.VAPID_PUBLIC_KEY;
+    const privateKey = process.env.VAPID_PRIVATE_KEY;
+    const subject = process.env.VAPID_SUBJECT || this.subject;
+    if (!publicKey || !privateKey) {
+      console.warn(
+        "\u26A0\uFE0F [PushService] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY non configurate: impossibile inviare push."
+      );
+      return;
+    }
+    try {
+      webpush.setVapidDetails(subject, publicKey, privateKey);
+      this.publicKey = publicKey;
+      this.privateKey = privateKey;
+      this.subject = subject;
+      this.vapidConfigured = true;
+      console.log("\u2705 [PushService] VAPID configurato.");
+    } catch (err) {
+      console.error("\u274C [PushService] Errore configurazione VAPID:", err);
+    }
+  }
+  isVapidConfigured() {
+    return this.vapidConfigured;
+  }
+  isSupabaseConfigured() {
+    return this.supabase !== null;
+  }
+  isReady() {
+    return this.vapidConfigured && this.supabase !== null;
+  }
+  getPublicKey() {
+    return this.publicKey;
+  }
+  isValidEndpoint(endpoint) {
+    try {
+      const parsed = new URL(endpoint);
+      return parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+  /**
+   * Salva (o aggiorna) una subscription. L'endpoint è la chiave naturale del dispositivo.
+   */
+  async saveSubscription(payload, userAgent) {
+    if (!this.supabase) {
+      throw new Error("Database push non configurato (SUPABASE_SERVICE_ROLE_KEY mancante).");
+    }
+    if (!payload?.endpoint || !this.isValidEndpoint(payload.endpoint)) {
+      throw new Error("Endpoint push non valido.");
+    }
+    if (!payload.keys?.p256dh || !payload.keys?.auth) {
+      throw new Error("Chiavi push (p256dh/auth) mancanti.");
+    }
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const { data, error } = await this.supabase.from("push_subscriptions").upsert(
+      {
+        endpoint: payload.endpoint,
+        p256dh: payload.keys.p256dh,
+        auth: payload.keys.auth,
+        user_agent: userAgent || null,
+        is_active: true,
+        last_seen_at: now,
+        updated_at: now
+      },
+      { onConflict: "endpoint" }
+    ).select("*").single();
+    if (error) {
+      throw new Error(`Salvataggio subscription fallito: ${error.message}`);
+    }
+    return data;
+  }
+  async removeSubscription(endpoint) {
+    if (!this.supabase) return;
+    if (!endpoint) return;
+    const { error } = await this.supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
+    if (error) {
+      console.error("[PushService] Errore rimozione subscription:", error.message);
+    }
+    await this.removeSubscriptionContext(endpoint).catch(() => void 0);
+  }
+  // ---------------------------------------------------------------------
+  // Contesto atleta / campionato associato alle singole subscription
+  // ---------------------------------------------------------------------
+  async getSubscriptionContexts() {
+    const raw = await this.getState(SUBSCRIPTION_CONTEXTS_STATE_KEY);
+    if (!raw) return {};
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (err) {
+      console.warn("[PushService] Formato JSON push_subscription_contexts non valido:", err);
+    }
+    return {};
+  }
+  async saveSubscriptionContext(endpoint, context) {
+    if (!this.supabase || !endpoint) return;
+    const cleanCamIds = Array.from(
+      new Set(
+        [
+          ...Array.isArray(context.camIds) ? context.camIds : [],
+          ...typeof context.primaryCamId === "number" ? [context.primaryCamId] : []
+        ].filter((id) => typeof id === "number" && Number.isFinite(id) && id > 0)
+      )
+    );
+    const primaryCamId = typeof context.primaryCamId === "number" && context.primaryCamId > 0 ? context.primaryCamId : cleanCamIds[0] ?? null;
+    const currentMap = await this.getSubscriptionContexts();
+    const existing = currentMap[endpoint] || {};
+    const camIdsToSave = Array.isArray(context.camIds) ? cleanCamIds : cleanCamIds.length > 0 ? cleanCamIds : existing.camIds || [];
+    currentMap[endpoint] = {
+      playerId: context.playerId !== void 0 ? context.playerId : existing.playerId ?? null,
+      playerName: context.playerName !== void 0 ? context.playerName : existing.playerName ?? null,
+      primaryCamId: primaryCamId ?? existing.primaryCamId ?? null,
+      camIds: camIdsToSave,
+      annoId: context.annoId ?? existing.annoId ?? 41,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
+  }
+  /**
+   * Attiva o disattiva la ricezione delle notifiche per un singolo campionato
+   */
+  async toggleChampionshipSubscription(endpoint, camId, enabled) {
+    if (!this.supabase || !endpoint || !camId) {
+      throw new Error("Endpoint e camId validi sono obbligatori.");
+    }
+    const currentMap = await this.getSubscriptionContexts();
+    const existing = currentMap[endpoint] || {
+      playerId: null,
+      playerName: null,
+      primaryCamId: null,
+      camIds: [],
+      annoId: 41,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    const currentCamIds = Array.isArray(existing.camIds) ? existing.camIds.filter((id) => typeof id === "number" && Number.isFinite(id) && id > 0) : [];
+    let newCamIds;
+    if (enabled) {
+      newCamIds = Array.from(/* @__PURE__ */ new Set([...currentCamIds, camId]));
+    } else {
+      newCamIds = currentCamIds.filter((id) => id !== camId);
+    }
+    let newPrimaryCamId = existing.primaryCamId ?? null;
+    if (enabled && (!newPrimaryCamId || newPrimaryCamId <= 0)) {
+      newPrimaryCamId = camId;
+    } else if (!enabled && newPrimaryCamId === camId) {
+      newPrimaryCamId = newCamIds[0] ?? null;
+    }
+    currentMap[endpoint] = {
+      ...existing,
+      primaryCamId: newPrimaryCamId,
+      camIds: newCamIds,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
+    return {
+      enabled,
+      camIds: newCamIds,
+      primaryCamId: newPrimaryCamId
+    };
+  }
+  /**
+   * Restituisce i campionati sottoscritti per un singolo endpoint
+   */
+  async getSubscriptionChampionships(endpoint) {
+    if (!this.supabase || !endpoint) return { camIds: [], primaryCamId: null };
+    const currentMap = await this.getSubscriptionContexts();
+    const existing = currentMap[endpoint];
+    if (!existing) return { camIds: [], primaryCamId: null };
+    return {
+      camIds: Array.isArray(existing.camIds) ? existing.camIds : [],
+      primaryCamId: existing.primaryCamId ?? null
+    };
+  }
+  async removeSubscriptionContext(endpoint) {
+    if (!this.supabase || !endpoint) return;
+    const currentMap = await this.getSubscriptionContexts();
+    if (!(endpoint in currentMap)) return;
+    delete currentMap[endpoint];
+    await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
+  }
+  /**
+   * Restituisce l'elenco univoco dei campionati (camId) seguiti dai dispositivi attivi.
+   */
+  async getSubscribedChampionshipIds() {
+    if (!this.supabase) return [];
+    const [{ data, error }, contexts] = await Promise.all([
+      this.supabase.from("push_subscriptions").select("endpoint").eq("is_active", true),
+      this.getSubscriptionContexts()
+    ]);
+    if (error || !data) return [];
+    const activeEndpoints = new Set(data.map((row) => row.endpoint));
+    const camIds = /* @__PURE__ */ new Set();
+    for (const [endpoint, ctx] of Object.entries(contexts)) {
+      if (!activeEndpoints.has(endpoint) || !ctx) continue;
+      if (typeof ctx.primaryCamId === "number" && ctx.primaryCamId > 0) {
+        camIds.add(ctx.primaryCamId);
+      }
+      if (Array.isArray(ctx.camIds)) {
+        for (const id of ctx.camIds) {
+          if (typeof id === "number" && Number.isFinite(id) && id > 0) {
+            camIds.add(id);
+          }
+        }
+      }
+    }
+    return Array.from(camIds);
+  }
+  /**
+   * Invia la notifica a tutti i dispositivi attivi iscritti a uno specifico campionato (camId).
+   */
+  async sendToChampionshipSubscribers(camId, payload) {
+    if (!this.supabase || !this.vapidConfigured) {
+      return { total: 0, sent: 0, failed: 0, removed: 0 };
+    }
+    const [{ data, error }, contexts] = await Promise.all([
+      this.supabase.from("push_subscriptions").select("*").eq("is_active", true),
+      this.getSubscriptionContexts()
+    ]);
+    if (error) {
+      throw new Error(`Lettura subscription fallita: ${error.message}`);
+    }
+    const allSubscriptions = data || [];
+    if (allSubscriptions.length === 0) {
+      return { total: 0, sent: 0, failed: 0, removed: 0 };
+    }
+    const matchingSubscriptions = allSubscriptions.filter((sub) => {
+      const ctx = contexts[sub.endpoint];
+      if (!ctx) return false;
+      if (ctx.primaryCamId === camId) return true;
+      if (Array.isArray(ctx.camIds) && ctx.camIds.includes(camId)) return true;
+      return false;
+    });
+    if (matchingSubscriptions.length === 0) {
+      return { total: 0, sent: 0, failed: 0, removed: 0 };
+    }
+    const result = {
+      total: matchingSubscriptions.length,
+      sent: 0,
+      failed: 0,
+      removed: 0
+    };
+    const concurrency = 20;
+    for (let i = 0; i < matchingSubscriptions.length; i += concurrency) {
+      const batch = matchingSubscriptions.slice(i, i + concurrency);
+      const batchResults = await Promise.all(
+        batch.map((sub) => this.sendToSubscription(sub, payload))
+      );
+      for (const r of batchResults) {
+        if (r.sent) result.sent += 1;
+        else result.failed += 1;
+        if (r.removed) result.removed += 1;
+      }
+    }
+    return result;
+  }
+  /**
+   * Invia una notifica a una singola subscription.
+   * Se il push service risponde 404/410 la subscription viene rimossa dal database.
+   */
+  async sendToSubscription(subscription, payload) {
+    if (!this.vapidConfigured) {
+      return { sent: false, error: "VAPID non configurato." };
+    }
+    const pushSubscription = {
+      endpoint: subscription.endpoint,
+      keys: {
+        p256dh: subscription.p256dh,
+        auth: subscription.auth
+      }
+    };
+    try {
+      const result = await webpush.sendNotification(
+        pushSubscription,
+        JSON.stringify(payload),
+        {
+          TTL: 60 * 60 * 24,
+          // 24 ore
+          urgency: "normal",
+          timeout: 1e4
+        }
+      );
+      return { sent: true, statusCode: result.statusCode };
+    } catch (err) {
+      const statusCode = typeof err?.statusCode === "number" ? err.statusCode : void 0;
+      const message = err?.body || err?.message || "Errore sconosciuto durante l'invio push.";
+      if (statusCode === 404 || statusCode === 410) {
+        await this.removeSubscription(subscription.endpoint);
+        console.warn(
+          `[PushService] Subscription obsoleta/scaduta (${statusCode}) rimossa dal database:`,
+          message
+        );
+        return { sent: false, statusCode, error: message, removed: true };
+      }
+      const isVapidMismatch = statusCode === 403 && message.includes("VAPID credentials") || statusCode === 400 && message.includes("VapidPkHashMismatch");
+      if (isVapidMismatch) {
+        console.warn(
+          `[PushService] \u26A0\uFE0F VAPID key mismatch (${statusCode}): le chiavi VAPID di questo ambiente non coincidono con quelle usate dal browser per creare la subscription.`,
+          message
+        );
+        return { sent: false, statusCode, error: message, removed: false };
+      }
+      console.warn(
+        `[PushService] Invio push fallito (${statusCode ?? "no-status"}) per ${subscription.endpoint.slice(0, 60)}...:`,
+        message
+      );
+      return { sent: false, statusCode, error: message };
+    }
+  }
+  /**
+   * Invia la notifica a tutti i dispositivi attivi, con concorrenza limitata
+   * per non sovraccaricare il runtime serverless.
+   */
+  async sendToAll(payload) {
+    if (!this.supabase || !this.vapidConfigured) {
+      return { total: 0, sent: 0, failed: 0, removed: 0 };
+    }
+    const { data, error } = await this.supabase.from("push_subscriptions").select("*").eq("is_active", true);
+    if (error) {
+      throw new Error(`Lettura subscription fallita: ${error.message}`);
+    }
+    const subscriptions = data || [];
+    if (subscriptions.length === 0) {
+      return { total: 0, sent: 0, failed: 0, removed: 0 };
+    }
+    const result = {
+      total: subscriptions.length,
+      sent: 0,
+      failed: 0,
+      removed: 0
+    };
+    const concurrency = 20;
+    for (let i = 0; i < subscriptions.length; i += concurrency) {
+      const batch = subscriptions.slice(i, i + concurrency);
+      const batchResults = await Promise.all(
+        batch.map((sub) => this.sendToSubscription(sub, payload))
+      );
+      for (const r of batchResults) {
+        if (r.sent) result.sent += 1;
+        else result.failed += 1;
+        if (r.removed) result.removed += 1;
+      }
+    }
+    return result;
+  }
+  // ---------------------------------------------------------------------
+  // Stato persistente (ultimo ID_CLASS notificato)
+  // ---------------------------------------------------------------------
+  async getState(key) {
+    if (!this.supabase) return null;
+    const { data, error } = await this.supabase.from("push_state").select("value").eq("key", key).maybeSingle();
+    if (error) {
+      console.error(`[PushService] Lettura stato "${key}" fallita:`, error.message);
+      return null;
+    }
+    return data?.value ?? null;
+  }
+  async setState(key, value) {
+    if (!this.supabase) return;
+    const { error } = await this.supabase.from("push_state").upsert(
+      { key, value, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
+      { onConflict: "key" }
+    );
+    if (error) {
+      console.error(`[PushService] Scrittura stato "${key}" fallita:`, error.message);
+    }
+  }
+  async deleteState(key) {
+    if (!this.supabase) return;
+    const { error } = await this.supabase.from("push_state").delete().eq("key", key);
+    if (error) {
+      console.error(`[PushService] Eliminazione stato "${key}" fallita:`, error.message);
+    }
+  }
+  /**
+   * Aggiorna lo stato solo se il valore atteso è ancora quello salvato.
+   * Funge da lock distribuito: in caso di più istanze serverless solo una
+   * riesce ad aggiornare e quindi a inviare la notifica.
+   *
+   * Nota: per valori grandi (es. JSON `championship_state_*` di diversi KB),
+   * passare `.eq('value', expected)` mette l'intero JSON nella query string URL
+   * causando `400 Bad Request` (URI Too Long) su PostgREST/Cloudflare.
+   * Usiamo quindi `updated_at` come token di concorrenza ottimistica nella query.
+   */
+  async compareAndSetState(key, expected, next) {
+    if (!this.supabase) return false;
+    if (expected.length <= 256) {
+      const { data: data2, error: error2 } = await this.supabase.from("push_state").update({ value: next, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("key", key).eq("value", expected).select("key");
+      if (error2) {
+        console.error(`[PushService] Aggiornamento atomico stato "${key}" fallito:`, error2.message);
+        return false;
+      }
+      return Array.isArray(data2) && data2.length > 0;
+    }
+    const { data: current, error: readError } = await this.supabase.from("push_state").select("value, updated_at").eq("key", key).maybeSingle();
+    if (readError) {
+      console.error(`[PushService] Lettura pre-update stato "${key}" fallita:`, readError.message);
+      return false;
+    }
+    if (!current || current.value !== expected) {
+      return false;
+    }
+    const nextUpdatedAt = new Date(Date.now() + 1).toISOString();
+    let query = this.supabase.from("push_state").update({ value: next, updated_at: nextUpdatedAt }).eq("key", key);
+    if (current.updated_at) {
+      query = query.eq("updated_at", current.updated_at);
+    }
+    const { data, error } = await query.select("key");
+    if (error) {
+      console.error(`[PushService] Aggiornamento atomico stato "${key}" fallito:`, error.message);
+      return false;
+    }
+    return Array.isArray(data) && data.length > 0;
+  }
+};
+var pushService = new PushService();
+var RANKING_ID_CLASS_STATE_KEY = "latest_ranking_id_class";
+async function notifyRankingChangeIfNeeded(idClass) {
+  if (!Number.isFinite(idClass) || idClass <= 0) {
+    return { changed: false, idClass };
+  }
+  if (!pushService.isReady()) {
+    return { changed: false, idClass };
+  }
+  const previous = await pushService.getState(RANKING_ID_CLASS_STATE_KEY);
+  if (previous === null) {
+    await pushService.setState(RANKING_ID_CLASS_STATE_KEY, String(idClass));
+    return { changed: false, initialized: true, idClass };
+  }
+  const previousIdClass = parseInt(previous, 10);
+  if (!Number.isFinite(previousIdClass) || idClass <= previousIdClass) {
+    return { changed: false, idClass, previousIdClass };
+  }
+  const claimed = await pushService.compareAndSetState(
+    RANKING_ID_CLASS_STATE_KEY,
+    previous,
+    String(idClass)
+  );
+  if (!claimed) {
+    return { changed: false, idClass, previousIdClass };
+  }
+  console.log(
+    `[PushService] Nuovo ID_CLASS rilevato: ${previousIdClass} -> ${idClass}. Invio notifiche...`
+  );
+  const broadcast = await pushService.sendToAll({
+    title: "Nuova classifica FITeT disponibile",
+    body: "\xC8 stata pubblicata la classifica aggiornata. Scopri la tua nuova posizione!",
+    url: "/?view=classifiche",
+    icon: "/icon.png",
+    badge: "/icon.png",
+    tag: `ranking-id-class-${idClass}`
+  });
+  console.log(
+    `[PushService] Notifiche ranking inviate: ${broadcast.sent}/${broadcast.total} (rimosse: ${broadcast.removed}).`
+  );
+  return {
+    changed: true,
+    idClass,
+    previousIdClass,
+    ...broadcast
+  };
+}
+
+// server/services/rankingClassService.ts
+var DEFAULT_ID_CLASS = 248;
+async function getLatestIdClass(forceRefresh = false, notifyOnChange = true) {
+  const cacheKey = "latest_ranking_id_class";
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached && typeof cached === "number" && cached >= DEFAULT_ID_CLASS) {
+      return cached;
+    }
+  }
+  try {
+    const html = await FitetClient.fetchHtml("https://portale.fitet.org/menu.php");
+    const match = html.match(/testaclassifica_auto\.php\?ID_CLASS=(\d+)/i);
+    if (match && match[1]) {
+      const detected = parseInt(match[1], 10);
+      if (detected >= DEFAULT_ID_CLASS) {
+        cacheService.set(cacheKey, detected, 4 * 60 * 60 * 1e3);
+        if (notifyOnChange) {
+          notifyRankingChangeIfNeeded(detected).catch((pushErr) => {
+            console.warn("[PushService] Errore notifica cambio ID_CLASS:", pushErr);
+          });
+        }
+        return detected;
+      }
+    }
+  } catch (err) {
+    console.warn("[Ranking] Impossibile rilevare automaticamente ID_CLASS da menu.php, uso fallback:", err);
+  }
+  return DEFAULT_ID_CLASS;
+}
 
 // server/services/championshipCatalog.ts
 import fs4 from "fs";
@@ -3077,165 +3628,8 @@ var ChampionshipCatalog = class {
 };
 var championshipCatalog = new ChampionshipCatalog();
 
-// server/parsers/classificaParser.ts
-import * as cheerio5 from "cheerio";
-function parseClassifica(html) {
-  const $ = cheerio5.load(html);
-  const squadre = [];
-  $("table tr").each((_, row) => {
-    const $row = $(row);
-    const teamLink = $row.find('a[href*="percentuali.php"]');
-    if (teamLink.length === 0) return;
-    const href = teamLink.attr("href") || "";
-    const squadraIdMatch = href.match(/SQUADRA=(\d+)/i);
-    const squadraId = squadraIdMatch ? squadraIdMatch[1] : "";
-    const nome = teamLink.text().replace(/\s+/g, " ").trim();
-    const cells = $row.find("td");
-    if (cells.length < 14) return;
-    const getCellInt = (idx) => {
-      const text = $(cells[idx]).text().trim().replace(/\D+/g, "");
-      return parseInt(text, 10) || 0;
-    };
-    const punti = getCellInt(2);
-    const incontriDisputati = getCellInt(3);
-    const incontriVinti = getCellInt(4);
-    const incontriPareggiati = getCellInt(5);
-    const incontriPersi = getCellInt(6);
-    const partiteVinte = getCellInt(7);
-    const partitePerse = getCellInt(8);
-    const setVinti = getCellInt(9);
-    const setPersi = getCellInt(10);
-    const puntiVinti = getCellInt(11);
-    const puntiPersi = getCellInt(12);
-    const penalizzazioni = getCellInt(13);
-    squadre.push({
-      posizione: 0,
-      // Calculated after sorting
-      squadraId,
-      nome,
-      punti,
-      incontriDisputati,
-      incontriVinti,
-      incontriPareggiati,
-      incontriPersi,
-      partiteVinte,
-      partitePerse,
-      diffPartite: partiteVinte - partitePerse,
-      setVinti,
-      setPersi,
-      diffSet: setVinti - setPersi,
-      puntiVinti,
-      puntiPersi,
-      diffPunti: puntiVinti - puntiPersi,
-      penalizzazioni,
-      isPromozione: false,
-      isPlayoff: false,
-      isRetrocessione: false,
-      forma: []
-    });
-  });
-  squadre.forEach((sq, idx) => {
-    sq.posizione = idx + 1;
-    if (idx === 0) {
-      sq.isPromozione = true;
-    } else if (idx === 1) {
-      sq.isPlayoff = true;
-    } else if (idx >= squadre.length - 2 && squadre.length > 4) {
-      sq.isRetrocessione = true;
-    }
-  });
-  return squadre;
-}
-
-// server/parsers/calendarioParser.ts
-import * as cheerio6 from "cheerio";
-function parseCalendario(html) {
-  const $ = cheerio6.load(html);
-  const giornate = [];
-  $("table").each((_, table) => {
-    const $table = $(table);
-    const tableText = $table.text();
-    const giornataMatch = tableText.match(/(\d+)\^\s*Giornata/i);
-    if (!giornataMatch) return;
-    const numGiornata = parseInt(giornataMatch[1], 10);
-    const titolo = `${numGiornata}^ Giornata`;
-    const partiteAndata = [];
-    const partiteRitorno = [];
-    $table.find("tr").each((rowIdx, row) => {
-      const $row = $(row);
-      const cells = $row.find("td");
-      if (cells.length !== 8) return;
-      const dataAndata = $(cells[0]).text().trim();
-      if (!dataAndata.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) return;
-      const oraAndata = $(cells[1]).text().trim();
-      const $risAndataCell = $(cells[2]);
-      const risAndataText = $risAndataCell.text().trim();
-      const casaAndata = $(cells[3]).text().trim().replace(/\s+/g, " ");
-      const ospiteAndata = $(cells[4]).text().trim().replace(/\s+/g, " ");
-      const $risRitornoCell = $(cells[5]);
-      const risRitornoText = $risRitornoCell.text().trim();
-      const oraRitorno = $(cells[6]).text().trim();
-      const dataRitorno = $(cells[7]).text().trim();
-      const parseMatch = (tipo, data, ora, casa, ospite, $cell, rawRis, matchIdx) => {
-        const link = $cell.find("a[href]").attr("href") || null;
-        let incontroId = null;
-        let formula = void 0;
-        if (link) {
-          const m = link.match(/INCONTRO=(\d+)/i);
-          if (m) incontroId = m[1];
-          const f = link.match(/FORMULA=(\d+)/i);
-          if (f) formula = parseInt(f[1], 10);
-        }
-        const scoreMatch = rawRis.match(/(\d+)\s*[-:]\s*(\d+)/);
-        const disputato = Boolean(scoreMatch);
-        const puntiCasa = scoreMatch ? parseInt(scoreMatch[1], 10) : null;
-        const puntiOspite = scoreMatch ? parseInt(scoreMatch[2], 10) : null;
-        let vincitore = null;
-        if (disputato && puntiCasa !== null && puntiOspite !== null) {
-          if (puntiCasa > puntiOspite) vincitore = "casa";
-          else if (puntiOspite > puntiCasa) vincitore = "ospite";
-          else vincitore = "pareggio";
-        }
-        const fullRefertoUrl = link ? link.startsWith("http") ? link : `https://portale.fitet.org/risultati/campionati/${link}` : null;
-        return {
-          id: `g${numGiornata}_${tipo}_${matchIdx}_${incontroId || "nomatch"}`,
-          giornata: numGiornata,
-          tipo,
-          data,
-          ora,
-          squadraCasa: casa,
-          squadraOspite: ospite,
-          risultato: disputato ? `${puntiCasa} - ${puntiOspite}` : "-",
-          puntiCasa,
-          puntiOspite,
-          disputato,
-          refertoUrl: fullRefertoUrl,
-          incontroId,
-          vincitore,
-          formula
-        };
-      };
-      partiteAndata.push(
-        parseMatch("andata", dataAndata, oraAndata, casaAndata, ospiteAndata, $risAndataCell, risAndataText, rowIdx)
-      );
-      partiteRitorno.push(
-        parseMatch("ritorno", dataRitorno, oraRitorno, ospiteAndata, casaAndata, $risRitornoCell, risRitornoText, rowIdx)
-      );
-    });
-    if (partiteAndata.length > 0 || partiteRitorno.length > 0) {
-      giornate.push({
-        numero: numGiornata,
-        titolo,
-        partiteAndata,
-        partiteRitorno
-      });
-    }
-  });
-  return giornate.sort((a, b) => a.numero - b.numero);
-}
-
 // server/parsers/atletaParser.ts
-import * as cheerio7 from "cheerio";
+import * as cheerio5 from "cheerio";
 function parseItalianNumber(val) {
   if (!val) return 0;
   const clean = val.trim();
@@ -3256,7 +3650,7 @@ function parseItalianNumber(val) {
 }
 function extractRankingIframeUrl(html) {
   console.log("[extractRankingIframeUrl] Inizio estrazione iframe URL");
-  const $ = cheerio7.load(html);
+  const $ = cheerio5.load(html);
   const rawSrc = $("#fragment-3 iframe").attr("src");
   if (!rawSrc) {
     console.warn("[extractRankingIframeUrl] Nessun iframe trovato in #fragment-3");
@@ -3300,7 +3694,7 @@ function isCurrentSeasonDate(dateStr) {
 }
 function parsePartiteRanking(html, atletaId) {
   console.log(`[parsePartiteRanking] Inizio parsing partite ranking per atletaId: ${atletaId}`);
-  const $ = cheerio7.load(html);
+  const $ = cheerio5.load(html);
   let $p = $(`#player_${atletaId}`);
   if (!$p.length) {
     console.warn(`[parsePartiteRanking] Selettore #player_${atletaId} non trovato, fallback su prima classe .player`);
@@ -3482,7 +3876,7 @@ function parsePartiteRanking(html, atletaId) {
 }
 function parseDettaglioAtleta(html, atletaId, partiteRanking) {
   console.log(`[parseDettaglioAtleta] Inizio parsing scheda atleta ${atletaId}`);
-  const $ = cheerio7.load(html);
+  const $ = cheerio5.load(html);
   const $titolo = $("p.titolo").first();
   const nomeRaw = $titolo.text().replace(/\s+/g, " ").trim();
   console.debug(`[parseDettaglioAtleta] Nome rilevato: "${nomeRaw}"`);
@@ -3645,10 +4039,1011 @@ function parseDettaglioAtleta(html, atletaId, partiteRanking) {
   };
 }
 
-// server/parsers/headToHeadParser.ts
+// server/parsers/squadraParser.ts
+import * as cheerio6 from "cheerio";
+function parseDettaglioSquadra(html, squadraId, camId, logoUrl) {
+  const $ = cheerio6.load(html);
+  const titleText = $("table tr:first-child").text().replace(/\s+/g, " ").trim();
+  const teamNameMatch = titleText.match(/Atleti della squadra:\s*(.+)$/i);
+  const nome = teamNameMatch ? teamNameMatch[1].trim() : "Squadra " + squadraId;
+  const atleti = [];
+  $("table tr").each((_, row) => {
+    const $row = $(row);
+    const cells = $row.find("td");
+    if (cells.length < 10) return;
+    const rowText = $row.text();
+    if (rowText.includes("Atleta") && rowText.includes("PaV")) return;
+    const athleteLink = $row.find('a[href*="dettaglio_percentuali.php"], a[href*="IDA="]');
+    if (athleteLink.length === 0) return;
+    const athleteName = athleteLink.text().replace(/\s+/g, " ").trim();
+    if (!athleteName) return;
+    const href = athleteLink.attr("href") || "";
+    const idaMatch = href.match(/IDA=(\d+)/i);
+    const atletaId = idaMatch ? idaMatch[1] : "";
+    const hasScheda = $row.find('a[onclick*="getScheda"]').length > 0;
+    const isDoppio = !hasScheda && athleteName.includes(" - ");
+    const rankText = $(cells[2]).text().replace(/\s+/g, " ").trim();
+    let rankPosizione = null;
+    let rankPunti = null;
+    const rankPosMatch = rankText.match(/rank\.\s*(\d+)/i);
+    if (rankPosMatch) {
+      rankPosizione = parseInt(rankPosMatch[1], 10);
+    }
+    const rankPuntiMatch = rankText.match(/\((\d+)\)/);
+    if (rankPuntiMatch) {
+      rankPunti = parseInt(rankPuntiMatch[1], 10);
+    }
+    const getInt = (cellIdx) => {
+      const val = $(cells[cellIdx]).text().trim().replace(/[^\d-]/g, "");
+      return parseInt(val, 10) || 0;
+    };
+    const getFloat = (cellIdx) => {
+      const val = $(cells[cellIdx]).text().trim().replace(/[^\d.,-]/g, "").replace(",", ".");
+      const num = parseFloat(val);
+      return Number.isFinite(num) ? num : 0;
+    };
+    const partiteDisputate = getInt(3);
+    const partiteVinte = getInt(4);
+    const partitePerse = getInt(5);
+    const setVinti = getInt(6);
+    const setPersi = getInt(7);
+    const puntiVinti = getInt(8);
+    const puntiPersi = getInt(9);
+    const percentualeVittorie = getFloat(10);
+    atleti.push({
+      atletaId,
+      nome: athleteName,
+      isDoppio,
+      rankText,
+      rankPosizione,
+      rankPunti,
+      partiteDisputate,
+      partiteVinte,
+      partitePerse,
+      setVinti,
+      setPersi,
+      puntiVinti,
+      puntiPersi,
+      percentualeVittorie,
+      fotoUrl: !isDoppio && atletaId ? `https://portale.fitet.org/images/atleti/${atletaId}.jpg` : null
+    });
+  });
+  return {
+    squadraId,
+    camId,
+    nome,
+    logoUrl,
+    atleti
+  };
+}
+
+// server/parsers/societyParser.ts
+import * as cheerio7 from "cheerio";
+var PORTAL_BASE = "https://portale.fitet.org";
+var cleanText = (value) => (value || "").replace(/\s+/g, " ").trim();
+var parseItalianNumber2 = (value) => {
+  const cleaned = cleanText(value).replace(/[^\d,.-]/g, "").replace(",", ".");
+  const num = parseFloat(cleaned);
+  return Number.isFinite(num) ? num : 0;
+};
+var parseIntSafe = (value) => {
+  const num = parseInt(cleanText(value).replace(/[^\d-]/g, ""), 10);
+  return Number.isFinite(num) ? num : 0;
+};
+var normalizeLogoUrl = (src) => {
+  if (!src) return "";
+  const clean = src.replace(/^(\.\.\/)+/, "").replace(/^\/+/, "");
+  if (/^https?:\/\//i.test(clean)) return clean;
+  return `${PORTAL_BASE}/${clean}`;
+};
+function parseDatiSquadra(html, fallbackSquadraId = "", fallbackSocietyId = "") {
+  const $ = cheerio7.load(html);
+  const logoImg = $('img[src*="images/societa/"]').first();
+  const logoUrl = normalizeLogoUrl(logoImg.attr("src"));
+  const headerText = cleanText($("table").first().text());
+  const teamNameMatch = headerText.match(
+    /Scheda della squadra\s+(.+?)\s+Dati anagrafici della Societa/i
+  );
+  const teamName = cleanText(teamNameMatch?.[1]) || cleanText($("table").first().find("p.stile").eq(1).text()) || `Squadra ${fallbackSquadraId}`;
+  let societyField = $('fieldset[name="societa"]').first();
+  if (societyField.length === 0) {
+    societyField = $("fieldset").filter((_, el) => cleanText($(el).find("legend").text()).includes("Dati anagrafici")).first();
+  }
+  const societyTables = societyField.find("table");
+  const registryCells = societyTables.eq(0).find("tr").eq(1).find("td, th");
+  const addressCells = societyTables.eq(1).find("tr").eq(1).find("td, th");
+  const contactCells = societyTables.eq(2).find("tr").eq(1).find("td, th");
+  const societyName = cleanText(registryCells.eq(0).text());
+  const alboFederale = cleanText(registryCells.eq(1).text()).match(/\d{2,6}/)?.[0] || fallbackSocietyId || logoUrl.match(/\/societa\/(\d+)\./i)?.[1] || "";
+  const primaAffiliazione = cleanText(registryCells.eq(2).text());
+  const info = {
+    societyId: alboFederale,
+    nome: societyName || `Societ\xE0 #${alboFederale || fallbackSquadraId}`,
+    logoUrl: logoUrl || (alboFederale ? `${PORTAL_BASE}/images/societa/${alboFederale}.jpg` : `${PORTAL_BASE}/images/societa/img_generica.jpg`),
+    alboFederale,
+    primaAffiliazione: primaAffiliazione || void 0,
+    indirizzo: cleanText(addressCells.eq(0).text()) || void 0,
+    cap: cleanText(addressCells.eq(1).text()) || void 0,
+    citta: cleanText(addressCells.eq(2).text()) || void 0,
+    provincia: cleanText(addressCells.eq(3).text()) || void 0,
+    regione: cleanText(addressCells.eq(4).text()) || void 0,
+    email: cleanText(contactCells.eq(2).text()) || void 0,
+    sito: cleanText(contactCells.eq(3).text()) || void 0
+  };
+  const formation = [];
+  const formationField = $('fieldset[name="squadra"]').last();
+  const formationTable = (formationField.length > 0 ? formationField : $("body")).find("table").last();
+  formationTable.find("td").each((_, cell) => {
+    const value = cleanText($(cell).text());
+    if (value && /\([A-Z]{2,3}\)\s*$/.test(value)) {
+      formation.push(value);
+    }
+  });
+  return { teamName, info, formation };
+}
+function parseSocietaArchive(html) {
+  const stagioni = [];
+  const championshipRegex = /<th\s+rowspan=["']?2["']?[^>]*>\s*<b>\s*(\d{4}\/\d{2})\s*<\/b>\s*<\/th>|Campionati\.asp\?CAMP=(\d+)&(?:amp;)?ANNATA=(\d+)[^>]*>([^<]+)<\/a>/gi;
+  let seasonMatch;
+  let currentSeason = null;
+  while ((seasonMatch = championshipRegex.exec(html)) !== null) {
+    if (seasonMatch[1]) {
+      currentSeason = {
+        anno: 0,
+        stagione: decodeHtmlEntities(seasonMatch[1]),
+        campionati: []
+      };
+      stagioni.push(currentSeason);
+    } else if (currentSeason && seasonMatch[2] && seasonMatch[3]) {
+      currentSeason.anno = parseInt(seasonMatch[3], 10) || currentSeason.anno;
+      const nome = decodeHtmlEntities(cleanText(seasonMatch[4]));
+      const campId = parseInt(seasonMatch[2], 10);
+      if (campId && nome) {
+        currentSeason.campionati.push({ campId, nome });
+      }
+    }
+  }
+  const atletiStorici = [];
+  const presenzeStart = html.search(/id=["']presenze["']/i);
+  const presenzeHtml = presenzeStart >= 0 ? html.slice(presenzeStart) : html;
+  const presenzeRegex = /<tr[^>]*>\s*<td[^>]*>\s*<p[^>]*>\s*(\d{3,})\s*<\/p>\s*<\/td>\s*<td[^>]*>\s*<p[^>]*>([\s\S]*?)<\/p>\s*<\/td>\s*<td[^>]*>\s*<p[^>]*>\s*(\d+)\s*<\/p>\s*<\/td>\s*<\/tr>/gi;
+  let presenzeMatch;
+  while ((presenzeMatch = presenzeRegex.exec(presenzeHtml)) !== null) {
+    const nome = decodeHtmlEntities(cleanText(presenzeMatch[2]));
+    if (!nome) continue;
+    atletiStorici.push({
+      tessera: presenzeMatch[1],
+      nome,
+      presenze: parseInt(presenzeMatch[3], 10) || 0,
+      atletaId: null
+    });
+  }
+  return {
+    stagioni,
+    atletiStorici,
+    titoliNazionali: parseTitles(html, "nazionali", "regionali"),
+    titoliRegionali: parseTitles(html, "regionali", "presenze")
+  };
+}
+function parseTitles(html, fromId, toId) {
+  const start = html.search(new RegExp(`id=["']${fromId}["']`, "i"));
+  if (start < 0) return [];
+  const end = html.search(new RegExp(`id=["']${toId}["']`, "i"));
+  const section = html.slice(start, end > start ? end : void 0);
+  const $ = cheerio7.load(`<div>${section}</div>`);
+  const titles = [];
+  $("tr").each((_, row) => {
+    const cells = $(row).find("td").map((__, cell) => cleanText($(cell).text())).get().filter(Boolean);
+    if (cells.length < 4) return;
+    if (/stagione/i.test(cells[0]) || /torneo/i.test(cells[0])) return;
+    titles.push({
+      stagione: cells[0],
+      torneo: cells[1],
+      gara: cells[2],
+      dettaglio: cells[3]
+    });
+  });
+  return titles;
+}
+function parseSocietaClassificaArchive(html) {
+  const $ = cheerio7.load(html);
+  const squadre = [];
+  $('a[href*="Percentuali.asp?SQUADRA="]').each((_, link) => {
+    const href = $(link).attr("href") || "";
+    const squadraId = href.match(/SQUADRA=(\d+)/i)?.[1] || "";
+    const nome = cleanText($(link).text());
+    if (!squadraId || !nome) return;
+    const row = $(link).closest("tr");
+    const cells = row.find("td");
+    if (cells.length < 14) return;
+    squadre.push({
+      squadraId,
+      nome,
+      posizione: squadre.length + 1,
+      punti: parseIntSafe($(cells[2]).text()),
+      incontriDisputati: parseIntSafe($(cells[3]).text()),
+      incontriVinti: parseIntSafe($(cells[4]).text()),
+      incontriPareggiati: parseIntSafe($(cells[5]).text()),
+      incontriPersi: parseIntSafe($(cells[6]).text()),
+      partiteVinte: parseIntSafe($(cells[7]).text()),
+      partitePerse: parseIntSafe($(cells[8]).text()),
+      setVinti: parseIntSafe($(cells[9]).text()),
+      setPersi: parseIntSafe($(cells[10]).text()),
+      puntiVinti: parseIntSafe($(cells[11]).text()),
+      puntiPersi: parseIntSafe($(cells[12]).text()),
+      penalizzazioni: parseIntSafe($(cells[13]).text()),
+      atleti: []
+    });
+  });
+  return squadre;
+}
+function parseSocietaRosterArchive(html, squadraId, squadraNome) {
+  const $ = cheerio7.load(html);
+  const atleti = [];
+  $('a[href*="DettaglioPercentuali.asp?IDA="]').each((_, link) => {
+    const href = $(link).attr("href") || "";
+    const atletaId = href.match(/IDA=(\d+)/i)?.[1] || null;
+    const nome = cleanText($(link).text());
+    if (!nome) return;
+    const row = $(link).closest("tr");
+    const cells = row.find("td");
+    if (cells.length < 9) return;
+    const isDoppio = nome.includes(" - ");
+    const partiteDisputate = parseIntSafe($(cells[1]).text());
+    const partiteVinte = parseIntSafe($(cells[2]).text());
+    const partitePerse = parseIntSafe($(cells[3]).text());
+    atleti.push({
+      atletaId: isDoppio ? null : atletaId,
+      nome,
+      isDoppio,
+      squadraId,
+      squadraNome,
+      rankPosizione: null,
+      rankPunti: null,
+      partiteDisputate,
+      partiteVinte,
+      partitePerse,
+      setVinti: parseIntSafe($(cells[4]).text()),
+      setPersi: parseIntSafe($(cells[5]).text()),
+      puntiVinti: parseIntSafe($(cells[6]).text()),
+      puntiPersi: parseIntSafe($(cells[7]).text()),
+      percentualeVittorie: parseItalianNumber2($(cells[8]).text())
+    });
+  });
+  return atleti;
+}
+function decodeHtmlEntities(value) {
+  return value.replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/&ograve;/gi, "\xF2").replace(/&agrave;/gi, "\xE0").replace(/&egrave;/gi, "\xE8").replace(/&igrave;/gi, "\xEC").replace(/&ugrave;/gi, "\xF9").replace(/&Ograve;/gi, "\xD2").replace(/&Agrave;/gi, "\xC0").replace(/&Egrave;/gi, "\xC8").replace(/&Igrave;/gi, "\xCC").replace(/&Ugrave;/gi, "\xD9");
+}
+
+// server/services/societyService.ts
+var PORTAL_BASE2 = "https://portale.fitet.org";
+var ARCHIVE_BASE = "http://archivio.fitet.org";
+var DEFAULT_ANNO = 41;
+var TTL_ARCHIVE = 12 * 60 * 60 * 1e3;
+var TTL_SOCIETY = 12 * 60 * 60 * 1e3;
+var TTL_SEASON = 24 * 60 * 60 * 1e3;
+var TTL_TEAM = 7 * 24 * 60 * 60 * 1e3;
+var TTL_CLASSIFICA = 30 * 60 * 1e3;
+var normalizeName = (value) => (value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").trim();
+var nameTokens = (value) => (value || "").toUpperCase().replace(/[^A-Z0-9 ]/g, " ").split(/\s+/).filter((token) => token.length >= 4 && !["ASD", "APD", "POLISPORTIVA", "TENNISTAVOLO"].includes(token));
+async function mapLimit(items, limit, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+function getSeasonLabel(anno) {
+  const startYear = 1985 + anno;
+  return `${startYear}/${String(startYear + 1).slice(-2)}`;
+}
+async function loadArchiveSociety(societyId, forceRefresh = false) {
+  const cacheKey = `societa_archive_${societyId}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+  }
+  const html = await FitetClient.fetchHtml(
+    `${ARCHIVE_BASE}/scheda_dettaglio_soc.php?TEAM=${encodeURIComponent(societyId)}`
+  );
+  const parsed = parseSocietaArchive(html);
+  cacheService.set(cacheKey, parsed, TTL_ARCHIVE);
+  return parsed;
+}
+async function getArchiveClassifica(campId, anno, forceRefresh = false) {
+  const cacheKey = `societa_classifica_${campId}_${anno}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+  }
+  const html = await FitetClient.fetchHtml(
+    `${PORTAL_BASE2}/risultati/archivio/ClassificaSquadre.asp?ANNATA=${anno}&CAMP=${campId}`
+  );
+  const parsed = parseSocietaClassificaArchive(html);
+  if (parsed.length > 0) {
+    cacheService.set(cacheKey, parsed, TTL_CLASSIFICA);
+  }
+  return parsed;
+}
+async function getTeamRegistry(teamId, cam, anno, forceRefresh = false) {
+  const cacheKey = `societa_team_${teamId}_${cam}_${anno}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) {
+      if (cached.info?.societyId) {
+        cacheService.set(`societa_info_${cached.info.societyId}`, cached.info, TTL_TEAM);
+      }
+      return cached;
+    }
+  }
+  try {
+    const html = await FitetClient.fetchHtml(
+      `${PORTAL_BASE2}/risultati/campionati/DatiSquadra.asp?SQUADRA=${teamId}&CAM=${cam}&ANNO=${anno}`
+    );
+    const parsed = parseDatiSquadra(html, teamId);
+    if (!parsed.info.societyId) return null;
+    const payload = { teamName: parsed.teamName, info: parsed.info };
+    cacheService.set(cacheKey, payload, TTL_TEAM);
+    cacheService.set(`societa_info_${parsed.info.societyId}`, parsed.info, TTL_TEAM);
+    return payload;
+  } catch (err) {
+    console.warn(`[Societa] Impossibile leggere DatiSquadra per ${teamId}:`, err);
+    return null;
+  }
+}
+function isLikelySocietyTeam(teamName, societyId, knownNames, societyName) {
+  const normalizedTeam = normalizeName(teamName);
+  if (!normalizedTeam) return false;
+  const names = [...knownNames];
+  if (societyName) names.push(societyName);
+  for (const candidate of names) {
+    const normalizedCandidate = normalizeName(candidate);
+    if (!normalizedCandidate) continue;
+    if (normalizedTeam === normalizedCandidate || normalizedTeam.includes(normalizedCandidate) || normalizedCandidate.includes(normalizedTeam)) {
+      return true;
+    }
+  }
+  const teamTokens = new Set(nameTokens(teamName));
+  const candidateTokens = new Set(names.flatMap((name) => nameTokens(name)));
+  for (const token of teamTokens) {
+    if (candidateTokens.has(token)) return true;
+  }
+  const logo = teamResolver.getLogo(teamName);
+  if (logo && logo.includes(`/societa/${societyId}.`)) return true;
+  return false;
+}
+async function findSocietyTeams(squadre, societyId, campId, anno, knownNames = [], scanAllFallback = true) {
+  if (!squadre.length) return { matches: [] };
+  const cachedInfo = cacheService.get(`societa_info_${societyId}`);
+  const societyName = cachedInfo?.nome;
+  const prefiltered = squadre.filter(
+    (team) => isLikelySocietyTeam(team.nome, societyId, knownNames, societyName)
+  );
+  const candidates = prefiltered.length > 0 ? prefiltered : squadre.slice(0, 16);
+  const candidateIds = new Set(candidates.map((team) => team.squadraId));
+  const registry = await mapLimit(candidates, 4, async (team) => ({
+    team,
+    registry: await getTeamRegistry(team.squadraId, campId, anno)
+  }));
+  const matches = [];
+  let info;
+  for (const item of registry) {
+    if (!item.registry) continue;
+    if (String(item.registry.info.societyId) !== String(societyId)) continue;
+    matches.push({ squadra: item.team, info: item.registry.info });
+    info = info || item.registry.info;
+  }
+  if (matches.length === 0 && scanAllFallback) {
+    const remaining = squadre.filter((team) => !candidateIds.has(team.squadraId)).slice(0, 16);
+    const fallbackRegistry = await mapLimit(remaining, 4, async (team) => ({
+      team,
+      registry: await getTeamRegistry(team.squadraId, campId, anno)
+    }));
+    for (const item of fallbackRegistry) {
+      if (!item.registry) continue;
+      if (String(item.registry.info.societyId) !== String(societyId)) continue;
+      matches.push({ squadra: item.team, info: item.registry.info });
+      info = info || item.registry.info;
+    }
+  }
+  return { matches, info };
+}
+async function loadTeamRoster(teamId, campId, anno, isCurrent, teamName) {
+  try {
+    if (isCurrent) {
+      const html = await FitetClient.fetchHtml(
+        `${PORTAL_BASE2}/risultati/campionati/percentuali.php?SQUADRA=${teamId}&CAM=${campId}`
+      );
+      const parsed = parseDettaglioSquadra(html, teamId, campId);
+      if (parsed.atleti.length > 0) {
+        return parsed.atleti.map((athlete) => ({
+          atletaId: athlete.isDoppio ? null : athlete.atletaId || null,
+          nome: athlete.nome,
+          isDoppio: athlete.isDoppio,
+          squadraId: teamId,
+          squadraNome: teamName,
+          rankPosizione: athlete.rankPosizione,
+          rankPunti: athlete.rankPunti,
+          partiteDisputate: athlete.partiteDisputate,
+          partiteVinte: athlete.partiteVinte,
+          partitePerse: athlete.partitePerse,
+          setVinti: athlete.setVinti,
+          setPersi: athlete.setPersi,
+          puntiVinti: athlete.puntiVinti,
+          puntiPersi: athlete.puntiPersi,
+          percentualeVittorie: athlete.percentualeVittorie
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn(`[Societa] Roster live non disponibile per ${teamId}/${campId}:`, err);
+  }
+  try {
+    const html = await FitetClient.fetchHtml(
+      `${PORTAL_BASE2}/risultati/archivio/Percentuali.asp?SQUADRA=${teamId}&CAMP=${campId}&ANNATA=${anno}`
+    );
+    return parseSocietaRosterArchive(html, teamId, teamName);
+  } catch (err) {
+    console.warn(`[Societa] Roster archivio non disponibile per ${teamId}/${campId}/${anno}:`, err);
+    return [];
+  }
+}
+function uniqueAthletes(athletes) {
+  const seen = /* @__PURE__ */ new Set();
+  const result = [];
+  for (const athlete of athletes) {
+    const key = athlete.atletaId ? `id:${athlete.atletaId}` : `name:${normalizeName(athlete.nome)}`;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(athlete);
+  }
+  return result.sort((a, b) => b.partiteVinte - a.partiteVinte || b.percentualeVittorie - a.percentualeVittorie);
+}
+async function buildSocietySeason(societyId, season, isCurrent, knownNames = []) {
+  const campionati = [];
+  let info;
+  let activeKnownNames = [...knownNames];
+  const resolvedInfo = cacheService.get(`societa_info_${societyId}`);
+  if (resolvedInfo) info = resolvedInfo;
+  for (const camp of season.campionati.slice(0, 4)) {
+    try {
+      const classifica = await getArchiveClassifica(camp.campId, season.anno);
+      if (classifica.length === 0) continue;
+      const { matches, info: foundInfo } = await findSocietyTeams(
+        classifica,
+        societyId,
+        camp.campId,
+        season.anno,
+        activeKnownNames
+      );
+      if (foundInfo) info = info || foundInfo;
+      if (matches.length === 0) continue;
+      const squadre = [];
+      for (const match of matches) {
+        const roster = await loadTeamRoster(
+          match.squadra.squadraId,
+          camp.campId,
+          season.anno,
+          isCurrent,
+          match.squadra.nome
+        );
+        squadre.push({ ...match.squadra, atleti: roster });
+        activeKnownNames = Array.from(/* @__PURE__ */ new Set([...activeKnownNames, match.squadra.nome]));
+      }
+      campionati.push({
+        campId: camp.campId,
+        nome: camp.nome,
+        anno: season.anno,
+        stagione: season.stagione,
+        squadre
+      });
+    } catch (err) {
+      console.warn(`[Societa] Errore campionato ${camp.campId}/${season.anno}:`, err);
+    }
+  }
+  const allAthletes = uniqueAthletes(campionati.flatMap((camp) => camp.squadre.flatMap((team) => team.atleti)));
+  const puntiTotali = campionati.reduce(
+    (sum, camp) => sum + camp.squadre.reduce((teamSum, team) => teamSum + (team.punti || 0), 0),
+    0
+  );
+  const squadreCount = campionati.reduce((sum, camp) => sum + camp.squadre.length, 0);
+  return {
+    stagione: {
+      anno: season.anno,
+      stagione: season.stagione,
+      isCorrente: isCurrent,
+      campionati,
+      puntiTotali,
+      squadreCount,
+      atleti: allAthletes,
+      atletiCount: allAthletes.length
+    },
+    info
+  };
+}
+function buildFallbackInfo(societyId) {
+  const knownTeams = teamResolver.getTeamNamesForSociety(societyId);
+  const name = knownTeams[0] ? knownTeams[0].replace(/\s+"?[A-Z]"$/i, "").trim() : `Societ\xE0 #${societyId}`;
+  return {
+    societyId: String(societyId),
+    nome: name,
+    logoUrl: knownTeams[0] && teamResolver.getLogo(knownTeams[0]) ? teamResolver.getLogo(knownTeams[0]) : `${PORTAL_BASE2}/images/societa/${societyId}.jpg`,
+    alboFederale: String(societyId)
+  };
+}
+async function findSocietyInfoFromHistory(societyId, stagioni) {
+  const cached = cacheService.get(`societa_info_${societyId}`);
+  if (cached) return cached;
+  for (const season of stagioni.slice(0, 5)) {
+    if (!season.campionati.length) continue;
+    for (const camp of season.campionati.slice(0, 2)) {
+      try {
+        const classifica = await getArchiveClassifica(camp.campId, season.anno);
+        if (!classifica.length) continue;
+        const { info } = await findSocietyTeams(
+          classifica,
+          societyId,
+          camp.campId,
+          season.anno,
+          teamResolver.getTeamNamesForSociety(societyId)
+        );
+        if (info) return info;
+      } catch {
+      }
+    }
+  }
+  return null;
+}
+async function resolveAthleteTeamName(atletaId, atletaNome, camId, anno, classifica, societyName, knownTeamName) {
+  if (knownTeamName) return knownTeamName;
+  const targetName = normalizeName(atletaNome);
+  try {
+    const statsHtml = await FitetClient.fetchStatisticheAtleti(camId);
+    const stats = parseStatisticheAtleti(statsHtml);
+    const match = stats.find((item) => item.atletaId && String(item.atletaId) === String(atletaId)) || stats.find((item) => targetName && normalizeName(item.atleta) === targetName);
+    if (match?.squadra) return match.squadra;
+  } catch (err) {
+    console.warn(`[Societa] Statistiche non disponibili per CAM ${camId}:`, err);
+  }
+  const societyTokens = new Set(nameTokens(societyName));
+  const ranked = [...classifica].sort((a, b) => {
+    const aScore = nameTokens(a.nome).some((token) => societyTokens.has(token)) ? 0 : 1;
+    const bScore = nameTokens(b.nome).some((token) => societyTokens.has(token)) ? 0 : 1;
+    return aScore - bScore;
+  });
+  const results = await mapLimit(ranked.slice(0, 16), 4, async (team) => {
+    try {
+      const html = await FitetClient.fetchHtml(
+        `${PORTAL_BASE2}/risultati/campionati/percentuali.php?SQUADRA=${team.squadraId}&CAM=${camId}`
+      );
+      const parsed = parseDettaglioSquadra(html, team.squadraId, camId);
+      const hit = parsed.atleti.find(
+        (athlete) => athlete.atletaId && String(athlete.atletaId) === String(atletaId) || targetName && normalizeName(athlete.nome) === targetName
+      );
+      return hit ? team.nome : null;
+    } catch {
+      return null;
+    }
+  });
+  return results.find((name) => Boolean(name)) || "";
+}
+function attachHistoricalAthleteIds(atletiStorici, currentAthletes) {
+  const mapping = athleteResolver.getMapping();
+  const byName = /* @__PURE__ */ new Map();
+  for (const [name, id] of Object.entries(mapping)) {
+    byName.set(normalizeName(name), id);
+  }
+  for (const athlete of currentAthletes) {
+    if (athlete.atletaId) {
+      byName.set(normalizeName(athlete.nome), athlete.atletaId);
+    }
+  }
+  return atletiStorici.map((athlete) => ({
+    ...athlete,
+    atletaId: athlete.atletaId || byName.get(normalizeName(athlete.nome)) || null
+  }));
+}
+var societyService = {
+  async getSociety(societyId, anno = DEFAULT_ANNO, forceRefresh = false) {
+    const cacheKey = `societa_dettaglio_${societyId}_${anno}`;
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      if (cached) return cached;
+    }
+    const archive = await loadArchiveSociety(societyId, forceRefresh);
+    const knownNames = teamResolver.getTeamNamesForSociety(societyId);
+    const currentSeason = archive.stagioni.find((season) => season.anno === anno) || archive.stagioni.find((season) => season.campionati.length > 0) || null;
+    let stagioneCorrente = null;
+    let info = null;
+    if (currentSeason) {
+      const result = await buildSocietySeason(societyId, currentSeason, true, knownNames);
+      stagioneCorrente = result.stagione;
+      info = result.info || null;
+    }
+    if (!info) {
+      info = await findSocietyInfoFromHistory(societyId, archive.stagioni);
+    }
+    if (!info) {
+      info = buildFallbackInfo(societyId);
+    }
+    const atletiStorici = attachHistoricalAthleteIds(
+      archive.atletiStorici,
+      stagioneCorrente?.atleti || []
+    );
+    const payload = {
+      info,
+      stagioneCorrente,
+      stagioni: archive.stagioni,
+      atletiStorici,
+      titoliNazionali: archive.titoliNazionali,
+      titoliRegionali: archive.titoliRegionali,
+      lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    cacheService.set(cacheKey, payload, TTL_SOCIETY);
+    return payload;
+  },
+  async getSocietySeason(societyId, anno, forceRefresh = false) {
+    const cacheKey = `societa_stagione_${societyId}_${anno}`;
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      if (cached) return cached;
+    }
+    const archive = await loadArchiveSociety(societyId, forceRefresh);
+    const season = archive.stagioni.find((item) => item.anno === anno);
+    if (!season) {
+      return {
+        anno,
+        stagione: getSeasonLabel(anno),
+        isCorrente: anno === DEFAULT_ANNO,
+        campionati: [],
+        puntiTotali: 0,
+        squadreCount: 0,
+        atleti: [],
+        atletiCount: 0
+      };
+    }
+    const knownNames = teamResolver.getTeamNamesForSociety(societyId);
+    const result = await buildSocietySeason(societyId, season, anno === DEFAULT_ANNO, knownNames);
+    cacheService.set(cacheKey, result.stagione, TTL_SEASON);
+    return result.stagione;
+  },
+  async detectFromAthlete(atletaId, anno = DEFAULT_ANNO) {
+    let athlete = cacheService.get(`atleta_${atletaId}`);
+    if (!athlete) {
+      try {
+        const idClass = await getLatestIdClass(false, false);
+        const html = await FitetClient.fetchSchedaAtleta(atletaId, idClass);
+        athlete = parseDettaglioAtleta(html, atletaId);
+      } catch (err) {
+        console.warn(`[Societa] Impossibile leggere la scheda atleta ${atletaId}:`, err);
+        return { found: false, needsManual: true, reason: "athlete_not_available" };
+      }
+    }
+    const societyName = athlete.anagrafica?.societa || "";
+    const playedCamps = [
+      athlete.campionatoAttuale,
+      ...athlete.campionatiGiocati || []
+    ].filter(Boolean);
+    const uniqueCamps = /* @__PURE__ */ new Map();
+    for (const camp of playedCamps) {
+      if (camp?.camId && !uniqueCamps.has(camp.camId)) {
+        uniqueCamps.set(camp.camId, camp);
+      }
+    }
+    for (const [camId, camp] of uniqueCamps) {
+      try {
+        const classifica = await getArchiveClassifica(camId, anno);
+        if (!classifica.length) continue;
+        const teamName = await resolveAthleteTeamName(
+          atletaId,
+          athlete.anagrafica?.nome || "",
+          camId,
+          anno,
+          classifica,
+          societyName,
+          camp.squadra
+        );
+        if (!teamName) continue;
+        const normalizedTeam = normalizeName(teamName);
+        const normalizedSociety = normalizeName(societyName);
+        const team = classifica.find((item) => normalizeName(item.nome) === normalizedTeam) || classifica.find((item) => {
+          const candidate = normalizeName(item.nome);
+          return normalizedTeam && (candidate.includes(normalizedTeam) || normalizedTeam.includes(candidate)) || normalizedSociety && (candidate.includes(normalizedSociety) || normalizedSociety.includes(candidate));
+        }) || classifica.find((item) => {
+          const candidateTokens = new Set(nameTokens(item.nome));
+          return nameTokens(societyName).some((token) => candidateTokens.has(token));
+        });
+        if (!team) continue;
+        const registry = await getTeamRegistry(team.squadraId, camId, anno);
+        if (!registry || !registry.info.societyId) continue;
+        return {
+          found: true,
+          societyId: registry.info.societyId,
+          info: registry.info,
+          camId,
+          teamName: team.nome,
+          teamId: team.squadraId,
+          societyName
+        };
+      } catch (err) {
+        console.warn(`[Societa] Detection fallita per CAM ${camId}:`, err);
+      }
+    }
+    return {
+      found: false,
+      needsManual: true,
+      societyName,
+      reason: "team_not_found"
+    };
+  },
+  async lookupByTeamId(teamId, cam, anno = DEFAULT_ANNO) {
+    const registry = await getTeamRegistry(teamId, cam, anno);
+    if (!registry || !registry.info.societyId) {
+      return { found: false };
+    }
+    return {
+      found: true,
+      societyId: registry.info.societyId,
+      info: registry.info
+    };
+  },
+  /**
+   * Manual one-off selection: accepts an Albo Federale ID or a team name and
+   * resolves it to a society. Used when automatic detection fails.
+   */
+  async lookupSociety(query, anno = DEFAULT_ANNO) {
+    const trimmed = (query || "").trim();
+    if (!trimmed) return { found: false };
+    if (/^\d{2,6}$/.test(trimmed)) {
+      try {
+        const archive = await loadArchiveSociety(trimmed);
+        if (archive.stagioni.length > 0) {
+          const info = cacheService.get(`societa_info_${trimmed}`) || await findSocietyInfoFromHistory(trimmed, archive.stagioni) || buildFallbackInfo(trimmed);
+          return { found: true, societyId: String(trimmed), info };
+        }
+      } catch {
+      }
+    }
+    const normalizedQuery = normalizeName(trimmed);
+    const indexedLogo = teamResolver.getLogo(trimmed);
+    const indexedSociety = indexedLogo?.match(/\/societa\/(\d+)\./i)?.[1];
+    if (indexedSociety) {
+      const info = cacheService.get(`societa_info_${indexedSociety}`) || buildFallbackInfo(indexedSociety);
+      return { found: true, societyId: indexedSociety, info };
+    }
+    let campionati = [];
+    try {
+      campionati = await championshipCatalog.getAllCampionati();
+    } catch (err) {
+      console.warn("[Societa] Catalogo campionati non disponibile per la ricerca manuale:", err);
+      return { found: false };
+    }
+    const targets = campionati.filter((camp) => !camp.anno || camp.anno === anno).slice(0, 32);
+    const tryChampionship = async (camp) => {
+      try {
+        const classifica = await getArchiveClassifica(camp.id, anno);
+        if (!classifica.length) return null;
+        const team = classifica.find((item) => normalizeName(item.nome) === normalizedQuery) || classifica.find((item) => {
+          const candidate = normalizeName(item.nome);
+          return normalizedQuery && candidate.includes(normalizedQuery) || candidate && normalizedQuery.includes(candidate);
+        }) || null;
+        if (!team) return null;
+        const registry = await getTeamRegistry(team.squadraId, camp.id, anno);
+        if (!registry?.info?.societyId) return null;
+        return {
+          found: true,
+          societyId: String(registry.info.societyId),
+          info: registry.info,
+          camId: camp.id,
+          teamName: team.nome,
+          teamId: team.squadraId
+        };
+      } catch (err) {
+        console.warn(`[Societa] Ricerca manuale fallita nel campionato ${camp.id}:`, err);
+        return null;
+      }
+    };
+    const batchSize = 4;
+    for (let i = 0; i < targets.length; i += batchSize) {
+      const results = await Promise.all(targets.slice(i, i + batchSize).map(tryChampionship));
+      const hit = results.find((result) => result !== null);
+      if (hit) return hit;
+    }
+    return { found: false };
+  },
+  async resolveHistoricalAthlete(name, tessera) {
+    const cacheKey = `societa_hist_atleta_${tessera || normalizeName(name)}`;
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+    const target = normalizeName(name);
+    const mapping = athleteResolver.getMapping();
+    for (const [mappedName, id] of Object.entries(mapping)) {
+      if (normalizeName(mappedName) === target) {
+        cacheService.set(cacheKey, id, 30 * 24 * 60 * 60 * 1e3);
+        return id;
+      }
+    }
+    try {
+      const results = await FitetClient.searchAtleta(name);
+      const matched = tessera && results.find((item) => (item.label || "").includes(`[${tessera}]`)) || results.find((item) => normalizeName(item.value) === target) || null;
+      if (matched?.id) {
+        cacheService.set(cacheKey, matched.id, 30 * 24 * 60 * 60 * 1e3);
+        return matched.id;
+      }
+    } catch (err) {
+      console.warn(`[Societa] Impossibile risolvere atleta storico ${name}:`, err);
+    }
+    return null;
+  }
+};
+
+// server/parsers/classificaParser.ts
 import * as cheerio8 from "cheerio";
-function parseHeadToHead(html, atleta1Id, atleta2Id, fallbackAtleta1Nome, fallbackAtleta2Nome) {
+function parseClassifica(html) {
   const $ = cheerio8.load(html);
+  const squadre = [];
+  $("table tr").each((_, row) => {
+    const $row = $(row);
+    const teamLink = $row.find('a[href*="percentuali.php"]');
+    if (teamLink.length === 0) return;
+    const href = teamLink.attr("href") || "";
+    const squadraIdMatch = href.match(/SQUADRA=(\d+)/i);
+    const squadraId = squadraIdMatch ? squadraIdMatch[1] : "";
+    const nome = teamLink.text().replace(/\s+/g, " ").trim();
+    const cells = $row.find("td");
+    if (cells.length < 14) return;
+    const getCellInt = (idx) => {
+      const text = $(cells[idx]).text().trim().replace(/\D+/g, "");
+      return parseInt(text, 10) || 0;
+    };
+    const punti = getCellInt(2);
+    const incontriDisputati = getCellInt(3);
+    const incontriVinti = getCellInt(4);
+    const incontriPareggiati = getCellInt(5);
+    const incontriPersi = getCellInt(6);
+    const partiteVinte = getCellInt(7);
+    const partitePerse = getCellInt(8);
+    const setVinti = getCellInt(9);
+    const setPersi = getCellInt(10);
+    const puntiVinti = getCellInt(11);
+    const puntiPersi = getCellInt(12);
+    const penalizzazioni = getCellInt(13);
+    squadre.push({
+      posizione: 0,
+      // Calculated after sorting
+      squadraId,
+      nome,
+      punti,
+      incontriDisputati,
+      incontriVinti,
+      incontriPareggiati,
+      incontriPersi,
+      partiteVinte,
+      partitePerse,
+      diffPartite: partiteVinte - partitePerse,
+      setVinti,
+      setPersi,
+      diffSet: setVinti - setPersi,
+      puntiVinti,
+      puntiPersi,
+      diffPunti: puntiVinti - puntiPersi,
+      penalizzazioni,
+      isPromozione: false,
+      isPlayoff: false,
+      isRetrocessione: false,
+      forma: []
+    });
+  });
+  squadre.forEach((sq, idx) => {
+    sq.posizione = idx + 1;
+    if (idx === 0) {
+      sq.isPromozione = true;
+    } else if (idx === 1) {
+      sq.isPlayoff = true;
+    } else if (idx >= squadre.length - 2 && squadre.length > 4) {
+      sq.isRetrocessione = true;
+    }
+  });
+  return squadre;
+}
+
+// server/parsers/calendarioParser.ts
+import * as cheerio9 from "cheerio";
+function parseCalendario(html) {
+  const $ = cheerio9.load(html);
+  const giornate = [];
+  $("table").each((_, table) => {
+    const $table = $(table);
+    const tableText = $table.text();
+    const giornataMatch = tableText.match(/(\d+)\^\s*Giornata/i);
+    if (!giornataMatch) return;
+    const numGiornata = parseInt(giornataMatch[1], 10);
+    const titolo = `${numGiornata}^ Giornata`;
+    const partiteAndata = [];
+    const partiteRitorno = [];
+    $table.find("tr").each((rowIdx, row) => {
+      const $row = $(row);
+      const cells = $row.find("td");
+      if (cells.length !== 8) return;
+      const dataAndata = $(cells[0]).text().trim();
+      if (!dataAndata.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) return;
+      const oraAndata = $(cells[1]).text().trim();
+      const $risAndataCell = $(cells[2]);
+      const risAndataText = $risAndataCell.text().trim();
+      const casaAndata = $(cells[3]).text().trim().replace(/\s+/g, " ");
+      const ospiteAndata = $(cells[4]).text().trim().replace(/\s+/g, " ");
+      const $risRitornoCell = $(cells[5]);
+      const risRitornoText = $risRitornoCell.text().trim();
+      const oraRitorno = $(cells[6]).text().trim();
+      const dataRitorno = $(cells[7]).text().trim();
+      const parseMatch = (tipo, data, ora, casa, ospite, $cell, rawRis, matchIdx) => {
+        const link = $cell.find("a[href]").attr("href") || null;
+        let incontroId = null;
+        let formula = void 0;
+        if (link) {
+          const m = link.match(/INCONTRO=(\d+)/i);
+          if (m) incontroId = m[1];
+          const f = link.match(/FORMULA=(\d+)/i);
+          if (f) formula = parseInt(f[1], 10);
+        }
+        const scoreMatch = rawRis.match(/(\d+)\s*[-:]\s*(\d+)/);
+        const disputato = Boolean(scoreMatch);
+        const puntiCasa = scoreMatch ? parseInt(scoreMatch[1], 10) : null;
+        const puntiOspite = scoreMatch ? parseInt(scoreMatch[2], 10) : null;
+        let vincitore = null;
+        if (disputato && puntiCasa !== null && puntiOspite !== null) {
+          if (puntiCasa > puntiOspite) vincitore = "casa";
+          else if (puntiOspite > puntiCasa) vincitore = "ospite";
+          else vincitore = "pareggio";
+        }
+        const fullRefertoUrl = link ? link.startsWith("http") ? link : `https://portale.fitet.org/risultati/campionati/${link}` : null;
+        return {
+          id: `g${numGiornata}_${tipo}_${matchIdx}_${incontroId || "nomatch"}`,
+          giornata: numGiornata,
+          tipo,
+          data,
+          ora,
+          squadraCasa: casa,
+          squadraOspite: ospite,
+          risultato: disputato ? `${puntiCasa} - ${puntiOspite}` : "-",
+          puntiCasa,
+          puntiOspite,
+          disputato,
+          refertoUrl: fullRefertoUrl,
+          incontroId,
+          vincitore,
+          formula
+        };
+      };
+      partiteAndata.push(
+        parseMatch("andata", dataAndata, oraAndata, casaAndata, ospiteAndata, $risAndataCell, risAndataText, rowIdx)
+      );
+      partiteRitorno.push(
+        parseMatch("ritorno", dataRitorno, oraRitorno, ospiteAndata, casaAndata, $risRitornoCell, risRitornoText, rowIdx)
+      );
+    });
+    if (partiteAndata.length > 0 || partiteRitorno.length > 0) {
+      giornate.push({
+        numero: numGiornata,
+        titolo,
+        partiteAndata,
+        partiteRitorno
+      });
+    }
+  });
+  return giornate.sort((a, b) => a.numero - b.numero);
+}
+
+// server/parsers/headToHeadParser.ts
+import * as cheerio10 from "cheerio";
+function parseHeadToHead(html, atleta1Id, atleta2Id, fallbackAtleta1Nome, fallbackAtleta2Nome) {
+  const $ = cheerio10.load(html);
   const rows = $("table tr");
   let atleta1Nome = fallbackAtleta1Nome || `Atleta ${atleta1Id}`;
   let atleta2Nome = fallbackAtleta2Nome || `Atleta ${atleta2Id}`;
@@ -3715,13 +5110,13 @@ function parseHeadToHead(html, atleta1Id, atleta2Id, fallbackAtleta1Nome, fallba
 
 // server/services/headToHeadService.ts
 var TTL_HEAD_TO_HEAD = 24 * 60 * 60 * 1e3;
-var DEFAULT_ID_CLASS = 248;
+var DEFAULT_ID_CLASS2 = 248;
 var HeadToHeadService = class {
   /**
    * Recupera il confronto diretto (Testa a Testa) tra due atleti
    * Supporta sia ID federali che nomi atleti (risolti automaticamente)
    */
-  async getHeadToHead(atleta1, atleta2, idClass = DEFAULT_ID_CLASS) {
+  async getHeadToHead(atleta1, atleta2, idClass = DEFAULT_ID_CLASS2) {
     let id1 = atleta1.trim();
     let id2 = atleta2.trim();
     let name1 = "";
@@ -3767,7 +5162,7 @@ var HeadToHeadService = class {
    * Arricchisce gli incontri ranking (soprattutto gare di torneo)
    * incrociando i risultati dei set dal Testa a Testa
    */
-  async enrichRankingMatches(atletaId, partite, idClass = DEFAULT_ID_CLASS) {
+  async enrichRankingMatches(atletaId, partite, idClass = DEFAULT_ID_CLASS2) {
     if (!partite) return partite;
     const neededOpponents = /* @__PURE__ */ new Map();
     if (Array.isArray(partite.tornei)) {
@@ -4747,509 +6142,6 @@ async function generateAthleteStoryCard(athlete, theme = "panoramica") {
   return resvg.render().asPng();
 }
 
-// server/services/pushService.ts
-import webpush from "web-push";
-import { createClient as createClient4 } from "@supabase/supabase-js";
-import dotenv3 from "dotenv";
-dotenv3.config();
-var SUBSCRIPTION_CONTEXTS_STATE_KEY = "push_subscription_contexts";
-var PushService = class {
-  supabase = null;
-  vapidConfigured = false;
-  publicKey = null;
-  privateKey = null;
-  subject = "mailto:noreply@portale-risultati-tt.it";
-  constructor() {
-    this.initSupabase();
-    this.initVapid();
-  }
-  initSupabase() {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      console.warn(
-        "\u26A0\uFE0F [PushService] SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY non configurate: le notifiche push non saranno salvate."
-      );
-      return;
-    }
-    try {
-      this.supabase = createClient4(url, key, {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false
-        }
-      });
-      console.log("\u2705 [PushService] Supabase connesso.");
-    } catch (err) {
-      console.error("\u274C [PushService] Errore inizializzazione Supabase:", err);
-      this.supabase = null;
-    }
-  }
-  initVapid() {
-    const publicKey = process.env.VAPID_PUBLIC_KEY;
-    const privateKey = process.env.VAPID_PRIVATE_KEY;
-    const subject = process.env.VAPID_SUBJECT || this.subject;
-    if (!publicKey || !privateKey) {
-      console.warn(
-        "\u26A0\uFE0F [PushService] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY non configurate: impossibile inviare push."
-      );
-      return;
-    }
-    try {
-      webpush.setVapidDetails(subject, publicKey, privateKey);
-      this.publicKey = publicKey;
-      this.privateKey = privateKey;
-      this.subject = subject;
-      this.vapidConfigured = true;
-      console.log("\u2705 [PushService] VAPID configurato.");
-    } catch (err) {
-      console.error("\u274C [PushService] Errore configurazione VAPID:", err);
-    }
-  }
-  isVapidConfigured() {
-    return this.vapidConfigured;
-  }
-  isSupabaseConfigured() {
-    return this.supabase !== null;
-  }
-  isReady() {
-    return this.vapidConfigured && this.supabase !== null;
-  }
-  getPublicKey() {
-    return this.publicKey;
-  }
-  isValidEndpoint(endpoint) {
-    try {
-      const parsed = new URL(endpoint);
-      return parsed.protocol === "https:";
-    } catch {
-      return false;
-    }
-  }
-  /**
-   * Salva (o aggiorna) una subscription. L'endpoint è la chiave naturale del dispositivo.
-   */
-  async saveSubscription(payload, userAgent) {
-    if (!this.supabase) {
-      throw new Error("Database push non configurato (SUPABASE_SERVICE_ROLE_KEY mancante).");
-    }
-    if (!payload?.endpoint || !this.isValidEndpoint(payload.endpoint)) {
-      throw new Error("Endpoint push non valido.");
-    }
-    if (!payload.keys?.p256dh || !payload.keys?.auth) {
-      throw new Error("Chiavi push (p256dh/auth) mancanti.");
-    }
-    const now = (/* @__PURE__ */ new Date()).toISOString();
-    const { data, error } = await this.supabase.from("push_subscriptions").upsert(
-      {
-        endpoint: payload.endpoint,
-        p256dh: payload.keys.p256dh,
-        auth: payload.keys.auth,
-        user_agent: userAgent || null,
-        is_active: true,
-        last_seen_at: now,
-        updated_at: now
-      },
-      { onConflict: "endpoint" }
-    ).select("*").single();
-    if (error) {
-      throw new Error(`Salvataggio subscription fallito: ${error.message}`);
-    }
-    return data;
-  }
-  async removeSubscription(endpoint) {
-    if (!this.supabase) return;
-    if (!endpoint) return;
-    const { error } = await this.supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
-    if (error) {
-      console.error("[PushService] Errore rimozione subscription:", error.message);
-    }
-    await this.removeSubscriptionContext(endpoint).catch(() => void 0);
-  }
-  // ---------------------------------------------------------------------
-  // Contesto atleta / campionato associato alle singole subscription
-  // ---------------------------------------------------------------------
-  async getSubscriptionContexts() {
-    const raw = await this.getState(SUBSCRIPTION_CONTEXTS_STATE_KEY);
-    if (!raw) return {};
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed;
-      }
-    } catch (err) {
-      console.warn("[PushService] Formato JSON push_subscription_contexts non valido:", err);
-    }
-    return {};
-  }
-  async saveSubscriptionContext(endpoint, context) {
-    if (!this.supabase || !endpoint) return;
-    const cleanCamIds = Array.from(
-      new Set(
-        [
-          ...Array.isArray(context.camIds) ? context.camIds : [],
-          ...typeof context.primaryCamId === "number" ? [context.primaryCamId] : []
-        ].filter((id) => typeof id === "number" && Number.isFinite(id) && id > 0)
-      )
-    );
-    const primaryCamId = typeof context.primaryCamId === "number" && context.primaryCamId > 0 ? context.primaryCamId : cleanCamIds[0] ?? null;
-    const currentMap = await this.getSubscriptionContexts();
-    const existing = currentMap[endpoint] || {};
-    const camIdsToSave = Array.isArray(context.camIds) ? cleanCamIds : cleanCamIds.length > 0 ? cleanCamIds : existing.camIds || [];
-    currentMap[endpoint] = {
-      playerId: context.playerId !== void 0 ? context.playerId : existing.playerId ?? null,
-      playerName: context.playerName !== void 0 ? context.playerName : existing.playerName ?? null,
-      primaryCamId: primaryCamId ?? existing.primaryCamId ?? null,
-      camIds: camIdsToSave,
-      annoId: context.annoId ?? existing.annoId ?? 41,
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    };
-    await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
-  }
-  /**
-   * Attiva o disattiva la ricezione delle notifiche per un singolo campionato
-   */
-  async toggleChampionshipSubscription(endpoint, camId, enabled) {
-    if (!this.supabase || !endpoint || !camId) {
-      throw new Error("Endpoint e camId validi sono obbligatori.");
-    }
-    const currentMap = await this.getSubscriptionContexts();
-    const existing = currentMap[endpoint] || {
-      playerId: null,
-      playerName: null,
-      primaryCamId: null,
-      camIds: [],
-      annoId: 41,
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    };
-    const currentCamIds = Array.isArray(existing.camIds) ? existing.camIds.filter((id) => typeof id === "number" && Number.isFinite(id) && id > 0) : [];
-    let newCamIds;
-    if (enabled) {
-      newCamIds = Array.from(/* @__PURE__ */ new Set([...currentCamIds, camId]));
-    } else {
-      newCamIds = currentCamIds.filter((id) => id !== camId);
-    }
-    let newPrimaryCamId = existing.primaryCamId ?? null;
-    if (enabled && (!newPrimaryCamId || newPrimaryCamId <= 0)) {
-      newPrimaryCamId = camId;
-    } else if (!enabled && newPrimaryCamId === camId) {
-      newPrimaryCamId = newCamIds[0] ?? null;
-    }
-    currentMap[endpoint] = {
-      ...existing,
-      primaryCamId: newPrimaryCamId,
-      camIds: newCamIds,
-      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
-    };
-    await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
-    return {
-      enabled,
-      camIds: newCamIds,
-      primaryCamId: newPrimaryCamId
-    };
-  }
-  /**
-   * Restituisce i campionati sottoscritti per un singolo endpoint
-   */
-  async getSubscriptionChampionships(endpoint) {
-    if (!this.supabase || !endpoint) return { camIds: [], primaryCamId: null };
-    const currentMap = await this.getSubscriptionContexts();
-    const existing = currentMap[endpoint];
-    if (!existing) return { camIds: [], primaryCamId: null };
-    return {
-      camIds: Array.isArray(existing.camIds) ? existing.camIds : [],
-      primaryCamId: existing.primaryCamId ?? null
-    };
-  }
-  async removeSubscriptionContext(endpoint) {
-    if (!this.supabase || !endpoint) return;
-    const currentMap = await this.getSubscriptionContexts();
-    if (!(endpoint in currentMap)) return;
-    delete currentMap[endpoint];
-    await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
-  }
-  /**
-   * Restituisce l'elenco univoco dei campionati (camId) seguiti dai dispositivi attivi.
-   */
-  async getSubscribedChampionshipIds() {
-    if (!this.supabase) return [];
-    const [{ data, error }, contexts] = await Promise.all([
-      this.supabase.from("push_subscriptions").select("endpoint").eq("is_active", true),
-      this.getSubscriptionContexts()
-    ]);
-    if (error || !data) return [];
-    const activeEndpoints = new Set(data.map((row) => row.endpoint));
-    const camIds = /* @__PURE__ */ new Set();
-    for (const [endpoint, ctx] of Object.entries(contexts)) {
-      if (!activeEndpoints.has(endpoint) || !ctx) continue;
-      if (typeof ctx.primaryCamId === "number" && ctx.primaryCamId > 0) {
-        camIds.add(ctx.primaryCamId);
-      }
-      if (Array.isArray(ctx.camIds)) {
-        for (const id of ctx.camIds) {
-          if (typeof id === "number" && Number.isFinite(id) && id > 0) {
-            camIds.add(id);
-          }
-        }
-      }
-    }
-    return Array.from(camIds);
-  }
-  /**
-   * Invia la notifica a tutti i dispositivi attivi iscritti a uno specifico campionato (camId).
-   */
-  async sendToChampionshipSubscribers(camId, payload) {
-    if (!this.supabase || !this.vapidConfigured) {
-      return { total: 0, sent: 0, failed: 0, removed: 0 };
-    }
-    const [{ data, error }, contexts] = await Promise.all([
-      this.supabase.from("push_subscriptions").select("*").eq("is_active", true),
-      this.getSubscriptionContexts()
-    ]);
-    if (error) {
-      throw new Error(`Lettura subscription fallita: ${error.message}`);
-    }
-    const allSubscriptions = data || [];
-    if (allSubscriptions.length === 0) {
-      return { total: 0, sent: 0, failed: 0, removed: 0 };
-    }
-    const matchingSubscriptions = allSubscriptions.filter((sub) => {
-      const ctx = contexts[sub.endpoint];
-      if (!ctx) return false;
-      if (ctx.primaryCamId === camId) return true;
-      if (Array.isArray(ctx.camIds) && ctx.camIds.includes(camId)) return true;
-      return false;
-    });
-    if (matchingSubscriptions.length === 0) {
-      return { total: 0, sent: 0, failed: 0, removed: 0 };
-    }
-    const result = {
-      total: matchingSubscriptions.length,
-      sent: 0,
-      failed: 0,
-      removed: 0
-    };
-    const concurrency = 20;
-    for (let i = 0; i < matchingSubscriptions.length; i += concurrency) {
-      const batch = matchingSubscriptions.slice(i, i + concurrency);
-      const batchResults = await Promise.all(
-        batch.map((sub) => this.sendToSubscription(sub, payload))
-      );
-      for (const r of batchResults) {
-        if (r.sent) result.sent += 1;
-        else result.failed += 1;
-        if (r.removed) result.removed += 1;
-      }
-    }
-    return result;
-  }
-  /**
-   * Invia una notifica a una singola subscription.
-   * Se il push service risponde 404/410 la subscription viene rimossa dal database.
-   */
-  async sendToSubscription(subscription, payload) {
-    if (!this.vapidConfigured) {
-      return { sent: false, error: "VAPID non configurato." };
-    }
-    const pushSubscription = {
-      endpoint: subscription.endpoint,
-      keys: {
-        p256dh: subscription.p256dh,
-        auth: subscription.auth
-      }
-    };
-    try {
-      const result = await webpush.sendNotification(
-        pushSubscription,
-        JSON.stringify(payload),
-        {
-          TTL: 60 * 60 * 24,
-          // 24 ore
-          urgency: "normal",
-          timeout: 1e4
-        }
-      );
-      return { sent: true, statusCode: result.statusCode };
-    } catch (err) {
-      const statusCode = typeof err?.statusCode === "number" ? err.statusCode : void 0;
-      const message = err?.body || err?.message || "Errore sconosciuto durante l'invio push.";
-      if (statusCode === 404 || statusCode === 410) {
-        await this.removeSubscription(subscription.endpoint);
-        console.warn(
-          `[PushService] Subscription obsoleta/scaduta (${statusCode}) rimossa dal database:`,
-          message
-        );
-        return { sent: false, statusCode, error: message, removed: true };
-      }
-      const isVapidMismatch = statusCode === 403 && message.includes("VAPID credentials") || statusCode === 400 && message.includes("VapidPkHashMismatch");
-      if (isVapidMismatch) {
-        console.warn(
-          `[PushService] \u26A0\uFE0F VAPID key mismatch (${statusCode}): le chiavi VAPID di questo ambiente non coincidono con quelle usate dal browser per creare la subscription.`,
-          message
-        );
-        return { sent: false, statusCode, error: message, removed: false };
-      }
-      console.warn(
-        `[PushService] Invio push fallito (${statusCode ?? "no-status"}) per ${subscription.endpoint.slice(0, 60)}...:`,
-        message
-      );
-      return { sent: false, statusCode, error: message };
-    }
-  }
-  /**
-   * Invia la notifica a tutti i dispositivi attivi, con concorrenza limitata
-   * per non sovraccaricare il runtime serverless.
-   */
-  async sendToAll(payload) {
-    if (!this.supabase || !this.vapidConfigured) {
-      return { total: 0, sent: 0, failed: 0, removed: 0 };
-    }
-    const { data, error } = await this.supabase.from("push_subscriptions").select("*").eq("is_active", true);
-    if (error) {
-      throw new Error(`Lettura subscription fallita: ${error.message}`);
-    }
-    const subscriptions = data || [];
-    if (subscriptions.length === 0) {
-      return { total: 0, sent: 0, failed: 0, removed: 0 };
-    }
-    const result = {
-      total: subscriptions.length,
-      sent: 0,
-      failed: 0,
-      removed: 0
-    };
-    const concurrency = 20;
-    for (let i = 0; i < subscriptions.length; i += concurrency) {
-      const batch = subscriptions.slice(i, i + concurrency);
-      const batchResults = await Promise.all(
-        batch.map((sub) => this.sendToSubscription(sub, payload))
-      );
-      for (const r of batchResults) {
-        if (r.sent) result.sent += 1;
-        else result.failed += 1;
-        if (r.removed) result.removed += 1;
-      }
-    }
-    return result;
-  }
-  // ---------------------------------------------------------------------
-  // Stato persistente (ultimo ID_CLASS notificato)
-  // ---------------------------------------------------------------------
-  async getState(key) {
-    if (!this.supabase) return null;
-    const { data, error } = await this.supabase.from("push_state").select("value").eq("key", key).maybeSingle();
-    if (error) {
-      console.error(`[PushService] Lettura stato "${key}" fallita:`, error.message);
-      return null;
-    }
-    return data?.value ?? null;
-  }
-  async setState(key, value) {
-    if (!this.supabase) return;
-    const { error } = await this.supabase.from("push_state").upsert(
-      { key, value, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
-      { onConflict: "key" }
-    );
-    if (error) {
-      console.error(`[PushService] Scrittura stato "${key}" fallita:`, error.message);
-    }
-  }
-  async deleteState(key) {
-    if (!this.supabase) return;
-    const { error } = await this.supabase.from("push_state").delete().eq("key", key);
-    if (error) {
-      console.error(`[PushService] Eliminazione stato "${key}" fallita:`, error.message);
-    }
-  }
-  /**
-   * Aggiorna lo stato solo se il valore atteso è ancora quello salvato.
-   * Funge da lock distribuito: in caso di più istanze serverless solo una
-   * riesce ad aggiornare e quindi a inviare la notifica.
-   *
-   * Nota: per valori grandi (es. JSON `championship_state_*` di diversi KB),
-   * passare `.eq('value', expected)` mette l'intero JSON nella query string URL
-   * causando `400 Bad Request` (URI Too Long) su PostgREST/Cloudflare.
-   * Usiamo quindi `updated_at` come token di concorrenza ottimistica nella query.
-   */
-  async compareAndSetState(key, expected, next) {
-    if (!this.supabase) return false;
-    if (expected.length <= 256) {
-      const { data: data2, error: error2 } = await this.supabase.from("push_state").update({ value: next, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("key", key).eq("value", expected).select("key");
-      if (error2) {
-        console.error(`[PushService] Aggiornamento atomico stato "${key}" fallito:`, error2.message);
-        return false;
-      }
-      return Array.isArray(data2) && data2.length > 0;
-    }
-    const { data: current, error: readError } = await this.supabase.from("push_state").select("value, updated_at").eq("key", key).maybeSingle();
-    if (readError) {
-      console.error(`[PushService] Lettura pre-update stato "${key}" fallita:`, readError.message);
-      return false;
-    }
-    if (!current || current.value !== expected) {
-      return false;
-    }
-    const nextUpdatedAt = new Date(Date.now() + 1).toISOString();
-    let query = this.supabase.from("push_state").update({ value: next, updated_at: nextUpdatedAt }).eq("key", key);
-    if (current.updated_at) {
-      query = query.eq("updated_at", current.updated_at);
-    }
-    const { data, error } = await query.select("key");
-    if (error) {
-      console.error(`[PushService] Aggiornamento atomico stato "${key}" fallito:`, error.message);
-      return false;
-    }
-    return Array.isArray(data) && data.length > 0;
-  }
-};
-var pushService = new PushService();
-var RANKING_ID_CLASS_STATE_KEY = "latest_ranking_id_class";
-async function notifyRankingChangeIfNeeded(idClass) {
-  if (!Number.isFinite(idClass) || idClass <= 0) {
-    return { changed: false, idClass };
-  }
-  if (!pushService.isReady()) {
-    return { changed: false, idClass };
-  }
-  const previous = await pushService.getState(RANKING_ID_CLASS_STATE_KEY);
-  if (previous === null) {
-    await pushService.setState(RANKING_ID_CLASS_STATE_KEY, String(idClass));
-    return { changed: false, initialized: true, idClass };
-  }
-  const previousIdClass = parseInt(previous, 10);
-  if (!Number.isFinite(previousIdClass) || idClass <= previousIdClass) {
-    return { changed: false, idClass, previousIdClass };
-  }
-  const claimed = await pushService.compareAndSetState(
-    RANKING_ID_CLASS_STATE_KEY,
-    previous,
-    String(idClass)
-  );
-  if (!claimed) {
-    return { changed: false, idClass, previousIdClass };
-  }
-  console.log(
-    `[PushService] Nuovo ID_CLASS rilevato: ${previousIdClass} -> ${idClass}. Invio notifiche...`
-  );
-  const broadcast = await pushService.sendToAll({
-    title: "Nuova classifica FITeT disponibile",
-    body: "\xC8 stata pubblicata la classifica aggiornata. Scopri la tua nuova posizione!",
-    url: "/?view=classifiche",
-    icon: "/icon.png",
-    badge: "/icon.png",
-    tag: `ranking-id-class-${idClass}`
-  });
-  console.log(
-    `[PushService] Notifiche ranking inviate: ${broadcast.sent}/${broadcast.total} (rimosse: ${broadcast.removed}).`
-  );
-  return {
-    changed: true,
-    idClass,
-    previousIdClass,
-    ...broadcast
-  };
-}
-
 // server/services/youtubeSyncService.ts
 import { createClient as createClient5 } from "@supabase/supabase-js";
 import dotenv4 from "dotenv";
@@ -5502,37 +6394,6 @@ var YouTubeSyncService = class {
   }
 };
 var youtubeSyncService = new YouTubeSyncService();
-
-// server/services/rankingClassService.ts
-var DEFAULT_ID_CLASS2 = 248;
-async function getLatestIdClass(forceRefresh = false, notifyOnChange = true) {
-  const cacheKey = "latest_ranking_id_class";
-  if (!forceRefresh) {
-    const cached = cacheService.get(cacheKey);
-    if (cached && typeof cached === "number" && cached >= DEFAULT_ID_CLASS2) {
-      return cached;
-    }
-  }
-  try {
-    const html = await FitetClient.fetchHtml("https://portale.fitet.org/menu.php");
-    const match = html.match(/testaclassifica_auto\.php\?ID_CLASS=(\d+)/i);
-    if (match && match[1]) {
-      const detected = parseInt(match[1], 10);
-      if (detected >= DEFAULT_ID_CLASS2) {
-        cacheService.set(cacheKey, detected, 4 * 60 * 60 * 1e3);
-        if (notifyOnChange) {
-          notifyRankingChangeIfNeeded(detected).catch((pushErr) => {
-            console.warn("[PushService] Errore notifica cambio ID_CLASS:", pushErr);
-          });
-        }
-        return detected;
-      }
-    }
-  } catch (err) {
-    console.warn("[Ranking] Impossibile rilevare automaticamente ID_CLASS da menu.php, uso fallback:", err);
-  }
-  return DEFAULT_ID_CLASS2;
-}
 
 // server/services/campionatoNotificationService.ts
 var CHAMPIONSHIP_STATE_KEY_PREFIX = "championship_state_";
@@ -6219,7 +7080,7 @@ async function checkMatchdayAndNotify(options = {}) {
 }
 
 // server/parsers/torneiParser.ts
-import * as cheerio9 from "cheerio";
+import * as cheerio11 from "cheerio";
 var COMIT_NAMES = {
   1: "Valle d'Aosta",
   2: "Piemonte",
@@ -6244,7 +7105,7 @@ var COMIT_NAMES = {
   21: "Sardegna",
   30: "Nazionale"
 };
-function cleanText(raw) {
+function cleanText2(raw) {
   return (raw || "").replace(/\u00a0/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
 }
 function lookupAthleteId(name, mapping) {
@@ -6257,12 +7118,12 @@ function lookupAthleteId(name, mapping) {
 }
 function parseTestaTornei(html, fallbackTitle = "TORNEI FITeT") {
   if (!html || !html.trim()) return fallbackTitle;
-  const $ = cheerio9.load(html);
-  const stileText = cleanText($("p.stile, p, h1, h2, td").first().text());
+  const $ = cheerio11.load(html);
+  const stileText = cleanText2($("p.stile, p, h1, h2, td").first().text());
   if (stileText && stileText.length > 2) {
     return stileText;
   }
-  const bodyText = cleanText($("body").text());
+  const bodyText = cleanText2($("body").text());
   return bodyText.length > 2 ? bodyText : fallbackTitle;
 }
 function parseElencoTornei(html, defaultComit = 30, defaultTor = 0, defaultReg, categoriaKey, categoriaLabel) {
@@ -6271,12 +7132,12 @@ function parseElencoTornei(html, defaultComit = 30, defaultTor = 0, defaultReg, 
     tornei: []
   };
   if (!html || !html.trim()) return result;
-  const $ = cheerio9.load(html);
+  const $ = cheerio11.load(html);
   $("a[href]").each((_, el) => {
     const rawHref = ($(el).attr("href") || "").trim();
     if (!rawHref) return;
     const innerHtml = $(el).html() || "";
-    const rawText = cleanText($(el).text());
+    const rawText = cleanText2($(el).text());
     const regMatch = rawHref.match(/[?&]REG=(\d+)/i);
     if (/elenco_tornei\.php/i.test(rawHref) && regMatch) {
       const regId = parseInt(regMatch[1], 10);
@@ -6308,7 +7169,7 @@ function parseElencoTornei(html, defaultComit = 30, defaultTor = 0, defaultReg, 
     const status = isDisputato ? "disputato" : "in_programma";
     let data = "";
     let luogo = "";
-    const parts = innerHtml.split(/<br\s*\/?>/i).map((p) => cleanText(cheerio9.load(p).text())).filter(Boolean);
+    const parts = innerHtml.split(/<br\s*\/?>/i).map((p) => cleanText2(cheerio11.load(p).text())).filter(Boolean);
     if (parts.length >= 2) {
       data = parts[0];
       luogo = parts.slice(1).join(" - ");
@@ -6345,10 +7206,10 @@ function parseElencoTornei(html, defaultComit = 30, defaultTor = 0, defaultReg, 
 function parseMenuManifestazioni(html) {
   const discovered = [];
   if (!html) return discovered;
-  const $ = cheerio9.load(html);
+  const $ = cheerio11.load(html);
   $('a[href*="risultati_tornei.php"]').each((_, el) => {
     const href = $(el).attr("href") || "";
-    const label = cleanText($(el).text());
+    const label = cleanText2($(el).text());
     if (!label) return;
     const torMatch = href.match(/[?&]TOR=(\d+)/i);
     const comitMatch = href.match(/[?&]COMIT=(\d+)/i);
@@ -6371,10 +7232,10 @@ function parseDettaglioTorneo(elencoGareHtml, iscrizioniHtml, idt, com, anno = 4
   let status = "in_programma";
   const extractFromHtml = (html, sourceMode) => {
     if (!html || !html.trim()) return;
-    const $ = cheerio9.load(html);
+    const $ = cheerio11.load(html);
     const headerParagraphs = [];
     $("body > p.dettagli, body > p").each((_, p) => {
-      const txt = cleanText($(p).text());
+      const txt = cleanText2($(p).text());
       if (txt && !/^risultati delle gare disputate$/i.test(txt) && !/^gare in programma al torneo$/i.test(txt)) {
         headerParagraphs.push(txt);
       }
@@ -6387,7 +7248,7 @@ function parseDettaglioTorneo(elencoGareHtml, iscrizioniHtml, idt, com, anno = 4
     }
     $("a[href]").each((_, a) => {
       const href = ($(a).attr("href") || "").trim();
-      const text = cleanText($(a).text());
+      const text = cleanText2($(a).text());
       if (!href) return;
       if (/\.pdf$/i.test(href) || /dati sintetici/i.test(text)) {
         if (!pdfSinteticoUrl) {
@@ -6457,8 +7318,8 @@ function parseIscrizioniGara(html, athleteMapping) {
   if (!html || !html.trim()) {
     return { titoloGara: "", maxIscritti: null, iscritti: [] };
   }
-  const $ = cheerio9.load(html);
-  const rawHeader = cleanText($("p.dettagli b").first().text());
+  const $ = cheerio11.load(html);
+  const rawHeader = cleanText2($("p.dettagli b").first().text());
   const maxMatch = rawHeader.match(/\[max\.\s*(\d+)\]/i);
   const maxIscritti = maxMatch ? maxMatch[1] : null;
   const titoloGara = rawHeader.replace(/^Elenco atleti iscritti della gara\s*/i, "").replace(/\[max\.\s*\d+\]/i, "").trim();
@@ -6466,14 +7327,14 @@ function parseIscrizioniGara(html, athleteMapping) {
   $("table tr").each((idx, tr) => {
     const tds = $(tr).find("td");
     if (tds.length < 5) return;
-    const posText = cleanText($(tds[0]).text());
+    const posText = cleanText2($(tds[0]).text());
     const nameP = $(tds[1]).find("p").first();
-    const nome = cleanText(nameP.length ? nameP.text() : $(tds[1]).text());
+    const nome = cleanText2(nameP.length ? nameP.text() : $(tds[1]).text());
     if (!nome || /^nome atleta$/i.test(nome)) return;
     const statusClass = (nameP.attr("class") || "dettagli").trim();
-    const punti = cleanText($(tds[3]).text());
+    const punti = cleanText2($(tds[3]).text());
     const puntiIscrizione = parseInt(punti.replace(/\./g, "").replace(/[^\d-]/g, ""), 10) || 0;
-    const societa = cleanText($(tds[4]).text());
+    const societa = cleanText2($(tds[4]).text());
     const posizione = parseInt(posText, 10) || iscritti.length + 1;
     iscritti.push({
       posizione,
@@ -6501,14 +7362,14 @@ function parseGestioneGara(html, athleteMapping) {
       turniTabellone: []
     };
   }
-  const $ = cheerio9.load(html);
-  let titoloGara = cleanText($("h5.card-title").first().text());
+  const $ = cheerio11.load(html);
+  let titoloGara = cleanText2($("h5.card-title").first().text());
   if (!titoloGara) {
-    titoloGara = cleanText($('font[color="#0000FF"]').first().text());
+    titoloGara = cleanText2($('font[color="#0000FF"]').first().text());
   }
   let vincitore = null;
   $("h5").each((_, h5) => {
-    const txt = cleanText($(h5).text());
+    const txt = cleanText2($(h5).text());
     const winMatch = txt.match(/1\^\s*classificato:\s*(.+)$/i);
     if (winMatch && winMatch[1].trim()) {
       vincitore = winMatch[1].trim();
@@ -6528,7 +7389,7 @@ function parseGestioneGara(html, athleteMapping) {
     vincitoreId = lookupAthleteId(vincitore, athleteMapping);
   }
   let valoreRanking = null;
-  const bodyText = cleanText($("body").text());
+  const bodyText = cleanText2($("body").text());
   const valMatch = bodyText.match(/valore della gara per ranking:\s*([^\)\s]+)/i);
   if (valMatch) {
     valoreRanking = valMatch[1].trim();
@@ -6536,7 +7397,7 @@ function parseGestioneGara(html, athleteMapping) {
   const gironiRanges = [];
   $('a[href*="risultati.php"]').each((_, a) => {
     const href = $(a).attr("href") || "";
-    const label = cleanText($(a).text());
+    const label = cleanText2($(a).text());
     const c1 = href.match(/[?&]COD_1=(\d+)/i);
     const c2 = href.match(/[?&]COD_2=(\d+)/i);
     if (c1 && c2) {
@@ -6560,7 +7421,7 @@ function parseGestioneGara(html, athleteMapping) {
   };
   $('area[href*="risultati_tabellone"], a[href*="risultati_tabellone"]').each((_, area) => {
     const href = $(area).attr("href") || "";
-    const alt = cleanText($(area).attr("alt") || $(area).text() || "");
+    const alt = cleanText2($(area).attr("alt") || $(area).text() || "");
     const tabMatch = href.match(/[?&]TAB=(\d+)/i);
     const turnoMatch = href.match(/[?&]TURNO=(\d+)/i);
     if (turnoMatch) {
@@ -6589,21 +7450,21 @@ function parseMatchTable($, table, athleteMapping) {
   const r1Tds = $(rows[0]).find("td");
   const r2Tds = $(rows[1]).find("td");
   if (r1Tds.length < 3 || r2Tds.length < 3) return null;
-  const atleta1 = cleanText($(r1Tds[0]).find("p.dettagli").first().text());
-  const societa1 = cleanText($(r1Tds[0]).find("p.soc").first().text());
-  const atleta2 = cleanText($(r2Tds[0]).find("p.dettagli").first().text());
-  const societa2 = cleanText($(r2Tds[0]).find("p.soc").first().text());
+  const atleta1 = cleanText2($(r1Tds[0]).find("p.dettagli").first().text());
+  const societa1 = cleanText2($(r1Tds[0]).find("p.soc").first().text());
+  const atleta2 = cleanText2($(r2Tds[0]).find("p.dettagli").first().text());
+  const societa2 = cleanText2($(r2Tds[0]).find("p.soc").first().text());
   if (!atleta1 && !atleta2) return null;
   const p1Points = [];
   $(rows[0]).find("p.punti").each((_, p) => {
-    p1Points.push(parseInt(cleanText($(p).text()), 10) || 0);
+    p1Points.push(parseInt(cleanText2($(p).text()), 10) || 0);
   });
   const p2Points = [];
   $(rows[1]).find("p.punti").each((_, p) => {
-    p2Points.push(parseInt(cleanText($(p).text()), 10) || 0);
+    p2Points.push(parseInt(cleanText2($(p).text()), 10) || 0);
   });
-  const set1 = parseInt(cleanText($(rows[0]).find("p.set").first().text()), 10) || 0;
-  const set2 = parseInt(cleanText($(rows[1]).find("p.set").first().text()), 10) || 0;
+  const set1 = parseInt(cleanText2($(rows[0]).find("p.set").first().text()), 10) || 0;
+  const set2 = parseInt(cleanText2($(rows[1]).find("p.set").first().text()), 10) || 0;
   const sets = [];
   const maxLen = Math.min(p1Points.length, p2Points.length);
   for (let i = 0; i < maxLen; i++) {
@@ -6617,7 +7478,7 @@ function parseMatchTable($, table, athleteMapping) {
   else {
     const rowspanCell = $(rows[0]).find('td[rowspan="2"]');
     if (rowspanCell.length) {
-      const winText = cleanText(rowspanCell.text()).toUpperCase();
+      const winText = cleanText2(rowspanCell.text()).toUpperCase();
       if (winText && atleta1 && winText === atleta1.toUpperCase()) vincitore = 1;
       else if (winText && atleta2 && winText === atleta2.toUpperCase()) vincitore = 2;
     }
@@ -6637,7 +7498,7 @@ function parseMatchTable($, table, athleteMapping) {
 }
 function parseRisultatiGironi(html, athleteMapping) {
   if (!html || !html.trim()) return [];
-  const $ = cheerio9.load(html);
+  const $ = cheerio11.load(html);
   const gironiMap = /* @__PURE__ */ new Map();
   let currentGirone = "1";
   const container = $('div[align="left"]').first();
@@ -6645,7 +7506,7 @@ function parseRisultatiGironi(html, athleteMapping) {
   root.children().each((_, el) => {
     const tag = (el.tagName || "").toLowerCase();
     if (tag === "p") {
-      const txt = cleanText($(el).text());
+      const txt = cleanText2($(el).text());
       const gMatch = txt.match(/Girone:\s*(\S+)/i);
       if (gMatch) {
         currentGirone = gMatch[1];
@@ -6727,7 +7588,7 @@ function parseRisultatiGironi(html, athleteMapping) {
 }
 function parseRisultatiTabellone(html, athleteMapping) {
   if (!html || !html.trim()) return [];
-  const $ = cheerio9.load(html);
+  const $ = cheerio11.load(html);
   const matches = [];
   $('table[bgcolor="#EFEBCF"]').each((_, table) => {
     const m = parseMatchTable($, table, athleteMapping);
@@ -7412,86 +8273,8 @@ async function runVideoSync() {
   return youtubeSyncService.syncAllChannels();
 }
 
-// server/parsers/squadraParser.ts
-import * as cheerio10 from "cheerio";
-function parseDettaglioSquadra(html, squadraId, camId, logoUrl) {
-  const $ = cheerio10.load(html);
-  const titleText = $("table tr:first-child").text().replace(/\s+/g, " ").trim();
-  const teamNameMatch = titleText.match(/Atleti della squadra:\s*(.+)$/i);
-  const nome = teamNameMatch ? teamNameMatch[1].trim() : "Squadra " + squadraId;
-  const atleti = [];
-  $("table tr").each((_, row) => {
-    const $row = $(row);
-    const cells = $row.find("td");
-    if (cells.length < 10) return;
-    const rowText = $row.text();
-    if (rowText.includes("Atleta") && rowText.includes("PaV")) return;
-    const athleteLink = $row.find('a[href*="dettaglio_percentuali.php"], a[href*="IDA="]');
-    if (athleteLink.length === 0) return;
-    const athleteName = athleteLink.text().replace(/\s+/g, " ").trim();
-    if (!athleteName) return;
-    const href = athleteLink.attr("href") || "";
-    const idaMatch = href.match(/IDA=(\d+)/i);
-    const atletaId = idaMatch ? idaMatch[1] : "";
-    const hasScheda = $row.find('a[onclick*="getScheda"]').length > 0;
-    const isDoppio = !hasScheda && athleteName.includes(" - ");
-    const rankText = $(cells[2]).text().replace(/\s+/g, " ").trim();
-    let rankPosizione = null;
-    let rankPunti = null;
-    const rankPosMatch = rankText.match(/rank\.\s*(\d+)/i);
-    if (rankPosMatch) {
-      rankPosizione = parseInt(rankPosMatch[1], 10);
-    }
-    const rankPuntiMatch = rankText.match(/\((\d+)\)/);
-    if (rankPuntiMatch) {
-      rankPunti = parseInt(rankPuntiMatch[1], 10);
-    }
-    const getInt = (cellIdx) => {
-      const val = $(cells[cellIdx]).text().trim().replace(/[^\d-]/g, "");
-      return parseInt(val, 10) || 0;
-    };
-    const getFloat = (cellIdx) => {
-      const val = $(cells[cellIdx]).text().trim().replace(/[^\d.,-]/g, "").replace(",", ".");
-      const num = parseFloat(val);
-      return Number.isFinite(num) ? num : 0;
-    };
-    const partiteDisputate = getInt(3);
-    const partiteVinte = getInt(4);
-    const partitePerse = getInt(5);
-    const setVinti = getInt(6);
-    const setPersi = getInt(7);
-    const puntiVinti = getInt(8);
-    const puntiPersi = getInt(9);
-    const percentualeVittorie = getFloat(10);
-    atleti.push({
-      atletaId,
-      nome: athleteName,
-      isDoppio,
-      rankText,
-      rankPosizione,
-      rankPunti,
-      partiteDisputate,
-      partiteVinte,
-      partitePerse,
-      setVinti,
-      setPersi,
-      puntiVinti,
-      puntiPersi,
-      percentualeVittorie,
-      fotoUrl: !isDoppio && atletaId ? `https://portale.fitet.org/images/atleti/${atletaId}.jpg` : null
-    });
-  });
-  return {
-    squadraId,
-    camId,
-    nome,
-    logoUrl,
-    atleti
-  };
-}
-
 // server/parsers/refertoParser.ts
-import * as cheerio11 from "cheerio";
+import * as cheerio12 from "cheerio";
 function resolveFitetUrl(src) {
   if (!src) return void 0;
   if (src.startsWith("http")) return src;
@@ -7499,7 +8282,7 @@ function resolveFitetUrl(src) {
   return `https://portale.fitet.org/${clean}`;
 }
 function parseRefertoIncontro(html, incontroId, camId, formulaId) {
-  const $ = cheerio11.load(html);
+  const $ = cheerio12.load(html);
   const $incontri = $("p.incontro");
   let casaNome = "";
   let ospiteNome = "";
@@ -7638,7 +8421,7 @@ function parseRefertoIncontro(html, incontroId, camId, formulaId) {
   };
 }
 function parseDettaglioPartita(html, partitaId) {
-  const $ = cheerio11.load(html);
+  const $ = cheerio12.load(html);
   const rows = $('table[width="716"] > tr, table[width="716"] > tbody > tr');
   let headerRow = rows.eq(0);
   let detailRow = rows.eq(1);
@@ -7748,9 +8531,9 @@ function parseDettaglioPartita(html, partitaId) {
 }
 
 // server/parsers/rankingParser.ts
-import * as cheerio12 from "cheerio";
+import * as cheerio13 from "cheerio";
 function parseRankingHtml(html, sesso = "M", currentPage = 1, comitId, category) {
-  const $ = cheerio12.load(html);
+  const $ = cheerio13.load(html);
   const titleText = $("td.style2 p.titoli, p.titoli").first().text().replace(/\s+/g, " ").trim();
   const titleClean = titleText.replace(/\(Atleti:.*?\)/i, "").trim();
   let totalAthletes = 0;
@@ -7824,10 +8607,10 @@ function parseRankingHtml(html, sesso = "M", currentPage = 1, comitId, category)
 }
 
 // server/parsers/sceltaAtletaParser.ts
-import * as cheerio13 from "cheerio";
+import * as cheerio14 from "cheerio";
 function parseSceltaAtleta(html) {
   if (!html) return [];
-  const $ = cheerio13.load(html);
+  const $ = cheerio14.load(html);
   const results = [];
   const seen = /* @__PURE__ */ new Set();
   $('a[href*="head_head.php"]').each((_, element) => {
@@ -8434,7 +9217,7 @@ function getTorneoCategoryByKey(key) {
 }
 
 // server/app.ts
-import * as cheerio14 from "cheerio";
+import * as cheerio15 from "cheerio";
 var app = express();
 app.use(cors());
 app.use(express.json());
@@ -8518,7 +9301,7 @@ app.use((req, _res, next) => {
 });
 var DEFAULT_CAM_ID = 794;
 var DEFAULT_ANNO_ID = 41;
-var TTL_CLASSIFICA = 4 * 60 * 60 * 1e3;
+var TTL_CLASSIFICA2 = 4 * 60 * 60 * 1e3;
 var TTL_CALENDARIO = 4 * 60 * 60 * 1e3;
 var TTL_STATISTICHE = 6 * 60 * 60 * 1e3;
 var TTL_ATLETA = 7 * 24 * 60 * 60 * 1e3;
@@ -8618,7 +9401,7 @@ async function getClassifica(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, f
     ...t,
     logoUrl: teamResolver.getLogo(t.nome)
   }));
-  cacheService.set(cacheKey, withLogos, TTL_CLASSIFICA);
+  cacheService.set(cacheKey, withLogos, TTL_CLASSIFICA2);
   return withLogos;
 }
 async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, forceRefresh = false) {
@@ -9666,6 +10449,101 @@ app.get("/api/squadra/:squadraId", async (req, res) => {
     res.status(500).json({ error: "Errore nel recupero della scheda squadra", details: error.message });
   }
 });
+app.get("/api/societa/detect", async (req, res) => {
+  const atletaId = req.query.atletaId || "";
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  if (!atletaId || atletaId === "null" || atletaId === "undefined") {
+    return res.status(400).json({ found: false, needsManual: true, reason: "missing_athlete" });
+  }
+  const cacheKey = `societa_detect_${atletaId}_${anno}`;
+  if (!isForceRefreshRequest(req)) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return res.json(cached);
+  }
+  try {
+    const result = await societyService.detectFromAthlete(atletaId, anno);
+    if (result.found) {
+      cacheService.set(cacheKey, result, 6 * 60 * 60 * 1e3);
+    }
+    res.json(result);
+  } catch (error) {
+    console.error(`Error detecting society for athlete ${atletaId}:`, error);
+    res.json({ found: false, needsManual: true, reason: "error" });
+  }
+});
+app.get("/api/societa/lookup", async (req, res) => {
+  const query = (req.query.q || req.query.query || "").trim();
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  if (!query) {
+    return res.status(400).json({ found: false, error: "Specifica un nome squadra o un ID Albo Federale" });
+  }
+  try {
+    const result = await societyService.lookupSociety(query, anno);
+    res.json(result);
+  } catch (error) {
+    console.error(`Error looking up society "${query}":`, error);
+    res.status(500).json({ found: false, error: "Errore nella ricerca della societ\xE0" });
+  }
+});
+app.get("/api/societa/atleta-storico", async (req, res) => {
+  const nome = (req.query.nome || "").trim();
+  const tessera = (req.query.tessera || "").trim() || void 0;
+  if (!nome) {
+    return res.status(400).json({ atletaId: null });
+  }
+  try {
+    const atletaId = await societyService.resolveHistoricalAthlete(nome, tessera);
+    res.json({ atletaId });
+  } catch (error) {
+    console.error(`Error resolving historical athlete ${nome}:`, error);
+    res.json({ atletaId: null });
+  }
+});
+app.get("/api/societa/team/:teamId", async (req, res) => {
+  const { teamId } = req.params;
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  if (!/^\d+$/.test(teamId)) {
+    return res.status(400).json({ found: false, error: "ID squadra non valido" });
+  }
+  try {
+    const result = await societyService.lookupByTeamId(teamId, cam, anno);
+    res.json(result);
+  } catch (error) {
+    console.error(`Error resolving society for team ${teamId}:`, error);
+    res.status(500).json({ found: false, error: "Errore nella risoluzione della societ\xE0" });
+  }
+});
+app.get("/api/societa/:societyId/stagione/:anno", async (req, res) => {
+  const { societyId, anno } = req.params;
+  const annoNum = parseInt(anno, 10);
+  const forceRefresh = isForceRefreshRequest(req);
+  if (!/^\d+$/.test(societyId) || !Number.isFinite(annoNum)) {
+    return res.status(400).json({ error: "Parametri societ\xE0/stagione non validi" });
+  }
+  try {
+    const stagione = await societyService.getSocietySeason(societyId, annoNum, forceRefresh);
+    res.json(stagione);
+  } catch (error) {
+    console.error(`Error fetching society ${societyId} season ${anno}:`, error);
+    res.status(500).json({ error: "Errore nel recupero della stagione", details: error.message });
+  }
+});
+app.get("/api/societa/:societyId", async (req, res) => {
+  const { societyId } = req.params;
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  const forceRefresh = isForceRefreshRequest(req);
+  if (!/^\d+$/.test(societyId)) {
+    return res.status(400).json({ error: "ID societ\xE0 non valido" });
+  }
+  try {
+    const dettaglio = await societyService.getSociety(societyId, anno, forceRefresh);
+    res.json(dettaglio);
+  } catch (error) {
+    console.error(`Error fetching society ${societyId}:`, error);
+    res.status(500).json({ error: "Errore nel recupero della societ\xE0", details: error.message });
+  }
+});
 app.get("/api/atleta-campionato-partite", async (req, res) => {
   let atletaId = req.query.atletaId;
   let cam = req.query.cam;
@@ -9735,7 +10613,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
         if (found) {
           squadraNome = found.squadra;
           const classHtml = await FitetClient.fetchClassifica(cam);
-          const $c = cheerio14.load(classHtml);
+          const $c = cheerio15.load(classHtml);
           const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
           const foundNorm = norm(found.squadra);
           $c('a[href*="SQUADRA="]').each((_, el) => {
@@ -9757,7 +10635,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
       if (!squadraId) {
         try {
           const classHtml = await FitetClient.fetchClassifica(cam);
-          const $c = cheerio14.load(classHtml);
+          const $c = cheerio15.load(classHtml);
           const candidateTeams = [];
           $c('a[href*="SQUADRA="]').each((_, el) => {
             const href = $c(el).attr("href") || "";
@@ -9796,7 +10674,7 @@ app.get("/api/atleta-campionato-partite", async (req, res) => {
     }
     const url = `https://portale.fitet.org/risultati/campionati/dettaglio_percentuali.php?IDA=${atletaId}&CAM=${cam}&SQUADRA=${squadraId}`;
     const html = await FitetClient.fetchHtml(url);
-    const $p = cheerio14.load(html);
+    const $p = cheerio15.load(html);
     const matches = [];
     const headerText = $p("table tr").first().text();
     if (!squadraNome) {

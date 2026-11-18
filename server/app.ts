@@ -10,6 +10,7 @@ import { analyticsService, normalizeAnalyticsPagePath } from './services/analyti
 import { renderAnalyticsAdminHtml } from './routes/analyticsAdminHtml';
 import { athleteResolver } from './services/athleteResolver';
 import { teamResolver } from './services/teamResolver';
+import { societyService } from './services/societyService';
 import { championshipCatalog, normalizeChampionshipGender } from './services/championshipCatalog';
 import { parseClassifica } from './parsers/classificaParser';
 import { parseCalendario } from './parsers/calendarioParser';
@@ -1703,6 +1704,126 @@ app.get('/api/squadra/:squadraId', async (req, res) => {
     } catch (error: any) {
         console.error(`Error fetching team ${squadraId} in CAM ${cam}:`, error);
         res.status(500).json({ error: 'Errore nel recupero della scheda squadra', details: error.message });
+    }
+});
+
+// 9. La mia società — rilevamento automatico dall'atleta
+app.get('/api/societa/detect', async (req, res) => {
+    const atletaId = (req.query.atletaId as string) || '';
+    const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
+
+    if (!atletaId || atletaId === 'null' || atletaId === 'undefined') {
+        return res.status(400).json({ found: false, needsManual: true, reason: 'missing_athlete' });
+    }
+
+    const cacheKey = `societa_detect_${atletaId}_${anno}`;
+    if (!isForceRefreshRequest(req)) {
+        const cached = cacheService.get(cacheKey);
+        if (cached) return res.json(cached);
+    }
+
+    try {
+        const result = await societyService.detectFromAthlete(atletaId, anno);
+        if (result.found) {
+            cacheService.set(cacheKey, result, 6 * 60 * 60 * 1000);
+        }
+        res.json(result);
+    } catch (error: any) {
+        console.error(`Error detecting society for athlete ${atletaId}:`, error);
+        res.json({ found: false, needsManual: true, reason: 'error' });
+    }
+});
+
+// 10. La mia società — selezione manuale (Albo Federale o nome squadra)
+app.get('/api/societa/lookup', async (req, res) => {
+    const query = ((req.query.q as string) || (req.query.query as string) || '').trim();
+    const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
+
+    if (!query) {
+        return res.status(400).json({ found: false, error: 'Specifica un nome squadra o un ID Albo Federale' });
+    }
+
+    try {
+        const result = await societyService.lookupSociety(query, anno);
+        res.json(result);
+    } catch (error: any) {
+        console.error(`Error looking up society "${query}":`, error);
+        res.status(500).json({ found: false, error: 'Errore nella ricerca della società' });
+    }
+});
+
+// 11. La mia società — risoluzione atleta storico (nome + tessera)
+app.get('/api/societa/atleta-storico', async (req, res) => {
+    const nome = ((req.query.nome as string) || '').trim();
+    const tessera = ((req.query.tessera as string) || '').trim() || undefined;
+
+    if (!nome) {
+        return res.status(400).json({ atletaId: null });
+    }
+
+    try {
+        const atletaId = await societyService.resolveHistoricalAthlete(nome, tessera);
+        res.json({ atletaId });
+    } catch (error: any) {
+        console.error(`Error resolving historical athlete ${nome}:`, error);
+        res.json({ atletaId: null });
+    }
+});
+
+// 12. La mia società — risoluzione da ID squadra
+app.get('/api/societa/team/:teamId', async (req, res) => {
+    const { teamId } = req.params;
+    const cam = req.query.cam ? parseInt(req.query.cam as string, 10) : DEFAULT_CAM_ID;
+    const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
+
+    if (!/^\d+$/.test(teamId)) {
+        return res.status(400).json({ found: false, error: 'ID squadra non valido' });
+    }
+
+    try {
+        const result = await societyService.lookupByTeamId(teamId, cam, anno);
+        res.json(result);
+    } catch (error: any) {
+        console.error(`Error resolving society for team ${teamId}:`, error);
+        res.status(500).json({ found: false, error: 'Errore nella risoluzione della società' });
+    }
+});
+
+// 13. La mia società — stagione passata on demand
+app.get('/api/societa/:societyId/stagione/:anno', async (req, res) => {
+    const { societyId, anno } = req.params;
+    const annoNum = parseInt(anno, 10);
+    const forceRefresh = isForceRefreshRequest(req);
+
+    if (!/^\d+$/.test(societyId) || !Number.isFinite(annoNum)) {
+        return res.status(400).json({ error: 'Parametri società/stagione non validi' });
+    }
+
+    try {
+        const stagione = await societyService.getSocietySeason(societyId, annoNum, forceRefresh);
+        res.json(stagione);
+    } catch (error: any) {
+        console.error(`Error fetching society ${societyId} season ${anno}:`, error);
+        res.status(500).json({ error: 'Errore nel recupero della stagione', details: error.message });
+    }
+});
+
+// 14. La mia società — scheda completa (stagione corrente + indice storico)
+app.get('/api/societa/:societyId', async (req, res) => {
+    const { societyId } = req.params;
+    const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
+    const forceRefresh = isForceRefreshRequest(req);
+
+    if (!/^\d+$/.test(societyId)) {
+        return res.status(400).json({ error: 'ID società non valido' });
+    }
+
+    try {
+        const dettaglio = await societyService.getSociety(societyId, anno, forceRefresh);
+        res.json(dettaglio);
+    } catch (error: any) {
+        console.error(`Error fetching society ${societyId}:`, error);
+        res.status(500).json({ error: 'Errore nel recupero della società', details: error.message });
     }
 });
 

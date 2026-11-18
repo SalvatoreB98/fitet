@@ -1,0 +1,1134 @@
+/* ==========================================================================
+   La mia società — scheda società FITeT
+   ========================================================================== */
+
+.societa-modal-card {
+  max-width: 980px;
+  width: 96%;
+  max-height: 92vh;
+  max-height: 92dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.societa-modal-header {
+  gap: 14px;
+  padding: 14px 18px;
+}
+
+.societa-header-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+
+.societa-header-logo {
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.societa-header-text {
+  min-width: 0;
+}
+
+.societa-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.societa-header-title-row h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.societa-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.societa-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.societa-header-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.societa-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.societa-header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.societa-header-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.societa-header-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.societa-header-btn .spin {
+  animation: societaSpin 0.9s linear infinite;
+}
+
+.societa-modal-body {
+  padding: 18px 20px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg-page);
+}
+
+/* --------------------------------------------------------------------------
+   Manual selection
+   -------------------------------------------------------------------------- */
+
+.societa-manual-panel {
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+  margin-bottom: 18px;
+  border-radius: 14px;
+  border: 1px solid var(--color-info-border);
+  background: var(--color-info-bg);
+}
+
+.societa-manual-icon {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 132, 199, 0.14);
+  color: var(--color-info-text);
+  font-size: 1.25rem;
+}
+
+.societa-manual-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.societa-manual-content h4 {
+  margin: 0 0 4px;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.societa-manual-content p {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.societa-manual-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.societa-manual-form input {
+  flex: 1;
+  min-width: 200px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border-input);
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-size: 0.86rem;
+  outline: none;
+}
+
+.societa-manual-form input:focus {
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+.societa-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #0284c7 0%, #01579b 100%);
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.28);
+}
+
+.societa-primary-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.34);
+}
+
+.societa-primary-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.societa-secondary-btn {
+  padding: 8px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border-input);
+  background: var(--bg-card);
+  color: var(--text-main);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.societa-secondary-btn:hover {
+  background: var(--bg-hover);
+}
+
+/* --------------------------------------------------------------------------
+   Sections
+   -------------------------------------------------------------------------- */
+
+.societa-section {
+  margin-bottom: 22px;
+}
+
+.societa-section:last-child {
+  margin-bottom: 0;
+}
+
+.societa-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.societa-eyebrow {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-info-text);
+  margin-bottom: 2px;
+}
+
+.societa-section-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.societa-section-hint {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.societa-stats-row {
+  display: flex;
+  gap: 8px;
+}
+
+.societa-stat {
+  min-width: 62px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.societa-stat strong {
+  font-size: 1.5rem;
+  color: var(--text-dark);
+}
+
+.societa-stat span {
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Atleti in forma
+   -------------------------------------------------------------------------- */
+
+.societa-form-panel {
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(2, 132, 199, 0.05));
+}
+
+.societa-form-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-accent-amber-dark);
+}
+
+.societa-form-title i {
+  color: var(--color-accent-amber);
+}
+
+.societa-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.societa-form-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  min-width: 0;
+}
+
+.societa-form-card:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.societa-form-card:disabled {
+  cursor: default;
+}
+
+.societa-form-card-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.societa-form-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.2;
+}
+
+.societa-form-team {
+  font-size: 0.64rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.societa-form-values {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+}
+
+.societa-form-pct {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--color-success-text);
+}
+
+.societa-form-record {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Championship / team
+   -------------------------------------------------------------------------- */
+
+.societa-champ-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.societa-champ-card {
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  overflow: hidden;
+  box-shadow: var(--shadow-container);
+  margin-top: 1em;
+}
+
+.societa-champ-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.09), rgba(2, 132, 199, 0.02));
+  border-bottom: 1px solid var(--border-color);
+}
+
+.societa-champ-title-wrap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.societa-champ-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.societa-champ-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.societa-champ-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.societa-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  text-decoration: none;
+  font-size: 0.82rem;
+  transition: color 0.16s ease, border-color 0.16s ease;
+}
+
+.societa-icon-link:hover {
+  color: var(--color-info-text);
+  border-color: var(--color-info-border);
+}
+
+.societa-open-champ-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--color-info-border);
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+
+.societa-open-champ-btn:hover {
+  background: rgba(2, 132, 199, 0.14);
+}
+
+.societa-team-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.societa-team-block {
+  border-bottom: 1px solid var(--border-light);
+}
+
+.societa-team-block:last-child {
+  border-bottom: none;
+}
+
+.societa-team-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+
+.societa-team-pos {
+  width: 34px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-th);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.societa-team-logo {
+  flex-shrink: 0;
+  border-radius: 100%;
+}
+
+.societa-team-name-wrap {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.societa-team-name {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.societa-team-record {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.societa-team-points {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.05;
+  min-width: 48px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  border: 1px solid var(--color-accent-amber-light);
+  background: var(--color-accent-amber-light);
+  color: var(--color-accent-amber-dark);
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.societa-team-points strong {
+  font-size: 0.94rem;
+  font-weight: 800;
+}
+
+.societa-team-points span {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.societa-team-points:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.24);
+}
+
+.societa-team-points:disabled {
+  cursor: default;
+}
+
+.societa-roster {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.societa-athlete-row:nth-child(even) {
+  background-color: #f1f8fc;
+}
+
+[data-theme="dark"] .societa-athlete-row:nth-child(even) {
+  background-color: #0000002b;
+}
+
+.societa-athlete-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 20px;
+  border-radius: 8px;
+  min-width: 0;
+}
+
+.societa-athlete-row.is-clickable {
+  cursor: pointer;
+}
+
+.societa-athlete-row.is-clickable:hover {
+  background: var(--bg-hover);
+}
+
+.societa-athlete-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  line-height: 1.2;
+}
+
+.societa-athlete-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.societa-athlete-sub {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.societa-athlete-ranking {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+  flex-shrink: 0;
+}
+
+.societa-ranking-points {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--color-primary-800);
+}
+
+.societa-ranking-pos {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+}
+
+.societa-athlete-arrow {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Past seasons
+   -------------------------------------------------------------------------- */
+
+.societa-season-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.societa-season-item {
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+.societa-season-item.is-open {
+  border-color: var(--color-info-border);
+}
+
+.societa-season-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-main);
+}
+
+.societa-season-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.societa-season-badge {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg-th);
+  border: 1px solid var(--border-color);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.societa-season-champs {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.societa-season-arrow {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+}
+
+.societa-season-content {
+  padding: 0 12px 12px;
+}
+
+/* --------------------------------------------------------------------------
+   Historical athletes
+   -------------------------------------------------------------------------- */
+
+.societa-historical-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.societa-historical-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.societa-historical-item:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--color-info-border);
+}
+
+.societa-historical-item:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.societa-historical-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.societa-historical-presenze {
+  flex-shrink: 0;
+  font-size: 0.64rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.societa-historical-presenze strong {
+  color: var(--color-primary-700);
+}
+
+.societa-link-btn {
+  margin-top: 8px;
+  border: none;
+  background: transparent;
+  color: var(--color-info-text);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.societa-link-btn:hover {
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   Titles & contacts
+   -------------------------------------------------------------------------- */
+
+.societa-titles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.societa-title-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.societa-title-trophy {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent-amber-light);
+  color: var(--color-accent-amber-dark);
+}
+
+.societa-title-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.societa-title-gara {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.societa-title-sub {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+}
+
+.societa-title-scope {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.societa-contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.societa-contact-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.societa-contact-item i {
+  color: var(--color-info-text);
+  width: 16px;
+  text-align: center;
+}
+
+.societa-contact-item a {
+  color: var(--color-info-text);
+  text-decoration: none;
+}
+
+.societa-contact-item a:hover {
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   States
+   -------------------------------------------------------------------------- */
+
+.societa-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 20px;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.societa-loading-inline {
+  padding: 16px;
+}
+
+.societa-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.societa-empty-state i {
+  font-size: 1.8rem;
+  color: var(--border-input);
+}
+
+.societa-empty-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.societa-error-panel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--color-danger-border);
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+.societa-error-panel>i {
+  font-size: 1.5rem;
+}
+
+.societa-error-panel div {
+  flex: 1;
+  min-width: 0;
+}
+
+.societa-error-panel strong {
+  display: block;
+  font-size: 0.86rem;
+}
+
+.societa-error-panel p {
+  margin: 2px 0 0;
+  font-size: 0.76rem;
+}
+
+.societa-inline-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 0.76rem;
+  color: var(--color-danger-text);
+}
+
+.societa-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  display: inline-block;
+  animation: societaSpin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+.societa-spinner-lg {
+  width: 24px;
+  height: 24px;
+  border-width: 3px;
+}
+
+@keyframes societaSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 720px) {
+  .societa-modal-card {
+    width: 100%;
+    max-height: 94dvh;
+  }
+
+  .societa-modal-body {
+    padding: 14px 12px 20px;
+  }
+
+  .societa-modal-header {
+    padding: 12px;
+  }
+
+  .societa-header-logo {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    min-height: 42px !important;
+  }
+
+  .societa-header-title-row h3 {
+    font-size: 1rem;
+  }
+
+  .societa-header-meta {
+    font-size: 0.7rem;
+    gap: 8px;
+  }
+
+  .societa-header-btn span {
+    display: none;
+  }
+
+  .societa-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .societa-historical-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .societa-roster {
+    padding-left: 14px;
+  }
+
+  .societa-stats-row {
+    width: 100%;
+  }
+
+  .societa-stat {
+    flex: 1;
+  }
+
+  .societa-manual-panel {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 420px) {
+  .societa-team-record {
+    display: none;
+  }
+
+  .societa-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .societa-champ-head {
+    flex-wrap: wrap;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Dark theme tweaks
+   -------------------------------------------------------------------------- */
+
+[data-theme="dark"] .societa-modal-body {
+  background: var(--bg-page);
+}
+
+[data-theme="dark"] .societa-manual-panel {
+  background: rgba(2, 132, 199, 0.1);
+  border-color: rgba(56, 189, 248, 0.24);
+}
+
+[data-theme="dark"] .societa-form-panel {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(2, 132, 199, 0.08));
+}
+
+[data-theme="dark"] .societa-champ-head {
+  background: rgba(2, 132, 199, 0.12);
+}
+
+[data-theme="dark"] .societa-team-points {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.24);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .societa-ranking-points {
+  color: #7dd3fc;
+}
+
+[data-theme="dark"] .societa-historical-presenze strong {
+  color: #7dd3fc;
+}
+
+[data-theme="dark"] .societa-title-trophy {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+}

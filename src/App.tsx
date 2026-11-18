@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
-import { DashboardData, ChampionshipItem } from './types/fitet';
-import { fetchDashboard, fetchCampionati } from './services/api';
+import { DashboardData, ChampionshipItem, SocietaInfo } from './types/fitet';
+import { fetchDashboard, fetchCampionati, detectMySociety } from './services/api';
 import { Header, MainViewType, ChampionshipTabType, TorneiPortalView } from './components/Header';
 import { useSlideDirection } from './utils/useSlideDirection';
 import { ClassificaTab } from './components/ClassificaTab';
@@ -14,6 +14,7 @@ import { ChampionshipModal } from './components/ChampionshipModal';
 import { RegioniModal } from './components/RegioniModal';
 import { EloCalculatorModal } from './components/EloCalculatorModal';
 import { SquadraModal } from './components/SquadraModal';
+import { SocietaModal } from './components/SocietaModal';
 import { IntroMotionGraphic } from './components/IntroMotionGraphic';
 import { HomeTab } from './components/HomeTab';
 import { ClassificheRankingTab } from './components/ClassificheRankingTab';
@@ -38,6 +39,14 @@ import {
   PUSH_CONTEXT_CHANGED_EVENT,
 } from './utils/myProfile';
 import {
+  getMySocietyId,
+  getMySocietyInfo,
+  setMySociety,
+  subscribeToMySociety,
+  isSocietyDetectionFailed,
+  markSocietyDetectionFailed,
+} from './utils/mySociety';
+import {
   getRegionFromUrl,
   getRegionSeoMeta,
   regionToSlug,
@@ -48,6 +57,9 @@ import {
   consumePendingNotificationNavigation,
   navigateToNotificationUrl,
 } from './utils/notificationNavigation';
+
+// La scheda società segue sempre la stagione FITeT in corso.
+const SOCIETY_ANNO = 41;
 
 const getAthleteFromUrl = (): { id: string; name: string } | null => {
   if (typeof window === 'undefined') return null;
@@ -341,6 +353,9 @@ export const App: React.FC = () => {
 
   const selectedAthlete = athleteStack.length > 0 ? athleteStack[athleteStack.length - 1] : null;
   const [selectedSquadra, setSelectedSquadra] = useState<{ id: string; name: string } | null>(null);
+  const [mySocietyId, setMySocietyId] = useState<string | null>(() => getMySocietyId());
+  const [mySocietyInfo, setMySocietyInfo] = useState<SocietaInfo | null>(() => getMySocietyInfo());
+  const [isSocietyModalOpen, setIsSocietyModalOpen] = useState(false);
 
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
@@ -548,6 +563,59 @@ export const App: React.FC = () => {
       }
     });
   }, [camId]);
+
+  // La società salvata sul dispositivo resta la fonte principale.
+  useEffect(() => {
+    return subscribeToMySociety((societyId, info) => {
+      setMySocietyId(societyId);
+      setMySocietyInfo(info);
+    });
+  }, []);
+
+  // Rilevamento automatico una tantum dall'atleta del profilo.
+  useEffect(() => {
+    if (!hasMyPlayer || mySocietyId) return;
+    const playerId = getMyPlayerId();
+    if (!playerId || isSocietyDetectionFailed(playerId)) return;
+
+    let active = true;
+    detectMySociety(playerId, SOCIETY_ANNO)
+      .then((result) => {
+        if (!active) return;
+        if (result.found && result.societyId) {
+          setMySociety(result.societyId, result.info);
+          setMySocietyId(result.societyId);
+          setMySocietyInfo(result.info || null);
+        } else {
+          markSocietyDetectionFailed(playerId);
+        }
+      })
+      .catch(() => {
+        if (active) markSocietyDetectionFailed(playerId);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [hasMyPlayer, mySocietyId]);
+
+  const handleSocietySelected = (societyId: string, info?: SocietaInfo) => {
+    const stored = getMySocietyInfo();
+    if (
+      getMySocietyId() !== societyId ||
+      (info && (stored?.nome !== info.nome || stored?.logoUrl !== info.logoUrl))
+    ) {
+      setMySociety(societyId, info);
+    }
+    setMySocietyId(societyId);
+    setMySocietyInfo(info || stored || null);
+  };
+
+  const handleOpenMySociety = () => {
+    trackClick('La mia società');
+    setIsSocietyModalOpen(true);
+  };
+
 
   const myPlayedChampionships = useMemo(() => {
     return getMyPlayedChampionships();
@@ -932,6 +1000,7 @@ export const App: React.FC = () => {
     isFavoritesModalOpen ||
     isSearchModalOpen ||
     isInstallModalOpen ||
+    isSocietyModalOpen ||
     athleteStack.length > 0 ||
     Boolean(selectedSquadra);
 
@@ -989,6 +1058,8 @@ export const App: React.FC = () => {
           trackClick('Installa App');
           setIsInstallModalOpen(true);
         }}
+        onOpenMySociety={handleOpenMySociety}
+        mySocietyInfo={mySocietyInfo}
         onPrecacheChampionship={camId ? handlePrecache : undefined}
       />
 
@@ -1061,6 +1132,8 @@ export const App: React.FC = () => {
             }}
             onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
             dashboardData={data}
+            onOpenMySociety={handleOpenMySociety}
+            mySocietyInfo={mySocietyInfo}
           />
         </div>
 
@@ -1250,6 +1323,8 @@ export const App: React.FC = () => {
           trackClick('Ricerca Atleta');
           setIsSearchModalOpen(true);
         }}
+        onOpenMySociety={handleOpenMySociety}
+        mySocietyInfo={mySocietyInfo}
       />
 
       {/* Global Search Athlete Modal */}
@@ -1302,6 +1377,19 @@ export const App: React.FC = () => {
         isOpen={isInstallModalOpen}
         onClose={() => setIsInstallModalOpen(false)}
       />
+
+      {/* La mia società */}
+      {isSocietyModalOpen && (
+        <SocietaModal
+          societyId={mySocietyId}
+          initialInfo={mySocietyInfo}
+          annoId={SOCIETY_ANNO}
+          onClose={() => setIsSocietyModalOpen(false)}
+          onSocietySelected={handleSocietySelected}
+          onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+          onSelectChampionship={handleSelectChampionship}
+        />
+      )}
 
       {/* Athlete Detail Profile Modal Stack */}
       {athleteStack.map((a, index) => (

@@ -50,6 +50,129 @@ export interface DettaglioSquadra {
   atleti: AtletaSquadraDettaglio[];
 }
 
+/* -------------------------------------------------------------------------
+   La mia società (scheda società FITeT)
+   ------------------------------------------------------------------------- */
+
+export interface SocietaInfo {
+  societyId: string;
+  nome: string;
+  logoUrl: string;
+  alboFederale: string;
+  primaAffiliazione?: string;
+  indirizzo?: string;
+  cap?: string;
+  citta?: string;
+  provincia?: string;
+  regione?: string;
+  email?: string;
+  sito?: string;
+}
+
+export interface SocietaAtletaStagione {
+  atletaId: string | null;
+  nome: string;
+  isDoppio: boolean;
+  squadraId: string;
+  squadraNome: string;
+  rankPosizione: number | null;
+  rankPunti: number | null;
+  partiteDisputate: number;
+  partiteVinte: number;
+  partitePerse: number;
+  setVinti: number;
+  setPersi: number;
+  puntiVinti: number;
+  puntiPersi: number;
+  percentualeVittorie: number;
+}
+
+export interface SocietaSquadraStagione {
+  squadraId: string;
+  nome: string;
+  posizione: number | null;
+  punti: number;
+  incontriDisputati: number;
+  incontriVinti: number;
+  incontriPareggiati: number;
+  incontriPersi: number;
+  partiteVinte: number;
+  partitePerse: number;
+  setVinti: number;
+  setPersi: number;
+  puntiVinti: number;
+  puntiPersi: number;
+  penalizzazioni: number;
+  atleti: SocietaAtletaStagione[];
+}
+
+export interface SocietaCampionatoStagione {
+  campId: number;
+  nome: string;
+  anno: number;
+  stagione: string;
+  squadre: SocietaSquadraStagione[];
+}
+
+export interface SocietaStagione {
+  anno: number;
+  stagione: string;
+  isCorrente: boolean;
+  campionati: SocietaCampionatoStagione[];
+  puntiTotali: number;
+  squadreCount: number;
+  atleti: SocietaAtletaStagione[];
+  atletiCount: number;
+}
+
+export interface SocietaStagioneIndexItem {
+  anno: number;
+  stagione: string;
+  campionati: Array<{ campId: number; nome: string }>;
+}
+
+export interface SocietaAtletaStorico {
+  tessera: string;
+  nome: string;
+  presenze: number;
+  atletaId?: string | null;
+}
+
+export interface SocietaTitolo {
+  stagione: string;
+  torneo: string;
+  gara: string;
+  dettaglio?: string;
+}
+
+export interface SocietaDettaglio {
+  info: SocietaInfo;
+  stagioneCorrente: SocietaStagione | null;
+  stagioni: SocietaStagioneIndexItem[];
+  atletiStorici: SocietaAtletaStorico[];
+  titoliNazionali: SocietaTitolo[];
+  titoliRegionali: SocietaTitolo[];
+  lastUpdated: string;
+}
+
+export interface SocietaDetectResponse {
+  found: boolean;
+  societyId?: string;
+  info?: SocietaInfo;
+  camId?: number;
+  teamName?: string;
+  teamId?: string;
+  societyName?: string;
+  needsManual?: boolean;
+  reason?: string;
+}
+
+export interface SocietaTeamLookupResponse {
+  found: boolean;
+  societyId?: string;
+  info?: SocietaInfo;
+}
+
 
 export interface MatchVideoInfo {
   videoId: string;

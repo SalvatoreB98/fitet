@@ -34,7 +34,7 @@
     0 4px 12px -2px rgba(15, 23, 42, 0.08),
     0 0 0 1px rgba(255, 255, 255, 0.6) inset;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  max-width: 560px;
+  max-width: 640px;
   position: absolute;
   bottom: 0;
 }
@@ -114,6 +114,30 @@
 
 .bottom-bar-search-item:hover {
   background: rgba(2, 132, 199, 0.08);
+}
+
+/* La mia società (solo desktop) */
+.bottom-bar-society-item {
+  color: var(--primary, #0284c7);
+}
+
+.bottom-bar-society-item:hover {
+  background: rgba(2, 132, 199, 0.08);
+}
+
+.bottom-bar-society-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: #ffffff;
+  padding: 1px;
+}
+
+@media (max-width: 768px) {
+  .bottom-bar-society-item {
+    display: none;
+  }
 }
 
 /* Dark Mode styles */

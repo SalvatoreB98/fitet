@@ -13,6 +13,10 @@ import {
   TorneiResponse,
   TorneoDettaglioResponse,
   TorneoGaraDettaglioResponse,
+  SocietaDettaglio,
+  SocietaStagione,
+  SocietaDetectResponse,
+  SocietaTeamLookupResponse,
 } from '../types/fitet';
 import { getRankingCategoryByKey } from '../constants/rankingCategories';
 import { saveVenueCache, getVenueCache, getVenueCacheAgeMs, VenueCacheEntry } from '../utils/venueCache';
@@ -39,6 +43,7 @@ const FRESH_TTL_MS = {
   torneoGara: 5 * 60 * 1000,
   headToHead: 30 * 60 * 1000,
   partiteCampionato: 10 * 60 * 1000,
+  societa: 30 * 60 * 1000,
 } as const;
 
 // Deduplica le richieste identiche lanciate in parallelo (es. più tab montate insieme).
@@ -355,6 +360,129 @@ export async function fetchSquadra(
     refresh,
     FRESH_TTL_MS.squadra
   );
+}
+
+const SOCIETY_TIMEOUT_MS = 45000;
+
+export async function fetchSocieta(
+  societyId: string,
+  anno = 41,
+  refresh = false
+): Promise<SocietaDettaglio> {
+  const params = new URLSearchParams();
+  if (anno) params.set('anno', String(anno));
+  if (refresh) params.set('refresh', 'true');
+  const url = `${API_BASE}/societa/${encodeURIComponent(societyId)}?${params.toString()}`;
+
+  return fetchWithVenueFallback<SocietaDettaglio>(
+    url,
+    `societa_${societyId}_${anno}`,
+    'societa',
+    `Società #${societyId}`,
+    SOCIETY_TIMEOUT_MS,
+    refresh,
+    FRESH_TTL_MS.societa
+  );
+}
+
+export async function fetchSocietaStagione(
+  societyId: string,
+  anno: number,
+  refresh = false
+): Promise<SocietaStagione> {
+  const url = `${API_BASE}/societa/${encodeURIComponent(societyId)}/stagione/${anno}${refresh ? '?refresh=true' : ''}`;
+
+  return fetchWithVenueFallback<SocietaStagione>(
+    url,
+    `societa_stagione_${societyId}_${anno}`,
+    'societa',
+    `Società #${societyId} · ${anno}`,
+    SOCIETY_TIMEOUT_MS,
+    refresh,
+    FRESH_TTL_MS.societa
+  );
+}
+
+export async function detectMySociety(
+  atletaId: string,
+  anno = 41
+): Promise<SocietaDetectResponse> {
+  const url = `${API_BASE}/societa/detect?atletaId=${encodeURIComponent(atletaId)}&anno=${anno}`;
+  return fetchWithVenueFallback<SocietaDetectResponse>(
+    url,
+    `societa_detect_${atletaId}_${anno}`,
+    'societa',
+    'La mia società',
+    SOCIETY_TIMEOUT_MS,
+    false,
+    FRESH_TTL_MS.societa
+  );
+}
+
+async function societyLookupRequest(
+  url: string
+): Promise<SocietaTeamLookupResponse> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), SOCIETY_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!res.ok) {
+      throw new Error(`Errore server HTTP (${res.status})`);
+    }
+    return (await res.json()) as SocietaTeamLookupResponse;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    const isTimeout = err.name === 'AbortError';
+    throw new Error(
+      isTimeout
+        ? 'Ricerca scaduta: riprova con una connessione migliore'
+        : err.message || 'Errore nella ricerca della società'
+    );
+  }
+}
+
+export async function lookupSocieta(
+  query: string,
+  anno = 41
+): Promise<SocietaTeamLookupResponse> {
+  const params = new URLSearchParams({ q: query, anno: String(anno) });
+  return societyLookupRequest(`${API_BASE}/societa/lookup?${params.toString()}`);
+}
+
+export async function fetchSocietaByTeam(
+  teamId: string,
+  cam?: number,
+  anno = 41
+): Promise<SocietaTeamLookupResponse> {
+  const params = new URLSearchParams();
+  if (cam) params.set('cam', String(cam));
+  params.set('anno', String(anno));
+  return societyLookupRequest(
+    `${API_BASE}/societa/team/${encodeURIComponent(teamId)}?${params.toString()}`
+  );
+}
+
+export async function resolveSocietaHistoricalAthlete(
+  nome: string,
+  tessera?: string
+): Promise<string | null> {
+  const params = new URLSearchParams({ nome });
+  if (tessera) params.set('tessera', tessera);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
+  try {
+    const res = await fetch(`${API_BASE}/societa/atleta-storico?${params.toString()}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.atletaId || null;
+  } catch {
+    clearTimeout(timeoutId);
+    return null;
+  }
 }
 
 export async function fetchAtletaCampionatoPartite(

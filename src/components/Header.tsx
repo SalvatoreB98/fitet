@@ -4,6 +4,7 @@ import {
   subscribeToUserRegion,
 } from '../utils/geolocation';
 import { useFavoriteAthletes } from '../utils/favorites';
+import type { SocietaInfo } from '../types/fitet';
 
 export type MainViewType = 'home' | 'campionato' | 'tornei' | 'classifiche';
 export type ChampionshipTabType = 'classifica' | 'calendario' | 'statistiche';
@@ -45,6 +46,8 @@ interface HeaderProps {
   onOpenSearchModal?: () => void;
   onOpenInstallAppModal?: () => void;
   onPrecacheChampionship?: () => void;
+  onOpenMySociety?: () => void;
+  mySocietyInfo?: SocietaInfo | null;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -74,6 +77,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSearchModal,
   onOpenInstallAppModal,
   onPrecacheChampionship,
+  onOpenMySociety,
+  mySocietyInfo,
 }) => {
   const { favoritesCount } = useFavoriteAthletes();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -263,7 +268,49 @@ export const Header: React.FC<HeaderProps> = ({
                       )}
                     </button>
 
-                    {/* 2. Campionato */}
+                    {/* 2. La mia società */}
+                    {onOpenMySociety && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="burger-menu-item"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onOpenMySociety();
+                        }}
+                      >
+                        <div
+                          className="burger-item-icon-box"
+                          style={{
+                            padding: 0,
+                            overflow: 'hidden',
+                            background: '#ffffff',
+                            border: '1px solid rgba(148, 163, 184, 0.35)',
+                          }}
+                        >
+                          {mySocietyInfo?.logoUrl ? (
+                            <img
+                              src={mySocietyInfo.logoUrl}
+                              alt={mySocietyInfo.nome || 'La mia società'}
+                              style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }}
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <i className="bi bi-buildings-fill" style={{ color: '#0284c7' }}></i>
+                          )}
+                        </div>
+                        <div className="burger-item-content">
+                          <span className="burger-item-title">La mia società</span>
+                          <span className="burger-item-desc">
+                            {mySocietyInfo?.nome || 'Squadre, atleti, punti e storico'}
+                          </span>
+                        </div>
+                        <i className="bi bi-chevron-right burger-item-arrow"></i>
+                      </button>
+                    )}
+
+                    {/* 2a. Campionato */}
                     <button
                       type="button"
                       role="menuitem"
