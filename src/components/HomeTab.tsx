@@ -935,7 +935,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
           <div className="home-hero-actions">
             <button
               type="button"
-              className="home-hero-btn home-hero-btn-primary"
+              className="home-hero-btn home-hero-btn-secondary"
               onClick={onOpenMySociety}
               title="Apri la scheda della tua società"
             >
