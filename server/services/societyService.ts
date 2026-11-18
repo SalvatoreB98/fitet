@@ -1,6 +1,6 @@
 import { FitetClient } from './fitetClient';
 import { cacheService } from './cacheService';
-import { teamResolver } from './teamResolver';
+import { teamResolver, normalizeCoreTeamName, extractCoreTokens } from './teamResolver';
 import { athleteResolver } from './athleteResolver';
 import { getLatestIdClass } from './rankingClassService';
 import { championshipCatalog } from './championshipCatalog';
@@ -60,11 +60,7 @@ const normalizeName = (value?: string): string =>
     .trim();
 
 const nameTokens = (value?: string): string[] =>
-  (value || '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9 ]/g, ' ')
-    .split(/\s+/)
-    .filter((token) => token.length >= 4 && !['ASD', 'APD', 'POLISPORTIVA', 'TENNISTAVOLO'].includes(token));
+  extractCoreTokens(value).filter((token) => token.length >= 4);
 
 async function mapLimit<T, R>(
   items: T[],
@@ -154,6 +150,12 @@ async function getTeamRegistry(
     const payload = { teamName: parsed.teamName, info: parsed.info };
     cacheService.set(cacheKey, payload, TTL_TEAM);
     cacheService.set(`societa_info_${parsed.info.societyId}`, parsed.info, TTL_TEAM);
+    if (parsed.teamName) {
+      teamResolver.registerSocietyLogo(parsed.teamName, parsed.info.societyId, parsed.info.logoUrl);
+    }
+    if (parsed.info.nome) {
+      teamResolver.registerSocietyLogo(parsed.info.nome, parsed.info.societyId, parsed.info.logoUrl);
+    }
     return payload;
   } catch (err) {
     console.warn(`[Societa] Impossibile leggere DatiSquadra per ${teamId}:`, err);
@@ -710,12 +712,19 @@ export const societyService = {
   },
 
   /**
-   * Manual one-off selection: accepts an Albo Federale ID or a team name and
-   * resolves it to a society. Used when automatic detection fails.
+   * Manual or click-based selection: accepts an Albo Federale ID, a team name,
+   * or an official society name (plus optional context like squadraId, camId,
+   * atletaId, regione) and resolves it to a society.
    */
   async lookupSociety(
     query: string,
-    anno = DEFAULT_ANNO
+    anno = DEFAULT_ANNO,
+    options?: {
+      camId?: number;
+      atletaId?: string;
+      squadraId?: string;
+      regione?: string;
+    }
   ): Promise<{
     found: boolean;
     societyId?: string;
@@ -725,7 +734,25 @@ export const societyService = {
     teamId?: string;
   }> {
     const trimmed = (query || '').trim();
-    if (!trimmed) return { found: false };
+
+    // 0a) Se abbiamo già squadraId + camId (es. apertura diretta da SquadraModal), risoluzione diretta!
+    if (options?.squadraId && /^\d+$/.test(options.squadraId) && options?.camId) {
+      const byTeam = await this.lookupByTeamId(options.squadraId, options.camId, anno);
+      if (byTeam.found && byTeam.societyId) {
+        if (trimmed) {
+          teamResolver.registerSocietyLogo(trimmed, byTeam.societyId, byTeam.info?.logoUrl);
+        }
+        return {
+          found: true,
+          societyId: byTeam.societyId,
+          info: byTeam.info,
+          camId: options.camId,
+          teamId: options.squadraId,
+        };
+      }
+    }
+
+    if (!trimmed && !options?.atletaId) return { found: false };
 
     // 1) ID Albo Federale (la scheda archivio usa lo stesso ID della società).
     if (/^\d{2,6}$/.test(trimmed)) {
@@ -743,10 +770,8 @@ export const societyService = {
       }
     }
 
-    // 2) Indice locale team → società (istantaneo per le squadre già note).
-    const normalizedQuery = normalizeName(trimmed);
-    const indexedLogo = teamResolver.getLogo(trimmed);
-    const indexedSociety = indexedLogo?.match(/\/societa\/(\d+)\./i)?.[1];
+    // 2) Indice locale team → società (istantaneo grazie a normalizeCoreTeamName + token matching).
+    const indexedSociety = trimmed ? teamResolver.findSocietyId(trimmed) : undefined;
     if (indexedSociety) {
       const info =
         cacheService.get<SocietaInfo>(`societa_info_${indexedSociety}`) ||
@@ -754,7 +779,35 @@ export const societyService = {
       return { found: true, societyId: indexedSociety, info };
     }
 
-    // 3) Ricerca del nome squadra nelle classifiche della stagione corrente.
+    // 2b) Se abbiamo l'atletaId (es. click sulla società dentro AtletaModal), rileva dal campionato dell'atleta!
+    if (options?.atletaId && /^\d+$/.test(options.atletaId)) {
+      try {
+        const detected = await this.detectFromAthlete(options.atletaId, anno);
+        if (detected.found && detected.societyId) {
+          if (trimmed) {
+            teamResolver.registerSocietyLogo(trimmed, detected.societyId, detected.info?.logoUrl);
+          }
+          return {
+            found: true,
+            societyId: detected.societyId,
+            info: detected.info,
+            camId: detected.camId,
+            teamName: detected.teamName,
+            teamId: detected.teamId,
+          };
+        }
+      } catch {
+        // Continua con la ricerca nei campionati.
+      }
+    }
+
+    if (!trimmed) return { found: false };
+
+    const normalizedQuery = normalizeName(trimmed);
+    const coreQuery = normalizeCoreTeamName(trimmed);
+    const queryTokens = nameTokens(trimmed);
+
+    // 3) Ricerca del nome squadra/società nelle classifiche della stagione corrente.
     let campionati: Awaited<ReturnType<typeof championshipCatalog.getAllCampionati>> = [];
     try {
       campionati = await championshipCatalog.getAllCampionati();
@@ -763,9 +816,65 @@ export const societyService = {
       return { found: false };
     }
 
-    const targets = campionati
-      .filter((camp) => !camp.anno || camp.anno === anno)
-      .slice(0, 32);
+    const activeCampionati = campionati.filter((camp) => !camp.anno || camp.anno === anno);
+    const targetRegionNorm = (options?.regione || '').trim().toUpperCase();
+
+    // Ordina i campionati dando priorità a camId noto, regione nota o token presenti nel nome del campionato/regione
+    const prioritized = [...activeCampionati].sort((a, b) => {
+      const score = (c: (typeof activeCampionati)[number]) => {
+        if (options?.camId && c.id === options.camId) return 100;
+        let s = 0;
+        const cReg = (c.regione || '').toUpperCase();
+        if (targetRegionNorm && cReg.includes(targetRegionNorm)) s += 40;
+        if (queryTokens.some((tok) => cReg.includes(tok))) s += 25;
+        return s;
+      };
+      return score(b) - score(a);
+    });
+
+    const targets = prioritized.slice(0, 64);
+
+    const matchesQueryTeam = (teamName: string): boolean => {
+      const candidate = normalizeName(teamName);
+      if (!candidate) return false;
+      if (candidate === normalizedQuery) return true;
+      if (
+        (normalizedQuery && candidate.includes(normalizedQuery)) ||
+        (candidate && normalizedQuery.includes(candidate))
+      ) {
+        return true;
+      }
+
+      const coreCandidate = normalizeCoreTeamName(teamName);
+      if (coreQuery && coreCandidate) {
+        if (coreCandidate === coreQuery) return true;
+        if (
+          coreQuery.length >= 4 &&
+          coreCandidate.length >= 4 &&
+          (coreCandidate.includes(coreQuery) || coreQuery.includes(coreCandidate))
+        ) {
+          return true;
+        }
+      }
+
+      if (queryTokens.length > 0) {
+        const candidateTokens = nameTokens(teamName);
+        if (candidateTokens.length > 0) {
+          const hitCount = queryTokens.filter((qt) =>
+            candidateTokens.some((ct) => ct === qt || (ct.length >= 5 && qt.length >= 5 && (ct.includes(qt) || qt.includes(ct))))
+          ).length;
+          if (
+            hitCount === queryTokens.length ||
+            hitCount === candidateTokens.length ||
+            hitCount >= 2
+          ) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    };
 
     const tryChampionship = async (camp: (typeof targets)[number]) => {
       try {
@@ -774,18 +883,15 @@ export const societyService = {
 
         const team =
           classifica.find((item) => normalizeName(item.nome) === normalizedQuery) ||
-          classifica.find((item) => {
-            const candidate = normalizeName(item.nome);
-            return (
-              (normalizedQuery && candidate.includes(normalizedQuery)) ||
-              (candidate && normalizedQuery.includes(candidate))
-            );
-          }) ||
+          classifica.find((item) => normalizeCoreTeamName(item.nome) === coreQuery && coreQuery.length >= 3) ||
+          classifica.find((item) => matchesQueryTeam(item.nome)) ||
           null;
         if (!team) return null;
 
         const registry = await getTeamRegistry(team.squadraId, camp.id, anno);
         if (!registry?.info?.societyId) return null;
+
+        teamResolver.registerSocietyLogo(trimmed, registry.info.societyId, registry.info.logoUrl);
 
         return {
           found: true as const,
@@ -801,7 +907,7 @@ export const societyService = {
       }
     };
 
-    const batchSize = 4;
+    const batchSize = 6;
     for (let i = 0; i < targets.length; i += batchSize) {
       const results = await Promise.all(targets.slice(i, i + batchSize).map(tryChampionship));
       const hit = results.find((result) => result !== null);

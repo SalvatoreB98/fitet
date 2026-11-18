@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
-import { fetchAtleta, fetchAtletaCampionatoPartite, fetchHeadToHead } from '../services/api';
+import { fetchAtleta, fetchAtletaCampionatoPartite, fetchHeadToHead, type SocietaLookupContext } from '../services/api';
 import { RatingChart } from './RatingChart';
 import { HeadToHeadModal } from './HeadToHeadModal';
 import { HalfAtletaModal } from './HalfAtletaModal';
@@ -23,7 +23,7 @@ interface AtletaModalProps {
   onClose: () => void;
   onSelectAthlete?: (id: string, name: string) => void;
   onResolveAthlete?: (resolvedId: string, resolvedName: string) => void;
-  onOpenSociety?: (societyName: string) => void;
+  onOpenSociety?: (societyName: string, context?: SocietaLookupContext) => void;
   isTopModal?: boolean;
 }
 
@@ -916,7 +916,14 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     {atleta.anagrafica.societa && onOpenSociety ? (
                       <button
                         type="button"
-                        onClick={() => onOpenSociety(atleta.anagrafica.societa)}
+                        onClick={() =>
+                          onOpenSociety(atleta.anagrafica.societa, {
+                            atletaId: atleta.id || (/^\d+$/.test(atletaId) ? atletaId : null),
+                            camId: atleta.campionatoAttuale?.camId || (camId && /^\d+$/.test(camId) ? Number(camId) : null),
+                            regione: atleta.anagrafica.regione || null,
+                            logoUrl: atleta.anagrafica.logoUrl || null,
+                          })
+                        }
                         title={`Apri scheda società ${atleta.anagrafica.societa}`}
                         style={{
                           background: 'transparent',

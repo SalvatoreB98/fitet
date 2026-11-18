@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { DettaglioSquadra, AtletaSquadraDettaglio } from '../types/fitet';
-import { fetchSquadra } from '../services/api';
+import { fetchSquadra, type SocietaLookupContext } from '../services/api';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { TeamLogo } from './TeamLogo';
 import { AthleteAvatar } from './AthleteAvatar';
@@ -15,7 +15,7 @@ export interface SquadraModalProps {
   onClose: () => void;
   onOpenAtletaModal?: (id: string, name: string) => void;
   onFilterCalendario?: (teamName: string) => void;
-  onOpenSociety?: (societyName: string) => void;
+  onOpenSociety?: (societyName: string, context?: SocietaLookupContext) => void;
 }
 
 export const SquadraModal: React.FC<SquadraModalProps> = ({
@@ -113,7 +113,13 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
               <button
                 type="button"
                 className="btn-action squadra-header-filter-btn"
-                onClick={() => onOpenSociety(displayName)}
+                onClick={() =>
+                  onOpenSociety(displayName, {
+                    squadraId: data?.squadraId || (/^\d+$/.test(squadraId) ? squadraId : null),
+                    camId: camId || null,
+                    logoUrl: data?.logoUrl || null,
+                  })
+                }
                 title={`Apri scheda società ${displayName}`}
               >
                 <i className="bi bi-building me-1"></i>

@@ -7,6 +7,7 @@ import { FitetClient, withFitetCacheBypass } from './services/fitetClient';
 import { cacheService } from './services/cacheService';
 import { viewsService } from './services/viewsService';
 import { analyticsService, normalizeAnalyticsPagePath } from './services/analyticsService';
+import { parseUserAgent } from './services/userAgentParser';
 import { renderAnalyticsAdminHtml } from './routes/analyticsAdminHtml';
 import { athleteResolver } from './services/athleteResolver';
 import { teamResolver } from './services/teamResolver';
@@ -163,7 +164,7 @@ app.use((req, res, next) => {
 
 const ANALYTICS_STATIC_ASSET_REGEX = /\.(js|mjs|css|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|eot|otf|map|json|xml|txt|webmanifest|pdf|mp4|webm|mp3)$/i;
 
-const trackRequestDailyVisitor = (req: express.Request): Promise<void> => {
+const trackRequestDailyVisitor = (req: express.Request, mode?: 'PWA' | 'Browser'): Promise<void> => {
     const userAgent = (req.headers['user-agent'] as string) || '';
     const purpose = String(req.headers['purpose'] || req.headers['sec-purpose'] || '').toLowerCase();
     if (BOT_USER_AGENT_REGEX.test(userAgent) || purpose.includes('prefetch')) {
@@ -175,7 +176,30 @@ const trackRequestDailyVisitor = (req: express.Request): Promise<void> => {
         : '';
     const ip = forwarded || req.socket?.remoteAddress || '';
     const visitorHash = analyticsService.computeDailyVisitorHash(ip, userAgent);
-    return analyticsService.trackDailyVisitor(visitorHash);
+    const visitorTask = analyticsService.trackDailyVisitor(visitorHash);
+
+    // Le dimensioni (paese, dispositivo, OS, browser, PWA) vengono registrate solo
+    // quando il client le invia in modo esplicito (/api/visit): così il dato sulla
+    // modalità PWA è affidabile e il conteggio resta per visitatore unico giornaliero.
+    if (!mode) {
+        return visitorTask;
+    }
+
+    const parsedUa = parseUserAgent(userAgent);
+    const rawCountry = req.headers['x-vercel-ip-country'] || req.headers['cf-ipcountry'] || req.headers['x-geo-country'];
+    const countryCode = typeof rawCountry === 'string' ? rawCountry.trim().toUpperCase() : '';
+    const country = /^[A-Z]{2}$/.test(countryCode) ? countryCode : '';
+
+    return Promise.all([
+        visitorTask,
+        analyticsService.trackVisitorDimensions(visitorHash, {
+            country: country || null,
+            device: parsedUa.device,
+            os: parsedUa.os,
+            browser: parsedUa.browser,
+            mode,
+        }),
+    ]).then(() => undefined);
 };
 
 // Middleware analytics GDPR-compliant: nessun cookie, nessun IP salvato, ignora asset, /api e /admin
@@ -1376,6 +1400,12 @@ app.get('/api/atleta/:id', async (req, res) => {
                     cached.campionatiGiocati = corrected.playedCamps;
                     cacheService.set(cacheKey, cached, TTL_ATLETA);
                 }
+                if (cached.anagrafica?.societa && !cached.anagrafica.logoUrl) {
+                    const resolvedLogo = teamResolver.getLogo(cached.anagrafica.societa);
+                    if (resolvedLogo) {
+                        cached.anagrafica.logoUrl = resolvedLogo;
+                    }
+                }
                 return res.json(cached);
             }
         }
@@ -1431,6 +1461,13 @@ app.get('/api/atleta/:id', async (req, res) => {
         if (playedCamps.length > 0) {
             atleta.campionatoAttuale = playedCamps[0];
             atleta.campionatiGiocati = playedCamps;
+        }
+
+        if (atleta.anagrafica?.societa && !atleta.anagrafica.logoUrl) {
+            const resolvedLogo = teamResolver.getLogo(atleta.anagrafica.societa);
+            if (resolvedLogo) {
+                atleta.anagrafica.logoUrl = resolvedLogo;
+            }
         }
 
         const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith('Atleta ') || (atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0));
@@ -1734,17 +1771,26 @@ app.get('/api/societa/detect', async (req, res) => {
     }
 });
 
-// 10. La mia società — selezione manuale (Albo Federale o nome squadra)
+// 10. La mia società / Scheda società — risoluzione per nome, ID Albo o contesto (squadraId, camId, atletaId)
 app.get('/api/societa/lookup', async (req, res) => {
     const query = ((req.query.q as string) || (req.query.query as string) || '').trim();
     const anno = req.query.anno ? parseInt(req.query.anno as string, 10) : DEFAULT_ANNO_ID;
+    const camId = req.query.cam ? parseInt(req.query.cam as string, 10) : undefined;
+    const atletaId = ((req.query.atletaId as string) || '').trim() || undefined;
+    const squadraId = ((req.query.squadraId as string) || '').trim() || undefined;
+    const regione = ((req.query.regione as string) || '').trim() || undefined;
 
-    if (!query) {
+    if (!query && !atletaId && !squadraId) {
         return res.status(400).json({ found: false, error: 'Specifica un nome squadra o un ID Albo Federale' });
     }
 
     try {
-        const result = await societyService.lookupSociety(query, anno);
+        const result = await societyService.lookupSociety(query, anno, {
+            camId: Number.isFinite(camId) ? camId : undefined,
+            atletaId,
+            squadraId,
+            regione,
+        });
         res.json(result);
     } catch (error: any) {
         console.error(`Error looking up society "${query}":`, error);
@@ -2840,7 +2886,8 @@ app.post('/api/visit', express.text({ type: 'text/plain' }), async (req, res) =>
     const isBot = BOT_USER_AGENT_REGEX.test(userAgent) || purpose.includes('prefetch');
 
     const rawPath = typeof payload.path === 'string' ? payload.path.trim() : '';
-    const tasks: Promise<void>[] = [trackRequestDailyVisitor(req)];
+    const isPwa = payload.pwa === true || String(payload.mode || '').toLowerCase() === 'pwa';
+    const tasks: Promise<void>[] = [trackRequestDailyVisitor(req, isPwa ? 'PWA' : 'Browser')];
     if (!isBot && rawPath && !rawPath.startsWith('/admin') && !rawPath.startsWith('/api')) {
         tasks.push(analyticsService.incrementMetric('page', normalizeAnalyticsPagePath(rawPath)));
     }

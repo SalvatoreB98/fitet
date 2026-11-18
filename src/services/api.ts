@@ -442,11 +442,25 @@ async function societyLookupRequest(
   }
 }
 
+export interface SocietaLookupContext {
+  camId?: number | null;
+  atletaId?: string | null;
+  squadraId?: string | null;
+  regione?: string | null;
+  logoUrl?: string | null;
+  societyId?: string | null;
+}
+
 export async function lookupSocieta(
   query: string,
-  anno = 41
+  anno = 41,
+  context?: SocietaLookupContext | null
 ): Promise<SocietaTeamLookupResponse> {
   const params = new URLSearchParams({ q: query, anno: String(anno) });
+  if (context?.camId) params.set('cam', String(context.camId));
+  if (context?.atletaId) params.set('atletaId', String(context.atletaId));
+  if (context?.squadraId) params.set('squadraId', String(context.squadraId));
+  if (context?.regione) params.set('regione', String(context.regione));
   return societyLookupRequest(`${API_BASE}/societa/lookup?${params.toString()}`);
 }
 

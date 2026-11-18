@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 export type AnalyticsMetricType = 'page' | 'visitor' | 'click' | 'flow';
+export type AnalyticsDimensionType = 'country' | 'device' | 'os' | 'browser' | 'mode';
 
 export interface DailySeriesPoint {
   date: string;
@@ -16,6 +17,28 @@ export interface DailySeriesPoint {
 export interface TargetCountItem {
   target: string;
   count: number;
+}
+
+/**
+ * Dimensioni aggregate di un visitatore, calcolate lato server.
+ * `mode` distingue l'uso come PWA installata dall'uso nel browser.
+ */
+export interface VisitorDimensions {
+  country?: string | null;
+  device?: string | null;
+  os?: string | null;
+  browser?: string | null;
+  mode?: 'PWA' | 'Browser' | string | null;
+}
+
+export interface AnalyticsDimensions {
+  countries: TargetCountItem[];
+  devices: TargetCountItem[];
+  operatingSystems: TargetCountItem[];
+  browsers: TargetCountItem[];
+  modes: TargetCountItem[];
+  /** Visitatori del periodo per cui è disponibile almeno una dimensione (denominatore delle percentuali). */
+  trackedVisitors: number;
 }
 
 export interface ClickFlowEdge {
@@ -56,6 +79,7 @@ export interface AnalyticsSummary {
   dailySeries: DailySeriesPoint[];
   topPages: TargetCountItem[];
   topClicks: TargetCountItem[];
+  dimensions: AnalyticsDimensions;
   clickFlows: ClickFlowEdge[];
   flowGraph: {
     nodes: ClickFlowNode[];
@@ -275,6 +299,68 @@ class AnalyticsService {
   }
 
   /**
+   * Registra le dimensioni del visitatore (paese, dispositivo, OS, browser, modalità PWA)
+   * tramite RPC Postgres `track_visitor_dimensions`.
+   *
+   * La RPC conta le dimensioni una sola volta per visitatore/giorno, così i totali
+   * restano coerenti con il KPI dei visitatori unici. Se la migrazione SQL non è
+   * ancora stata applicata la chiamata fallisce in modo silenzioso (best effort).
+   */
+  async trackVisitorDimensions(visitorHash: string, dimensions: VisitorDimensions): Promise<void> {
+    const cleanHash = sanitizeMetricValue(visitorHash, 64);
+    if (!cleanHash) return;
+
+    const clean = {
+      country: sanitizeMetricValue(dimensions.country ?? '', 32),
+      device: sanitizeMetricValue(dimensions.device ?? '', 32),
+      os: sanitizeMetricValue(dimensions.os ?? '', 32),
+      browser: sanitizeMetricValue(dimensions.browser ?? '', 32),
+      mode: sanitizeMetricValue(dimensions.mode ?? '', 32),
+    };
+
+    if (!clean.country && !clean.device && !clean.os && !clean.browser && !clean.mode) {
+      return;
+    }
+
+    if (!this.supabase) {
+      if (clean.country) this.incrementMemoryFallback('country', clean.country);
+      if (clean.device) this.incrementMemoryFallback('device', clean.device);
+      if (clean.os) this.incrementMemoryFallback('os', clean.os);
+      if (clean.browser) this.incrementMemoryFallback('browser', clean.browser);
+      if (clean.mode) this.incrementMemoryFallback('mode', clean.mode);
+      return;
+    }
+
+    try {
+      const { error } = await this.supabase.rpc('track_visitor_dimensions', {
+        p_visitor_hash: cleanHash,
+        p_country: clean.country || null,
+        p_device: clean.device || null,
+        p_os: clean.os || null,
+        p_browser: clean.browser || null,
+        p_mode: clean.mode || null,
+      });
+
+      if (error) {
+        // PGRST202 / 42883 = funzione inesistente: migrazione supabase/analytics_dimensions.sql non applicata
+        if (
+          error.code === '42883' ||
+          error.code === 'PGRST202' ||
+          /does not exist|schema cache|find the function/i.test(error.message)
+        ) {
+          console.warn(
+            '[AnalyticsService] RPC track_visitor_dimensions non disponibile: esegui supabase/analytics_dimensions.sql per abilitare paese/dispositivo/OS/browser/PWA.'
+          );
+        } else {
+          console.warn('[AnalyticsService] Errore RPC track_visitor_dimensions:', error.message);
+        }
+      }
+    } catch (err: any) {
+      console.warn('[AnalyticsService] Eccezione RPC track_visitor_dimensions:', err?.message || err);
+    }
+  }
+
+  /**
    * Registra un click (o azione UI) e, se presente lo step di provenienza `from`,
    * incrementa anche il relativo arco di flusso `from -> target`.
    */
@@ -298,6 +384,46 @@ class AnalyticsService {
   }
 
   /**
+   * Legge tutte le righe dell'intervallo paginando le risposte di Supabase.
+   * Senza paginazione PostgREST restituisce al massimo 1000 righe per richiesta,
+   * troncando i giorni più recenti dell'intervallo.
+   */
+  private async fetchAllDailyRows(
+    startDate: string,
+    endDate: string
+  ): Promise<DailyAnalyticsRow[]> {
+    if (!this.supabase) return [];
+
+    const pageSize = 1000;
+    const maxPages = 200;
+    const allRows: DailyAnalyticsRow[] = [];
+
+    for (let page = 0; page < maxPages; page += 1) {
+      const from = page * pageSize;
+      const { data, error } = await this.supabase
+        .from('daily_analytics')
+        .select('date, type, target, count')
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: true })
+        .order('type', { ascending: true })
+        .order('target', { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (error) {
+        throw new Error(`Lettura daily_analytics fallita: ${error.message}`);
+      }
+
+      const batch = (data || []) as DailyAnalyticsRow[];
+      allRows.push(...batch);
+
+      if (batch.length < pageSize) break;
+    }
+
+    return allRows;
+  }
+
+  /**
    * Restituisce i dati aggregati degli ultimi N giorni (default 30, supporta 7 o 30)
    * inclusi grafici giornalieri, top pagine, top click e flusso di navigazione utenti.
    */
@@ -311,17 +437,11 @@ class AnalyticsService {
     let rows: DailyAnalyticsRow[] = [];
 
     if (this.supabase) {
-      const { data, error } = await this.supabase
-        .from('daily_analytics')
-        .select('date, type, target, count')
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date', { ascending: true });
-
-      if (error) {
-        throw new Error(`Lettura daily_analytics fallita: ${error.message}`);
-      }
-      rows = (data || []) as DailyAnalyticsRow[];
+      // Supabase/PostgREST tronca ogni risposta a `db-max-rows` (default 1000).
+      // Con una singola select senza range i giorni più recenti (in coda all'ordinamento)
+      // sparivano silenziosamente: la dashboard mostrava 0 click sull'ultimo giorno.
+      // Paginiamo quindi l'intero intervallo con un ordinamento stabile (PK date+type+target).
+      rows = await this.fetchAllDailyRows(startDate, endDate);
     } else {
       rows = Array.from(this.memoryFallback.values()).filter(
         (r) => r.date >= startDate && r.date <= endDate
@@ -337,6 +457,11 @@ class AnalyticsService {
     const pageCounts = new Map<string, number>();
     const clickCounts = new Map<string, number>();
     const flowCounts = new Map<string, number>();
+    const countryCounts = new Map<string, number>();
+    const deviceCounts = new Map<string, number>();
+    const osCounts = new Map<string, number>();
+    const browserCounts = new Map<string, number>();
+    const modeCounts = new Map<string, number>();
 
     let totalPages = 0;
     let totalVisitors = 0;
@@ -362,6 +487,16 @@ class AnalyticsService {
       } else if (row.type === 'flow') {
         totalFlows += count;
         flowCounts.set(row.target, (flowCounts.get(row.target) || 0) + count);
+      } else if (row.type === 'country') {
+        countryCounts.set(row.target, (countryCounts.get(row.target) || 0) + count);
+      } else if (row.type === 'device') {
+        deviceCounts.set(row.target, (deviceCounts.get(row.target) || 0) + count);
+      } else if (row.type === 'os') {
+        osCounts.set(row.target, (osCounts.get(row.target) || 0) + count);
+      } else if (row.type === 'browser') {
+        browserCounts.set(row.target, (browserCounts.get(row.target) || 0) + count);
+      } else if (row.type === 'mode') {
+        modeCounts.set(row.target, (modeCounts.get(row.target) || 0) + count);
       }
     }
 
@@ -408,6 +543,26 @@ class AnalyticsService {
 
     const topPages = toSortedTop(pageCounts, 15);
     const topClicks = toSortedTop(clickCounts, 15);
+
+    // Dimensioni visitatori: oltre le 15 voci sommo il resto in "Altro" per non perdere il totale
+    const toDimensionItems = (map: Map<string, number>, limit = 15): TargetCountItem[] => {
+      const sorted = Array.from(map.entries())
+        .map(([target, count]) => ({ target, count }))
+        .sort((a, b) => b.count - a.count);
+      if (sorted.length <= limit) return sorted;
+      const head = sorted.slice(0, limit - 1);
+      const rest = sorted.slice(limit - 1).reduce((sum, item) => sum + item.count, 0);
+      return [...head, { target: 'Altro', count: rest }];
+    };
+
+    const dimensions: AnalyticsDimensions = {
+      countries: toDimensionItems(countryCounts, 20),
+      devices: toDimensionItems(deviceCounts),
+      operatingSystems: toDimensionItems(osCounts),
+      browsers: toDimensionItems(browserCounts),
+      modes: toDimensionItems(modeCounts),
+      trackedVisitors: Array.from(modeCounts.values()).reduce((sum, value) => sum + value, 0),
+    };
 
     // Elaborazione flussi "from -> to"
     const rawFlowPairs: Array<{ from: string; to: string; label: string; count: number }> = [];
@@ -472,6 +627,7 @@ class AnalyticsService {
       dailySeries,
       topPages,
       topClicks,
+      dimensions,
       clickFlows,
       flowGraph: {
         nodes,

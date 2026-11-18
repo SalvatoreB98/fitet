@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
 import { DashboardData, ChampionshipItem, SocietaInfo } from './types/fitet';
-import { fetchDashboard, fetchCampionati, detectMySociety } from './services/api';
+import { fetchDashboard, fetchCampionati, detectMySociety, type SocietaLookupContext } from './services/api';
 import { Header, MainViewType, ChampionshipTabType, TorneiPortalView } from './components/Header';
 import { useSlideDirection } from './utils/useSlideDirection';
 import { ClassificaTab } from './components/ClassificaTab';
@@ -25,7 +25,7 @@ import { FavoritesModal } from './components/FavoritesModal';
 import { InstallAppModal } from './components/InstallAppModal';
 import { PingPongLoader } from './components/PingPongLoader';
 import { CoffeeNudge } from './components/CoffeeNudge';
-import { registerTeamLogos } from './utils/teamLogos';
+import { registerTeamLogos, resolveCachedSocietyId } from './utils/teamLogos';
 import { addRecentAthlete, addRecentChampionship } from './utils/history';
 import { initAnalyticsStep, trackClick, trackDailyVisit } from './utils/analyticsTracker';
 import { VenueConnectionBanner } from './components/VenueConnectionBanner';
@@ -360,6 +360,7 @@ export const App: React.FC = () => {
     societyId: string | null;
     query?: string | null;
     info?: SocietaInfo | null;
+    context?: SocietaLookupContext | null;
     isOwnSociety: boolean;
   } | null>(null);
   const [returnToSociety, setReturnToSociety] = useState<{ id: string; name: string } | null>(null);
@@ -641,32 +642,40 @@ export const App: React.FC = () => {
     setIsSocietyModalOpen(true);
   };
 
-  const handleOpenSocietyByName = (societyName?: string) => {
+  const handleOpenSocietyByName = (societyName?: string, context?: SocietaLookupContext) => {
     const clean = (societyName || '').trim();
-    if (!clean) {
-      handleOpenMySociety();
-      return;
-    }
-    const isOwn =
-      Boolean(mySocietyId && mySocietyInfo?.nome) &&
-      mySocietyInfo!.nome.trim().toLowerCase() === clean.toLowerCase();
-
-    if (isOwn) {
+    if (!clean && !context?.societyId && !context?.squadraId && !context?.atletaId) {
       handleOpenMySociety();
       return;
     }
 
-    trackClick(`Società: ${clean}`);
+    const resolvedSocietyId =
+      context?.societyId ||
+      resolveCachedSocietyId(clean, context?.logoUrl) ||
+      (mySocietyId &&
+      mySocietyInfo?.nome &&
+      clean &&
+      mySocietyInfo.nome.trim().toLowerCase() === clean.toLowerCase()
+        ? mySocietyId
+        : null);
+
+    const matchedOwnInfo =
+      resolvedSocietyId && mySocietyId && String(resolvedSocietyId) === String(mySocietyId)
+        ? mySocietyInfo
+        : null;
+
+    trackClick(`Società: ${clean || resolvedSocietyId || 'Scheda'}`);
     setReturnToSociety(null);
     setSelectedSquadra(null);
     setAthleteStack([]);
     setSocietyModalTarget({
-      societyId: null,
-      query: clean,
-      info: null,
+      societyId: resolvedSocietyId,
+      query: clean || null,
+      info: matchedOwnInfo,
+      context: context || null,
       isOwnSociety: false,
     });
-    pushSocietyHistoryState({ societyQuery: clean });
+    pushSocietyHistoryState({ societyQuery: clean, societyId: resolvedSocietyId || '' });
     setIsSocietyModalOpen(true);
   };
 
@@ -795,12 +804,21 @@ export const App: React.FC = () => {
     selectChampionshipInternal(newCam, newAnno, null);
   };
 
-  const handleSelectChampionshipFromSociety = (newCam: number, newAnno = 41) => {
-    const societySnap = {
-      id: mySocietyId || '',
-      name: mySocietyInfo?.nome || 'Società',
+  const handleSelectChampionshipFromSociety = (
+    newCam: number,
+    newAnno = 41,
+    societySnap?: { id: string; name: string }
+  ) => {
+    const fallbackSnap = {
+      id: societySnap?.id || societyModalTarget?.societyId || mySocietyId || '',
+      name:
+        societySnap?.name ||
+        societyModalTarget?.info?.nome ||
+        societyModalTarget?.query ||
+        mySocietyInfo?.nome ||
+        'Società',
     };
-    selectChampionshipInternal(newCam, newAnno, societySnap);
+    selectChampionshipInternal(newCam, newAnno, fallbackSnap);
   };
 
   const scrollToNav = () => {
@@ -1522,6 +1540,14 @@ export const App: React.FC = () => {
           societyId={societyModalTarget ? societyModalTarget.societyId : mySocietyId}
           initialLookupQuery={societyModalTarget?.query || null}
           initialInfo={societyModalTarget ? societyModalTarget.info : mySocietyInfo}
+          lookupContext={
+            societyModalTarget
+              ? societyModalTarget.context || null
+              : !mySocietyId && hasMyPlayer
+                ? { atletaId: getMyPlayerId() }
+                : null
+          }
+          isOwnSociety={societyModalTarget ? societyModalTarget.isOwnSociety : true}
           annoId={SOCIETY_ANNO}
           onClose={handleCloseMySociety}
           onSocietySelected={

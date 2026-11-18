@@ -13,8 +13,10 @@ import {
   fetchSocietaStagione,
   lookupSocieta,
   resolveSocietaHistoricalAthlete,
+  type SocietaLookupContext,
 } from '../services/api';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { resolveCachedSocietyId } from '../utils/teamLogos';
 import { TeamLogo } from './TeamLogo';
 import { AthleteAvatar } from './AthleteAvatar';
 import './SocietaModal.css';
@@ -23,12 +25,14 @@ export interface SocietaModalProps {
   societyId: string | null;
   initialLookupQuery?: string | null;
   initialInfo?: SocietaInfo | null;
+  lookupContext?: SocietaLookupContext | null;
+  isOwnSociety?: boolean;
   annoId: number;
   zIndex?: number;
   onClose: () => void;
   onSocietySelected: (societyId: string, info?: SocietaInfo) => void;
   onOpenAtletaModal?: (id: string, name: string) => void;
-  onSelectChampionship?: (camId: number, anno: number) => void;
+  onSelectChampionship?: (camId: number, anno: number, societySnap?: { id: string; name: string }) => void;
 }
 
 const PORTAL_BASE = 'https://portale.fitet.org';
@@ -222,6 +226,8 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
   societyId,
   initialLookupQuery,
   initialInfo,
+  lookupContext = null,
+  isOwnSociety = true,
   annoId,
   zIndex,
   onClose,
@@ -231,16 +237,33 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
 }) => {
   useBodyScrollLock(true);
 
-  const [activeSocietyId, setActiveSocietyId] = useState<string | null>(societyId);
+  const initialResolvedId = useMemo(
+    () =>
+      societyId ||
+      lookupContext?.societyId ||
+      resolveCachedSocietyId(initialLookupQuery, lookupContext?.logoUrl || initialInfo?.logoUrl) ||
+      null,
+    [societyId, lookupContext?.societyId, lookupContext?.logoUrl, initialLookupQuery, initialInfo?.logoUrl]
+  );
+
+  const hasLookupTarget = Boolean(
+    initialResolvedId ||
+      (initialLookupQuery && initialLookupQuery.trim()) ||
+      lookupContext?.squadraId ||
+      lookupContext?.atletaId
+  );
+
+  const [activeSocietyId, setActiveSocietyId] = useState<string | null>(initialResolvedId);
   const [data, setData] = useState<SocietaDettaglio | null>(null);
-  const [loading, setLoading] = useState(Boolean(societyId || initialLookupQuery));
+  const [loading, setLoading] = useState(hasLookupTarget);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [manualQuery, setManualQuery] = useState('');
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
-  const [showManual, setShowManual] = useState(!societyId && !initialLookupQuery);
+  const [showManual, setShowManual] = useState(isOwnSociety && !hasLookupTarget);
+  const [lookupRetryTick, setLookupRetryTick] = useState(0);
 
   const [openSeasons, setOpenSeasons] = useState<number[]>([]);
   const [seasonData, setSeasonData] = useState<Record<number, SocietaStagione>>({});
@@ -252,18 +275,19 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
   const [historicalError, setHistoricalError] = useState<string | null>(null);
 
   useEffect(() => {
-    setActiveSocietyId(societyId);
-    if (!societyId && !initialLookupQuery) {
-      setShowManual(true);
-    } else if (societyId) {
+    setActiveSocietyId(initialResolvedId);
+    if (initialResolvedId || hasLookupTarget) {
       setShowManual(false);
+    } else if (isOwnSociety) {
+      setShowManual(true);
     }
-  }, [societyId, initialLookupQuery]);
+  }, [initialResolvedId, hasLookupTarget, isOwnSociety]);
 
-  // Risoluzione automatica quando la modale viene aperta per nome società (es. da AtletaModal o MyProfileHero)
+  // Risoluzione automatica quando la modale viene aperta per nome società o contesto (es. da AtletaModal o SquadraModal)
   useEffect(() => {
     const q = (initialLookupQuery || '').trim();
-    if (societyId || !q) return;
+    const hasContext = Boolean(lookupContext?.squadraId || lookupContext?.atletaId);
+    if (initialResolvedId || (!q && !hasContext)) return;
 
     let cancelled = false;
     setLoading(true);
@@ -271,14 +295,16 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
     setShowManual(false);
     setData(null);
 
-    lookupSocieta(q, annoId)
+    lookupSocieta(q, annoId, lookupContext)
       .then((result) => {
         if (cancelled) return;
         if (!result.found || !result.societyId) {
           setLoading(false);
-          setManualQuery(q);
-          setShowManual(true);
-          setManualError(`Società "${q}" non trovata nell'Albo Federale.`);
+          setError(
+            q
+              ? `Non è stato possibile trovare la scheda societaria per "${q}" nell'Albo Federale.`
+              : "Società non trovata nell'Albo Federale."
+          );
           return;
         }
         setActiveSocietyId(result.societyId);
@@ -292,13 +318,19 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [societyId, initialLookupQuery, annoId]);
+  }, [initialResolvedId, initialLookupQuery, lookupContext, annoId, lookupRetryTick]);
 
   const loadSociety = (force = false) => {
-    if (!activeSocietyId) return;
+    if (!activeSocietyId) {
+      if ((initialLookupQuery && initialLookupQuery.trim()) || lookupContext?.squadraId || lookupContext?.atletaId) {
+        setLookupRetryTick((prev) => prev + 1);
+      }
+      return;
+    }
     if (force) setRefreshing(true);
     else setLoading(true);
     setError(null);
+    setShowManual(false);
 
     fetchSocieta(activeSocietyId, annoId, force)
       .then((result) => {
@@ -317,7 +349,7 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
   useEffect(() => {
     if (!activeSocietyId) {
       setData(null);
-      if (!initialLookupQuery) {
+      if (!hasLookupTarget) {
         setLoading(false);
       }
       return;
@@ -454,7 +486,10 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
 
   const handleOpenChampionship = (camId: number, anno: number) => {
     if (!onSelectChampionship) return;
-    onSelectChampionship(camId, anno);
+    onSelectChampionship(camId, anno, {
+      id: activeSocietyId || info?.societyId || '',
+      name: info?.nome || initialLookupQuery || 'Società',
+    });
     onClose();
   };
 
@@ -465,6 +500,13 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
     ...(data?.titoliRegionali || []).map((title) => ({ ...title, scope: 'Regionale' })),
   ];
 
+  const headerTitle =
+    info?.nome ||
+    (initialLookupQuery && initialLookupQuery.trim()) ||
+    (isOwnSociety ? 'La mia società' : 'Scheda società');
+
+  const headerLogoUrl = info?.logoUrl || lookupContext?.logoUrl || undefined;
+
   return createPortal(
     <div
       className="modal-backdrop-simple modal-societa-backdrop"
@@ -472,7 +514,7 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="La mia società"
+      aria-label={isOwnSociety ? 'La mia società' : `Scheda società ${headerTitle}`}
     >
       <div
         className="modal-card-simple societa-modal-card"
@@ -481,20 +523,26 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
         <div className="modal-header-simple societa-modal-header">
           <div className="societa-header-main">
             <TeamLogo
-              teamName={info?.nome || 'Società'}
-              logoUrl={info?.logoUrl}
+              teamName={headerTitle}
+              logoUrl={headerLogoUrl}
               size={54}
               className="societa-header-logo"
             />
             <div className="societa-header-text">
-              <div className="societa-header-title-row">
-                <h3 title={info?.nome}>{info?.nome || 'La mia società'}</h3>
+              <div className="societa-header-kicker-row">
+                <span className={`societa-mode-pill ${isOwnSociety ? 'is-own' : 'is-view'}`}>
+                  <i className={`bi ${isOwnSociety ? 'bi-shield-check' : 'bi-building'}`}></i>
+                  <span>{isOwnSociety ? 'La mia società' : 'Scheda società'}</span>
+                </span>
                 {info?.alboFederale && (
                   <span className="societa-badge">Albo {info.alboFederale}</span>
                 )}
               </div>
+              <div className="societa-header-title-row">
+                <h3 title={headerTitle}>{headerTitle}</h3>
+              </div>
               <div className="societa-header-meta">
-                {info ? (
+                {info && (info.citta || info.provincia || info.primaAffiliazione) ? (
                   <>
                     {[info.citta, info.provincia].filter(Boolean).join(' (') && (
                       <span>
@@ -509,15 +557,19 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
                       </span>
                     )}
                   </>
-                ) : (
+                ) : loading || refreshing ? (
+                  <span>Caricamento dati dall’Albo Federale FITeT…</span>
+                ) : isOwnSociety && !activeSocietyId ? (
                   <span>Seleziona la tua società per iniziare</span>
+                ) : (
+                  <span>Archivio e campionati federali FITeT</span>
                 )}
               </div>
             </div>
           </div>
 
           <div className="societa-header-actions">
-            {activeSocietyId && (
+            {isOwnSociety && activeSocietyId && !loading && (
               <button
                 type="button"
                 className="societa-header-btn"
@@ -526,10 +578,22 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
                   setManualQuery('');
                   setManualError(null);
                 }}
-                title="Cambia società"
+                title={showManual ? 'Chiudi ricerca società' : 'Cambia la tua società'}
               >
-                <i className="bi bi-arrow-repeat"></i>
-                <span>Cambia</span>
+                <i className={`bi ${showManual ? 'bi-x-lg' : 'bi-arrow-repeat'}`}></i>
+                <span>{showManual ? 'Annulla' : 'Cambia'}</span>
+              </button>
+            )}
+            {!isOwnSociety && activeSocietyId && !loading && (
+              <button
+                type="button"
+                className="societa-header-btn"
+                onClick={() => loadSociety(true)}
+                disabled={refreshing}
+                title="Aggiorna scheda società"
+              >
+                <i className={`bi bi-arrow-clockwise ${refreshing ? 'spin' : ''}`}></i>
+                <span className="d-none d-sm-inline">Aggiorna</span>
               </button>
             )}
             <button
@@ -544,19 +608,32 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
         </div>
 
         <div className="societa-modal-body">
-          {showManual && (
+          {showManual && !loading && (
             <section className="societa-manual-panel">
               <div className="societa-manual-icon">
                 <i className="bi bi-buildings"></i>
               </div>
               <div className="societa-manual-content">
                 <h4>
-                  {activeSocietyId ? 'Cambia società' : 'Qual è la tua società?'}
+                  {isOwnSociety
+                    ? activeSocietyId
+                      ? 'Cambia la tua società'
+                      : 'Qual è la tua società?'
+                    : "Cerca società nell'Albo Federale"}
                 </h4>
                 <p>
-                  Inserisci il nome di una squadra (es. <strong>TT Petrolo Cosenza</strong>) oppure
-                  l’ID Albo Federale (es. <strong>2904</strong>). La scelta verrà salvata su questo
-                  dispositivo.
+                  {isOwnSociety ? (
+                    <>
+                      Inserisci il nome della società o squadra (es.{' '}
+                      <strong>TT Petrolo Cosenza</strong>) oppure l’ID Albo Federale (es.{' '}
+                      <strong>2904</strong>). La scelta verrà salvata su questo dispositivo.
+                    </>
+                  ) : (
+                    <>
+                      Inserisci il nome completo o parziale della società oppure l’ID Albo Federale
+                      per aprire la scheda.
+                    </>
+                  )}
                 </p>
                 <form onSubmit={handleManualLookup} className="societa-manual-form">
                   <input
@@ -566,8 +643,8 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
                       setManualQuery(event.target.value);
                       setManualError(null);
                     }}
-                    placeholder="Nome squadra o ID Albo Federale"
-                    aria-label="Nome squadra o ID Albo Federale"
+                    placeholder="Nome società, squadra o ID Albo Federale"
+                    aria-label="Nome società, squadra o ID Albo Federale"
                     autoFocus
                   />
                   <button type="submit" className="societa-primary-btn" disabled={manualLoading}>
@@ -591,7 +668,7 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
             </section>
           )}
 
-          {!activeSocietyId && !showManual && (
+          {!activeSocietyId && !showManual && !loading && !error && (
             <div className="societa-empty-state">
               <i className="bi bi-buildings"></i>
               <span>Nessuna società selezionata.</span>
@@ -604,7 +681,11 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
           {loading && !data && (
             <div className="societa-loading">
               <span className="societa-spinner societa-spinner-lg"></span>
-              <span>Caricamento della società…</span>
+              <span>
+                {initialLookupQuery && !activeSocietyId
+                  ? `Ricerca di ${initialLookupQuery} nell'Albo Federale…`
+                  : `Caricamento scheda di ${headerTitle}…`}
+              </span>
             </div>
           )}
 
@@ -615,9 +696,24 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
                 <strong>Impossibile caricare la società</strong>
                 <p>{error}</p>
               </div>
-              <button type="button" className="societa-secondary-btn" onClick={() => loadSociety(true)}>
-                Riprova
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <button type="button" className="societa-secondary-btn" onClick={() => loadSociety(true)}>
+                  Riprova
+                </button>
+                {!showManual && (
+                  <button
+                    type="button"
+                    className="societa-secondary-btn"
+                    onClick={() => {
+                      setManualQuery(initialLookupQuery || '');
+                      setManualError(null);
+                      setShowManual(true);
+                    }}
+                  >
+                    Cerca manualmente
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

@@ -401,6 +401,45 @@ export function renderAnalyticsAdminHtml(): string {
       color: var(--muted);
       font-size: 0.84rem;
     }
+    .dim-section {
+      margin-top: 22px;
+    }
+    .section-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .section-heading h2 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .section-hint {
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+    .dim-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .dim-grid .list-rows {
+      max-height: 300px;
+    }
+    @media (max-width: 1000px) {
+      .dim-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 640px) {
+      .dim-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -490,6 +529,74 @@ export function renderAnalyticsAdminHtml(): string {
         </div>
         <div class="list-rows" id="rightList">
           <div class="empty-state">Caricamento...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dim-section">
+      <div class="section-heading">
+        <h2>Utenti</h2>
+        <span class="section-hint" id="dimHint"></span>
+      </div>
+      <div class="dim-grid">
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Paese</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="countriesList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Dispositivo</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="devicesList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Sistema operativo</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="osList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Browser</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="browsersList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Modalità</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="modesList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
         </div>
       </div>
     </div>
@@ -695,6 +802,51 @@ export function renderAnalyticsAdminHtml(): string {
       }).join('');
     }
 
+    function countryLabel(code) {
+      const cc = String(code || '').toUpperCase();
+      if (!/^[A-Z]{2}$/.test(cc)) return code || 'Sconosciuto';
+      let flag = '';
+      try {
+        flag = String.fromCodePoint.apply(null, cc.split('').map(function (c) { return 127397 + c.charCodeAt(0); }));
+      } catch (_) {
+        flag = '';
+      }
+      let name = cc;
+      try {
+        name = new Intl.DisplayNames(['it'], { type: 'region' }).of(cc) || cc;
+      } catch (_) {}
+      return (flag ? flag + ' ' : '') + name;
+    }
+
+    function renderDimensions(data) {
+      const dims = data.dimensions || {};
+      const toItems = function (list, labelFn) {
+        return (list || []).map(function (item) {
+          return { label: labelFn ? labelFn(item.target) : item.target, count: item.count };
+        });
+      };
+
+      renderBarList('countriesList', toItems(dims.countries, countryLabel), 'Nessun dato geografico nel periodo.');
+      renderBarList('devicesList', toItems(dims.devices), 'Nessun dato sui dispositivi nel periodo.');
+      renderBarList('osList', toItems(dims.operatingSystems), 'Nessun dato sui sistemi operativi nel periodo.');
+      renderBarList('browsersList', toItems(dims.browsers), 'Nessun dato sui browser nel periodo.');
+      renderBarList('modesList', toItems(dims.modes), 'Nessun dato sulla modalità di utilizzo nel periodo.');
+
+      const hint = document.getElementById('dimHint');
+      const tracked = Number(dims.trackedVisitors || 0);
+      if (tracked <= 0) {
+        hint.textContent = 'Nessun visitatore profilato: applica supabase/analytics_dimensions.sql su Supabase per attivare queste metriche.';
+        return;
+      }
+      const totalVisitors = Number((data.totals && data.totals.visitors) || 0);
+      const pct = totalVisitors > 0 ? Math.min(100, Math.round((tracked / totalVisitors) * 100)) : 100;
+      let text = 'Base: ' + tracked.toLocaleString('it-IT') + ' visitatori profilati (' + pct + '% dei visitatori unici)';
+      if (!(dims.countries || []).length) {
+        text += ' • paese non disponibile (header di geolocalizzazione assente, es. in locale)';
+      }
+      hint.textContent = text;
+    }
+
     function renderRightPanel() {
       if (!lastData) return;
       document.getElementById('tabRightClicks').classList.toggle('active', activeRightTab === 'clicks');
@@ -732,6 +884,7 @@ export function renderAnalyticsAdminHtml(): string {
       const pageItems = (data.topPages || []).map((p) => ({ label: p.target, count: p.count }));
       renderBarList('pagesList', pageItems, 'Nessuna pagina registrata nel periodo.');
       renderRightPanel();
+      renderDimensions(data);
     }
 
     async function loadAnalytics(days) {

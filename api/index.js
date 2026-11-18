@@ -811,6 +811,57 @@ var AnalyticsService = class {
     }
   }
   /**
+   * Registra le dimensioni del visitatore (paese, dispositivo, OS, browser, modalità PWA)
+   * tramite RPC Postgres `track_visitor_dimensions`.
+   *
+   * La RPC conta le dimensioni una sola volta per visitatore/giorno, così i totali
+   * restano coerenti con il KPI dei visitatori unici. Se la migrazione SQL non è
+   * ancora stata applicata la chiamata fallisce in modo silenzioso (best effort).
+   */
+  async trackVisitorDimensions(visitorHash, dimensions) {
+    const cleanHash = sanitizeMetricValue(visitorHash, 64);
+    if (!cleanHash) return;
+    const clean = {
+      country: sanitizeMetricValue(dimensions.country ?? "", 32),
+      device: sanitizeMetricValue(dimensions.device ?? "", 32),
+      os: sanitizeMetricValue(dimensions.os ?? "", 32),
+      browser: sanitizeMetricValue(dimensions.browser ?? "", 32),
+      mode: sanitizeMetricValue(dimensions.mode ?? "", 32)
+    };
+    if (!clean.country && !clean.device && !clean.os && !clean.browser && !clean.mode) {
+      return;
+    }
+    if (!this.supabase) {
+      if (clean.country) this.incrementMemoryFallback("country", clean.country);
+      if (clean.device) this.incrementMemoryFallback("device", clean.device);
+      if (clean.os) this.incrementMemoryFallback("os", clean.os);
+      if (clean.browser) this.incrementMemoryFallback("browser", clean.browser);
+      if (clean.mode) this.incrementMemoryFallback("mode", clean.mode);
+      return;
+    }
+    try {
+      const { error } = await this.supabase.rpc("track_visitor_dimensions", {
+        p_visitor_hash: cleanHash,
+        p_country: clean.country || null,
+        p_device: clean.device || null,
+        p_os: clean.os || null,
+        p_browser: clean.browser || null,
+        p_mode: clean.mode || null
+      });
+      if (error) {
+        if (error.code === "42883" || error.code === "PGRST202" || /does not exist|schema cache|find the function/i.test(error.message)) {
+          console.warn(
+            "[AnalyticsService] RPC track_visitor_dimensions non disponibile: esegui supabase/analytics_dimensions.sql per abilitare paese/dispositivo/OS/browser/PWA."
+          );
+        } else {
+          console.warn("[AnalyticsService] Errore RPC track_visitor_dimensions:", error.message);
+        }
+      }
+    } catch (err) {
+      console.warn("[AnalyticsService] Eccezione RPC track_visitor_dimensions:", err?.message || err);
+    }
+  }
+  /**
    * Registra un click (o azione UI) e, se presente lo step di provenienza `from`,
    * incrementa anche il relativo arco di flusso `from -> target`.
    */
@@ -826,6 +877,28 @@ var AnalyticsService = class {
     await Promise.all(tasks);
   }
   /**
+   * Legge tutte le righe dell'intervallo paginando le risposte di Supabase.
+   * Senza paginazione PostgREST restituisce al massimo 1000 righe per richiesta,
+   * troncando i giorni più recenti dell'intervallo.
+   */
+  async fetchAllDailyRows(startDate, endDate) {
+    if (!this.supabase) return [];
+    const pageSize = 1e3;
+    const maxPages = 200;
+    const allRows = [];
+    for (let page = 0; page < maxPages; page += 1) {
+      const from = page * pageSize;
+      const { data, error } = await this.supabase.from("daily_analytics").select("date, type, target, count").gte("date", startDate).lte("date", endDate).order("date", { ascending: true }).order("type", { ascending: true }).order("target", { ascending: true }).range(from, from + pageSize - 1);
+      if (error) {
+        throw new Error(`Lettura daily_analytics fallita: ${error.message}`);
+      }
+      const batch = data || [];
+      allRows.push(...batch);
+      if (batch.length < pageSize) break;
+    }
+    return allRows;
+  }
+  /**
    * Restituisce i dati aggregati degli ultimi N giorni (default 30, supporta 7 o 30)
    * inclusi grafici giornalieri, top pagine, top click e flusso di navigazione utenti.
    */
@@ -837,11 +910,7 @@ var AnalyticsService = class {
     const startDate = clampedStartDate > endDate ? endDate : clampedStartDate;
     let rows = [];
     if (this.supabase) {
-      const { data, error } = await this.supabase.from("daily_analytics").select("date, type, target, count").gte("date", startDate).lte("date", endDate).order("date", { ascending: true });
-      if (error) {
-        throw new Error(`Lettura daily_analytics fallita: ${error.message}`);
-      }
-      rows = data || [];
+      rows = await this.fetchAllDailyRows(startDate, endDate);
     } else {
       rows = Array.from(this.memoryFallback.values()).filter(
         (r) => r.date >= startDate && r.date <= endDate
@@ -854,6 +923,11 @@ var AnalyticsService = class {
     const pageCounts = /* @__PURE__ */ new Map();
     const clickCounts = /* @__PURE__ */ new Map();
     const flowCounts = /* @__PURE__ */ new Map();
+    const countryCounts = /* @__PURE__ */ new Map();
+    const deviceCounts = /* @__PURE__ */ new Map();
+    const osCounts = /* @__PURE__ */ new Map();
+    const browserCounts = /* @__PURE__ */ new Map();
+    const modeCounts = /* @__PURE__ */ new Map();
     let totalPages = 0;
     let totalVisitors = 0;
     let totalClicks = 0;
@@ -876,6 +950,16 @@ var AnalyticsService = class {
       } else if (row.type === "flow") {
         totalFlows += count;
         flowCounts.set(row.target, (flowCounts.get(row.target) || 0) + count);
+      } else if (row.type === "country") {
+        countryCounts.set(row.target, (countryCounts.get(row.target) || 0) + count);
+      } else if (row.type === "device") {
+        deviceCounts.set(row.target, (deviceCounts.get(row.target) || 0) + count);
+      } else if (row.type === "os") {
+        osCounts.set(row.target, (osCounts.get(row.target) || 0) + count);
+      } else if (row.type === "browser") {
+        browserCounts.set(row.target, (browserCounts.get(row.target) || 0) + count);
+      } else if (row.type === "mode") {
+        modeCounts.set(row.target, (modeCounts.get(row.target) || 0) + count);
       }
     }
     for (const [dateStr, dayBucket] of dailyMap.entries()) {
@@ -910,6 +994,21 @@ var AnalyticsService = class {
     const toSortedTop = (map, limit) => Array.from(map.entries()).map(([target, count]) => ({ target, count })).sort((a, b) => b.count - a.count).slice(0, limit);
     const topPages = toSortedTop(pageCounts, 15);
     const topClicks = toSortedTop(clickCounts, 15);
+    const toDimensionItems = (map, limit = 15) => {
+      const sorted = Array.from(map.entries()).map(([target, count]) => ({ target, count })).sort((a, b) => b.count - a.count);
+      if (sorted.length <= limit) return sorted;
+      const head = sorted.slice(0, limit - 1);
+      const rest = sorted.slice(limit - 1).reduce((sum, item) => sum + item.count, 0);
+      return [...head, { target: "Altro", count: rest }];
+    };
+    const dimensions = {
+      countries: toDimensionItems(countryCounts, 20),
+      devices: toDimensionItems(deviceCounts),
+      operatingSystems: toDimensionItems(osCounts),
+      browsers: toDimensionItems(browserCounts),
+      modes: toDimensionItems(modeCounts),
+      trackedVisitors: Array.from(modeCounts.values()).reduce((sum, value) => sum + value, 0)
+    };
     const rawFlowPairs = [];
     const outgoingBySource = /* @__PURE__ */ new Map();
     for (const [label, count] of flowCounts.entries()) {
@@ -963,6 +1062,7 @@ var AnalyticsService = class {
       dailySeries,
       topPages,
       topClicks,
+      dimensions,
       clickFlows,
       flowGraph: {
         nodes,
@@ -1009,6 +1109,67 @@ function buildTopMultiStepPaths(edges) {
   return journeys.sort((a, b) => b.estimatedCount - a.estimatedCount).slice(0, 10);
 }
 var analyticsService = new AnalyticsService();
+
+// server/services/userAgentParser.ts
+function detectDeviceType(userAgent) {
+  const ua = userAgent || "";
+  if (!ua) return "Altro";
+  if (/SmartTV|SMART-TV|Tizen|Web0S|WebOS|AppleTV|HbbTV|NetCast/i.test(ua)) {
+    return "TV";
+  }
+  if (/iPad|Tablet|PlayBook|Silk|Kindle/i.test(ua)) {
+    return "Tablet";
+  }
+  if (/Android/i.test(ua) && !/Mobile/i.test(ua)) {
+    return "Tablet";
+  }
+  if (/Mobi|iPhone|iPod|Android.*Mobile|Windows Phone|IEMobile|Opera Mini/i.test(ua)) {
+    return "Mobile";
+  }
+  if (/Windows NT|Macintosh|X11|CrOS|Linux/i.test(ua)) {
+    return "Desktop";
+  }
+  return "Altro";
+}
+function detectOperatingSystem(userAgent) {
+  const ua = userAgent || "";
+  if (!ua) return "Altro";
+  if (/iPad/i.test(ua)) return "iPadOS";
+  if (/iPhone|iPod/i.test(ua)) return "iOS";
+  if (/Android/i.test(ua)) return "Android";
+  if (/Windows Phone/i.test(ua)) return "Altro";
+  if (/Windows NT|Windows/i.test(ua)) return "Windows";
+  if (/CrOS/i.test(ua)) return "ChromeOS";
+  if (/Macintosh|Mac OS X/i.test(ua)) return "macOS";
+  if (/Linux|X11/i.test(ua)) return "Linux";
+  return "Altro";
+}
+function detectBrowser(userAgent) {
+  const ua = userAgent || "";
+  if (!ua) return "Altro";
+  if (/(iPhone|iPad|iPod).*AppleWebKit(?!.*Safari)/i.test(ua)) return "Altro";
+  if (/; wv\)/i.test(ua) || /Version\/[\d.]+.*Chrome\/[\d.]+ Mobile Safari/i.test(ua)) {
+    return "Android WebView";
+  }
+  if (/EdgA?\//i.test(ua) || /Edge\//i.test(ua)) return "Edge";
+  if (/OPR\/|Opera Mini|Opera Mobi|\bOpera\b/i.test(ua)) return "Opera";
+  if (/SamsungBrowser\//i.test(ua)) return "Samsung Internet";
+  if (/FxiOS\/|Firefox\//i.test(ua)) return "Firefox";
+  if (/CriOS\/|Chrome\/|Chromium\//i.test(ua)) return "Chrome";
+  if (/Safari\//i.test(ua)) return "Safari";
+  return "Altro";
+}
+function parseUserAgent(userAgent) {
+  const ua = userAgent || "";
+  if (!ua) {
+    return { device: "Altro", os: "Altro", browser: "Altro" };
+  }
+  return {
+    device: detectDeviceType(ua),
+    os: detectOperatingSystem(ua),
+    browser: detectBrowser(ua)
+  };
+}
 
 // server/routes/analyticsAdminHtml.ts
 function renderAnalyticsAdminHtml() {
@@ -1183,16 +1344,92 @@ function renderAnalyticsAdminHtml() {
       right: 0;
       bottom: -1px;
       height: 2px;
-      background: #ededed;
+      background: var(--metric-color, #ededed);
+    }
+    .metric-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
     }
     .metric-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
       font-size: 0.8rem;
       color: var(--muted);
       font-weight: 500;
-      margin-bottom: 8px;
+    }
+    .metric-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--metric-color, #ededed);
+      opacity: 0.35;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .metric-tab.active .metric-dot {
+      opacity: 1;
+      transform: scale(1.1);
     }
     .metric-tab.active .metric-label {
       color: var(--text);
+    }
+    .metric-toggle-chip {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.02);
+      transition: all 0.15s ease;
+    }
+    .metric-tab.active .metric-toggle-chip {
+      border-color: var(--metric-color, #ededed);
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .chart-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px 18px 0;
+    }
+    .chart-toolbar-hint {
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+    .chart-toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .chart-tool-btn {
+      appearance: none;
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .chart-tool-btn:hover {
+      border-color: var(--border-strong);
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+    .chart-tool-btn.active {
+      background: #171717;
+      border-color: #444444;
+      color: #ffffff;
     }
     .metric-value-row {
       display: flex;
@@ -1334,6 +1571,45 @@ function renderAnalyticsAdminHtml() {
       color: var(--muted);
       font-size: 0.84rem;
     }
+    .dim-section {
+      margin-top: 22px;
+    }
+    .section-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .section-heading h2 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .section-hint {
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+    .dim-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .dim-grid .list-rows {
+      max-height: 300px;
+    }
+    @media (max-width: 1000px) {
+      .dim-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 640px) {
+      .dim-grid {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1357,27 +1633,43 @@ function renderAnalyticsAdminHtml() {
 
     <div class="card main-card">
       <div class="metric-tabs">
-        <button class="metric-tab active" data-metric="visitors" id="tabVisitors">
-          <div class="metric-label">Visitatori</div>
+        <button class="metric-tab active" data-metric="visitors" id="tabVisitors" style="--metric-color: #0070f3;">
+          <div class="metric-label-row">
+            <div class="metric-label"><span class="metric-dot"></span>Visitatori</div>
+            <span class="metric-toggle-chip" data-chip="visitors">Attivo</span>
+          </div>
           <div class="metric-value-row">
             <span class="metric-value" id="kpiVisitors">-</span>
             <span class="metric-pill" id="kpiVisitorsAvg">-</span>
           </div>
         </button>
-        <button class="metric-tab" data-metric="pages" id="tabPages">
-          <div class="metric-label">Pagine Viste</div>
+        <button class="metric-tab" data-metric="pages" id="tabPages" style="--metric-color: #38bdf8;">
+          <div class="metric-label-row">
+            <div class="metric-label"><span class="metric-dot"></span>Pagine Viste</div>
+            <span class="metric-toggle-chip" data-chip="pages">+ Sovrapponi</span>
+          </div>
           <div class="metric-value-row">
             <span class="metric-value" id="kpiPages">-</span>
             <span class="metric-pill" id="kpiPagesAvg">-</span>
           </div>
         </button>
-        <button class="metric-tab" data-metric="clicks" id="tabClicks">
-          <div class="metric-label">Click</div>
+        <button class="metric-tab" data-metric="clicks" id="tabClicks" style="--metric-color: #10b981;">
+          <div class="metric-label-row">
+            <div class="metric-label"><span class="metric-dot"></span>Click</div>
+            <span class="metric-toggle-chip" data-chip="clicks">+ Sovrapponi</span>
+          </div>
           <div class="metric-value-row">
             <span class="metric-value" id="kpiClicks">-</span>
             <span class="metric-pill" id="kpiClicksAvg">-</span>
           </div>
         </button>
+      </div>
+      <div class="chart-toolbar">
+        <span class="chart-toolbar-hint">Clicca pi\xF9 schede per sovrapporre i grafici</span>
+        <div class="chart-toolbar-actions">
+          <button type="button" class="chart-tool-btn" id="btnOverlayAll">Sovrapposti (Tutti)</button>
+          <button type="button" class="chart-tool-btn" id="btnScaleMode" title="Adatta le scale verticali per confrontare gli andamenti relativi">Scala unica</button>
+        </div>
       </div>
       <div class="chart-wrap">
         <canvas id="trendChart"></canvas>
@@ -1410,16 +1702,115 @@ function renderAnalyticsAdminHtml() {
         </div>
       </div>
     </div>
+
+    <div class="dim-section">
+      <div class="section-heading">
+        <h2>Utenti</h2>
+        <span class="section-hint" id="dimHint"></span>
+      </div>
+      <div class="dim-grid">
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Paese</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="countriesList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Dispositivo</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="devicesList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Sistema operativo</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="osList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Browser</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="browsersList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Modalit\xE0</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="modesList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
     let currentDays = 30;
-    let activeMetric = 'visitors';
+    const ALL_METRICS = ['visitors', 'pages', 'clicks'];
+    let activeMetrics = new Set(['visitors']);
+    let separateScales = false;
     let activeRightTab = 'clicks';
     let lastData = null;
     let trendChart = null;
 
     const IT_MONTHS = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+
+    const METRIC_CONFIGS = {
+      visitors: { label: 'Visitatori Unici', color: '#0070f3', fillTop: 'rgba(0, 112, 243, 0.22)', fillMultiTop: 'rgba(0, 112, 243, 0.12)' },
+      pages: { label: 'Pagine Viste', color: '#38bdf8', fillTop: 'rgba(56, 189, 248, 0.18)', fillMultiTop: 'rgba(56, 189, 248, 0.10)' },
+      clicks: { label: 'Click Utenti', color: '#10b981', fillTop: 'rgba(16, 185, 129, 0.18)', fillMultiTop: 'rgba(16, 185, 129, 0.10)' },
+    };
+
+    function syncMetricTabsUI() {
+      document.querySelectorAll('.metric-tab').forEach((el) => {
+        const key = el.dataset.metric;
+        const isActive = activeMetrics.has(key);
+        el.classList.toggle('active', isActive);
+        const chip = el.querySelector('[data-chip]');
+        if (chip) {
+          chip.textContent = isActive ? 'Attivo' : '+ Sovrapponi';
+        }
+      });
+      const allActive = ALL_METRICS.every((m) => activeMetrics.has(m));
+      const btnOverlayAll = document.getElementById('btnOverlayAll');
+      if (btnOverlayAll) {
+        btnOverlayAll.classList.toggle('active', allActive);
+        btnOverlayAll.textContent = allActive ? 'Tutti attivi' : 'Sovrapposti (Tutti)';
+      }
+      const btnScaleMode = document.getElementById('btnScaleMode');
+      if (btnScaleMode) {
+        btnScaleMode.classList.toggle('active', separateScales);
+        btnScaleMode.textContent = separateScales ? 'Scala adattata' : 'Scala unica';
+      }
+    }
 
     function escapeHtml(str) {
       return String(str || '')
@@ -1445,40 +1836,87 @@ function renderAnalyticsAdminHtml() {
       const ctx2d = canvas.getContext('2d');
       if (trendChart) trendChart.destroy();
 
-      const metricConfig = {
-        visitors: { label: 'Visitatori Unici', color: '#0070f3', fillTop: 'rgba(0, 112, 243, 0.24)' },
-        pages: { label: 'Pagine Viste', color: '#38bdf8', fillTop: 'rgba(56, 189, 248, 0.22)' },
-        clicks: { label: 'Click Utenti', color: '#10b981', fillTop: 'rgba(16, 185, 129, 0.22)' },
-      }[activeMetric];
-
-      const gradient = ctx2d.createLinearGradient(0, 0, 0, 290);
-      gradient.addColorStop(0, metricConfig.fillTop);
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-      const values = series.map((d) => Number(d[activeMetric]) || 0);
+      const selectedKeys = ALL_METRICS.filter((k) => activeMetrics.has(k));
+      const isMulti = selectedKeys.length > 1;
       const lastIdx = series.length - 1;
+
+      const datasets = selectedKeys.map((key) => {
+        const cfg = METRIC_CONFIGS[key];
+        const gradient = ctx2d.createLinearGradient(0, 0, 0, 290);
+        gradient.addColorStop(0, isMulti ? cfg.fillMultiTop : cfg.fillTop);
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        const values = series.map((d) => Number(d[key]) || 0);
+
+        return {
+          label: cfg.label,
+          data: values,
+          yAxisID: separateScales && isMulti ? 'y_' + key : 'y',
+          borderColor: cfg.color,
+          backgroundColor: gradient,
+          fill: true,
+          tension: 0.25,
+          borderWidth: 2,
+          pointRadius: values.map((_, idx) => (idx === lastIdx ? 3.5 : 0)),
+          pointHoverRadius: 5,
+          pointBackgroundColor: cfg.color,
+          segment: {
+            borderDash: (segCtx) => (segCtx.p1DataIndex === lastIdx ? [5, 5] : undefined),
+          },
+        };
+      });
+
+      const scales = {
+        x: {
+          border: { display: false },
+          grid: { display: false },
+          ticks: {
+            color: '#737373',
+            maxRotation: 0,
+            autoSkip: true,
+            font: { size: 11 },
+          },
+        },
+      };
+
+      if (separateScales && isMulti) {
+        selectedKeys.forEach((key, idx) => {
+          scales['y_' + key] = {
+            type: 'linear',
+            display: idx === 0 || idx === selectedKeys.length - 1,
+            position: idx === 0 ? 'left' : 'right',
+            beginAtZero: true,
+            border: { display: false },
+            grid: {
+              drawOnChartArea: idx === 0,
+              color: 'rgba(255, 255, 255, 0.07)',
+            },
+            ticks: {
+              color: METRIC_CONFIGS[key].color,
+              precision: 0,
+              maxTicksLimit: 5,
+              font: { size: 11 },
+            },
+          };
+        });
+      } else {
+        scales.y = {
+          beginAtZero: true,
+          border: { display: false },
+          grid: { color: 'rgba(255, 255, 255, 0.07)' },
+          ticks: {
+            color: '#737373',
+            precision: 0,
+            maxTicksLimit: 5,
+            font: { size: 11 },
+          },
+        };
+      }
 
       trendChart = new Chart(canvas, {
         type: 'line',
         data: {
           labels: series.map((d) => formatShortDate(d.date)),
-          datasets: [
-            {
-              label: metricConfig.label,
-              data: values,
-              borderColor: metricConfig.color,
-              backgroundColor: gradient,
-              fill: true,
-              tension: 0.25,
-              borderWidth: 2,
-              pointRadius: values.map((_, idx) => (idx === lastIdx ? 3.5 : 0)),
-              pointHoverRadius: 5,
-              pointBackgroundColor: metricConfig.color,
-              segment: {
-                borderDash: (segCtx) => (segCtx.p1DataIndex === lastIdx ? [5, 5] : undefined),
-              },
-            },
-          ],
+          datasets,
         },
         options: {
           responsive: true,
@@ -1493,7 +1931,10 @@ function renderAnalyticsAdminHtml() {
               titleColor: '#ededed',
               bodyColor: '#ededed',
               padding: 10,
-              displayColors: false,
+              displayColors: true,
+              usePointStyle: true,
+              boxWidth: 8,
+              boxHeight: 8,
               callbacks: {
                 title: (items) => {
                   const idx = items[0] ? items[0].dataIndex : -1;
@@ -1504,29 +1945,7 @@ function renderAnalyticsAdminHtml() {
               },
             },
           },
-          scales: {
-            x: {
-              border: { display: false },
-              grid: { display: false },
-              ticks: {
-                color: '#737373',
-                maxRotation: 0,
-                autoSkip: true,
-                font: { size: 11 },
-              },
-            },
-            y: {
-              beginAtZero: true,
-              border: { display: false },
-              grid: { color: 'rgba(255, 255, 255, 0.07)' },
-              ticks: {
-                color: '#737373',
-                precision: 0,
-                maxTicksLimit: 5,
-                font: { size: 11 },
-              },
-            },
-          },
+          scales,
         },
       });
     }
@@ -1551,6 +1970,51 @@ function renderAnalyticsAdminHtml() {
           '</div>'
         );
       }).join('');
+    }
+
+    function countryLabel(code) {
+      const cc = String(code || '').toUpperCase();
+      if (!/^[A-Z]{2}$/.test(cc)) return code || 'Sconosciuto';
+      let flag = '';
+      try {
+        flag = String.fromCodePoint.apply(null, cc.split('').map(function (c) { return 127397 + c.charCodeAt(0); }));
+      } catch (_) {
+        flag = '';
+      }
+      let name = cc;
+      try {
+        name = new Intl.DisplayNames(['it'], { type: 'region' }).of(cc) || cc;
+      } catch (_) {}
+      return (flag ? flag + ' ' : '') + name;
+    }
+
+    function renderDimensions(data) {
+      const dims = data.dimensions || {};
+      const toItems = function (list, labelFn) {
+        return (list || []).map(function (item) {
+          return { label: labelFn ? labelFn(item.target) : item.target, count: item.count };
+        });
+      };
+
+      renderBarList('countriesList', toItems(dims.countries, countryLabel), 'Nessun dato geografico nel periodo.');
+      renderBarList('devicesList', toItems(dims.devices), 'Nessun dato sui dispositivi nel periodo.');
+      renderBarList('osList', toItems(dims.operatingSystems), 'Nessun dato sui sistemi operativi nel periodo.');
+      renderBarList('browsersList', toItems(dims.browsers), 'Nessun dato sui browser nel periodo.');
+      renderBarList('modesList', toItems(dims.modes), 'Nessun dato sulla modalit\xE0 di utilizzo nel periodo.');
+
+      const hint = document.getElementById('dimHint');
+      const tracked = Number(dims.trackedVisitors || 0);
+      if (tracked <= 0) {
+        hint.textContent = 'Nessun visitatore profilato: applica supabase/analytics_dimensions.sql su Supabase per attivare queste metriche.';
+        return;
+      }
+      const totalVisitors = Number((data.totals && data.totals.visitors) || 0);
+      const pct = totalVisitors > 0 ? Math.min(100, Math.round((tracked / totalVisitors) * 100)) : 100;
+      let text = 'Base: ' + tracked.toLocaleString('it-IT') + ' visitatori profilati (' + pct + '% dei visitatori unici)';
+      if (!(dims.countries || []).length) {
+        text += ' \u2022 paese non disponibile (header di geolocalizzazione assente, es. in locale)';
+      }
+      hint.textContent = text;
     }
 
     function renderRightPanel() {
@@ -1590,6 +2054,7 @@ function renderAnalyticsAdminHtml() {
       const pageItems = (data.topPages || []).map((p) => ({ label: p.target, count: p.count }));
       renderBarList('pagesList', pageItems, 'Nessuna pagina registrata nel periodo.');
       renderRightPanel();
+      renderDimensions(data);
     }
 
     async function loadAnalytics(days) {
@@ -1625,13 +2090,37 @@ function renderAnalyticsAdminHtml() {
 
     document.querySelectorAll('.metric-tab').forEach((btn) => {
       btn.addEventListener('click', () => {
-        activeMetric = btn.dataset.metric || 'visitors';
-        document.querySelectorAll('.metric-tab').forEach((el) => {
-          el.classList.toggle('active', el === btn);
-        });
+        const key = btn.dataset.metric || 'visitors';
+        if (activeMetrics.has(key)) {
+          if (activeMetrics.size > 1) {
+            activeMetrics.delete(key);
+          }
+        } else {
+          activeMetrics.add(key);
+        }
+        syncMetricTabsUI();
         renderTrendChart();
       });
     });
+
+    document.getElementById('btnOverlayAll').addEventListener('click', () => {
+      const allActive = ALL_METRICS.every((m) => activeMetrics.has(m));
+      if (allActive) {
+        activeMetrics = new Set(['visitors']);
+      } else {
+        activeMetrics = new Set(ALL_METRICS);
+      }
+      syncMetricTabsUI();
+      renderTrendChart();
+    });
+
+    document.getElementById('btnScaleMode').addEventListener('click', () => {
+      separateScales = !separateScales;
+      syncMetricTabsUI();
+      renderTrendChart();
+    });
+
+    syncMetricTabsUI();
 
     document.getElementById('tabRightClicks').addEventListener('click', () => {
       activeRightTab = 'clicks';
@@ -2601,6 +3090,56 @@ var athleteResolver = new AthleteResolver();
 import fs3 from "fs";
 import path4 from "path";
 import * as cheerio2 from "cheerio";
+var SOCIETY_STOPWORDS = /* @__PURE__ */ new Set([
+  "ASD",
+  "APD",
+  "USD",
+  "ACSD",
+  "SSD",
+  "GSD",
+  "GS",
+  "US",
+  "AS",
+  "CSI",
+  "PGS",
+  "CUS",
+  "CRAL",
+  "CIRCOLO",
+  "POLISPORTIVA",
+  "POL",
+  "DILETTANTISTICA",
+  "SPORTIVA",
+  "ASSOCIAZIONE",
+  "TENNISTAVOLO",
+  "TENNIS",
+  "TAVOLO",
+  "TT",
+  "PING",
+  "PONG",
+  "CLUB",
+  "SRL",
+  "SPA",
+  "ONLUS"
+]);
+function normalizeCoreTeamName(raw) {
+  if (!raw) return "";
+  const cleaned = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/["'“”‘’]/g, " ").replace(/\b([A-Z])\.(?=[A-Z]\.|\s|$)/g, "$1").replace(/[^A-Z0-9]+/g, " ").trim();
+  if (!cleaned) return "";
+  const rawTokens = cleaned.split(/\s+/).filter(Boolean);
+  while (rawTokens.length > 1 && /^[A-F]$/.test(rawTokens[rawTokens.length - 1])) {
+    rawTokens.pop();
+  }
+  const coreTokens = rawTokens.filter((tok) => !SOCIETY_STOPWORDS.has(tok) && tok.length > 1);
+  if (coreTokens.length > 0) {
+    return coreTokens.join(" ");
+  }
+  return rawTokens.join(" ");
+}
+function extractCoreTokens(raw) {
+  const core = normalizeCoreTeamName(raw);
+  if (!core) return [];
+  return core.split(/\s+/).filter((tok) => tok.length >= 3);
+}
 var TeamResolver = class {
   staticFilePath = path4.resolve(process.cwd(), "server", "data", "team_logos.json");
   runtimeFilePath = path4.join(getRuntimeCacheDir(), "team_logos.json");
@@ -2642,13 +3181,68 @@ var TeamResolver = class {
       console.error("Error saving team_logos.json:", e);
     }
   }
+  registerSocietyLogo(name, societyId, logoUrl) {
+    const cleanName = (name || "").toUpperCase().trim();
+    const cleanId = String(societyId || "").trim();
+    if (!cleanName || !cleanId) return;
+    const url = logoUrl || `https://portale.fitet.org/images/societa/${cleanId}.jpg`;
+    if (this.logos[cleanName] !== url) {
+      this.logos[cleanName] = url;
+      this.saveToDisk();
+    }
+  }
   getLogo(teamName) {
-    const norm = teamName.toUpperCase().trim();
+    const norm = (teamName || "").toUpperCase().trim();
+    if (!norm) return void 0;
     if (this.logos[norm]) return this.logos[norm];
     for (const [k, url] of Object.entries(this.logos)) {
       if (norm.includes(k) || k.includes(norm)) return url;
     }
-    return void 0;
+    const coreQuery = normalizeCoreTeamName(norm);
+    if (!coreQuery || coreQuery.length < 3) return void 0;
+    let bestSubstringUrl;
+    let bestSubstringDiff = Infinity;
+    for (const [k, url] of Object.entries(this.logos)) {
+      const coreKey = normalizeCoreTeamName(k);
+      if (!coreKey || coreKey.length < 3) continue;
+      if (coreKey === coreQuery) {
+        return url;
+      }
+      if (coreKey.length >= 4 && coreQuery.length >= 4) {
+        if (coreKey.includes(coreQuery) || coreQuery.includes(coreKey)) {
+          const diff = Math.abs(coreKey.length - coreQuery.length);
+          if (diff < bestSubstringDiff) {
+            bestSubstringDiff = diff;
+            bestSubstringUrl = url;
+          }
+        }
+      }
+    }
+    if (bestSubstringUrl) return bestSubstringUrl;
+    const queryTokens = extractCoreTokens(norm).filter((t) => t.length >= 4);
+    if (queryTokens.length === 0) return void 0;
+    let bestTokenUrl;
+    let bestTokenScore = 0;
+    for (const [k, url] of Object.entries(this.logos)) {
+      const keyTokens = extractCoreTokens(k).filter((t) => t.length >= 4);
+      if (keyTokens.length === 0) continue;
+      const matchedCount = queryTokens.filter(
+        (qt) => keyTokens.some((kt) => kt === qt || kt.length >= 5 && qt.length >= 5 && (kt.includes(qt) || qt.includes(kt)))
+      ).length;
+      if (matchedCount === 0) continue;
+      const allQueryMatched = matchedCount === queryTokens.length;
+      const allKeyMatched = matchedCount === keyTokens.length;
+      const score = matchedCount * 10 + (allQueryMatched ? 5 : 0) + (allKeyMatched ? 5 : 0) - Math.abs(keyTokens.length - queryTokens.length);
+      if ((allQueryMatched || allKeyMatched || matchedCount >= 2) && score > bestTokenScore) {
+        bestTokenScore = score;
+        bestTokenUrl = url;
+      }
+    }
+    return bestTokenUrl;
+  }
+  findSocietyId(query) {
+    const logo = this.getLogo(query);
+    return logo?.match(/\/societa\/(\d+)\./i)?.[1];
   }
   /**
    * Returns every known team name whose logo resolves to the given society
@@ -4326,7 +4920,7 @@ var TTL_SEASON = 24 * 60 * 60 * 1e3;
 var TTL_TEAM = 7 * 24 * 60 * 60 * 1e3;
 var TTL_CLASSIFICA = 30 * 60 * 1e3;
 var normalizeName = (value) => (value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").trim();
-var nameTokens = (value) => (value || "").toUpperCase().replace(/[^A-Z0-9 ]/g, " ").split(/\s+/).filter((token) => token.length >= 4 && !["ASD", "APD", "POLISPORTIVA", "TENNISTAVOLO"].includes(token));
+var nameTokens = (value) => extractCoreTokens(value).filter((token) => token.length >= 4);
 async function mapLimit(items, limit, worker) {
   const results = new Array(items.length);
   let cursor = 0;
@@ -4391,6 +4985,12 @@ async function getTeamRegistry(teamId, cam, anno, forceRefresh = false) {
     const payload = { teamName: parsed.teamName, info: parsed.info };
     cacheService.set(cacheKey, payload, TTL_TEAM);
     cacheService.set(`societa_info_${parsed.info.societyId}`, parsed.info, TTL_TEAM);
+    if (parsed.teamName) {
+      teamResolver.registerSocietyLogo(parsed.teamName, parsed.info.societyId, parsed.info.logoUrl);
+    }
+    if (parsed.info.nome) {
+      teamResolver.registerSocietyLogo(parsed.info.nome, parsed.info.societyId, parsed.info.logoUrl);
+    }
     return payload;
   } catch (err) {
     console.warn(`[Societa] Impossibile leggere DatiSquadra per ${teamId}:`, err);
@@ -4794,12 +5394,28 @@ var societyService = {
     };
   },
   /**
-   * Manual one-off selection: accepts an Albo Federale ID or a team name and
-   * resolves it to a society. Used when automatic detection fails.
+   * Manual or click-based selection: accepts an Albo Federale ID, a team name,
+   * or an official society name (plus optional context like squadraId, camId,
+   * atletaId, regione) and resolves it to a society.
    */
-  async lookupSociety(query, anno = DEFAULT_ANNO) {
+  async lookupSociety(query, anno = DEFAULT_ANNO, options) {
     const trimmed = (query || "").trim();
-    if (!trimmed) return { found: false };
+    if (options?.squadraId && /^\d+$/.test(options.squadraId) && options?.camId) {
+      const byTeam = await this.lookupByTeamId(options.squadraId, options.camId, anno);
+      if (byTeam.found && byTeam.societyId) {
+        if (trimmed) {
+          teamResolver.registerSocietyLogo(trimmed, byTeam.societyId, byTeam.info?.logoUrl);
+        }
+        return {
+          found: true,
+          societyId: byTeam.societyId,
+          info: byTeam.info,
+          camId: options.camId,
+          teamId: options.squadraId
+        };
+      }
+    }
+    if (!trimmed && !options?.atletaId) return { found: false };
     if (/^\d{2,6}$/.test(trimmed)) {
       try {
         const archive = await loadArchiveSociety(trimmed);
@@ -4810,13 +5426,34 @@ var societyService = {
       } catch {
       }
     }
-    const normalizedQuery = normalizeName(trimmed);
-    const indexedLogo = teamResolver.getLogo(trimmed);
-    const indexedSociety = indexedLogo?.match(/\/societa\/(\d+)\./i)?.[1];
+    const indexedSociety = trimmed ? teamResolver.findSocietyId(trimmed) : void 0;
     if (indexedSociety) {
       const info = cacheService.get(`societa_info_${indexedSociety}`) || buildFallbackInfo(indexedSociety);
       return { found: true, societyId: indexedSociety, info };
     }
+    if (options?.atletaId && /^\d+$/.test(options.atletaId)) {
+      try {
+        const detected = await this.detectFromAthlete(options.atletaId, anno);
+        if (detected.found && detected.societyId) {
+          if (trimmed) {
+            teamResolver.registerSocietyLogo(trimmed, detected.societyId, detected.info?.logoUrl);
+          }
+          return {
+            found: true,
+            societyId: detected.societyId,
+            info: detected.info,
+            camId: detected.camId,
+            teamName: detected.teamName,
+            teamId: detected.teamId
+          };
+        }
+      } catch {
+      }
+    }
+    if (!trimmed) return { found: false };
+    const normalizedQuery = normalizeName(trimmed);
+    const coreQuery = normalizeCoreTeamName(trimmed);
+    const queryTokens = nameTokens(trimmed);
     let campionati = [];
     try {
       campionati = await championshipCatalog.getAllCampionati();
@@ -4824,18 +5461,56 @@ var societyService = {
       console.warn("[Societa] Catalogo campionati non disponibile per la ricerca manuale:", err);
       return { found: false };
     }
-    const targets = campionati.filter((camp) => !camp.anno || camp.anno === anno).slice(0, 32);
+    const activeCampionati = campionati.filter((camp) => !camp.anno || camp.anno === anno);
+    const targetRegionNorm = (options?.regione || "").trim().toUpperCase();
+    const prioritized = [...activeCampionati].sort((a, b) => {
+      const score = (c) => {
+        if (options?.camId && c.id === options.camId) return 100;
+        let s = 0;
+        const cReg = (c.regione || "").toUpperCase();
+        if (targetRegionNorm && cReg.includes(targetRegionNorm)) s += 40;
+        if (queryTokens.some((tok) => cReg.includes(tok))) s += 25;
+        return s;
+      };
+      return score(b) - score(a);
+    });
+    const targets = prioritized.slice(0, 64);
+    const matchesQueryTeam = (teamName) => {
+      const candidate = normalizeName(teamName);
+      if (!candidate) return false;
+      if (candidate === normalizedQuery) return true;
+      if (normalizedQuery && candidate.includes(normalizedQuery) || candidate && normalizedQuery.includes(candidate)) {
+        return true;
+      }
+      const coreCandidate = normalizeCoreTeamName(teamName);
+      if (coreQuery && coreCandidate) {
+        if (coreCandidate === coreQuery) return true;
+        if (coreQuery.length >= 4 && coreCandidate.length >= 4 && (coreCandidate.includes(coreQuery) || coreQuery.includes(coreCandidate))) {
+          return true;
+        }
+      }
+      if (queryTokens.length > 0) {
+        const candidateTokens = nameTokens(teamName);
+        if (candidateTokens.length > 0) {
+          const hitCount = queryTokens.filter(
+            (qt) => candidateTokens.some((ct) => ct === qt || ct.length >= 5 && qt.length >= 5 && (ct.includes(qt) || qt.includes(ct)))
+          ).length;
+          if (hitCount === queryTokens.length || hitCount === candidateTokens.length || hitCount >= 2) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
     const tryChampionship = async (camp) => {
       try {
         const classifica = await getArchiveClassifica(camp.id, anno);
         if (!classifica.length) return null;
-        const team = classifica.find((item) => normalizeName(item.nome) === normalizedQuery) || classifica.find((item) => {
-          const candidate = normalizeName(item.nome);
-          return normalizedQuery && candidate.includes(normalizedQuery) || candidate && normalizedQuery.includes(candidate);
-        }) || null;
+        const team = classifica.find((item) => normalizeName(item.nome) === normalizedQuery) || classifica.find((item) => normalizeCoreTeamName(item.nome) === coreQuery && coreQuery.length >= 3) || classifica.find((item) => matchesQueryTeam(item.nome)) || null;
         if (!team) return null;
         const registry = await getTeamRegistry(team.squadraId, camp.id, anno);
         if (!registry?.info?.societyId) return null;
+        teamResolver.registerSocietyLogo(trimmed, registry.info.societyId, registry.info.logoUrl);
         return {
           found: true,
           societyId: String(registry.info.societyId),
@@ -4849,7 +5524,7 @@ var societyService = {
         return null;
       }
     };
-    const batchSize = 4;
+    const batchSize = 6;
     for (let i = 0; i < targets.length; i += batchSize) {
       const results = await Promise.all(targets.slice(i, i + batchSize).map(tryChampionship));
       const hit = results.find((result) => result !== null);
@@ -9274,7 +9949,7 @@ app.use((req, res, next) => {
   return next();
 });
 var ANALYTICS_STATIC_ASSET_REGEX = /\.(js|mjs|css|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|eot|otf|map|json|xml|txt|webmanifest|pdf|mp4|webm|mp3)$/i;
-var trackRequestDailyVisitor = (req) => {
+var trackRequestDailyVisitor = (req, mode) => {
   const userAgent = req.headers["user-agent"] || "";
   const purpose = String(req.headers["purpose"] || req.headers["sec-purpose"] || "").toLowerCase();
   if (BOT_USER_AGENT_REGEX.test(userAgent) || purpose.includes("prefetch")) {
@@ -9283,7 +9958,24 @@ var trackRequestDailyVisitor = (req) => {
   const forwarded = typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"].split(",")[0].trim() : "";
   const ip = forwarded || req.socket?.remoteAddress || "";
   const visitorHash = analyticsService.computeDailyVisitorHash(ip, userAgent);
-  return analyticsService.trackDailyVisitor(visitorHash);
+  const visitorTask = analyticsService.trackDailyVisitor(visitorHash);
+  if (!mode) {
+    return visitorTask;
+  }
+  const parsedUa = parseUserAgent(userAgent);
+  const rawCountry = req.headers["x-vercel-ip-country"] || req.headers["cf-ipcountry"] || req.headers["x-geo-country"];
+  const countryCode = typeof rawCountry === "string" ? rawCountry.trim().toUpperCase() : "";
+  const country = /^[A-Z]{2}$/.test(countryCode) ? countryCode : "";
+  return Promise.all([
+    visitorTask,
+    analyticsService.trackVisitorDimensions(visitorHash, {
+      country: country || null,
+      device: parsedUa.device,
+      os: parsedUa.os,
+      browser: parsedUa.browser,
+      mode
+    })
+  ]).then(() => void 0);
 };
 app.use((req, _res, next) => {
   if (req.method !== "GET") return next();
@@ -10189,6 +10881,12 @@ app.get("/api/atleta/:id", async (req, res) => {
           cached.campionatiGiocati = corrected.playedCamps;
           cacheService.set(cacheKey, cached, TTL_ATLETA);
         }
+        if (cached.anagrafica?.societa && !cached.anagrafica.logoUrl) {
+          const resolvedLogo = teamResolver.getLogo(cached.anagrafica.societa);
+          if (resolvedLogo) {
+            cached.anagrafica.logoUrl = resolvedLogo;
+          }
+        }
         return res.json(cached);
       }
     }
@@ -10234,6 +10932,12 @@ app.get("/api/atleta/:id", async (req, res) => {
     if (playedCamps.length > 0) {
       atleta.campionatoAttuale = playedCamps[0];
       atleta.campionatiGiocati = playedCamps;
+    }
+    if (atleta.anagrafica?.societa && !atleta.anagrafica.logoUrl) {
+      const resolvedLogo = teamResolver.getLogo(atleta.anagrafica.societa);
+      if (resolvedLogo) {
+        atleta.anagrafica.logoUrl = resolvedLogo;
+      }
     }
     const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith("Atleta ") || atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0);
     if (!isHollow) {
@@ -10474,11 +11178,20 @@ app.get("/api/societa/detect", async (req, res) => {
 app.get("/api/societa/lookup", async (req, res) => {
   const query = (req.query.q || req.query.query || "").trim();
   const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
-  if (!query) {
+  const camId = req.query.cam ? parseInt(req.query.cam, 10) : void 0;
+  const atletaId = (req.query.atletaId || "").trim() || void 0;
+  const squadraId = (req.query.squadraId || "").trim() || void 0;
+  const regione = (req.query.regione || "").trim() || void 0;
+  if (!query && !atletaId && !squadraId) {
     return res.status(400).json({ found: false, error: "Specifica un nome squadra o un ID Albo Federale" });
   }
   try {
-    const result = await societyService.lookupSociety(query, anno);
+    const result = await societyService.lookupSociety(query, anno, {
+      camId: Number.isFinite(camId) ? camId : void 0,
+      atletaId,
+      squadraId,
+      regione
+    });
     res.json(result);
   } catch (error) {
     console.error(`Error looking up society "${query}":`, error);
@@ -11334,7 +12047,8 @@ app.post("/api/visit", express.text({ type: "text/plain" }), async (req, res) =>
   const purpose = String(req.headers["purpose"] || req.headers["sec-purpose"] || "").toLowerCase();
   const isBot = BOT_USER_AGENT_REGEX.test(userAgent) || purpose.includes("prefetch");
   const rawPath = typeof payload.path === "string" ? payload.path.trim() : "";
-  const tasks = [trackRequestDailyVisitor(req)];
+  const isPwa = payload.pwa === true || String(payload.mode || "").toLowerCase() === "pwa";
+  const tasks = [trackRequestDailyVisitor(req, isPwa ? "PWA" : "Browser")];
   if (!isBot && rawPath && !rawPath.startsWith("/admin") && !rawPath.startsWith("/api")) {
     tasks.push(analyticsService.incrementMetric("page", normalizeAnalyticsPagePath(rawPath)));
   }

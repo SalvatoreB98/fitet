@@ -33,12 +33,33 @@ function sendBeaconOrFetch(endpoint: string, body: string): void {
     }
 }
 
+export function isStandalonePwa(): boolean {
+    if (typeof window === 'undefined') return false;
+    try {
+        if (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches) {
+            return true;
+        }
+        // iOS Safari (non supporta display-mode in tutti i contesti)
+        const nav = window.navigator as Navigator & { standalone?: boolean };
+        if (nav.standalone === true) return true;
+        if (typeof document !== 'undefined' && document.referrer.indexOf('android-app://') === 0) {
+            return true;
+        }
+    } catch {
+        return false;
+    }
+    return false;
+}
+
 export function trackDailyVisit(): void {
     if (typeof window === 'undefined' || dailyVisitSent) return;
     if (window.location.pathname.startsWith('/admin')) return;
     if (typeof navigator !== 'undefined' && navigator.webdriver) return;
     dailyVisitSent = true;
-    const body = JSON.stringify({ path: window.location.pathname || '/' });
+    const body = JSON.stringify({
+        path: window.location.pathname || '/',
+        pwa: isStandalonePwa(),
+    });
     sendBeaconOrFetch('/api/visit', body);
 }
 
