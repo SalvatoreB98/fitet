@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
 import { fetchAtleta, fetchAtletaCampionatoPartite, fetchHeadToHead } from '../services/api';
@@ -79,6 +79,30 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [showToast, setShowToast] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
   const shareMenuRef = useRef<HTMLDivElement>(null);
+
+  // Scroll reveal state for header (shows photo & name when atleta-profile-bar is scrolled past)
+  const [isScrolledPastHero, setIsScrolledPastHero] = useState<boolean>(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const profileBarRef = useRef<HTMLDivElement>(null);
+
+  const handleCardScroll = useCallback(() => {
+    if (profileBarRef.current && headerRef.current) {
+      const barRect = profileBarRef.current.getBoundingClientRect();
+      const headerRect = headerRef.current.getBoundingClientRect();
+      const isPast = barRect.bottom <= headerRect.bottom + 100;
+      setIsScrolledPastHero(isPast);
+    } else if (cardRef.current) {
+      setIsScrolledPastHero(cardRef.current.scrollTop > 110);
+    }
+  }, []);
+
+  useEffect(() => {
+    setIsScrolledPastHero(false);
+    if (cardRef.current) {
+      cardRef.current.scrollTop = 0;
+    }
+  }, [atletaId]);
 
   const currentAtletaId = atleta?.id || atletaId;
   const currentAthleteName = atleta?.anagrafica?.nome || athleteName || 'Atleta';
@@ -690,16 +714,41 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
         }
       }}
     >
-      <div className="modal-card-simple" onClick={(e) => e.stopPropagation()}>
-        {/* Simple Blue Header */}
-        <div className="modal-header-simple">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+      <div
+        ref={cardRef}
+        className="modal-card-simple"
+        onClick={(e) => e.stopPropagation()}
+        onScroll={handleCardScroll}
+      >
+        {/* Simple Clean Header */}
+        <div
+          ref={headerRef}
+          className={`modal-header-simple atleta-modal-header ${isScrolledPastHero ? 'is-scrolled' : 'is-dissolved'}`}
+        >
+          <div className="modal-header-athlete-identity">
+            {zoomPhotoSrc && !imgError ? (
+              <img
+                src={zoomPhotoSrc}
+                alt={atleta?.anagrafica?.nome || athleteName || 'Atleta'}
+                className="modal-header-athlete-thumb"
+                referrerPolicy="no-referrer"
+                onError={() => setImgError(true)}
+                onClick={canOpenPhotoZoom ? openPhotoZoom : undefined}
+                title={canOpenPhotoZoom ? 'Ingrandisci foto' : undefined}
+                style={{ cursor: canOpenPhotoZoom ? 'pointer' : 'default' }}
+              />
+            ) : (
+              <div className="modal-header-athlete-initials">
+                {(atleta?.anagrafica?.nome || athleteName || 'AT').slice(0, 2).toUpperCase()}
+              </div>
+            )}
             <div style={{ minWidth: 0, overflow: 'hidden' }}>
               <h3 style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {atleta?.anagrafica?.nome}
+                {atleta?.anagrafica?.nome || athleteName || 'Scheda Atleta'}
               </h3>
               <div className="modal-header-subtext">
-                Tessera / ID: {atleta?.id || (/^\d+$/.test(atletaId) ? atletaId : 'In risoluzione...')} • Classifica Unica Nazionale
+                {atleta?.anagrafica?.societa ? `${atleta.anagrafica.societa} • ` : ''}
+                Tessera / ID: {atleta?.id || (/^\d+$/.test(atletaId) ? atletaId : 'N.D.')}
               </div>
             </div>
           </div>
@@ -836,7 +885,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           {atleta && !loading && (
             <div>
               {/* Profile Bar */}
-              <div className="atleta-profile-bar">
+              <div className="atleta-profile-bar" ref={profileBarRef}>
                 <div className="atleta-profile-photo-wrap">
                   {(() => {
                     const athletePhoto = atleta.anagrafica.fotoUrl || (atleta.id && /^\d+$/.test(atleta.id) ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg` : null);

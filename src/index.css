@@ -2663,14 +2663,12 @@ body.modal-open {
   flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
-  color: var(--text-dark);
-  background: #df7373;
 }
 
 .modal-header-simple .modal-close-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #ffffff !important;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #64748b !important;
   box-shadow: none !important;
 }
 
@@ -2681,9 +2679,20 @@ body.modal-open {
   box-shadow: none !important;
 }
 
+.modal-header-simple .modal-close-btn:hover {
+  background: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+  transform: scale(0.95) !important;
+}
+
 .modal-close-btn:active {
   background: rgba(255, 255, 255, 0.25) !important;
   transform: scale(0.95) !important;
+}
+
+.modal-header-simple .modal-close-btn:active {
+  background: #cbd5e1 !important;
 }
 
 /* Light header close button adaptation (e.g. Championship modal) */
@@ -2747,23 +2756,134 @@ body.modal-open {
   top: 0;
   z-index: 100;
   flex-shrink: 0;
-  background: #01579b;
-  color: #ffffff;
-  padding: 14px 20px;
+  background: var(--bg-card, #ffffff);
+  color: var(--text-dark, #0f172a);
+  padding: 13px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
   border-top-left-radius: 11px;
   border-top-right-radius: 11px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .modal-header-simple h3 {
   font-family: var(--font-serif);
-  font-size: 1.2rem;
+  font-size: 1.15rem;
+  font-weight: 700;
   margin: 0;
-  color: #ffffff;
+  color: var(--text-dark, #0f172a);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.modal-header-simple .modal-header-title-serif,
+.modal-header-simple .squadra-header-title {
+  color: var(--text-dark, #0f172a);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+.modal-header-simple .modal-header-subtext {
+  color: var(--text-muted, #64748b);
+}
+
+/* ==========================================================================
+   ATLETA MODAL DISSOLVED / SCROLL-REVEAL HEADER
+   ========================================================================== */
+.modal-header-simple.atleta-modal-header {
+  transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, backdrop-filter 0.22s ease;
+}
+
+.modal-header-simple.atleta-modal-header.is-dissolved {
+  background: transparent !important;
+  border-bottom: 1px solid transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.modal-header-athlete-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s ease;
+}
+
+.modal-header-simple.atleta-modal-header.is-dissolved .modal-header-athlete-identity {
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.modal-header-simple.atleta-modal-header.is-scrolled {
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border-bottom: 1px solid var(--border-color, #e2e8f0) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+}
+
+.modal-header-simple.atleta-modal-header.is-scrolled .modal-header-athlete-identity {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  visibility: visible;
+}
+
+[data-theme="dark"] .modal-header-simple.atleta-modal-header.is-scrolled {
+  background: rgba(13, 23, 40, 0.92) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28) !important;
+}
+
+.modal-header-athlete-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color, #e2e8f0);
+  transition: transform 0.15s ease;
+}
+
+.modal-header-athlete-thumb:hover {
+  transform: scale(1.08);
+}
+
+.modal-header-athlete-initials {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
+[data-theme="dark"] .modal-header-athlete-thumb {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .modal-header-athlete-initials {
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Tighter body spacing for athlete modal so hero sits harmoniously near top */
+.modal-athlete-backdrop .modal-body-simple,
+.halfatleta-modal-backdrop .modal-body-simple {
+  padding-top: 10px;
 }
 
 .modal-body-simple {
@@ -2791,31 +2911,38 @@ body.modal-open {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  padding: 5px 12px;
-  border-radius: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  padding: 5px 11px;
+  border-radius: 7px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .modal-favorite-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.24);
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
   transform: translateY(-1px);
 }
 
+.modal-favorite-toggle-btn:active {
+  transform: translateY(0);
+}
+
 .modal-favorite-toggle-btn.is-favorited {
-  background: rgba(251, 191, 36, 0.22);
-  border-color: rgba(251, 191, 36, 0.45);
-  color: #ffffff;
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #92400e;
 }
 
 .modal-favorite-toggle-btn.is-favorited i {
-  color: #fbbf24;
+  color: #d97706;
 }
 
 .favorite-athlete-card {
@@ -3251,9 +3378,55 @@ body.modal-open {
 }
 
 [data-theme="dark"] .modal-header-simple {
-  background: #08101e;
+  background: #0d1728;
+  color: #f1f5f9;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .modal-header-simple h3,
+[data-theme="dark"] .modal-header-simple .modal-header-title-serif,
+[data-theme="dark"] .modal-header-simple .squadra-header-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .modal-header-simple .modal-header-subtext {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .modal-header-simple .modal-close-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .modal-header-simple .modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .modal-favorite-toggle-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .modal-favorite-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .modal-favorite-toggle-btn.is-favorited {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fef08a;
+}
+
+[data-theme="dark"] .modal-favorite-toggle-btn.is-favorited i {
+  color: #fbbf24;
 }
 
 [data-theme="dark"] .pos-silver {
@@ -5871,42 +6044,77 @@ body.modal-open {
 
 /* --- Common Modal Headers, Search & Footers --- */
 .modal-header-icon-box {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.12);
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  color: #0284c7;
 }
 
 .modal-header-icon-box.is-amber {
-  color: #fbbf24;
-  font-size: 20px;
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #d97706;
+  font-size: 18px;
 }
 
 .modal-header-icon-box.is-white {
-  color: #ffffff;
-  font-size: 18px;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #475569;
+  font-size: 17px;
+}
+
+[data-theme="dark"] .modal-header-icon-box {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .modal-header-icon-box.is-amber {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .modal-header-icon-box.is-white {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
 }
 
 .modal-header-title-serif {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.18rem;
   font-family: var(--font-serif);
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-dark, #0f172a);
   letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+[data-theme="dark"] .modal-header-title-serif {
+  color: #f8fafc;
 }
 
 .modal-header-subtext {
-  font-size: 11.5px;
-  color: #bfdbfe;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted, #64748b);
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: 0.01em;
+}
+
+[data-theme="dark"] .modal-header-subtext {
+  color: #94a3b8;
 }
 
 .modal-search-wrapper {
@@ -6344,19 +6552,32 @@ body.modal-open {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
   padding: 5px 12px;
   border-radius: 6px;
   font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: all 0.15s ease;
 }
 
 .squadra-header-filter-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+[data-theme="dark"] .squadra-header-filter-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+[data-theme="dark"] .squadra-header-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
 }
 
 .squadra-error-banner {
@@ -6724,12 +6945,20 @@ body.modal-open {
 
 /* --- Modal Badges & Feedback Helpers --- */
 .modal-badge-pill {
-  background: rgba(255, 255, 255, 0.15);
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 12px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+}
+
+[data-theme="dark"] .modal-badge-pill {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #cbd5e1;
 }
 
 .btn-modal-refresh {
@@ -6809,19 +7038,30 @@ body.modal-open {
 .squadra-header-logo-box {
   border-radius: 8px;
   background: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid #e2e8f0;
   padding: 2px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .squadra-header-logo-box {
+  background: #0f172a;
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .squadra-header-title {
   margin: 0;
   font-size: 1.2rem;
-  color: #ffffff;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
   letter-spacing: -0.2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+[data-theme="dark"] .squadra-header-title {
+  color: #f8fafc;
 }
 
 .squadra-section-header {

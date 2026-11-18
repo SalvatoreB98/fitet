@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
 import { fetchAtleta, fetchAtletaCampionatoPartite } from '../services/api';
@@ -29,6 +29,30 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
   const lastTrackedKeyRef = useRef<string | null>(null);
 
   const { isFavorite, toggleFavorite } = useFavoriteAthletes();
+
+  // Scroll reveal state for header (shows photo & name when atleta-profile-bar is scrolled past)
+  const [isScrolledPastHero, setIsScrolledPastHero] = useState<boolean>(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const profileBarRef = useRef<HTMLDivElement>(null);
+
+  const handleCardScroll = useCallback(() => {
+    if (profileBarRef.current && headerRef.current) {
+      const barRect = profileBarRef.current.getBoundingClientRect();
+      const headerRect = headerRef.current.getBoundingClientRect();
+      const isPast = barRect.bottom <= headerRect.bottom + 8;
+      setIsScrolledPastHero(isPast);
+    } else if (cardRef.current) {
+      setIsScrolledPastHero(cardRef.current.scrollTop > 110);
+    }
+  }, []);
+
+  useEffect(() => {
+    setIsScrolledPastHero(false);
+    if (cardRef.current) {
+      cardRef.current.scrollTop = 0;
+    }
+  }, [atletaKey]);
 
   const currentAtletaId = atleta?.id || atletaKey;
   const currentAthleteName = atleta?.anagrafica?.nome || athleteName || 'Atleta';
@@ -194,6 +218,12 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
     if (diff !== 0) puntiNetto = diff;
   }
 
+  const athletePhoto =
+    atleta?.anagrafica?.fotoUrl ||
+    (atleta?.id && /^\d+$/.test(atleta.id)
+      ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg`
+      : null);
+
   return createPortal(
     <div
       className="modal-backdrop-simple halfatleta-modal-backdrop"
@@ -202,18 +232,37 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
       aria-modal="true"
     >
       <div
+        ref={cardRef}
         className="modal-card-simple halfatleta-modal-card"
         onClick={(e) => e.stopPropagation()}
+        onScroll={handleCardScroll}
       >
         {/* Header */}
-        <div className="modal-header-simple">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0, flex: 1 }}>
+        <div
+          ref={headerRef}
+          className={`modal-header-simple atleta-modal-header ${isScrolledPastHero ? 'is-scrolled' : 'is-dissolved'}`}
+        >
+          <div className="modal-header-athlete-identity">
+            {athletePhoto && !imgError ? (
+              <img
+                src={athletePhoto}
+                alt={atleta?.anagrafica?.nome || athleteName || 'Atleta'}
+                className="modal-header-athlete-thumb"
+                referrerPolicy="no-referrer"
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <div className="modal-header-athlete-initials">
+                {(atleta?.anagrafica?.nome || athleteName || 'AT').slice(0, 2).toUpperCase()}
+              </div>
+            )}
             <div style={{ minWidth: 0, overflow: 'hidden' }}>
               <h3 style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                Scheda Ranking FITeT
+                {atleta?.anagrafica?.nome || athleteName || 'Scheda Ranking FITeT'}
               </h3>
               <div className="modal-header-subtext">
-                Tessera / ID: {atleta?.id || (/^\d+$/.test(atletaKey) ? atletaKey : 'In risoluzione...')} • Classifica Unica Nazionale
+                {atleta?.anagrafica?.societa ? `${atleta.anagrafica.societa} • ` : ''}
+                Tessera / ID: {atleta?.id || (/^\d+$/.test(atletaKey) ? atletaKey : 'N.D.')}
               </div>
             </div>
           </div>
@@ -287,7 +336,7 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
           {atleta && !loading && (
             <div>
               {/* Profile Bar */}
-              <div className="atleta-profile-bar" style={{ marginBottom: '16px' }}>
+              <div className="atleta-profile-bar" ref={profileBarRef} style={{ marginBottom: '16px' }}>
                 <div className="atleta-profile-photo-wrap">
                   {(() => {
                     const athletePhoto =
