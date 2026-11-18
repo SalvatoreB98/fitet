@@ -467,7 +467,7 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
 
   return createPortal(
     <div
-      className="modal-backdrop-simple modal-referto-backdrop"
+      className="modal-backdrop-simple modal-societa-backdrop"
       style={zIndex ? { zIndex } : undefined}
       onClick={onClose}
       role="dialog"
@@ -475,7 +475,7 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
       aria-label="La mia società"
     >
       <div
-        className="modal-card-simple referto-modal-card societa-modal-card"
+        className="modal-card-simple societa-modal-card"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="modal-header-simple societa-modal-header">

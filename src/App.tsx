@@ -618,17 +618,26 @@ export const App: React.FC = () => {
     setMySocietyInfo(info || stored || null);
   };
 
+  const pushSocietyHistoryState = (extra: Record<string, any>) => {
+    if (typeof window === 'undefined' || window.history.state?.societyModal) return;
+    const url = new URL(window.location.href);
+    if (url.pathname.startsWith('/player/') || url.pathname.startsWith('/giocatore/')) {
+      url.pathname = '/';
+    }
+    window.history.pushState(
+      { ...(window.history.state || {}), societyModal: true, ...extra },
+      '',
+      url.toString()
+    );
+  };
+
   const handleOpenMySociety = () => {
     trackClick('La mia società');
     setReturnToSociety(null);
     setSocietyModalTarget(null);
-    if (typeof window !== 'undefined' && !window.history.state?.societyModal) {
-      window.history.pushState(
-        { ...(window.history.state || {}), societyModal: true, societyId: mySocietyId || '' },
-        '',
-        window.location.href
-      );
-    }
+    setSelectedSquadra(null);
+    setAthleteStack([]);
+    pushSocietyHistoryState({ societyId: mySocietyId || '' });
     setIsSocietyModalOpen(true);
   };
 
@@ -649,19 +658,15 @@ export const App: React.FC = () => {
 
     trackClick(`Società: ${clean}`);
     setReturnToSociety(null);
+    setSelectedSquadra(null);
+    setAthleteStack([]);
     setSocietyModalTarget({
       societyId: null,
       query: clean,
       info: null,
       isOwnSociety: false,
     });
-    if (typeof window !== 'undefined' && !window.history.state?.societyModal) {
-      window.history.pushState(
-        { ...(window.history.state || {}), societyModal: true, societyQuery: clean },
-        '',
-        window.location.href
-      );
-    }
+    pushSocietyHistoryState({ societyQuery: clean });
     setIsSocietyModalOpen(true);
   };
 
@@ -1518,7 +1523,6 @@ export const App: React.FC = () => {
           initialLookupQuery={societyModalTarget?.query || null}
           initialInfo={societyModalTarget ? societyModalTarget.info : mySocietyInfo}
           annoId={SOCIETY_ANNO}
-          zIndex={athleteStack.length > 0 || selectedSquadra ? 1350 : undefined}
           onClose={handleCloseMySociety}
           onSocietySelected={
             societyModalTarget && !societyModalTarget.isOwnSociety

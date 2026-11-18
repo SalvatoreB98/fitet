@@ -654,7 +654,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
          ─────────────────────────────────────────────────────────── */}
       <MyProfileHero
         onOpenAtletaModal={onOpenAtletaModal}
-        onOpenSociety={onOpenSociety || (onOpenMySociety ? () => onOpenMySociety() : undefined)}
         onChampionshipDetected={handleProfileChampionshipDetected}
         onProfileStatusChange={setProfileStatus}
       />
