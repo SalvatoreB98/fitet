@@ -55,12 +55,13 @@ const seasonLabelFromAnno = (anno: number): string => {
 const AthleteRow: React.FC<{
   athlete: SocietaAtletaStagione;
   showRanking: boolean;
+  isCompact?: boolean;
   onOpen?: () => void;
-}> = ({ athlete, showRanking, onOpen }) => {
+}> = ({ athlete, showRanking, isCompact = false, onOpen }) => {
   const isClickable = Boolean(onOpen);
   return (
     <div
-      className={`societa-athlete-row ${isClickable ? 'is-clickable' : ''}`}
+      className={`societa-athlete-row ${isClickable ? 'is-clickable' : ''} ${isCompact ? 'is-doubles' : ''}`}
       onClick={onOpen}
       role={isClickable ? 'button' : undefined}
       tabIndex={isClickable ? 0 : undefined}
@@ -75,7 +76,7 @@ const AthleteRow: React.FC<{
           : undefined
       }
     >
-      <AthleteAvatar atletaId={athlete.atletaId} nome={athlete.nome} size={32} />
+      <AthleteAvatar atletaId={athlete.atletaId} nome={athlete.nome} size={isCompact ? 26 : 32} />
       <div className="societa-athlete-main">
         <span className="societa-athlete-name">{athlete.nome}</span>
         <span className="societa-athlete-sub">
@@ -102,55 +103,77 @@ const TeamBlock: React.FC<{
   showRanking: boolean;
   onOpenAthlete?: (athlete: SocietaAtletaStagione) => void;
   onOpenChampionship?: () => void;
-}> = ({ team, showRanking, onOpenAthlete, onOpenChampionship }) => (
-  <div className="societa-team-block">
-    <div className="societa-team-head">
-      <TeamLogo teamName={team.nome} size={50} className="societa-team-logo" />
-      <div className="societa-team-name-wrap">
-        <span className="societa-team-name">{team.nome}</span>
-        <span className="societa-team-record">
-          {team.incontriDisputati > 0
-            ? `${team.incontriVinti}V · ${team.incontriPareggiati}N · ${team.incontriPersi}P`
-            : 'Campionato non ancora iniziato'}
-        </span>
-      </div>
-      <span className="societa-team-pos" title="Posizione in classifica">
-        {team.posizione ? `#${team.posizione}` : '—'}
-      </span>
-      <button
-        type="button"
-        className="societa-team-points"
-        onClick={onOpenChampionship}
-        title="Apri il campionato"
-        disabled={!onOpenChampionship}
-      >
-        <strong>{formatNumber(team.punti)}</strong>
-        <span>punti</span>
-      </button>
-    </div>
+}> = ({ team, showRanking, onOpenAthlete, onOpenChampionship }) => {
+  const singles = team.atleti.filter((a) => !a.isDoppio);
+  const doubles = team.atleti.filter((a) => a.isDoppio);
 
-    <div className="societa-roster">
-      {team.atleti.length > 0 ? (
-        team.atleti.map((athlete) => {
-          const canOpen = Boolean(onOpenAthlete && athlete.atletaId && !athlete.isDoppio);
-          return (
-            <AthleteRow
-              key={`${team.squadraId}-${athlete.atletaId || athlete.nome}`}
-              athlete={athlete}
-              showRanking={showRanking}
-              onOpen={canOpen ? () => onOpenAthlete?.(athlete) : undefined}
-            />
-          );
-        })
-      ) : (
-        <div className="societa-empty-inline">
-          <i className="bi bi-info-circle"></i>
-          <span>Formazione non disponibile per questa squadra.</span>
+  return (
+    <div className="societa-team-block">
+      <div className="societa-team-head">
+        <TeamLogo teamName={team.nome} size={36} className="societa-team-logo" />
+        <div className="societa-team-name-wrap">
+          <span className="societa-team-name">{team.nome}</span>
+          <span className="societa-team-record">
+            {team.incontriDisputati > 0
+              ? `${team.incontriVinti}V · ${team.incontriPareggiati}N · ${team.incontriPersi}P`
+              : 'Campionato non ancora iniziato'}
+          </span>
         </div>
-      )}
+        <div className="societa-team-badges">
+          <span className="societa-team-pos" title="Posizione in classifica">
+            {team.posizione ? `#${team.posizione}` : '—'}
+          </span>
+          <button
+            type="button"
+            className="societa-team-points"
+            onClick={onOpenChampionship}
+            title="Apri il campionato"
+            disabled={!onOpenChampionship}
+          >
+            <strong>{formatNumber(team.punti)}</strong>
+            <span>pt</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="societa-roster">
+        {team.atleti.length > 0 ? (
+          <>
+            {singles.map((athlete) => {
+              const canOpen = Boolean(onOpenAthlete && athlete.atletaId);
+              return (
+                <AthleteRow
+                  key={`${team.squadraId}-${athlete.atletaId || athlete.nome}`}
+                  athlete={athlete}
+                  showRanking={showRanking}
+                  onOpen={canOpen ? () => onOpenAthlete?.(athlete) : undefined}
+                />
+              );
+            })}
+            {doubles.length > 0 && (
+              <div className="societa-roster-doubles-group">
+                <div className="societa-roster-group-label">Doppi</div>
+                {doubles.map((athlete) => (
+                  <AthleteRow
+                    key={`${team.squadraId}-d-${athlete.nome}`}
+                    athlete={athlete}
+                    showRanking={false}
+                    isCompact
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="societa-empty-inline">
+            <i className="bi bi-info-circle"></i>
+            <span>Formazione non disponibile per questa squadra.</span>
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const SeasonChampionships: React.FC<{
   season: SocietaStagione;
@@ -203,7 +226,7 @@ const SeasonChampionships: React.FC<{
             </div>
           </div>
 
-          <div className="societa-team-list">
+          <div className={`societa-team-list ${camp.squadre.length > 1 ? 'is-multi-team' : ''}`}>
             {camp.squadre.map((team) => (
               <TeamBlock
                 key={`${camp.anno}-${camp.campId}-${team.squadraId}`}
@@ -265,6 +288,7 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
   const [showManual, setShowManual] = useState(isOwnSociety && !hasLookupTarget);
   const [lookupRetryTick, setLookupRetryTick] = useState(0);
 
+  const [showHistoricalSeasons, setShowHistoricalSeasons] = useState(false);
   const [openSeasons, setOpenSeasons] = useState<number[]>([]);
   const [seasonData, setSeasonData] = useState<Record<number, SocietaStagione>>({});
   const [seasonLoading, setSeasonLoading] = useState<Record<number, boolean>>({});
@@ -808,12 +832,20 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
                       <span className="societa-eyebrow">Storico</span>
                       <h4 className="societa-section-title">Stagioni precedenti</h4>
                     </div>
-                    <span className="societa-section-hint">
-                      {historicalSeasons.length} stagioni
-                    </span>
                   </div>
 
-                  <div className="societa-season-list">
+                  <button
+                    type="button"
+                    className={`societa-history-master-toggle ${showHistoricalSeasons ? 'is-open' : ''}`}
+                    onClick={() => setShowHistoricalSeasons((prev) => !prev)}
+                    aria-expanded={showHistoricalSeasons}
+                  >
+                    <span>{historicalSeasons.length} stagioni</span>
+                    <i className={`bi bi-chevron-${showHistoricalSeasons ? 'up' : 'down'}`}></i>
+                  </button>
+
+                  {showHistoricalSeasons && (
+                    <div className="societa-season-list">
                     {historicalSeasons.map((season) => {
                       const isOpen = openSeasons.includes(season.anno);
                       const isLoading = Boolean(seasonLoading[season.anno]);
@@ -869,7 +901,8 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
                         </div>
                       );
                     })}
-                  </div>
+                    </div>
+                  )}
                 </section>
               )}
 

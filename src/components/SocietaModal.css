@@ -196,7 +196,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  background: var(--bg-page);
+  background: var(--bg-card);
 }
 
 /* --------------------------------------------------------------------------
@@ -356,83 +356,91 @@
 
 .societa-stats-row {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 0;
+  margin-left: auto;
 }
 
 .societa-stat {
-  min-width: 62px;
-  padding: 6px 10px;
-  border-radius: 10px;
-  text-align: center;
+  padding: 2px 14px;
+  border-right: 1px solid var(--border-color);
+  text-align: right;
   display: flex;
   flex-direction: column;
   line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.societa-stat:last-child {
+  padding-right: 0;
+  border-right: none;
 }
 
 .societa-stat strong {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
+  font-weight: 800;
   color: var(--text-dark);
 }
 
 .societa-stat span {
-  font-size: 0.64rem;
-  font-weight: 700;
+  font-size: 0.62rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
 }
 
 /* --------------------------------------------------------------------------
-   Atleti in forma
+   Atleti in forma (Floating cards directly on modal background — no outer box)
    -------------------------------------------------------------------------- */
 
 .societa-form-panel {
-  padding: 12px;
-  margin-bottom: 12px;
-  border-radius: 14px;
-  border: 1px solid var(--border-color);
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(2, 132, 199, 0.05));
+  padding: 0;
+  margin-bottom: 20px;
+  border: none;
+  background: transparent;
 }
 
 .societa-form-title {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
-  font-size: 0.76rem;
-  font-weight: 800;
+  margin-bottom: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-accent-amber-dark);
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
 }
 
 .societa-form-title i {
-  color: var(--color-accent-amber);
+  color: var(--color-info-text);
 }
 
 .societa-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
 }
 
 .societa-form-card {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px;
+  gap: 10px;
+  padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border-color);
-  background: var(--bg-card);
+  background: var(--bg-th);
   text-align: left;
   cursor: pointer;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  transition: transform 0.16s ease, border-color 0.16s ease;
   min-width: 0;
+  filter: drop-shadow(0px 0px 5px rgba(0, 0, 0, 0.2));
 }
 
 .societa-form-card:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  border-color: var(--color-info-border);
 }
 
 .societa-form-card:disabled {
@@ -447,7 +455,7 @@
 }
 
 .societa-form-name {
-  font-size: 0.75rem;
+  font-size: 0.74rem;
   font-weight: 700;
   color: var(--text-dark);
   display: -webkit-box;
@@ -458,7 +466,7 @@
 }
 
 .societa-form-team {
-  font-size: 0.64rem;
+  font-size: 0.63rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -470,10 +478,12 @@
   flex-direction: column;
   align-items: flex-end;
   line-height: 1.15;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .societa-form-pct {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   font-weight: 800;
   color: var(--color-success-text);
 }
@@ -484,22 +494,19 @@
 }
 
 /* --------------------------------------------------------------------------
-   Championship / team
+   Championship / team (2-column grid on desktop, hairline rows)
    -------------------------------------------------------------------------- */
 
 .societa-champ-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .societa-champ-card {
-  border-radius: 14px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-card);
-  overflow: hidden;
-  box-shadow: var(--shadow-container);
-  margin-top: 1em;
+  border: none;
+  background: transparent;
+  overflow: visible;
 }
 
 .societa-champ-head {
@@ -507,9 +514,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 14px;
-  background: linear-gradient(135deg, rgba(2, 132, 199, 0.09), rgba(2, 132, 199, 0.02));
+  padding: 6px 0 12px 0;
+  background: transparent;
   border-bottom: 1px solid var(--border-color);
+  margin-bottom: 14px;
 }
 
 .societa-champ-title-wrap {
@@ -560,7 +568,7 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 5px 9px;
+  padding: 5px 10px;
   border-radius: 8px;
   border: 1px solid var(--color-info-border);
   background: var(--color-info-bg);
@@ -576,43 +584,64 @@
 }
 
 .societa-team-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding: 0;
+}
+
+.societa-team-list.is-multi-team {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .societa-team-block {
-  border-bottom: 1px solid var(--border-light);
-}
-
-.societa-team-block:last-child {
-  border-bottom: none;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-th);
+  padding: 14px 16px 8px 16px;
+  filter: drop-shadow(0px 0px 5px rgba(0, 0, 0, 0.2));
 }
 
 .societa-team-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 0 0 10px 0;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 2px;
+}
+
+.societa-team-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .societa-team-pos {
-  width: 34px;
-  height: 26px;
+  height: 24px;
+  padding: 0 7px;
   flex-shrink: 0;
-  border-radius: 7px;
-  display: flex;
+  border-radius: 999px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   background: var(--bg-th);
   border: 1px solid var(--border-color);
   color: var(--text-muted);
-  font-size: 0.72rem;
-  font-weight: 800;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .societa-team-logo {
   flex-shrink: 0;
-  border-radius: 100%;
+  border-radius: 8px;
 }
 
 .societa-team-name-wrap {
@@ -623,7 +652,7 @@
 }
 
 .societa-team-name {
-  font-size: 0.84rem;
+  font-size: 0.86rem;
   font-weight: 700;
   color: var(--text-dark);
   white-space: nowrap;
@@ -634,38 +663,36 @@
 .societa-team-record {
   font-size: 0.68rem;
   color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .societa-team-points {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1.05;
-  min-width: 48px;
-  padding: 5px 8px;
-  border-radius: 9px;
-  border: 1px solid var(--color-accent-amber-light);
-  background: var(--color-accent-amber-light);
-  color: var(--color-accent-amber-dark);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--color-info-border);
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
   cursor: pointer;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 0.15s ease;
 }
 
 .societa-team-points strong {
-  font-size: 0.94rem;
+  font-size: 0.76rem;
   font-weight: 800;
 }
 
 .societa-team-points span {
-  font-size: 0.58rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 0.64rem;
+  font-weight: 600;
 }
 
 .societa-team-points:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.24);
+  background: rgba(2, 132, 199, 0.16);
 }
 
 .societa-team-points:disabled {
@@ -675,24 +702,48 @@
 .societa-roster {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-}
-
-.societa-athlete-row:nth-child(even) {
-  background-color: #f1f8fc;
-}
-
-[data-theme="dark"] .societa-athlete-row:nth-child(even) {
-  background-color: #0000002b;
 }
 
 .societa-athlete-row {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 6px 20px;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border-light);
   min-width: 0;
+  transition: background-color 0.14s ease;
+}
+
+.societa-athlete-row:last-child {
+  border-bottom: none;
+}
+
+.societa-athlete-row.is-doubles {
+  padding: 5px 4px;
+  opacity: 0.9;
+}
+
+.societa-roster-doubles-group {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.societa-roster-group-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: 0 4px 2px 4px;
+}
+
+.societa-doubles-pct {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 .societa-athlete-row.is-clickable {
@@ -753,6 +804,36 @@
 /* --------------------------------------------------------------------------
    Past seasons
    -------------------------------------------------------------------------- */
+
+.societa-history-master-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-th);
+  color: var(--text-dark);
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.societa-history-master-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.societa-history-master-toggle.is-open {
+  margin-bottom: 10px;
+  border-color: var(--color-info-border);
+}
+
+.societa-history-master-toggle i {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
 
 .societa-season-list {
   display: flex;
@@ -843,6 +924,8 @@
   text-align: left;
   min-width: 0;
   transition: background 0.16s ease, border-color 0.16s ease;
+  filter: drop-shadow(0px 0px 5px rgba(0, 0, 0, 0.201));
+
 }
 
 .societa-historical-item:hover:not(:disabled) {
@@ -1090,6 +1173,17 @@
    Responsive
    -------------------------------------------------------------------------- */
 
+@media (max-width: 820px) {
+  .societa-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .societa-team-list.is-multi-team {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+}
+
 @media (max-width: 720px) {
   .societa-modal-card {
     width: 100%;
@@ -1124,24 +1218,24 @@
     display: none;
   }
 
-  .societa-form-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .societa-historical-grid {
     grid-template-columns: 1fr;
   }
 
-  .societa-roster {
-    padding-left: 14px;
-  }
-
   .societa-stats-row {
     width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
   }
 
   .societa-stat {
     flex: 1;
+    text-align: center;
+    padding: 4px 8px;
+  }
+
+  .societa-stat:first-child {
+    padding-left: 0;
   }
 
   .societa-manual-panel {
@@ -1164,11 +1258,11 @@
 }
 
 /* --------------------------------------------------------------------------
-   Dark theme tweaks
+   Dark theme tweaks (2-color functional palette)
    -------------------------------------------------------------------------- */
 
 [data-theme="dark"] .societa-modal-body {
-  background: var(--bg-page);
+  background: var(--bg-card);
 }
 
 [data-theme="dark"] .societa-manual-panel {
@@ -1176,18 +1270,14 @@
   border-color: rgba(56, 189, 248, 0.24);
 }
 
-[data-theme="dark"] .societa-form-panel {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(2, 132, 199, 0.08));
-}
-
 [data-theme="dark"] .societa-champ-head {
-  background: rgba(2, 132, 199, 0.12);
+  background: transparent;
 }
 
 [data-theme="dark"] .societa-team-points {
-  background: rgba(245, 158, 11, 0.14);
-  border-color: rgba(245, 158, 11, 0.24);
-  color: #fbbf24;
+  background: rgba(2, 132, 199, 0.16);
+  border-color: rgba(56, 189, 248, 0.28);
+  color: #7dd3fc;
 }
 
 [data-theme="dark"] .societa-ranking-points {
@@ -1213,6 +1303,7 @@
     opacity: 0;
     transform: translate(-50%, 10px) scale(0.96);
   }
+
   to {
     opacity: 1;
     transform: translate(-50%, 0) scale(1);
@@ -1309,6 +1400,7 @@
     opacity: 0;
     transform: translate(-50%, 10px) scale(0.96);
   }
+
   to {
     opacity: 1;
     transform: translate(-50%, 0) scale(1);
