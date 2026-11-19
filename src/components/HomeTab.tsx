@@ -937,6 +937,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               type="button"
               className="home-hero-btn home-hero-btn-secondary"
               onClick={onOpenMySociety}
+              style={{ minWidth: '128px', justifyContent: 'center' }}
               title="Apri la scheda della tua società"
             >
               <i className="bi bi-buildings"></i>
