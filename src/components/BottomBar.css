@@ -37,6 +37,66 @@
   max-width: 640px;
   position: absolute;
   bottom: 0;
+  /* Il gesto orizzontale è nostro, quello verticale resta alla pagina */
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  isolation: isolate;
+}
+
+/* ==========================================================================
+   Indicatore scorrevole (Liquid Glass) - segue il dito e si aggancia all'item
+   ========================================================================== */
+.bottom-bar-pill {
+  position: absolute;
+  left: 0;
+  top: var(--pill-inset, 6px);
+  bottom: var(--pill-inset, 6px);
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  box-shadow:
+    0 4px 14px rgba(2, 132, 199, 0.38),
+    0 1px 2px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  opacity: 0;
+  transform: translate3d(var(--pill-left, 0px), 0, 0) scaleX(var(--pill-stretch, 1));
+  transform-origin: var(--pill-origin, center);
+  transition:
+    transform 0.44s cubic-bezier(0.34, 1.4, 0.5, 1),
+    width 0.34s cubic-bezier(0.34, 1.4, 0.5, 1),
+    opacity 0.2s ease;
+  will-change: transform, width;
+}
+
+/* Riflesso "liquid glass" sulla parte alta della pill */
+.bottom-bar-pill::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.32) 0%,
+    rgba(255, 255, 255, 0.08) 45%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  pointer-events: none;
+}
+
+.bottom-bar-pill.is-ready {
+  opacity: 1;
+}
+
+/* Durante il drag la pill deve seguire il dito senza ritardi */
+.portal-bottom-bar.is-dragging .bottom-bar-pill,
+.bottom-bar-pill.is-snapping {
+  transition: none;
+}
+
+.portal-bottom-bar.is-dragging {
+  cursor: grabbing;
 }
 
 /* Item Button */
@@ -56,6 +116,8 @@
   user-select: none;
   position: relative;
   border-radius: 50px;
+  z-index: 1;
+  -webkit-tap-highlight-color: transparent;
 }
 
 
@@ -91,16 +153,18 @@
   transform: scale(0.95);
 }
 
-/* Active State */
+/* Active State - lo sfondo è dato dalla pill scorrevole */
 .bottom-bar-item.is-active {
   color: #ffffff;
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.38);
+  background: transparent;
+}
+
+.bottom-bar-item.is-active:hover {
+  background: transparent;
 }
 
 .bottom-bar-item.is-active .bottom-bar-label {
   color: #ffffff;
-  font-weight: 700;
 }
 
 .bottom-bar-item.is-active .bottom-bar-icon-wrap {
@@ -165,8 +229,15 @@
 
 [data-theme="dark"] .bottom-bar-item.is-active {
   color: #ffffff;
+  background: transparent;
+}
+
+[data-theme="dark"] .bottom-bar-pill {
   background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-500) 100%);
-  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.5);
+  box-shadow:
+    0 4px 16px rgba(2, 132, 199, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
 [data-theme="dark"] .bottom-bar-search-item {
@@ -185,6 +256,7 @@
   }
 
   .portal-bottom-bar {
+    --pill-inset: 5px;
     gap: 2px;
     padding: 5px 6px;
     max-width: 420px;
@@ -204,5 +276,15 @@
 
   .bottom-bar-label {
     font-size: 0.68rem;
+  }
+}
+
+/* Rispetta le preferenze di accessibilità */
+@media (prefers-reduced-motion: reduce) {
+  .bottom-bar-pill,
+  .bottom-bar-item,
+  .bottom-bar-icon-wrap,
+  .bottom-bar-label {
+    transition: none;
   }
 }
