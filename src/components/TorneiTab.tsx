@@ -1039,6 +1039,8 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
   handleSelectTorneoRef.current = handleSelectTorneo;
   const allKnownTorneiRef = useRef(allKnownTornei);
   allKnownTorneiRef.current = allKnownTornei;
+  const selectedTorneoRef = useRef(selectedTorneo);
+  selectedTorneoRef.current = selectedTorneo;
   const lastAutoOpenedTorneoKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -1056,6 +1058,14 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
       const annoRaw = params.get('torneoAnno');
       const anno = annoRaw && /^\d+$/.test(annoRaw) ? parseInt(annoRaw, 10) : 0;
       const uniqueKey = `${com}-${idt}-${anno}`;
+
+      if (
+        selectedTorneoRef.current &&
+        selectedTorneoRef.current.idt === idt &&
+        selectedTorneoRef.current.com === com
+      ) {
+        return;
+      }
 
       if (lastAutoOpenedTorneoKeyRef.current === uniqueKey) {
         return;
@@ -1574,6 +1584,9 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (document.querySelector('.modal-athlete-backdrop, .modal-societa-backdrop')) {
+          return;
+        }
         if (garaPhaseTab) {
           backToGara();
         } else if (selectedGara) {

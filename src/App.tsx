@@ -250,7 +250,7 @@ export const App: React.FC = () => {
       url.searchParams.delete('atleta');
       url.searchParams.delete('atletaId');
       window.history.pushState(
-        { ...(window.history.state || {}), athleteId: a.id, athleteName: a.name },
+        { ...(window.history.state || {}), athleteId: a.id, athleteName: a.name, pushedByApp: true },
         '',
         url.toString()
       );
@@ -273,25 +273,20 @@ export const App: React.FC = () => {
       url.searchParams.delete('atleta');
       url.searchParams.delete('atletaId');
       window.history.replaceState(
-        { ...(window.history.state || {}), athleteId: null },
+        { ...(window.history.state || {}), athleteId: null, pushedByApp: false },
         '',
         url.toString()
       );
       return;
     }
 
-    // Verifica se esiste uno storico all'interno della stessa origine
-    const hasInternalHistory =
-      window.history.length > 1 &&
-      document.referrer &&
-      new URL(document.referrer).origin === window.location.origin;
-
-    if (window.history.state?.athleteId && hasInternalHistory) {
+    if (window.history.state?.athleteId && window.history.state?.pushedByApp) {
       window.history.back();
       return;
     }
 
-    // Se non c'è una cronologia precedente utile, gestisci lo stack o forza la home
+    // Se non c'è una cronologia interna (es. atterraggio diretto su /player/:id),
+    // aggiorna stack e URL con replaceState senza mai ricaricare la pagina.
     setAthleteStack((prev) => {
       const nextStack = prev.slice(0, -1);
       const nextTop = nextStack[nextStack.length - 1];
@@ -305,22 +300,16 @@ export const App: React.FC = () => {
           url.toString()
         );
       } else {
-        // Se lo stack è vuoto e non c'è cronologia valida a cui tornare,
-        // puliamo l'URL e navighiamo direttamente alla home
-        if (!hasInternalHistory && window.location.pathname !== '/') {
-          window.location.href = '/';
-        } else {
-          const url = new URL(window.location.href);
-          url.pathname = '/';
-          url.searchParams.delete('player');
-          url.searchParams.delete('atleta');
-          url.searchParams.delete('atletaId');
-          window.history.replaceState(
-            { ...(window.history.state || {}), athleteId: null },
-            '',
-            url.toString()
-          );
-        }
+        const url = new URL(window.location.href);
+        url.pathname = '/';
+        url.searchParams.delete('player');
+        url.searchParams.delete('atleta');
+        url.searchParams.delete('atletaId');
+        window.history.replaceState(
+          { ...(window.history.state || {}), athleteId: null, pushedByApp: false },
+          '',
+          url.toString()
+        );
       }
 
       return nextStack;
