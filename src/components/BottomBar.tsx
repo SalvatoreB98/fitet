@@ -76,7 +76,7 @@ const findNearestIndex = (
   return best;
 };
 
-export const BottomBar: React.FC<BottomBarProps> = ({
+export const BottomBar: React.FC<BottomBarProps> = React.memo(({
   activeView,
   onChangeView,
   onOpenSearchModal,
@@ -88,6 +88,7 @@ export const BottomBar: React.FC<BottomBarProps> = ({
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const dragRef = useRef<DragSession | null>(null);
   const didDragRef = useRef(false);
+  const lastPillRectRef = useRef<{ left: number; width: number }>({ left: -1, width: -1 });
 
   const activeIndex = Math.max(
     0,
@@ -111,7 +112,10 @@ export const BottomBar: React.FC<BottomBarProps> = ({
       } else {
         pillEl.classList.remove('is-snapping');
       }
-      pillEl.style.width = `${width}px`;
+      if (Math.abs(lastPillRectRef.current.width - width) >= 0.5) {
+        pillEl.style.width = `${width}px`;
+      }
+      lastPillRectRef.current = { left, width };
       pillEl.style.transformOrigin = origin;
       pillEl.style.transform =
         stretch === 1
@@ -131,6 +135,13 @@ export const BottomBar: React.FC<BottomBarProps> = ({
     const itemRect = activeEl.getBoundingClientRect();
     const left = itemRect.left - barRect.left;
     const width = itemRect.width;
+
+    if (
+      Math.abs(lastPillRectRef.current.left - left) < 0.5 &&
+      Math.abs(lastPillRectRef.current.width - width) < 0.5
+    ) {
+      return;
+    }
 
     applyPillTransform(left, width, 1, 'center', false);
     setPillReady((prev) => (prev ? prev : true));
@@ -322,14 +333,24 @@ export const BottomBar: React.FC<BottomBarProps> = ({
       left + drag.pillWidth / 2,
       activeIndexRef.current
     );
+    const targetItem = drag.items[targetIndex];
 
     cleanupDrag();
 
+    // Aggancia subito la pillola sull'item di destinazione con transizione GPU,
+    // poi delega il cambio vista pesante al frame successivo in startTransition.
+    if (targetItem) {
+      applyPillTransform(targetItem.left, targetItem.width, 1, 'center', false);
+    }
+
     const nextView = !cancelled ? NAV_ITEMS[targetIndex]?.view : undefined;
     if (nextView && nextView !== activeView) {
-      onChangeView(nextView);
+      window.requestAnimationFrame(() => {
+        React.startTransition(() => {
+          onChangeView(nextView);
+        });
+      });
     } else {
-      // Riporta la pill sull'item attivo con transizione fluida
       window.requestAnimationFrame(() => measureActive());
     }
   };
@@ -435,4 +456,4 @@ export const BottomBar: React.FC<BottomBarProps> = ({
       </div>
     </nav>
   );
-};
+});
