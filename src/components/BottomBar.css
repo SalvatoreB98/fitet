@@ -33,7 +33,6 @@
     0 12px 36px -4px rgba(15, 23, 42, 0.16),
     0 4px 12px -2px rgba(15, 23, 42, 0.08),
     0 0 0 1px rgba(255, 255, 255, 0.6) inset;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   max-width: 640px;
   position: absolute;
   bottom: 0;
@@ -41,6 +40,7 @@
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
   isolation: isolate;
 }
 
@@ -61,13 +61,13 @@
     0 1px 2px rgba(15, 23, 42, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
   opacity: 0;
-  transform: translate3d(var(--pill-left, 0px), 0, 0) scaleX(var(--pill-stretch, 1));
-  transform-origin: var(--pill-origin, center);
   transition:
-    transform 0.44s cubic-bezier(0.34, 1.4, 0.5, 1),
-    width 0.34s cubic-bezier(0.34, 1.4, 0.5, 1),
-    opacity 0.2s ease;
-  will-change: transform, width;
+    transform 0.38s cubic-bezier(0.22, 1.28, 0.36, 1),
+    width 0.28s cubic-bezier(0.22, 1.28, 0.36, 1),
+    opacity 0.18s ease;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 /* Riflesso "liquid glass" sulla parte alta della pill */
@@ -112,7 +112,7 @@
   background: transparent;
   color: var(--text-muted, #64748b);
   cursor: pointer;
-  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
   user-select: none;
   position: relative;
   border-radius: 50px;

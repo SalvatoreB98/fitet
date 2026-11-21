@@ -33,24 +33,48 @@ const DRAG_THRESHOLD = 6;
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
-interface BarMetrics {
-  items: Array<{ left: number; width: number; center: number } | null>;
+interface ItemMetric {
+  left: number;
+  width: number;
+  center: number;
 }
 
 interface DragSession {
   pointerId: number;
   startX: number;
   baseLeft: number;
+  pillWidth: number;
   minLeft: number;
   maxLeft: number;
   lastX: number;
   lastTime: number;
   active: boolean;
-  // Misure congelate all'inizio del drag: niente reflow a ogni pointermove.
-  items: BarMetrics['items'];
+  items: Array<ItemMetric | null>;
+  rafId: number | null;
+  pendingClientX: number;
+  currentTarget: number;
 }
 
-type StretchOrigin = 'left center' | 'right center' | 'center';
+const findNearestIndex = (
+  items: Array<ItemMetric | null>,
+  center: number,
+  fallback: number
+): number => {
+  let best = fallback;
+  let bestDistance = Number.POSITIVE_INFINITY;
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    if (!item) continue;
+    const distance = Math.abs(item.center - center);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = i;
+    }
+  }
+
+  return best;
+};
 
 export const BottomBar: React.FC<BottomBarProps> = ({
   activeView,
@@ -60,35 +84,47 @@ export const BottomBar: React.FC<BottomBarProps> = ({
   mySocietyInfo,
 }) => {
   const barRef = useRef<HTMLDivElement | null>(null);
+  const pillRef = useRef<HTMLDivElement | null>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const dragRef = useRef<DragSession | null>(null);
   const didDragRef = useRef(false);
-
-  // Posizione misurata dell'indicatore (pill) sull'item attivo.
-  const [pill, setPill] = useState({ left: 0, width: 0, ready: false });
-  // Spostamento temporaneo dell'indicatore durante il drag.
-  const [dragOffset, setDragOffset] = useState(0);
-  // Stretch "liquido" dell'indicatore, in scala orizzontale.
-  const [stretch, setStretch] = useState(1);
-  const [stretchOrigin, setStretchOrigin] = useState<StretchOrigin>('center');
-  const [dragging, setDragging] = useState(false);
-  // Item più vicino all'indicatore durante il drag (anteprima di selezione).
-  const [dragTarget, setDragTarget] = useState<number | null>(null);
-  // Item appena premuto: rende subito attivo il punto da cui parte il drag,
-  // anche se non era quello selezionato in precedenza.
-  const [visualIndex, setVisualIndex] = useState<number | null>(null);
-  // Disattiva temporaneamente la transizione quando la pill "salta" sull'item premuto.
-  const [snapPill, setSnapPill] = useState(false);
 
   const activeIndex = Math.max(
     0,
     NAV_ITEMS.findIndex((item) => item.view === activeView),
   );
-  const pillIndex = visualIndex ?? activeIndex;
+  const activeIndexRef = useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
 
-  const measure = useCallback(() => {
+  // Stato minimo: solo per stato visuale (visibilità/dragTarget/dragging).
+  // Le coordinate a 60/120fps durante il drag vengono applicate direttamente sul DOM via rAF.
+  const [pillReady, setPillReady] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dragTarget, setDragTarget] = useState<number | null>(null);
+
+  const applyPillTransform = useCallback(
+    (left: number, width: number, stretch = 1, origin: 'left center' | 'right center' | 'center' = 'center', instant = false) => {
+      const pillEl = pillRef.current;
+      if (!pillEl) return;
+      if (instant) {
+        pillEl.classList.add('is-snapping');
+      } else {
+        pillEl.classList.remove('is-snapping');
+      }
+      pillEl.style.width = `${width}px`;
+      pillEl.style.transformOrigin = origin;
+      pillEl.style.transform =
+        stretch === 1
+          ? `translate3d(${left}px, 0, 0)`
+          : `translate3d(${left}px, 0, 0) scaleX(${stretch})`;
+    },
+    [],
+  );
+
+  const measureActive = useCallback(() => {
+    if (dragRef.current?.active) return;
     const bar = barRef.current;
-    const activeEl = itemRefs.current[pillIndex];
+    const activeEl = itemRefs.current[activeIndexRef.current];
     if (!bar || !activeEl) return;
 
     const barRect = bar.getBoundingClientRect();
@@ -96,130 +132,138 @@ export const BottomBar: React.FC<BottomBarProps> = ({
     const left = itemRect.left - barRect.left;
     const width = itemRect.width;
 
-    setPill((prev) => {
-      if (prev.ready && Math.abs(prev.left - left) < 0.5 && Math.abs(prev.width - width) < 0.5) {
-        return prev;
-      }
-      return { left, width, ready: true };
-    });
-  }, [pillIndex]);
+    applyPillTransform(left, width, 1, 'center', false);
+    setPillReady((prev) => (prev ? prev : true));
+  }, [applyPillTransform]);
 
-  // Misura prima del paint per evitare qualsiasi flash dell'indicatore.
+  // Misura prima del paint quando cambia la tab attiva.
   useLayoutEffect(() => {
-    measure();
-  }, [measure]);
+    measureActive();
+  }, [activeIndex, measureActive]);
 
+  // ResizeObserver creato una sola volta (nessun teardown ad ogni tap).
   useEffect(() => {
     let cancelled = false;
-    const safeMeasure = () => {
-      if (!cancelled) measure();
+    let rafId: number | null = null;
+    const scheduleMeasure = () => {
+      if (cancelled || rafId !== null) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        if (!cancelled) measureActive();
+      });
     };
 
-    const observer = new ResizeObserver(safeMeasure);
+    const observer = new ResizeObserver(scheduleMeasure);
     if (barRef.current) observer.observe(barRef.current);
-    itemRefs.current.forEach((el) => {
-      if (el) observer.observe(el);
-    });
 
-    window.addEventListener('resize', safeMeasure);
-    window.addEventListener('orientationchange', safeMeasure);
+    window.addEventListener('resize', scheduleMeasure, { passive: true });
+    window.addEventListener('orientationchange', scheduleMeasure, { passive: true });
 
-    // I font possono cambiare la larghezza delle label dopo il primo paint.
     if (typeof document !== 'undefined' && document.fonts?.ready) {
-      document.fonts.ready.then(safeMeasure).catch(() => {});
+      document.fonts.ready.then(scheduleMeasure).catch(() => {});
     }
 
     return () => {
       cancelled = true;
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
       observer.disconnect();
-      window.removeEventListener('resize', safeMeasure);
-      window.removeEventListener('orientationchange', safeMeasure);
+      window.removeEventListener('resize', scheduleMeasure);
+      window.removeEventListener('orientationchange', scheduleMeasure);
     };
-  }, [measure]);
+  }, [measureActive]);
 
-  const getBarMetrics = (): BarMetrics | null => {
+  const getBarMetrics = (): Array<ItemMetric | null> | null => {
     const bar = barRef.current;
     if (!bar) return null;
     const barRect = bar.getBoundingClientRect();
 
-    return {
-      items: itemRefs.current.map((el) => {
-        if (!el) return null;
-        const rect = el.getBoundingClientRect();
-        const left = rect.left - barRect.left;
-        return { left, width: rect.width, center: left + rect.width / 2 };
-      }),
-    };
-  };
-
-  const findNearestIndex = (items: BarMetrics['items'], center: number): number => {
-    let best = activeIndex;
-    let bestDistance = Number.POSITIVE_INFINITY;
-
-    items.forEach((item, index) => {
-      if (!item) return;
-      const distance = Math.abs(item.center - center);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        best = index;
-      }
+    return itemRefs.current.map((el) => {
+      if (!el) return null;
+      const rect = el.getBoundingClientRect();
+      const left = rect.left - barRect.left;
+      return { left, width: rect.width, center: left + rect.width / 2 };
     });
-
-    return best;
   };
 
-  const resetDragVisuals = () => {
+  const cleanupDrag = useCallback(() => {
+    const drag = dragRef.current;
+    if (drag?.rafId !== null && drag?.rafId !== undefined) {
+      window.cancelAnimationFrame(drag.rafId);
+    }
+    dragRef.current = null;
     setDragging(false);
-    setDragOffset(0);
-    setStretch(1);
-    setStretchOrigin('center');
     setDragTarget(null);
-    setVisualIndex(null);
-    setSnapPill(false);
-  };
+  }, []);
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    // Un secondo dito durante un drag attivo non deve rubare il gesto.
     if (dragRef.current?.active) return;
     didDragRef.current = false;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
 
     const target = event.target as HTMLElement;
-    // Il drag può partire da qualsiasi voce: quella premuta diventa subito attiva.
     const navButton = target.closest<HTMLElement>('[data-nav-index]');
     if (!navButton) return;
 
     const pressedIndex = Number(navButton.dataset.navIndex);
-    const metrics = getBarMetrics();
-    if (!metrics) return;
+    const items = getBarMetrics();
+    if (!items) return;
 
-    const pressedItem = metrics.items[pressedIndex];
+    const pressedItem = items[pressedIndex];
     if (!pressedItem) return;
 
-    const first = metrics.items.find((item): item is NonNullable<typeof item> => Boolean(item));
-    const last = [...metrics.items].reverse().find((item): item is NonNullable<typeof item> => Boolean(item));
+    const first = items.find((item): item is ItemMetric => Boolean(item));
+    const last = [...items].reverse().find((item): item is ItemMetric => Boolean(item));
     if (!first || !last) return;
-
-    // La pill si sposta subito sulla voce premuta: da lì inizia il trascinamento.
-    setVisualIndex(pressedIndex);
-    if (pressedIndex !== pillIndex) {
-      setSnapPill(true);
-      setPill({ left: pressedItem.left, width: pressedItem.width, ready: true });
-      window.requestAnimationFrame(() => setSnapPill(false));
-    }
 
     dragRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
       baseLeft: pressedItem.left,
+      pillWidth: pressedItem.width,
       minLeft: first.left,
       maxLeft: Math.max(first.left, last.left + last.width - pressedItem.width),
       lastX: event.clientX,
       lastTime: performance.now(),
       active: false,
-      items: metrics.items,
+      items,
+      rafId: null,
+      pendingClientX: event.clientX,
+      currentTarget: pressedIndex,
     };
   };
+
+  const flushDragFrame = useCallback(() => {
+    const drag = dragRef.current;
+    if (!drag || !drag.active) return;
+    drag.rafId = null;
+
+    const clientX = drag.pendingClientX;
+    const dx = clientX - drag.startX;
+    const left = clamp(drag.baseLeft + dx, drag.minLeft, drag.maxLeft);
+    const offset = left - drag.baseLeft;
+
+    const now = performance.now();
+    const deltaTime = now - drag.lastTime;
+    const velocity = deltaTime > 0 ? (clientX - drag.lastX) / deltaTime : 0;
+    drag.lastX = clientX;
+    drag.lastTime = now;
+
+    const stretch = 1 + Math.min(0.14, Math.abs(velocity) * 0.08);
+    const origin: 'left center' | 'right center' | 'center' =
+      Math.abs(offset) > 1 ? (offset > 0 ? 'left center' : 'right center') : 'center';
+
+    applyPillTransform(left, drag.pillWidth, stretch, origin, true);
+
+    const nextTarget = findNearestIndex(
+      drag.items,
+      left + drag.pillWidth / 2,
+      activeIndexRef.current
+    );
+    if (nextTarget !== drag.currentTarget) {
+      drag.currentTarget = nextTarget;
+      setDragTarget(nextTarget);
+    }
+  }, [applyPillTransform]);
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
@@ -231,32 +275,21 @@ export const BottomBar: React.FC<BottomBarProps> = ({
       if (Math.abs(dx) < DRAG_THRESHOLD) return;
       drag.active = true;
       setDragging(true);
+      setDragTarget(drag.currentTarget);
+      // Posiziona subito la pill sul punto di partenza senza transizione
+      applyPillTransform(drag.baseLeft, drag.pillWidth, 1, 'center', true);
       try {
         barRef.current?.setPointerCapture(event.pointerId);
       } catch {
-        /* pointer capture non disponibile: il drag continua comunque */
+        /* pointer capture non disponibile */
       }
     }
 
     if (event.cancelable) event.preventDefault();
-
-    const left = clamp(drag.baseLeft + dx, drag.minLeft, drag.maxLeft);
-    const offset = left - drag.baseLeft;
-    setDragOffset(offset);
-
-    const now = performance.now();
-    const deltaTime = now - drag.lastTime;
-    const velocity = deltaTime > 0 ? (event.clientX - drag.lastX) / deltaTime : 0; // px/ms
-    drag.lastX = event.clientX;
-    drag.lastTime = now;
-
-    // Più veloce il gesto, più la pill si allunga in direzione del movimento.
-    setStretch(1 + Math.min(0.16, Math.abs(velocity) * 0.09));
-    if (Math.abs(offset) > 1) {
-      setStretchOrigin(offset > 0 ? 'left center' : 'right center');
+    drag.pendingClientX = event.clientX;
+    if (drag.rafId === null) {
+      drag.rafId = window.requestAnimationFrame(flushDragFrame);
     }
-
-    setDragTarget(findNearestIndex(drag.items, left + pill.width / 2));
   };
 
   const endDrag = (event: React.PointerEvent<HTMLDivElement>, cancelled: boolean) => {
@@ -264,7 +297,6 @@ export const BottomBar: React.FC<BottomBarProps> = ({
     if (!drag || drag.pointerId !== event.pointerId) return;
 
     const wasDragging = drag.active;
-    dragRef.current = null;
 
     try {
       if (barRef.current?.hasPointerCapture(event.pointerId)) {
@@ -274,39 +306,43 @@ export const BottomBar: React.FC<BottomBarProps> = ({
       /* noop */
     }
 
-    // Un semplice tap: lascia che sia il click del bottone a navigare.
-    if (!wasDragging) return;
+    if (!wasDragging) {
+      dragRef.current = null;
+      return;
+    }
 
-    // Il drag è terminato: sopprime il click che il browser potrebbe generare.
     didDragRef.current = true;
     window.setTimeout(() => {
       didDragRef.current = false;
-    }, 0);
+    }, 50);
 
     const left = clamp(drag.baseLeft + (event.clientX - drag.startX), drag.minLeft, drag.maxLeft);
-    const targetIndex = findNearestIndex(drag.items, left + pill.width / 2);
+    const targetIndex = findNearestIndex(
+      drag.items,
+      left + drag.pillWidth / 2,
+      activeIndexRef.current
+    );
 
-    resetDragVisuals();
+    cleanupDrag();
 
-    if (!cancelled) {
-      const nextView = NAV_ITEMS[targetIndex]?.view;
-      if (nextView && nextView !== activeView) {
-        onChangeView(nextView);
-      }
+    const nextView = !cancelled ? NAV_ITEMS[targetIndex]?.view : undefined;
+    if (nextView && nextView !== activeView) {
+      onChangeView(nextView);
+    } else {
+      // Riporta la pill sull'item attivo con transizione fluida
+      window.requestAnimationFrame(() => measureActive());
     }
   };
 
   const handleItemClick = (view: MainViewType) => {
     if (didDragRef.current) {
       didDragRef.current = false;
-      setVisualIndex(null);
       return;
     }
-    setVisualIndex(null);
     onChangeView(view);
   };
 
-  const highlightedIndex = dragging ? (dragTarget ?? pillIndex) : pillIndex;
+  const highlightedIndex = dragging ? (dragTarget ?? activeIndex) : activeIndex;
 
   return (
     <nav className="portal-bottom-bar-wrapper" aria-label="Navigazione principale">
@@ -321,31 +357,20 @@ export const BottomBar: React.FC<BottomBarProps> = ({
           const drag = dragRef.current;
           if (!drag) return;
           if (!drag.active) {
-            // Puntatore uscito prima della soglia: annulla il tap potenziale.
             dragRef.current = null;
-            setVisualIndex(null);
-            setSnapPill(false);
             return;
           }
-          // Se il pointer capture non è disponibile, chiude il drag uscendo dalla barra.
           if (!barRef.current?.hasPointerCapture(event.pointerId)) {
-            dragRef.current = null;
-            resetDragVisuals();
+            cleanupDrag();
+            window.requestAnimationFrame(() => measureActive());
           }
         }}
       >
-        {/* Indicatore scorrevole: segue il dito e si aggancia all'item più vicino */}
+        {/* Indicatore scorrevole: aggiornato via DOM/rAF per 60/120fps su iPhone */}
         <div
-          className={`bottom-bar-pill${pill.ready ? ' is-ready' : ''}${snapPill ? ' is-snapping' : ''}`}
+          ref={pillRef}
+          className={`bottom-bar-pill${pillReady ? ' is-ready' : ''}`}
           aria-hidden="true"
-          style={
-            {
-              width: pill.width ? `${pill.width}px` : undefined,
-              '--pill-left': `${pill.left + dragOffset}px`,
-              '--pill-stretch': stretch,
-              '--pill-origin': stretchOrigin,
-            } as React.CSSProperties
-          }
         />
 
         {NAV_ITEMS.map((item, index) => (
