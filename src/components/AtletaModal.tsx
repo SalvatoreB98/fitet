@@ -87,13 +87,13 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const profileBarRef = useRef<HTMLDivElement>(null);
 
   const handleCardScroll = useCallback(() => {
-    if (profileBarRef.current && headerRef.current) {
+    if (profileBarRef.current && cardRef.current) {
       const barRect = profileBarRef.current.getBoundingClientRect();
-      const headerRect = headerRef.current.getBoundingClientRect();
-      const isPast = barRect.bottom <= headerRect.bottom + 100;
+      const cardRect = cardRef.current.getBoundingClientRect();
+      const isPast = barRect.bottom <= cardRect.top + 56;
       setIsScrolledPastHero(isPast);
     } else if (cardRef.current) {
-      setIsScrolledPastHero(cardRef.current.scrollTop > 110);
+      setIsScrolledPastHero(cardRef.current.scrollTop > 90);
     }
   }, []);
 
@@ -716,150 +716,156 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
     >
       <div
         ref={cardRef}
-        className="modal-card-simple"
+        className="modal-card-simple atleta-modal-card"
         onClick={(e) => e.stopPropagation()}
         onScroll={handleCardScroll}
       >
-        {/* Simple Clean Header */}
-        <div
-          ref={headerRef}
-          className={`modal-header-simple atleta-modal-header ${isScrolledPastHero ? 'is-scrolled' : 'is-dissolved'}`}
-        >
-          <div className="modal-header-athlete-identity">
-            {zoomPhotoSrc && !imgError ? (
-              <img
-                src={zoomPhotoSrc}
-                alt={atleta?.anagrafica?.nome || athleteName || 'Atleta'}
-                className="modal-header-athlete-thumb"
-                referrerPolicy="no-referrer"
-                onError={() => setImgError(true)}
-                onClick={canOpenPhotoZoom ? openPhotoZoom : undefined}
-                title={canOpenPhotoZoom ? 'Ingrandisci foto' : undefined}
-                style={{ cursor: canOpenPhotoZoom ? 'pointer' : 'default' }}
-              />
-            ) : (
-              <div className="modal-header-athlete-initials" aria-hidden="true" />
-            )}
-            <div style={{ minWidth: 0, overflow: 'hidden' }}>
-              <h3 style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {atleta?.anagrafica?.nome || athleteName || 'Scheda Atleta'}
-              </h3>
-              <div className="modal-header-subtext">
-                {atleta?.anagrafica?.societa ? `${atleta.anagrafica.societa} • ` : ''}
-                Tessera / ID: {atleta?.id || (/^\d+$/.test(atletaId) ? atletaId : 'N.D.')}
+        {/* Floating Close Button visible at landing when header is hidden */}
+        {!isScrolledPastHero && (
+          <button
+            type="button"
+            className="modal-close-btn atleta-floating-close-btn"
+            onClick={onClose}
+            title="Chiudi finestra (ESC)"
+            aria-label="Chiudi finestra"
+          >
+            <i className="bi bi-x-lg"></i>
+          </button>
+        )}
+
+        {/* Sticky Scroll-Reveal Header (0px height at landing, slides in on scroll) */}
+        <div className="atleta-sticky-header-slot">
+          <div
+            ref={headerRef}
+            className={`modal-header-simple atleta-modal-header ${isScrolledPastHero ? 'is-scrolled' : 'is-dissolved'}`}
+          >
+            <div className="modal-header-athlete-identity">
+              {zoomPhotoSrc && !imgError ? (
+                <img
+                  src={zoomPhotoSrc}
+                  alt={atleta?.anagrafica?.nome || athleteName || 'Atleta'}
+                  className="modal-header-athlete-thumb"
+                  referrerPolicy="no-referrer"
+                  onError={() => setImgError(true)}
+                  onClick={canOpenPhotoZoom ? openPhotoZoom : undefined}
+                  title={canOpenPhotoZoom ? 'Ingrandisci foto' : undefined}
+                  style={{ cursor: canOpenPhotoZoom ? 'pointer' : 'default' }}
+                />
+              ) : (
+                <div className="modal-header-athlete-initials" aria-hidden="true" />
+              )}
+              <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                <h3 style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {atleta?.anagrafica?.nome || athleteName || 'Scheda Atleta'}
+                </h3>
+                <div className="modal-header-subtext">
+                  {atleta?.anagrafica?.societa ? `${atleta.anagrafica.societa} • ` : ''}
+                  Tessera / ID: {atleta?.id || (/^\d+$/.test(atletaId) ? atletaId : 'N.D.')}
+                </div>
               </div>
             </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-            <button
-              type="button"
-              className={`modal-favorite-toggle-btn ${refreshing ? 'is-favorited' : ''}`}
-              onClick={handleRefresh}
-              title="Aggiorna scheda e partite (ignora cache)"
-              aria-label="Aggiorna dati atleta"
-              disabled={refreshing || loading}
-            >
-              <i className={`bi bi-arrow-clockwise ${refreshing ? 'spin-icon' : ''}`}></i>
-              <span className="modal-favorite-btn-text d-none d-sm-inline">
-                {refreshing ? 'Aggiornamento...' : 'Aggiorna'}
-              </span>
-            </button>
-            <button
-              type="button"
-              className={`modal-favorite-toggle-btn ${isFav ? 'is-favorited' : ''}`}
-              onClick={handleToggleFavorite}
-              title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-              aria-label={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-            >
-              <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
-              <span className="modal-favorite-btn-text d-none d-sm-inline">
-                {isFav ? 'Preferito' : 'Preferiti'}
-              </span>
-            </button>
-
-            {/* Share / WhatsApp Popover Toggle Button */}
-            <div className="position-relative" ref={shareMenuRef}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
               <button
                 type="button"
-                className={`modal-favorite-toggle-btn ${isShareMenuOpen ? 'is-favorited' : ''}`}
-                onClick={() => setIsShareMenuOpen((prev) => !prev)}
-                title="Condividi scheda atleta (WhatsApp, Copia Link)"
-                aria-label="Condividi scheda atleta"
+                className={`modal-favorite-toggle-btn ${refreshing ? 'is-favorited' : ''}`}
+                onClick={handleRefresh}
+                title="Aggiorna scheda e partite (ignora cache)"
+                aria-label="Aggiorna dati atleta"
+                disabled={refreshing || loading}
               >
-                <i className="bi bi-share-fill" style={{ fontSize: '12px', color: '#25D366' }}></i>
-                <span className="modal-favorite-btn-text d-none d-sm-inline">
-                  Condividi
-                </span>
+                <i className={`bi bi-arrow-clockwise ${refreshing ? 'spin-icon' : ''}`}></i>
+              </button>
+              <button
+                type="button"
+                className={`modal-favorite-toggle-btn ${isFav ? 'is-favorited' : ''}`}
+                onClick={handleToggleFavorite}
+                title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                aria-label={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+              >
+                <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
               </button>
 
-              {isShareMenuOpen && (
-                <div className="athlete-share-popover">
-                  <div className="athlete-share-popover-header">
-                    <span>Condividi Scheda</span>
-                    <button
-                      type="button"
-                      className="btn-close-popover"
-                      onClick={() => setIsShareMenuOpen(false)}
-                      aria-label="Chiudi"
-                    >
-                      <i className="bi bi-x-lg"></i>
-                    </button>
-                  </div>
-                  <div className="athlete-share-url-box">
-                    <span className="athlete-share-url-text">{shareUrl}</span>
-                  </div>
-                  <div className="athlete-share-actions">
-                    <button
-                      type="button"
-                      className="athlete-share-action-btn btn-instagram-story"
-                      onClick={() => {
-                        setIsShareMenuOpen(false);
-                        setIsStoryModalOpen(true);
-                      }}
-                    >
-                      <i className="bi bi-instagram me-2" style={{ fontSize: '15px', color: '#E1306C' }}></i>
-                      <span>Crea Storia Instagram (9:16)</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="athlete-share-action-btn btn-whatsapp"
-                      onClick={handleShareWhatsApp}
-                    >
-                      <i className="bi bi-whatsapp me-2" style={{ fontSize: '16px' }}></i>
-                      <span>Invia su WhatsApp</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="athlete-share-action-btn btn-copy-link"
-                      onClick={handleCopyLink}
-                    >
-                      <i className={`bi ${copied ? 'bi-check2 text-success' : 'bi-link-45deg'} me-2`} style={{ fontSize: '16px' }}></i>
-                      <span>{copied ? 'Link Copiato!' : 'Copia Link Diretto'}</span>
-                    </button>
-                    {typeof navigator !== 'undefined' && 'share' in navigator && (
+              {/* Share / WhatsApp Popover Toggle Button */}
+              <div className="position-relative" ref={isScrolledPastHero ? shareMenuRef : undefined}>
+                <button
+                  type="button"
+                  className={`modal-favorite-toggle-btn ${isShareMenuOpen ? 'is-favorited' : ''}`}
+                  onClick={() => setIsShareMenuOpen((prev) => !prev)}
+                  title="Condividi scheda atleta (WhatsApp, Copia Link)"
+                  aria-label="Condividi scheda atleta"
+                >
+                  <i className="bi bi-share-fill" style={{ fontSize: '12px', color: '#25D366' }}></i>
+                </button>
+
+                {isScrolledPastHero && isShareMenuOpen && (
+                  <div className="athlete-share-popover">
+                    <div className="athlete-share-popover-header">
+                      <span>Condividi Scheda</span>
                       <button
                         type="button"
-                        className="athlete-share-action-btn btn-native-share"
-                        onClick={handleNativeShare}
+                        className="btn-close-popover"
+                        onClick={() => setIsShareMenuOpen(false)}
+                        aria-label="Chiudi"
                       >
-                        <i className="bi bi-box-arrow-up me-2" style={{ fontSize: '14px' }}></i>
-                        <span>Altre opzioni...</span>
+                        <i className="bi bi-x-lg"></i>
                       </button>
-                    )}
+                    </div>
+                    <div className="athlete-share-url-box">
+                      <span className="athlete-share-url-text">{shareUrl}</span>
+                    </div>
+                    <div className="athlete-share-actions">
+                      <button
+                        type="button"
+                        className="athlete-share-action-btn btn-instagram-story"
+                        onClick={() => {
+                          setIsShareMenuOpen(false);
+                          setIsStoryModalOpen(true);
+                        }}
+                      >
+                        <i className="bi bi-instagram me-2" style={{ fontSize: '15px', color: '#E1306C' }}></i>
+                        <span>Crea Storia Instagram (9:16)</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="athlete-share-action-btn btn-whatsapp"
+                        onClick={handleShareWhatsApp}
+                      >
+                        <i className="bi bi-whatsapp me-2" style={{ fontSize: '16px' }}></i>
+                        <span>Invia su WhatsApp</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="athlete-share-action-btn btn-copy-link"
+                        onClick={handleCopyLink}
+                      >
+                        <i className={`bi ${copied ? 'bi-check2 text-success' : 'bi-link-45deg'} me-2`} style={{ fontSize: '16px' }}></i>
+                        <span>{copied ? 'Link Copiato!' : 'Copia Link Diretto'}</span>
+                      </button>
+                      {typeof navigator !== 'undefined' && 'share' in navigator && (
+                        <button
+                          type="button"
+                          className="athlete-share-action-btn btn-native-share"
+                          onClick={handleNativeShare}
+                        >
+                          <i className="bi bi-box-arrow-up me-2" style={{ fontSize: '14px' }}></i>
+                          <span>Altre opzioni...</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            <button
-              type="button"
-              className="modal-close-btn"
-              onClick={onClose}
-              title="Chiudi finestra (ESC)"
-              aria-label="Chiudi finestra"
-            >
-              <i className="bi bi-x-lg"></i>
-            </button>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={onClose}
+                title="Chiudi finestra (ESC)"
+                aria-label="Chiudi finestra"
+              >
+                <i className="bi bi-x-lg"></i>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -884,24 +890,26 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             <div>
               {/* Profile Bar */}
               <div className="atleta-profile-bar" ref={profileBarRef}>
-                <div className="atleta-profile-photo-wrap">
-                  {(() => {
-                    const athletePhoto = atleta.anagrafica.fotoUrl || (atleta.id && /^\d+$/.test(atleta.id) ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg` : null);
-                    return !imgError && athletePhoto ? (
-                      <img
-                        src={athletePhoto}
-                        alt={atleta.anagrafica.nome}
-                        referrerPolicy="no-referrer"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
-                        onClick={openPhotoZoom}
-                        onError={() => setImgError(true)}
-                        title="Apri anteprima foto"
-                      />
-                    ) : (
-                      <span className='player-placeholder' style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-muted)' }}>
-                      </span>
-                    );
-                  })()}
+                <div className="atleta-profile-left-col">
+                  <div className="atleta-profile-photo-wrap">
+                    {(() => {
+                      const athletePhoto = atleta.anagrafica.fotoUrl || (atleta.id && /^\d+$/.test(atleta.id) ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg` : null);
+                      return !imgError && athletePhoto ? (
+                        <img
+                          src={athletePhoto}
+                          alt={atleta.anagrafica.nome}
+                          referrerPolicy="no-referrer"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                          onClick={openPhotoZoom}
+                          onError={() => setImgError(true)}
+                          title="Apri anteprima foto"
+                        />
+                      ) : (
+                        <span className='player-placeholder' style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-muted)' }}>
+                        </span>
+                      );
+                    })()}
+                  </div>
                 </div>
 
                 <div style={{ flex: '1 1 200px', minWidth: 0, alignSelf: 'flex-start' }}>

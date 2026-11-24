@@ -2792,16 +2792,49 @@ body.modal-open {
 /* ==========================================================================
    ATLETA MODAL DISSOLVED / SCROLL-REVEAL HEADER
    ========================================================================== */
+.atleta-modal-card {
+  position: relative;
+}
+
+.atleta-floating-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 24;
+  background: var(--bg-th, #f1f5f9) !important;
+  border: 1px solid var(--border-color, #cbd5e1) !important;
+  color: var(--text-muted, #475569) !important;
+}
+
+.atleta-floating-close-btn:hover {
+  background: var(--bg-hover, #e2e8f0) !important;
+  border-color: var(--text-muted, #94a3b8) !important;
+  color: var(--text-dark, #0f172a) !important;
+}
+
+[data-theme="dark"] .atleta-floating-close-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  color: #e2e8f0 !important;
+}
+
+.atleta-sticky-header-slot {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  height: 0;
+  overflow: visible;
+}
+
 .modal-header-simple.atleta-modal-header {
-  transition: background 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease, backdrop-filter 0.22s ease;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .modal-header-simple.atleta-modal-header.is-dissolved {
-  background: transparent !important;
-  border-bottom: 1px solid transparent !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+  opacity: 0;
+  transform: translateY(-12px);
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .modal-header-athlete-identity {
@@ -2810,29 +2843,18 @@ body.modal-open {
   gap: 10px;
   min-width: 0;
   flex: 1;
-  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s ease;
-}
-
-.modal-header-simple.atleta-modal-header.is-dissolved .modal-header-athlete-identity {
-  opacity: 0;
-  transform: translateY(-4px);
-  pointer-events: none;
-  visibility: hidden;
 }
 
 .modal-header-simple.atleta-modal-header.is-scrolled {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  visibility: visible;
   background: rgba(255, 255, 255, 0.94) !important;
   backdrop-filter: blur(10px) !important;
   -webkit-backdrop-filter: blur(10px) !important;
   border-bottom: 1px solid var(--border-color, #e2e8f0) !important;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
-}
-
-.modal-header-simple.atleta-modal-header.is-scrolled .modal-header-athlete-identity {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-  visibility: visible;
 }
 
 [data-theme="dark"] .modal-header-simple.atleta-modal-header.is-scrolled {
@@ -2885,7 +2907,7 @@ body.modal-open {
 /* Tighter body spacing for athlete modal so hero sits harmoniously near top */
 .modal-athlete-backdrop .modal-body-simple,
 .halfatleta-modal-backdrop .modal-body-simple {
-  padding-top: 10px;
+  padding-top: 25px;
 }
 
 .modal-body-simple {
@@ -6629,6 +6651,14 @@ body.modal-open {
   flex-wrap: wrap;
 }
 
+.atleta-profile-left-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .atleta-profile-photo-wrap {
   align-self: flex-start;
   max-width: 130px;
@@ -6643,6 +6673,40 @@ body.modal-open {
   flex-shrink: 0;
   min-width: 100px;
   min-height: 100px;
+}
+
+
+.atleta-profile-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-th, #f8fafc);
+  color: var(--text-dark, #334155);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+}
+
+.atleta-profile-icon-btn:hover:not(:disabled) {
+  background: var(--bg-hover, #e2e8f0);
+}
+
+.atleta-profile-icon-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.atleta-profile-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.atleta-profile-icon-btn.is-favorited {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: rgba(245, 158, 11, 0.12);
 }
 
 .player-placeholder {
@@ -9452,5 +9516,11 @@ body.modal-open {
 
   .match-video-external-btn {
     justify-content: center;
+  }
+}
+
+@media screen and (max-width: 379px) {
+  .team-logo-img {
+
   }
 }
