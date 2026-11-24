@@ -739,7 +739,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
               />
             ) : (
               <div className="modal-header-athlete-initials">
-                {(atleta?.anagrafica?.nome || athleteName || 'AT').slice(0, 2).toUpperCase()}
+                <img src="" alt="" />
               </div>
             )}
             <div style={{ minWidth: 0, overflow: 'hidden' }}>
@@ -900,8 +900,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                         title="Apri anteprima foto"
                       />
                     ) : (
-                      <span style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-muted)' }}>
-                        {atleta.anagrafica.nome.slice(0, 2)}
+                      <span className='player-placeholder' style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-muted)' }}>
                       </span>
                     );
                   })()}
@@ -935,22 +934,21 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                           cursor: 'pointer',
                           textDecoration: 'underline',
                           textUnderlineOffset: '2px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
                           gap: '4px',
+                          textAlign: 'left'
                         }}
                       >
+                        <span className='text-left'>{atleta.anagrafica.societa}</span>
                         <TeamLogo
                           teamName={atleta.anagrafica.societa}
                           logoUrl={atleta.anagrafica.logoUrl}
-                          className="atleta-modal-team-logo me-1"
+                          className="atleta-modal-team-logo me-1 ms-1"
                         />
-                        <span className='text-left'>{atleta.anagrafica.societa}</span>
                       </button>
                     ) : (
                       <span>{atleta.anagrafica.societa || 'N.D.'}</span>
                     )}
-                    <span className='ms-4'>
+                    <span>
                       {atleta.anagrafica.regione && <span>({atleta.anagrafica.regione})</span>}
                     </span>
                   </div>
