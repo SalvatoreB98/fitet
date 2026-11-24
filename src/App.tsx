@@ -27,7 +27,7 @@ import { PingPongLoader } from './components/PingPongLoader';
 import { CoffeeNudge } from './components/CoffeeNudge';
 import { registerTeamLogos, resolveCachedSocietyId } from './utils/teamLogos';
 import { addRecentAthlete, addRecentChampionship } from './utils/history';
-import { initAnalyticsStep, trackClick, trackDailyVisit } from './utils/analyticsTracker';
+import { initAnalyticsStep, trackClick, trackDailyVisit, trackTrafficSource } from './utils/analyticsTracker';
 import { VenueConnectionBanner } from './components/VenueConnectionBanner';
 import { preCacheChampionshipForVenue } from './services/api';
 import {
@@ -230,6 +230,7 @@ export const App: React.FC = () => {
             : 'Classifiche';
     initAnalyticsStep(initialLabel);
     trackDailyVisit();
+    trackTrafficSource();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

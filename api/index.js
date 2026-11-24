@@ -1110,8 +1110,104 @@ function buildTopMultiStepPaths(edges) {
 }
 var analyticsService = new AnalyticsService();
 
-// server/services/userAgentParser.ts
+// server/services/trafficSourceService.ts
+import { createClient as createClient4 } from "@supabase/supabase-js";
+import dotenv3 from "dotenv";
+dotenv3.config();
+var MAX_SOURCE_LEN = 100;
+var MAX_MEDIUM_LEN = 64;
+var MAX_REFERRER_LEN = 300;
+var MAX_PATH_LEN = 200;
 function detectDeviceType(userAgent) {
+  return /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(userAgent || "") ? "mobile" : "desktop";
+}
+function sanitizeSource(raw) {
+  if (typeof raw !== "string") return "direct";
+  const clean = raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, MAX_SOURCE_LEN);
+  return clean || "direct";
+}
+function sanitizeUtmMedium(raw) {
+  if (typeof raw !== "string") return null;
+  const clean = raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, MAX_MEDIUM_LEN);
+  return clean || null;
+}
+function sanitizeReferrer(raw) {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    const clean = `${parsed.origin}${parsed.pathname}`.slice(0, MAX_REFERRER_LEN);
+    return clean;
+  } catch {
+    return trimmed.slice(0, MAX_REFERRER_LEN);
+  }
+}
+function sanitizeLandingPath(raw) {
+  if (typeof raw !== "string") return "/";
+  const trimmed = raw.trim();
+  if (!trimmed) return "/";
+  const pathOnly = trimmed.split("?")[0].split("#")[0] || "/";
+  const normalized = pathOnly.startsWith("/") ? pathOnly : `/${pathOnly}`;
+  return normalized.slice(0, MAX_PATH_LEN) || "/";
+}
+var TrafficSourceService = class {
+  client = null;
+  dailyAggregation = /* @__PURE__ */ new Map();
+  constructor() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (url && key) {
+      this.client = createClient4(url, key, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+    }
+  }
+  logStructured(date, entry) {
+    const aggKey = `${date}:${entry.source}:${entry.deviceType}`;
+    const count = (this.dailyAggregation.get(aggKey) || 0) + 1;
+    this.dailyAggregation.set(aggKey, count);
+    console.log(
+      JSON.stringify({
+        event: "traffic_source",
+        date,
+        source: entry.source,
+        utmMedium: entry.utmMedium || null,
+        landingPath: entry.landingPath,
+        deviceType: entry.deviceType,
+        dailyCount: count
+      })
+    );
+  }
+  async recordTrafficSource(entry) {
+    const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    if (!this.client) {
+      this.logStructured(today, entry);
+      return;
+    }
+    try {
+      const { error } = await this.client.from("traffic_sources").insert({
+        date: today,
+        source: entry.source,
+        utm_medium: entry.utmMedium || null,
+        referrer: entry.referrer || null,
+        landing_path: entry.landingPath,
+        device_type: entry.deviceType
+      });
+      if (error) {
+        console.warn("[TrafficSourceService] Errore inserimento Supabase, fallback su log:", error.message);
+        this.logStructured(today, entry);
+      }
+    } catch (err) {
+      console.warn("[TrafficSourceService] Eccezione Supabase, fallback su log:", err?.message || err);
+      this.logStructured(today, entry);
+    }
+  }
+};
+var trafficSourceService = new TrafficSourceService();
+
+// server/services/userAgentParser.ts
+function detectDeviceType2(userAgent) {
   const ua = userAgent || "";
   if (!ua) return "Altro";
   if (/SmartTV|SMART-TV|Tizen|Web0S|WebOS|AppleTV|HbbTV|NetCast/i.test(ua)) {
@@ -1165,7 +1261,7 @@ function parseUserAgent(userAgent) {
     return { device: "Altro", os: "Altro", browser: "Altro" };
   }
   return {
-    device: detectDeviceType(ua),
+    device: detectDeviceType2(ua),
     os: detectOperatingSystem(ua),
     browser: detectBrowser(ua)
   };
@@ -3299,9 +3395,9 @@ var teamResolver = new TeamResolver();
 
 // server/services/pushService.ts
 import webpush from "web-push";
-import { createClient as createClient4 } from "@supabase/supabase-js";
-import dotenv3 from "dotenv";
-dotenv3.config();
+import { createClient as createClient5 } from "@supabase/supabase-js";
+import dotenv4 from "dotenv";
+dotenv4.config();
 var SUBSCRIPTION_CONTEXTS_STATE_KEY = "push_subscription_contexts";
 var PushService = class {
   supabase = null;
@@ -3323,7 +3419,7 @@ var PushService = class {
       return;
     }
     try {
-      this.supabase = createClient4(url, key, {
+      this.supabase = createClient5(url, key, {
         auth: {
           persistSession: false,
           autoRefreshToken: false
@@ -6818,9 +6914,9 @@ async function generateAthleteStoryCard(athlete, theme = "panoramica") {
 }
 
 // server/services/youtubeSyncService.ts
-import { createClient as createClient5 } from "@supabase/supabase-js";
-import dotenv4 from "dotenv";
-dotenv4.config();
+import { createClient as createClient6 } from "@supabase/supabase-js";
+import dotenv5 from "dotenv";
+dotenv5.config();
 var YOUTUBE_CHANNELS = [
   {
     name: "Giacomo Cerea",
@@ -6898,7 +6994,7 @@ var YouTubeSyncService = class {
       return;
     }
     try {
-      this.supabase = createClient5(url, key, {
+      this.supabase = createClient6(url, key, {
         auth: {
           persistSession: false,
           autoRefreshToken: false
@@ -12053,6 +12149,45 @@ app.post("/api/visit", express.text({ type: "text/plain" }), async (req, res) =>
     tasks.push(analyticsService.incrementMetric("page", normalizeAnalyticsPagePath(rawPath)));
   }
   await Promise.all(tasks);
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(200).json({ ok: true });
+});
+app.post("/api/track-source", express.text({ type: "text/plain" }), async (req, res) => {
+  let payload = {};
+  if (typeof req.body === "string") {
+    try {
+      const parsed = JSON.parse(req.body);
+      if (parsed && typeof parsed === "object") payload = parsed;
+    } catch {
+      return res.status(400).json({ error: "Payload JSON non valido" });
+    }
+  } else if (req.body && typeof req.body === "object") {
+    payload = req.body;
+  }
+  const headerUa = req.headers["user-agent"] || "";
+  const payloadUa = typeof payload.userAgent === "string" ? payload.userAgent : "";
+  const effectiveUa = headerUa || payloadUa;
+  const purpose = String(req.headers["purpose"] || req.headers["sec-purpose"] || "").toLowerCase();
+  if (BOT_USER_AGENT_REGEX.test(effectiveUa) || purpose.includes("prefetch")) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json({ ok: true, ignored: "bot" });
+  }
+  const landingPath = sanitizeLandingPath(payload.landingPath);
+  if (landingPath.startsWith("/admin") || landingPath.startsWith("/api")) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json({ ok: true, ignored: "internal" });
+  }
+  const source = sanitizeSource(payload.source);
+  const utmMedium = sanitizeUtmMedium(payload.utmMedium);
+  const referrer = sanitizeReferrer(payload.referrer);
+  const deviceType = detectDeviceType(effectiveUa);
+  await trafficSourceService.recordTrafficSource({
+    source,
+    utmMedium,
+    referrer,
+    landingPath,
+    deviceType
+  });
   res.setHeader("Cache-Control", "no-store");
   return res.status(200).json({ ok: true });
 });

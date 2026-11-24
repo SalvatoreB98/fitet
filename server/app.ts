@@ -7,6 +7,14 @@ import { FitetClient, withFitetCacheBypass } from './services/fitetClient';
 import { cacheService } from './services/cacheService';
 import { viewsService } from './services/viewsService';
 import { analyticsService, normalizeAnalyticsPagePath } from './services/analyticsService';
+import {
+    trafficSourceService,
+    detectDeviceType,
+    sanitizeLandingPath,
+    sanitizeReferrer,
+    sanitizeSource,
+    sanitizeUtmMedium,
+} from './services/trafficSourceService';
 import { parseUserAgent } from './services/userAgentParser';
 import { renderAnalyticsAdminHtml } from './routes/analyticsAdminHtml';
 import { athleteResolver } from './services/athleteResolver';
@@ -2893,6 +2901,52 @@ app.post('/api/visit', express.text({ type: 'text/plain' }), async (req, res) =>
     }
 
     await Promise.all(tasks);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json({ ok: true });
+});
+
+app.post('/api/track-source', express.text({ type: 'text/plain' }), async (req, res) => {
+    let payload: Record<string, unknown> = {};
+    if (typeof req.body === 'string') {
+        try {
+            const parsed = JSON.parse(req.body);
+            if (parsed && typeof parsed === 'object') payload = parsed as Record<string, unknown>;
+        } catch {
+            return res.status(400).json({ error: 'Payload JSON non valido' });
+        }
+    } else if (req.body && typeof req.body === 'object') {
+        payload = req.body as Record<string, unknown>;
+    }
+
+    const headerUa = (req.headers['user-agent'] as string) || '';
+    const payloadUa = typeof payload.userAgent === 'string' ? payload.userAgent : '';
+    const effectiveUa = headerUa || payloadUa;
+    const purpose = String(req.headers['purpose'] || req.headers['sec-purpose'] || '').toLowerCase();
+
+    if (BOT_USER_AGENT_REGEX.test(effectiveUa) || purpose.includes('prefetch')) {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json({ ok: true, ignored: 'bot' });
+    }
+
+    const landingPath = sanitizeLandingPath(payload.landingPath);
+    if (landingPath.startsWith('/admin') || landingPath.startsWith('/api')) {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.status(200).json({ ok: true, ignored: 'internal' });
+    }
+
+    const source = sanitizeSource(payload.source);
+    const utmMedium = sanitizeUtmMedium(payload.utmMedium);
+    const referrer = sanitizeReferrer(payload.referrer);
+    const deviceType = detectDeviceType(effectiveUa);
+
+    await trafficSourceService.recordTrafficSource({
+        source,
+        utmMedium,
+        referrer,
+        landingPath,
+        deviceType,
+    });
+
     res.setHeader('Cache-Control', 'no-store');
     return res.status(200).json({ ok: true });
 });

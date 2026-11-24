@@ -63,6 +63,102 @@ export function trackDailyVisit(): void {
     sendBeaconOrFetch('/api/visit', body);
 }
 
+const TRAFFIC_SOURCE_KEY = 'fitet_traffic_source';
+const TRAFFIC_SOURCE_SENT_KEY = 'fitet_traffic_source_tracked';
+
+export function classifyTrafficSource(
+    rawReferrer: string,
+    rawUtmSource?: string | null,
+    currentHostname?: string
+): string {
+    const utm = (rawUtmSource || '').trim().toLowerCase();
+    if (utm) {
+        if (utm.includes('google')) return 'google';
+        if (utm.includes('bing')) return 'bing';
+        if (utm === 'fb' || utm.includes('facebook')) return 'facebook';
+        if (utm === 'ig' || utm.includes('instagram')) return 'instagram';
+        return utm.replace(/[^a-z0-9._-]/g, '').slice(0, 100) || 'direct';
+    }
+
+    const ref = (rawReferrer || '').trim();
+    if (!ref) return 'direct';
+
+    try {
+        const host = new URL(ref).hostname.toLowerCase().replace(/^www\./, '');
+        if (!host) return 'direct';
+
+        const ownHost = (currentHostname || '').toLowerCase().replace(/^www\./, '');
+        if (ownHost && host === ownHost) return 'direct';
+
+        if (host === 'google.com' || host.startsWith('google.') || host.endsWith('.google.com') || host.includes('.google.')) {
+            return 'google';
+        }
+        if (host === 'bing.com' || host.endsWith('.bing.com')) {
+            return 'bing';
+        }
+        if (host === 'facebook.com' || host === 'fb.com' || host.endsWith('.facebook.com') || host.endsWith('.fb.com')) {
+            return 'facebook';
+        }
+        if (host === 'instagram.com' || host.endsWith('.instagram.com')) {
+            return 'instagram';
+        }
+        return host.slice(0, 100);
+    } catch {
+        return 'direct';
+    }
+}
+
+/**
+ * Cattura la sorgente di traffico al primo caricamento della sessione SPA
+ * salvandola in sessionStorage e inviandola una sola volta a POST /api/track-source.
+ */
+export function trackTrafficSource(): void {
+    if (typeof window === 'undefined') return;
+    if (window.location.pathname.startsWith('/admin')) return;
+    if (typeof navigator !== 'undefined' && navigator.webdriver) return;
+
+    try {
+        if (window.sessionStorage.getItem(TRAFFIC_SOURCE_SENT_KEY) === '1') {
+            return;
+        }
+    } catch {
+        // Se sessionStorage non è accessibile, evitiamo comunque errori
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const utmSource = params.get('utm_source');
+    const utmMedium = params.get('utm_medium');
+    const referrer = typeof document !== 'undefined' ? document.referrer || '' : '';
+    const landingPath = window.location.pathname || '/';
+    const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+    const source = classifyTrafficSource(referrer, utmSource, window.location.hostname);
+
+    try {
+        window.sessionStorage.setItem(
+            TRAFFIC_SOURCE_KEY,
+            JSON.stringify({
+                source,
+                utmMedium: utmMedium || null,
+                referrer: referrer || null,
+                landingPath,
+                trackedAt: new Date().toISOString(),
+            })
+        );
+        window.sessionStorage.setItem(TRAFFIC_SOURCE_SENT_KEY, '1');
+    } catch {
+        // ignore storage quota / privacy mode errors
+    }
+
+    const body = JSON.stringify({
+        source,
+        utmMedium: utmMedium || undefined,
+        referrer: referrer || undefined,
+        landingPath,
+        userAgent,
+    });
+    sendBeaconOrFetch('/api/track-source', body);
+}
+
 function sanitizeLabel(raw: string): string {
     return raw.replace(/\s+/g, ' ').trim().slice(0, 120);
 }
