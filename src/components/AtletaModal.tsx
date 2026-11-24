@@ -767,22 +767,22 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
               <button
                 type="button"
-                className={`modal-favorite-toggle-btn ${refreshing ? 'is-favorited' : ''}`}
-                onClick={handleRefresh}
-                title="Aggiorna scheda e partite (ignora cache)"
-                aria-label="Aggiorna dati atleta"
-                disabled={refreshing || loading}
-              >
-                <i className={`bi bi-arrow-clockwise ${refreshing ? 'spin-icon' : ''}`}></i>
-              </button>
-              <button
-                type="button"
                 className={`modal-favorite-toggle-btn ${isFav ? 'is-favorited' : ''}`}
                 onClick={handleToggleFavorite}
                 title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
                 aria-label={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
               >
                 <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
+              </button>
+
+              <button
+                type="button"
+                className={`modal-favorite-toggle-btn ${copied ? 'is-favorited' : ''}`}
+                onClick={handleCopyLink}
+                title={copied ? 'Link Copiato!' : 'Copia link profilo condivisibile'}
+                aria-label="Copia link profilo"
+              >
+                <i className={`bi ${copied ? 'bi-check2 text-success' : 'bi-link-45deg'}`}></i>
               </button>
 
               {/* Share / WhatsApp Popover Toggle Button */}
@@ -890,26 +890,24 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             <div>
               {/* Profile Bar */}
               <div className="atleta-profile-bar" ref={profileBarRef}>
-                <div className="atleta-profile-left-col">
-                  <div className="atleta-profile-photo-wrap">
-                    {(() => {
-                      const athletePhoto = atleta.anagrafica.fotoUrl || (atleta.id && /^\d+$/.test(atleta.id) ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg` : null);
-                      return !imgError && athletePhoto ? (
-                        <img
-                          src={athletePhoto}
-                          alt={atleta.anagrafica.nome}
-                          referrerPolicy="no-referrer"
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
-                          onClick={openPhotoZoom}
-                          onError={() => setImgError(true)}
-                          title="Apri anteprima foto"
-                        />
-                      ) : (
-                        <span className='player-placeholder' style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-muted)' }}>
-                        </span>
-                      );
-                    })()}
-                  </div>
+                <div className="atleta-profile-photo-wrap">
+                  {(() => {
+                    const athletePhoto = atleta.anagrafica.fotoUrl || (atleta.id && /^\d+$/.test(atleta.id) ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg` : null);
+                    return !imgError && athletePhoto ? (
+                      <img
+                        src={athletePhoto}
+                        alt={atleta.anagrafica.nome}
+                        referrerPolicy="no-referrer"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
+                        onClick={openPhotoZoom}
+                        onError={() => setImgError(true)}
+                        title="Apri anteprima foto"
+                      />
+                    ) : (
+                      <span className='player-placeholder' style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-muted)' }}>
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 <div style={{ flex: '1 1 200px', minWidth: 0, alignSelf: 'flex-start' }}>
@@ -978,8 +976,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     </div>
                   )}
 
-                  {/* Status & Category Tags (Only essential tags in clean neutral badges) */}
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                  {/* Status & Category Tags + Iconized Actions */}
+                  <div className="atleta-profile-tags-row">
                     {atleta.anagrafica.categoria && (
                       <span className="badge badge-neutral">
                         {/^\d+$/.test(atleta.anagrafica.categoria.trim())
@@ -990,27 +988,93 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     {atleta.anagrafica.settore && (
                       <span className="badge badge-neutral">{atleta.anagrafica.settore}</span>
                     )}
-                  </div>
-                  {/* Quick Share Buttons on profile card */}
-                  <div className="atleta-profile-quick-actions">
                     <button
                       type="button"
-                      className="atleta-quick-share-btn btn-quick-wa"
-                      onClick={handleShareWhatsApp}
-                      title="Condividi scheda direttamente su WhatsApp"
+                      className={`atleta-profile-icon-btn ${isFav ? 'is-favorited' : ''}`}
+                      onClick={handleToggleFavorite}
+                      title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                      aria-label={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
                     >
-                      <i className="bi bi-whatsapp"></i>
-                      <span>Condividi su WhatsApp</span>
+                      <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
                     </button>
                     <button
                       type="button"
-                      className="atleta-quick-share-btn btn-quick-copy"
+                      className={`atleta-profile-icon-btn ${copied ? 'is-favorited' : ''}`}
                       onClick={handleCopyLink}
-                      title="Copia link profilo condivisibile"
+                      title={copied ? 'Link Copiato!' : 'Copia link profilo condivisibile'}
+                      aria-label="Copia link profilo"
                     >
-                      <i className={`bi ${copied ? 'bi-check-lg text-success' : 'bi-link-45deg'}`}></i>
-                      <span>{copied ? 'Link Copiato!' : 'Copia Link'}</span>
+                      <i className={`bi ${copied ? 'bi-check2 text-success' : 'bi-link-45deg'}`}></i>
                     </button>
+                    <div className="position-relative" ref={!isScrolledPastHero ? shareMenuRef : undefined}>
+                      <button
+                        type="button"
+                        className={`atleta-profile-icon-btn ${isShareMenuOpen ? 'is-favorited' : ''}`}
+                        onClick={() => setIsShareMenuOpen((prev) => !prev)}
+                        title="Condividi scheda atleta (WhatsApp, Copia Link)"
+                        aria-label="Condividi scheda atleta"
+                      >
+                        <i className="bi bi-share-fill" style={{ fontSize: '12px', color: '#25D366' }}></i>
+                      </button>
+
+                      {!isScrolledPastHero && isShareMenuOpen && (
+                        <div className="athlete-share-popover">
+                          <div className="athlete-share-popover-header">
+                            <span>Condividi Scheda</span>
+                            <button
+                              type="button"
+                              className="btn-close-popover"
+                              onClick={() => setIsShareMenuOpen(false)}
+                              aria-label="Chiudi"
+                            >
+                              <i className="bi bi-x-lg"></i>
+                            </button>
+                          </div>
+                          <div className="athlete-share-url-box">
+                            <span className="athlete-share-url-text">{shareUrl}</span>
+                          </div>
+                          <div className="athlete-share-actions">
+                            <button
+                              type="button"
+                              className="athlete-share-action-btn btn-instagram-story"
+                              onClick={() => {
+                                setIsShareMenuOpen(false);
+                                setIsStoryModalOpen(true);
+                              }}
+                            >
+                              <i className="bi bi-instagram me-2" style={{ fontSize: '15px', color: '#E1306C' }}></i>
+                              <span>Crea Storia Instagram (9:16)</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="athlete-share-action-btn btn-whatsapp"
+                              onClick={handleShareWhatsApp}
+                            >
+                              <i className="bi bi-whatsapp me-2" style={{ fontSize: '16px' }}></i>
+                              <span>Invia su WhatsApp</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="athlete-share-action-btn btn-copy-link"
+                              onClick={handleCopyLink}
+                            >
+                              <i className={`bi ${copied ? 'bi-check2 text-success' : 'bi-link-45deg'} me-2`} style={{ fontSize: '16px' }}></i>
+                              <span>{copied ? 'Link Copiato!' : 'Copia Link Diretto'}</span>
+                            </button>
+                            {typeof navigator !== 'undefined' && 'share' in navigator && (
+                              <button
+                                type="button"
+                                className="athlete-share-action-btn btn-native-share"
+                                onClick={handleNativeShare}
+                              >
+                                <i className="bi bi-box-arrow-up me-2" style={{ fontSize: '14px' }}></i>
+                                <span>Altre opzioni...</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
