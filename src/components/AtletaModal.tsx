@@ -910,11 +910,11 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   })()}
                 </div>
 
-                <div style={{ flex: '1 1 200px', minWidth: 0, alignSelf: 'flex-start' }}>
-                  <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-dark)', fontFamily: 'var(--font-serif)' }}>
+                <div className="atleta-profile-info">
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-dark)', fontFamily: 'var(--font-serif)', lineHeight: 1.25 }}>
                     {atleta.anagrafica.nome}
                   </div>
-                  <div className='societa-atleta' style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px', alignItems: 'center', gap: '4px' }}>
+                  <div className='societa-atleta' style={{ fontSize: '13px', color: 'var(--text-muted)', alignItems: 'center', gap: '4px' }}>
 
                     {atleta.anagrafica.societa && onOpenSociety ? (
                       <button

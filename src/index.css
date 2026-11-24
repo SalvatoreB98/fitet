@@ -6676,6 +6676,21 @@ body.modal-open {
 }
 
 
+.atleta-profile-info {
+  flex: 1 1 200px;
+  min-width: 0;
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+@media (min-width: 768px) {
+  .atleta-profile-info {
+    gap: 8px;
+  }
+}
+
 .atleta-profile-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -6713,7 +6728,6 @@ body.modal-open {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
   flex-wrap: wrap;
 }
 
@@ -6756,7 +6770,6 @@ body.modal-open {
 .atleta-profile-meta-sub {
   font-size: 12px;
   color: var(--text-muted);
-  margin-top: 3px;
   display: flex;
   align-items: center;
   gap: 8px;
