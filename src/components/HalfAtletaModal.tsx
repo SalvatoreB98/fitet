@@ -252,9 +252,7 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
                 onError={() => setImgError(true)}
               />
             ) : (
-              <div className="modal-header-athlete-initials">
-                {(atleta?.anagrafica?.nome || athleteName || 'AT').slice(0, 2).toUpperCase()}
-              </div>
+              <div className="modal-header-athlete-initials" aria-hidden="true" />
             )}
             <div style={{ minWidth: 0, overflow: 'hidden' }}>
               <h3 style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

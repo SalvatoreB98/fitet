@@ -2859,10 +2859,12 @@ body.modal-open {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #f1f5f9;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 700;
+  background-color: #f1f5f9;
+  background-image: url('/light-placeholder.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2875,8 +2877,8 @@ body.modal-open {
 }
 
 [data-theme="dark"] .modal-header-athlete-initials {
-  background: rgba(255, 255, 255, 0.08);
-  color: #94a3b8;
+  background-color: rgba(255, 255, 255, 0.08);
+  background-image: url('/dark-placeholder.png');
   border-color: rgba(255, 255, 255, 0.12);
 }
 

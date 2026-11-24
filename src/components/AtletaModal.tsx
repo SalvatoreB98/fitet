@@ -738,9 +738,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                 style={{ cursor: canOpenPhotoZoom ? 'pointer' : 'default' }}
               />
             ) : (
-              <div className="modal-header-athlete-initials">
-                <img src="" alt="" />
-              </div>
+              <div className="modal-header-athlete-initials" aria-hidden="true" />
             )}
             <div style={{ minWidth: 0, overflow: 'hidden' }}>
               <h3 style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
