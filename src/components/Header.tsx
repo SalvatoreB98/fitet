@@ -83,8 +83,13 @@ export const Header: React.FC<HeaderProps> = ({
   const { favoritesCount } = useFavoriteAthletes();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [userRegion, setUserRegionState] = useState<string>(getCachedUserRegion);
+  const [societyLogoError, setSocietyLogoError] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setSocietyLogoError(false);
+  }, [mySocietyInfo?.logoUrl]);
 
   useEffect(() => {
     return subscribeToUserRegion((nextRegion) => {
@@ -288,13 +293,14 @@ export const Header: React.FC<HeaderProps> = ({
                             border: '1px solid rgba(148, 163, 184, 0.35)',
                           }}
                         >
-                          {mySocietyInfo?.logoUrl ? (
+                          {mySocietyInfo?.logoUrl && !societyLogoError ? (
                             <img
                               src={mySocietyInfo.logoUrl}
                               alt={mySocietyInfo.nome || 'La mia società'}
                               style={{ width: '100%', height: '100%', objectFit: 'contain', padding: 3 }}
                               loading="lazy"
                               referrerPolicy="no-referrer"
+                              onError={() => setSocietyLogoError(true)}
                             />
                           ) : (
                             <i className="bi bi-buildings-fill" style={{ color: '#0284c7' }}></i>

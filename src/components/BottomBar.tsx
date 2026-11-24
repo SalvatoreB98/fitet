@@ -102,6 +102,11 @@ export const BottomBar: React.FC<BottomBarProps> = React.memo(({
   const [pillReady, setPillReady] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [dragTarget, setDragTarget] = useState<number | null>(null);
+  const [societyLogoError, setSocietyLogoError] = useState(false);
+
+  useEffect(() => {
+    setSocietyLogoError(false);
+  }, [mySocietyInfo?.logoUrl]);
 
   const applyPillTransform = useCallback(
     (left: number, width: number, stretch = 1, origin: 'left center' | 'right center' | 'center' = 'center', instant = false) => {
@@ -438,13 +443,14 @@ export const BottomBar: React.FC<BottomBarProps> = React.memo(({
             title="La mia società"
           >
             <div className="bottom-bar-icon-wrap">
-              {mySocietyInfo?.logoUrl ? (
+              {mySocietyInfo?.logoUrl && !societyLogoError ? (
                 <img
                   src={mySocietyInfo.logoUrl}
                   alt=""
                   className="bottom-bar-society-logo"
                   loading="lazy"
                   referrerPolicy="no-referrer"
+                  onError={() => setSocietyLogoError(true)}
                 />
               ) : (
                 <i className="bi bi-buildings"></i>
