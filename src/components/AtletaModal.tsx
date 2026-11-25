@@ -9,10 +9,11 @@ import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { MarqueeText } from './MarqueeText';
 import { recordAndGetAthleteViews } from '../utils/athleteViews';
 import { useFavoriteAthletes, saveFavoriteAthlete } from '../utils/favorites';
-import { addRecentAthlete } from '../utils/history';
+import { addRecentAthlete, isValidAthleteHistoryName } from '../utils/history';
 import { TeamLogo } from './TeamLogo';
 import { aggregateAthleteMatchStats } from '../utils/aggregateAthleteStats';
 import { AthleteStoryModal } from './AthleteStoryModal';
+import { AthleteNotFoundState } from './AthleteNotFoundState';
 
 interface AtletaModalProps {
   atletaId: string;
@@ -66,6 +67,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [notFound, setNotFound] = useState<boolean>(false);
   const [imgError, setImgError] = useState<boolean>(false);
   const [isPhotoZoomOpen, setIsPhotoZoomOpen] = useState<boolean>(false);
   const [viewsCount, setViewsCount] = useState<number>(0);
@@ -129,7 +131,10 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   };
 
   useEffect(() => {
-    const key = (atletaId || athleteName || '').toLowerCase().trim();
+    if (!atleta || notFound || !isValidAthleteHistoryName(atleta.anagrafica?.nome, atleta.id)) {
+      return;
+    }
+    const key = (atleta.id || atletaId || '').toLowerCase().trim();
     if (!key) return;
 
     if (lastTrackedKeyRef.current === key) return;
@@ -139,7 +144,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       setViewsCount(serverViews);
     });
     setViewsCount(v);
-  }, [atletaId, athleteName]);
+  }, [atleta, notFound, atletaId]);
 
   // Partite nel campionato attualmente aperto
   const [campionatoPartite, setCampionatoPartite] = useState<PartitaCampionatoAtleta[] | null>(null);
@@ -394,7 +399,9 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
+    setAtleta(null);
     setError(null);
+    setNotFound(false);
     setImgError(false);
     setCampionatoPartite(null);
     setSquadraCampionato(null);
@@ -504,7 +511,18 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       .then((data) => {
         if (!isMounted) return;
 
+        const isHollow = !data || !isValidAthleteHistoryName(data.anagrafica?.nome, data.id || atletaId);
+        if (isHollow) {
+          setAtleta(null);
+          setNotFound(true);
+          setError(null);
+          setLoading(false);
+          setLoadingPartite(false);
+          return;
+        }
+
         setAtleta(data);
+        setNotFound(false);
         setLoading(false);
 
         if (onResolveAthlete && data.id && (data.id !== atletaId || !athleteName)) {
@@ -555,7 +573,13 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       })
       .catch((err) => {
         if (isMounted) {
-          setError(err.message || 'Impossibile caricare i dati atleta');
+          if (err?.notFound || err?.status === 404) {
+            setAtleta(null);
+            setNotFound(true);
+            setError(null);
+          } else {
+            setError(err.message || 'Impossibile caricare i dati atleta');
+          }
           setLoading(false);
           setLoadingPartite(false);
         }
@@ -582,11 +606,20 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
     if (refreshing) return;
     setRefreshing(true);
     setError(null);
+    setNotFound(false);
     try {
       const targetId = atleta?.id || atletaId;
       const targetName = atleta?.anagrafica?.nome || athleteName;
 
       const freshData = await fetchAtleta(targetId, true);
+      const isHollow = !freshData || !isValidAthleteHistoryName(freshData.anagrafica?.nome, freshData.id || targetId);
+      if (isHollow) {
+        setAtleta(null);
+        setNotFound(true);
+        setLoadingPartite(false);
+        return;
+      }
+
       setAtleta(freshData);
 
       if (onResolveAthlete && freshData.id && (freshData.id !== atletaId || !athleteName)) {
@@ -647,7 +680,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
         setMatchTab('ranking');
       }
     } catch (err: any) {
-      console.warn('Errore refresh atleta:', err);
+      if (err?.notFound || err?.status === 404) {
+        setAtleta(null);
+        setNotFound(true);
+      } else {
+        console.warn('Errore refresh atleta:', err);
+      }
     } finally {
       setRefreshing(false);
     }
@@ -908,110 +946,115 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
         <div className="modal-body-simple">
           {/* Top Action Bar (Mobile: Left/Right | Desktop: Grouped Top-Right with Divider) */}
           <div className="athlete-spotlight-top-bar">
-            <div className="athlete-spotlight-top-actions">
-              {/* Star */}
-              <button
-                type="button"
-                className={`athlete-spotlight-action-btn btn-star ${isFav ? 'is-favorited' : ''}`}
-                onClick={handleToggleFavorite}
-                title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-                aria-label={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-                disabled={loading && !atleta}
-              >
-                <i className={isFav ? 'bi bi-star-fill' : 'bi bi-star'}></i>
-              </button>
+            {atleta && !notFound && !error && (
+              <>
+                <div className="athlete-spotlight-top-actions">
+                  {/* Star */}
+                  <button
+                    type="button"
+                    className={`athlete-spotlight-action-btn btn-star ${isFav ? 'is-favorited' : ''}`}
+                    onClick={handleToggleFavorite}
+                    title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                    aria-label={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                    disabled={loading && !atleta}
+                  >
+                    <i className={isFav ? 'bi bi-star-fill' : 'bi bi-star'}></i>
+                  </button>
 
-              {/* Copy Link */}
-              <button
-                type="button"
-                className={`athlete-spotlight-action-btn btn-copy ${copied ? 'is-copied' : ''}`}
-                onClick={handleCopyLink}
-                title={copied ? 'Link Copiato!' : 'Copia link profilo condivisibile'}
-                aria-label="Copia link profilo"
-                disabled={loading && !atleta}
-              >
-                <i className={copied ? 'bi bi-check2' : 'bi bi-link-45deg'}></i>
-              </button>
+                  {/* Copy Link */}
+                  <button
+                    type="button"
+                    className={`athlete-spotlight-action-btn btn-copy ${copied ? 'is-copied' : ''}`}
+                    onClick={handleCopyLink}
+                    title={copied ? 'Link Copiato!' : 'Copia link profilo condivisibile'}
+                    aria-label="Copia link profilo"
+                    disabled={loading && !atleta}
+                  >
+                    <i className={copied ? 'bi bi-check2' : 'bi bi-link-45deg'}></i>
+                  </button>
 
-              {/* Share Popover */}
-              <div className="position-relative" ref={!isScrolledPastHero ? shareMenuRef : undefined}>
-                <button
-                  type="button"
-                  className={`athlete-spotlight-action-btn btn-share ${isShareMenuOpen ? 'is-open' : ''}`}
-                  onClick={() => setIsShareMenuOpen((prev) => !prev)}
-                  title="Condividi scheda atleta"
-                  aria-label="Condividi scheda atleta"
-                  disabled={loading && !atleta}
-                >
-                  <i className="bi bi-share-fill"></i>
-                </button>
+                  {/* Share Popover */}
+                  <div className="position-relative" ref={!isScrolledPastHero ? shareMenuRef : undefined}>
+                    <button
+                      type="button"
+                      className={`athlete-spotlight-action-btn btn-share ${isShareMenuOpen ? 'is-open' : ''}`}
+                      onClick={() => setIsShareMenuOpen((prev) => !prev)}
+                      title="Condividi scheda atleta"
+                      aria-label="Condividi scheda atleta"
+                      disabled={loading && !atleta}
+                    >
+                      <i className="bi bi-share-fill"></i>
+                    </button>
 
-                {!isScrolledPastHero && isShareMenuOpen && (
-                  <div className="athlete-share-popover">
-                    <div className="athlete-share-popover-header">
-                      <span>Condividi Scheda</span>
-                      <button
-                        type="button"
-                        className="btn-close-popover"
-                        onClick={() => setIsShareMenuOpen(false)}
-                        aria-label="Chiudi"
-                      >
-                        <i className="bi bi-x-lg"></i>
-                      </button>
-                    </div>
-                    <div className="athlete-share-url-box">
-                      <span className="athlete-share-url-text">{shareUrl}</span>
-                    </div>
-                    <div className="athlete-share-actions">
-                      <button
-                        type="button"
-                        className="athlete-share-action-btn btn-instagram-story"
-                        onClick={() => {
-                          setIsShareMenuOpen(false);
-                          setIsStoryModalOpen(true);
-                        }}
-                      >
-                        <i className="bi bi-instagram me-2" style={{ fontSize: '15px', color: '#E1306C' }}></i>
-                        <span>Crea Storia Instagram (9:16)</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="athlete-share-action-btn btn-whatsapp"
-                        onClick={handleShareWhatsApp}
-                      >
-                        <i className="bi bi-whatsapp me-2" style={{ fontSize: '16px' }}></i>
-                        <span>Invia su WhatsApp</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="athlete-share-action-btn btn-copy-link"
-                        onClick={handleCopyLink}
-                      >
-                        <i className={`bi ${copied ? 'bi-check2 text-success' : 'bi-link-45deg'} me-2`} style={{ fontSize: '16px' }}></i>
-                        <span>{copied ? 'Link Copiato!' : 'Copia Link Diretto'}</span>
-                      </button>
-                      {typeof navigator !== 'undefined' && 'share' in navigator && (
-                        <button
-                          type="button"
-                          className="athlete-share-action-btn btn-native-share"
-                          onClick={handleNativeShare}
-                        >
-                          <i className="bi bi-box-arrow-up me-2" style={{ fontSize: '14px' }}></i>
-                          <span>Altre opzioni...</span>
-                        </button>
-                      )}
-                    </div>
+                    {!isScrolledPastHero && isShareMenuOpen && (
+                      <div className="athlete-share-popover">
+                        <div className="athlete-share-popover-header">
+                          <span>Condividi Scheda</span>
+                          <button
+                            type="button"
+                            className="btn-close-popover"
+                            onClick={() => setIsShareMenuOpen(false)}
+                            aria-label="Chiudi"
+                          >
+                            <i className="bi bi-x-lg"></i>
+                          </button>
+                        </div>
+                        <div className="athlete-share-url-box">
+                          <span className="athlete-share-url-text">{shareUrl}</span>
+                        </div>
+                        <div className="athlete-share-actions">
+                          <button
+                            type="button"
+                            className="athlete-share-action-btn btn-instagram-story"
+                            onClick={() => {
+                              setIsShareMenuOpen(false);
+                              setIsStoryModalOpen(true);
+                            }}
+                          >
+                            <i className="bi bi-instagram me-2" style={{ fontSize: '15px', color: '#E1306C' }}></i>
+                            <span>Crea Storia Instagram (9:16)</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="athlete-share-action-btn btn-whatsapp"
+                            onClick={handleShareWhatsApp}
+                          >
+                            <i className="bi bi-whatsapp me-2" style={{ fontSize: '16px' }}></i>
+                            <span>Invia su WhatsApp</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="athlete-share-action-btn btn-copy-link"
+                            onClick={handleCopyLink}
+                          >
+                            <i className={`bi ${copied ? 'bi-check2 text-success' : 'bi-link-45deg'} me-2`} style={{ fontSize: '16px' }}></i>
+                            <span>{copied ? 'Link Copiato!' : 'Copia Link Diretto'}</span>
+                          </button>
+                          {typeof navigator !== 'undefined' && 'share' in navigator && (
+                            <button
+                              type="button"
+                              className="athlete-share-action-btn btn-native-share"
+                              onClick={handleNativeShare}
+                            >
+                              <i className="bi bi-box-arrow-up me-2" style={{ fontSize: '14px' }}></i>
+                              <span>Altre opzioni...</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
 
-            <span className="athlete-spotlight-top-divider" aria-hidden="true" />
+                <span className="athlete-spotlight-top-divider" aria-hidden="true" />
+              </>
+            )}
 
             {/* Close Button X */}
             <button
               type="button"
               className="athlete-spotlight-action-btn btn-close-modal"
+              style={!atleta || notFound || error ? { marginLeft: 'auto' } : undefined}
               onClick={onClose}
               title="Chiudi finestra (ESC)"
               aria-label="Chiudi finestra"
@@ -1033,6 +1076,15 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             <div className="modal-error-box">
               <strong>Errore:</strong> {error}
             </div>
+          )}
+
+          {notFound && !loading && (
+            <AthleteNotFoundState
+              atletaId={atletaId}
+              onClose={onClose}
+              onRetry={handleRefresh}
+              retrying={refreshing}
+            />
           )}
 
           {atleta && !loading && (

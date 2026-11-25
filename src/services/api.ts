@@ -25,6 +25,15 @@ import { notifyVenueFallback, notifyVenueSyncSuccess } from '../utils/useNetwork
 const API_BASE = '/api';
 const DEFAULT_TIMEOUT_MS = 6500; // 6.5s timeout: crucial for basement gyms with weak signal
 
+export class NotFoundApiError extends Error {
+  readonly status = 404;
+  readonly notFound = true;
+  constructor(message = 'Risorsa non trovata') {
+    super(message);
+    this.name = 'NotFoundApiError';
+  }
+}
+
 /**
  * Finestra di validità della cache locale: entro questo intervallo i dati
  * vengono restituiti subito da localStorage senza chiamare /api/index.
@@ -154,10 +163,25 @@ async function fetchWithVenueFallback<T>(
         return data;
       }
 
+      if (res.status === 404) {
+        let errMessage = 'Risorsa non trovata';
+        try {
+          const errData = await res.json();
+          if (errData?.error) errMessage = String(errData.error);
+        } catch {
+          // ignore invalid json
+        }
+        throw new NotFoundApiError(errMessage);
+      }
+
       // Se il server ha restituito errore (es. 500, 502, 504 gateway timeout tipico del proxy FITeT)
       throw new Error(`Errore server HTTP (${res.status})`);
     } catch (err: any) {
       clearTimeout(timeoutId);
+
+      if (err instanceof NotFoundApiError || err?.notFound || err?.status === 404) {
+        throw err;
+      }
 
       // 4. Fallback sulla cache della palestra se disponibile
       const cached = getVenueCache<T>(cacheKey);
@@ -230,14 +254,23 @@ export async function fetchDashboard(cam: number, anno = 41, refresh = false): P
 }
 
 export async function fetchAtleta(id: string, refresh = false): Promise<DettaglioAtleta> {
-  const url = `${API_BASE}/atleta/${encodeURIComponent(id)}${refresh ? '?refresh=true' : ''}`;
+  const cacheKey = `atleta_${id}`;
+  let forceRefresh = refresh;
+  if (!forceRefresh) {
+    const cached = getVenueCache<DettaglioAtleta>(cacheKey);
+    const cachedName = cached?.data?.anagrafica?.nome?.trim() || '';
+    if (cached && (!cachedName || /^Atleta\s*#?\d+$/i.test(cachedName))) {
+      forceRefresh = true;
+    }
+  }
+  const url = `${API_BASE}/atleta/${encodeURIComponent(id)}${forceRefresh ? '?refresh=true' : ''}`;
   return fetchWithVenueFallback<DettaglioAtleta>(
     url,
-    `atleta_${id}`,
+    cacheKey,
     'atleta',
     `Atleta #${id}`,
     DEFAULT_TIMEOUT_MS,
-    refresh,
+    forceRefresh,
     FRESH_TTL_MS.atleta
   );
 }

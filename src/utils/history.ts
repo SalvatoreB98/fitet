@@ -23,11 +23,22 @@ const RECENT_ATHLETES_KEY = 'fitet_recent_athletes';
 const RECENT_CHAMPIONSHIPS_KEY = 'fitet_recent_championships';
 const MAX_RECENT_ITEMS = 12;
 
+export function isValidAthleteHistoryName(name?: string | null, id?: string | null): boolean {
+  const clean = (name || '').trim();
+  if (!clean) return false;
+  if (/^Atleta\s*#?\d+$/i.test(clean)) return false;
+  if (/^\d+$/.test(clean)) return false;
+  if (id && clean.toLowerCase() === String(id).trim().toLowerCase()) return false;
+  return true;
+}
+
 export function getRecentAthletes(): RecentAthlete[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(RECENT_ATHLETES_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((a) => a && a.id && isValidAthleteHistoryName(a.name, a.id));
   } catch {
     return [];
   }
@@ -42,6 +53,7 @@ export function addRecentAthlete(athlete: {
   categoria?: string;
 }): void {
   if (typeof window === 'undefined' || !athlete.id) return;
+  if (!isValidAthleteHistoryName(athlete.name, athlete.id)) return;
   try {
     const current = getRecentAthletes();
     const existing = current.find((a) => a.id === athlete.id);
@@ -73,7 +85,7 @@ export function removeRecentAthlete(id: string): void {
     const updated = current.filter((a) => a.id !== id);
     localStorage.setItem(RECENT_ATHLETES_KEY, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('fitet_history_updated'));
-  } catch {}
+  } catch { }
 }
 
 export function clearRecentAthletes(): void {
@@ -81,7 +93,7 @@ export function clearRecentAthletes(): void {
   try {
     localStorage.removeItem(RECENT_ATHLETES_KEY);
     window.dispatchEvent(new CustomEvent('fitet_history_updated'));
-  } catch {}
+  } catch { }
 }
 
 export function getRecentChampionships(): RecentChampionship[] {
@@ -131,7 +143,7 @@ export function removeRecentChampionship(id: number): void {
     const updated = current.filter((c) => c.id !== id);
     localStorage.setItem(RECENT_CHAMPIONSHIPS_KEY, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('fitet_history_updated'));
-  } catch {}
+  } catch { }
 }
 
 export function clearRecentChampionships(): void {
@@ -139,7 +151,7 @@ export function clearRecentChampionships(): void {
   try {
     localStorage.removeItem(RECENT_CHAMPIONSHIPS_KEY);
     window.dispatchEvent(new CustomEvent('fitet_history_updated'));
-  } catch {}
+  } catch { }
 }
 
 export function useRecentHistory() {

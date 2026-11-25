@@ -10327,3 +10327,181 @@ body.modal-open {
     margin-top: 4px;
   }
 }
+
+/* ==========================================================================
+   ATHLETE NOT FOUND STATE
+   ========================================================================== */
+
+.athlete-not-found-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 28px 20px 32px;
+}
+
+.athlete-not-found-emblem {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  background: radial-gradient(circle at 35% 30%, rgba(56, 189, 248, 0.22), rgba(29, 83, 142, 0.14) 70%);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  box-shadow: 0 12px 28px -8px rgba(15, 23, 42, 0.45);
+}
+
+[data-theme="light"] .athlete-not-found-emblem {
+  background: radial-gradient(circle at 35% 30%, rgba(56, 189, 248, 0.16), rgba(29, 83, 142, 0.08) 70%);
+  border-color: rgba(29, 83, 142, 0.2);
+  box-shadow: 0 10px 24px -8px rgba(29, 83, 142, 0.18);
+}
+
+.athlete-not-found-logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+.athlete-not-found-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  transform: rotate(10deg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  color: #0f172a;
+  border: 2px solid #0b1328;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+}
+
+[data-theme="light"] .athlete-not-found-badge {
+  border-color: #ffffff;
+}
+
+.athlete-not-found-id-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  margin-bottom: 12px;
+}
+
+[data-theme="light"] .athlete-not-found-id-pill {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.athlete-not-found-title {
+  margin: 0 0 8px 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+[data-theme="light"] .athlete-not-found-title {
+  color: #0f172a;
+}
+
+.athlete-not-found-subtitle {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+[data-theme="light"] .athlete-not-found-subtitle {
+  color: #334155;
+}
+
+.athlete-not-found-hint {
+  margin: 0 0 22px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+[data-theme="light"] .athlete-not-found-hint {
+  color: #64748b;
+}
+
+.athlete-not-found-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.athlete-not-found-btn-primary,
+.athlete-not-found-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.athlete-not-found-btn-primary {
+  background: #1d538e;
+  border: 1px solid #2563eb;
+  color: #ffffff;
+}
+
+.athlete-not-found-btn-primary:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.athlete-not-found-btn-secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+}
+
+.athlete-not-found-btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.athlete-not-found-btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+[data-theme="light"] .athlete-not-found-btn-secondary {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+[data-theme="light"] .athlete-not-found-btn-secondary:hover:not(:disabled) {
+  background: #e2e8f0;
+}

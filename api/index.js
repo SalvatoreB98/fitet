@@ -11025,6 +11025,16 @@ app.get("/api/atleta/:id", async (req, res) => {
       }
     }
     const atleta = parseDettaglioAtleta(html, id, partiteRanking);
+    const hasRealName = Boolean(
+      atleta?.anagrafica?.nome && !/^Atleta\s+\d+$/i.test(atleta.anagrafica.nome.trim())
+    );
+    if (!hasRealName) {
+      return res.status(404).json({
+        error: "Atleta non trovato sul portale FITeT",
+        notFound: true,
+        id
+      });
+    }
     const campRanking = partiteRanking?.campionato || [];
     const { playedCamps, athleteSesso } = resolveAthleteChampionshipsFromRanking(
       campRanking,
