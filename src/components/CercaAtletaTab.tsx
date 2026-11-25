@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { AthleteSearchResult } from '../types/fitet';
 import { searchAtleti } from '../services/api';
 import { useFavoriteAthletes } from '../utils/favorites';
@@ -33,7 +33,29 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
   const [failedImgs, setFailedImgs] = useState<Record<string, boolean>>({});
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [suggerimenti, setSuggerimenti] = useState(getRecentAthletes().map((rec) => rec.name).concat(...favorites.map((fav) => fav.name), 'STOYANOV', 'OYEBODE', 'SZOCS', 'PICCOLIN', 'MONFARDINI'));
+  const suggerimenti = useMemo(() => {
+    const raw = [
+      ...getRecentAthletes().map((rec) => rec.name),
+      ...favorites.map((fav) => fav.name),
+      'STOYANOV',
+      'OYEBODE',
+      'SZOCS',
+      'PICCOLIN',
+      'MONFARDINI',
+    ];
+    const seen = new Set<string>();
+    const unique: string[] = [];
+    for (const item of raw) {
+      const cleaned = (item || '').trim();
+      if (!cleaned) continue;
+      const norm = cleaned.toUpperCase();
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        unique.push(cleaned);
+      }
+    }
+    return unique;
+  }, [favorites]);
   const performSearch = useCallback(async (searchTerm: string) => {
     const trimmed = searchTerm.trim();
     if (!trimmed || trimmed.length < 2) {
@@ -191,7 +213,7 @@ export const CercaAtletaTab: React.FC<CercaAtletaTabProps> = ({
             <span className="cerca-atleta-chips-label">Suggerimenti rapidi:</span>
             {suggerimenti.map((chip) => (
               <button
-                key={chip}
+                key={chip.toUpperCase()}
                 type="button"
                 className="cerca-atleta-chip"
                 onClick={() => handleChipClick(chip)}
