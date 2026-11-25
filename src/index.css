@@ -2728,6 +2728,7 @@ body.modal-open {
   max-height: 90vh;
   max-height: 90dvh;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   -webkit-font-smoothing: antialiased;
@@ -6732,8 +6733,23 @@ body.modal-open {
 }
 
 .atleta-profile-tags-row .athlete-share-popover {
-  left: 0;
-  right: auto;
+  left: auto;
+  right: 0;
+  transform-origin: top right;
+}
+
+@media screen and (max-width: 576px) {
+  .atleta-profile-tags-row .athlete-share-popover {
+    position: fixed;
+    top: auto;
+    bottom: 24px;
+    left: 16px !important;
+    right: 16px !important;
+    width: auto !important;
+    max-width: none !important;
+    z-index: 10050;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  }
 }
 
 .player-placeholder {
