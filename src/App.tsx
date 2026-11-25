@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
-import { AthleteModalPrefill, DashboardData, ChampionshipItem, SocietaInfo } from './types/fitet';
+import { DashboardData, ChampionshipItem, SocietaInfo } from './types/fitet';
 import { fetchDashboard, fetchCampionati, detectMySociety, type SocietaLookupContext } from './services/api';
 import { Header, MainViewType, ChampionshipTabType, TorneiPortalView } from './components/Header';
 import { useSlideDirection } from './utils/useSlideDirection';
@@ -210,10 +210,12 @@ export const App: React.FC = () => {
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
 
   // Athlete modal navigation stack synced with /player/:id URL
-  const [athleteStack, setAthleteStack] = useState<Array<{ key: string; id: string; name: string; fromReferto?: boolean; prefill?: AthleteModalPrefill }>>(() => {
+  const [athleteStack, setAthleteStack] = useState<
+    Array<{ key: string; id: string; name: string; fromReferto?: boolean; mode?: 'full' | 'preview' }>
+  >(() => {
     const fromUrl = getAthleteFromUrl();
     if (fromUrl) {
-      return [{ key: 'athlete-init', id: fromUrl.id, name: fromUrl.name }];
+      return [{ key: 'athlete-init', id: fromUrl.id, name: fromUrl.name, mode: 'full' }];
     }
     return [];
   });
@@ -234,14 +236,14 @@ export const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const setSelectedAthlete = (a: { id: string; name: string; fromReferto?: boolean; prefill?: AthleteModalPrefill }) => {
+  const setSelectedAthlete = (a: { id: string; name: string; fromReferto?: boolean }) => {
     addRecentAthlete({ id: a.id, name: a.name });
     trackClick('Scheda Atleta');
     setAthleteStack((prev) => {
       const top = prev[prev.length - 1];
-      if (top && top.id === a.id && top.name === a.name) return prev;
+      if (top && top.id === a.id && top.name === a.name && top.mode !== 'preview') return prev;
       athleteKeyCounter.current += 1;
-      return [...prev, { key: `athlete-${athleteKeyCounter.current}`, ...a }];
+      return [...prev, { key: `athlete-${athleteKeyCounter.current}`, ...a, mode: 'full' }];
     });
 
     if (typeof window !== 'undefined') {
@@ -258,10 +260,49 @@ export const App: React.FC = () => {
     }
   };
 
+  const openPreviewAthlete = (id: string, name: string) => {
+    setAthleteStack((prev) => {
+      const top = prev[prev.length - 1];
+      if (top && top.id === id && top.name === name) return prev;
+      athleteKeyCounter.current += 1;
+      return [...prev, { key: `athlete-${athleteKeyCounter.current}`, id, name, mode: 'preview' }];
+    });
+  };
+
+  const promotePreviewAthlete = (itemKey: string, resolvedId: string, resolvedName: string) => {
+    addRecentAthlete({ id: resolvedId, name: resolvedName });
+    trackClick('Scheda Atleta');
+    setAthleteStack((prev) =>
+      prev.map((item) =>
+        item.key === itemKey
+          ? { ...item, id: resolvedId, name: resolvedName, mode: 'full' }
+          : item
+      )
+    );
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.pathname = `/player/${encodeURIComponent(resolvedId)}`;
+      url.searchParams.delete('player');
+      url.searchParams.delete('atleta');
+      url.searchParams.delete('atletaId');
+      window.history.pushState(
+        { ...(window.history.state || {}), athleteId: resolvedId, athleteName: resolvedName, pushedByApp: true },
+        '',
+        url.toString()
+      );
+    }
+  };
+
   const closeTopAthlete = () => {
     if (typeof window === 'undefined') return;
 
     const top = athleteStack[athleteStack.length - 1];
+
+    if (top?.mode === 'preview') {
+      setAthleteStack((prev) => prev.slice(0, -1));
+      return;
+    }
 
     // Se la scheda atleta è stata aperta dalla modale del referto, chiudere la
     // scheda deve riattivare la schermata del referto: svuota solo lo stack degli
@@ -1560,9 +1601,12 @@ export const App: React.FC = () => {
           campionatoNome={data?.championship?.nome}
           returnLabel={a.fromReferto ? 'Torna al referto' : 'Indietro'}
           isTopModal={index === athleteStack.length - 1}
-          initialData={a.prefill}
+          initialMode={a.mode || 'full'}
+          zIndex={1200 + index * 10}
           onClose={closeTopAthlete}
-          onSelectAthlete={(id, name, prefill) => setSelectedAthlete({ id, name, fromReferto: false, prefill })}
+          onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+          onPreviewAthlete={(id, name) => openPreviewAthlete(id, name)}
+          onPromoteToFull={(resolvedId, resolvedName) => promotePreviewAthlete(a.key, resolvedId, resolvedName)}
           onResolveAthlete={handleResolveAthlete}
           onOpenSociety={handleOpenSocietyByName}
         />

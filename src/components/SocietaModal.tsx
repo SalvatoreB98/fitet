@@ -532,6 +532,7 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
     (isOwnSociety ? 'La mia società' : 'Scheda società');
 
   const headerLogoUrl = info?.logoUrl || lookupContext?.logoUrl || undefined;
+  const isCompactState = !loading && !data;
 
   return createPortal(
     <div
@@ -543,7 +544,7 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
       aria-label={isOwnSociety ? 'La mia società' : `Scheda società ${headerTitle}`}
     >
       <div
-        className="modal-card-simple societa-modal-card"
+        className={`modal-card-simple societa-modal-card ${isCompactState ? 'is-compact-state' : ''}`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="modal-header-simple societa-modal-header">
@@ -705,13 +706,68 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
           )}
 
           {loading && !data && (
-            <div className="societa-loading">
-              <span className="societa-spinner societa-spinner-lg"></span>
-              <span>
-                {initialLookupQuery && !activeSocietyId
-                  ? `Ricerca di ${initialLookupQuery} nell'Albo Federale…`
-                  : `Caricamento scheda di ${headerTitle}…`}
-              </span>
+            <div className="societa-skeleton" aria-busy="true" aria-label="Caricamento scheda società">
+              <div className="societa-skeleton-status">
+                <span className="societa-spinner" aria-hidden="true"></span>
+                <span>
+                  {initialLookupQuery && !activeSocietyId
+                    ? `Ricerca di ${initialLookupQuery} nell'Albo Federale…`
+                    : `Caricamento scheda di ${headerTitle}…`}
+                </span>
+              </div>
+
+              <div className="societa-section">
+                <div className="societa-section-head">
+                  <div className="societa-skeleton-head-left">
+                    <span className="societa-skeleton-bar societa-skeleton-bar--eyebrow" />
+                    <span className="societa-skeleton-bar societa-skeleton-bar--title" />
+                  </div>
+                  <div className="societa-stats-row societa-skeleton-stats-row">
+                    {[0, 1, 2].map((idx) => (
+                      <div className="societa-stat" key={idx}>
+                        <span className="societa-skeleton-bar societa-skeleton-bar--kpi" />
+                        <span className="societa-skeleton-bar societa-skeleton-bar--kpi-sub" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="societa-form-panel societa-skeleton-panel">
+                  <span className="societa-skeleton-bar societa-skeleton-bar--panel-title" />
+                  <div className="societa-form-grid">
+                    {[0, 1, 2].map((idx) => (
+                      <div className="societa-skeleton-form-card" key={idx}>
+                        <span className="societa-skeleton-avatar" />
+                        <div className="societa-skeleton-card-lines">
+                          <span className="societa-skeleton-bar societa-skeleton-bar--name" />
+                          <span className="societa-skeleton-bar societa-skeleton-bar--team" />
+                        </div>
+                        <span className="societa-skeleton-bar societa-skeleton-bar--pct" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="societa-skeleton-team-grid">
+                  {[0, 1].map((cardIdx) => (
+                    <div className="societa-skeleton-team-card" key={cardIdx}>
+                      <div className="societa-skeleton-team-head">
+                        <span className="societa-skeleton-bar societa-skeleton-bar--champ" />
+                        <span className="societa-skeleton-bar societa-skeleton-bar--badge" />
+                      </div>
+                      <div className="societa-skeleton-roster">
+                        {[0, 1, 2, 3].map((rowIdx) => (
+                          <div className="societa-skeleton-roster-row" key={rowIdx}>
+                            <span className="societa-skeleton-avatar societa-skeleton-avatar--sm" />
+                            <span className="societa-skeleton-bar societa-skeleton-bar--roster-name" />
+                            <span className="societa-skeleton-bar societa-skeleton-bar--roster-stat" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -744,7 +800,7 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
           )}
 
           {data && (
-            <>
+            <div className="societa-content-reveal">
               {currentSeason ? (
                 <section className="societa-section">
                   <div className="societa-section-head">
@@ -1047,7 +1103,7 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
                   </div>
                 </section>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>

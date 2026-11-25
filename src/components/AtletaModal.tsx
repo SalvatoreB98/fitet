@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { AthleteModalPrefill, DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
+import { DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
 import { fetchAtleta, fetchAtletaCampionatoPartite, fetchHeadToHead, type SocietaLookupContext } from '../services/api';
 import { RatingChart } from './RatingChart';
 import { HeadToHeadModal } from './HeadToHeadModal';
-import { HalfAtletaModal } from './HalfAtletaModal';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { MarqueeText } from './MarqueeText';
 import { recordAndGetAthleteViews } from '../utils/athleteViews';
@@ -16,15 +15,25 @@ import { AthleteStoryModal } from './AthleteStoryModal';
 import { AthleteNotFoundState } from './AthleteNotFoundState';
 import { useModalTransition } from '../utils/useModalTransition';
 
+if (typeof window !== 'undefined' && typeof Image !== 'undefined') {
+  ['/light-big-placeholder.png', '/dark-big-placeholder.png'].forEach((src) => {
+    const preloaded = new Image();
+    preloaded.src = src;
+  });
+}
+
 interface AtletaModalProps {
   atletaId: string;
   athleteName?: string;
   returnLabel?: string;
   camId?: string | null;
   campionatoNome?: string | null;
-  initialData?: AthleteModalPrefill;
+  initialMode?: 'full' | 'preview';
+  zIndex?: number;
   onClose: () => void;
-  onSelectAthlete?: (id: string, name: string, prefill?: AthleteModalPrefill) => void;
+  onSelectAthlete?: (id: string, name: string) => void;
+  onPreviewAthlete?: (id: string, name: string) => void;
+  onPromoteToFull?: (resolvedId: string, resolvedName: string) => void;
   onResolveAthlete?: (resolvedId: string, resolvedName: string) => void;
   onOpenSociety?: (societyName: string, context?: SocietaLookupContext) => void;
   isTopModal?: boolean;
@@ -53,12 +62,14 @@ const isRealDate = (d?: string | null): boolean => {
 export const AtletaModal: React.FC<AtletaModalProps> = ({
   atletaId,
   athleteName,
-  returnLabel,
   camId,
   campionatoNome,
-  initialData,
+  initialMode = 'full',
+  zIndex,
   onClose,
   onSelectAthlete,
+  onPreviewAthlete,
+  onPromoteToFull,
   onResolveAthlete,
   onOpenSociety,
   isTopModal = true,
@@ -67,23 +78,45 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const { isClosing, requestClose } = useModalTransition(onClose);
   const { isFavorite, toggleFavorite } = useFavoriteAthletes();
 
-  const prefillAtleta = initialData?.atleta ?? null;
-  const usedPrefillRef = useRef<boolean>(Boolean(prefillAtleta));
-  const hasPreloadedMatchesRef = useRef<boolean>(
-    Boolean(initialData?.campionatoPartite && initialData.campionatoPartite.length > 0)
-  );
-  const expandedFromHalf = Boolean(initialData?.fromHalfModal);
+  const [isPreview, setIsPreview] = useState<boolean>(initialMode === 'preview');
+  const [hasExpandedInPlace, setHasExpandedInPlace] = useState<boolean>(false);
+  const isPreviewRef = useRef<boolean>(initialMode === 'preview');
+  isPreviewRef.current = isPreview;
+  const expandSourceRectRef = useRef<{ top: number; height: number } | null>(null);
 
-  const [atleta, setAtleta] = useState<DettaglioAtleta | null>(prefillAtleta);
-  const [loading, setLoading] = useState<boolean>(!prefillAtleta);
+  const [atleta, setAtleta] = useState<DettaglioAtleta | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState<boolean>(false);
   const [imgError, setImgError] = useState<boolean>(false);
+  const [imgLoaded, setImgLoaded] = useState<boolean>(false);
   const [isPhotoZoomOpen, setIsPhotoZoomOpen] = useState<boolean>(false);
-  const [viewsCount, setViewsCount] = useState<number>(initialData?.viewsCount ?? 0);
-  const [halfAtletaTarget, setHalfAtletaTarget] = useState<{ id?: string; name: string } | null>(null);
+  const [viewsCount, setViewsCount] = useState<number>(0);
   const lastTrackedKeyRef = useRef<string | null>(null);
+  const photoImgRef = useRef<HTMLImageElement>(null);
+
+  const athletePhoto =
+    atleta?.anagrafica?.fotoUrl ||
+    (atleta?.id && /^\d+$/.test(atleta.id)
+      ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg`
+      : null);
+
+  useEffect(() => {
+    setImgLoaded(false);
+    setImgError(false);
+  }, [atletaId, athletePhoto]);
+
+  useLayoutEffect(() => {
+    const img = photoImgRef.current;
+    if (img && img.complete) {
+      if (img.naturalWidth > 0) {
+        setImgLoaded(true);
+      } else {
+        setImgError(true);
+      }
+    }
+  }, [athletePhoto]);
 
   // Share state
   const [isShareMenuOpen, setIsShareMenuOpen] = useState<boolean>(false);
@@ -122,21 +155,21 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   }, [atletaId]);
 
   useLayoutEffect(() => {
-    if (!initialData?.fromHalfModal || !initialData?.sourceRect || !cardRef.current) {
+    if (isPreview || !expandSourceRectRef.current || !cardRef.current) {
       return;
     }
     const card = cardRef.current;
-    const { sourceRect } = initialData;
+    const sourceRect = expandSourceRectRef.current;
+    expandSourceRectRef.current = null;
     const targetRect = card.getBoundingClientRect();
-    const dx = sourceRect.left - targetRect.left;
     const dy = sourceRect.top - targetRect.top;
 
-    if (targetRect.height <= sourceRect.height + 4 && Math.abs(dy) <= 2 && Math.abs(dx) <= 2) {
+    if (Math.abs(targetRect.height - sourceRect.height) <= 4 && Math.abs(dy) <= 2) {
       return;
     }
 
     card.style.height = `${sourceRect.height}px`;
-    card.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+    card.style.transform = `translate3d(0, ${dy}px, 0)`;
     card.style.overflow = 'hidden';
     card.getBoundingClientRect();
 
@@ -171,7 +204,33 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       card.removeEventListener('transitionend', handleTransitionEnd);
       cleanup();
     };
-  }, []);
+  }, [isPreview]);
+
+  const handleExpandToFull = () => {
+    if (!isPreview) return;
+    if (cardRef.current) {
+      const rect = cardRef.current.getBoundingClientRect();
+      expandSourceRectRef.current = { top: rect.top, height: rect.height };
+    }
+    setHasExpandedInPlace(true);
+    setIsPreview(false);
+
+    const resolvedId = atleta?.id || atletaId;
+    const resolvedName = atleta?.anagrafica?.nome || athleteName || resolvedId;
+    if (atleta && isValidAthleteHistoryName(atleta.anagrafica?.nome, atleta.id)) {
+      const storico = atleta.storicoClassifica || [];
+      const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
+      addRecentAthlete({
+        id: atleta.id,
+        name: atleta.anagrafica.nome,
+        squadra: atleta.anagrafica.societa || undefined,
+        ranking: ultimoSnapshot?.posizione ?? undefined,
+        punti: atleta.anagrafica.punti ?? ultimoSnapshot?.punti ?? undefined,
+        categoria: atleta.anagrafica.categoria ?? ultimoSnapshot?.categoria ?? undefined,
+      });
+    }
+    onPromoteToFull?.(resolvedId, resolvedName);
+  };
 
   const currentAtletaId = atleta?.id || atletaId;
   const currentAthleteName = atleta?.anagrafica?.nome || athleteName || 'Atleta';
@@ -210,9 +269,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   }, [atleta, notFound, atletaId]);
 
   // Partite nel campionato attualmente aperto
-  const [campionatoPartite, setCampionatoPartite] = useState<PartitaCampionatoAtleta[] | null>(
-    initialData?.campionatoPartite ?? null
-  );
+  const [campionatoPartite, setCampionatoPartite] = useState<PartitaCampionatoAtleta[] | null>(null);
   const [squadraCampionato, setSquadraCampionato] = useState<string | null>(null);
   const [loadingPartite, setLoadingPartite] = useState<boolean>(false);
 
@@ -365,7 +422,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   }, [matchTab, rankingFilter, campionatoPartite, viewMode]);
 
   useEffect(() => {
-    if (!isTopModal) return;
+    if (!isTopModal || isPreview) return;
     const originalTitle = document.title;
     const name = atleta?.anagrafica?.nome || athleteName;
     if (name && name !== 'Atleta') {
@@ -374,7 +431,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
     return () => {
       document.title = originalTitle;
     };
-  }, [atleta?.anagrafica?.nome, athleteName, isTopModal]);
+  }, [atleta?.anagrafica?.nome, athleteName, isTopModal, isPreview]);
 
   // Close share popover when clicking outside
   useEffect(() => {
@@ -463,18 +520,14 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
   useEffect(() => {
     let isMounted = true;
-    const usingPrefill = usedPrefillRef.current && Boolean(prefillAtleta);
-    usedPrefillRef.current = false;
-
-    if (!usingPrefill) {
-      setLoading(true);
-      setAtleta(null);
-      setError(null);
-      setNotFound(false);
-      setImgError(false);
-      setCampionatoPartite(null);
-      setSquadraCampionato(null);
-    }
+    setLoading(true);
+    setAtleta(null);
+    setError(null);
+    setNotFound(false);
+    setImgError(false);
+    setImgLoaded(false);
+    setCampionatoPartite(null);
+    setSquadraCampionato(null);
 
     // Funzione helper per recuperare le partite di campionato prioritizzando i campionati effettivamente giocati dall'atleta
     const loadMatchesForAthlete = async (
@@ -576,55 +629,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       }
     };
 
-    if (usingPrefill && prefillAtleta) {
-      const data = prefillAtleta;
-      if (onResolveAthlete && data.id && (data.id !== atletaId || !athleteName)) {
-        onResolveAthlete(data.id, data.anagrafica.nome);
-      }
-      const storico = data.storicoClassifica || [];
-      const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
-      addRecentAthlete({
-        id: data.id,
-        name: data.anagrafica.nome,
-        squadra: data.anagrafica.societa || undefined,
-        ranking: ultimoSnapshot?.posizione ?? undefined,
-        punti: data.anagrafica.punti ?? ultimoSnapshot?.punti ?? undefined,
-        categoria: data.anagrafica.categoria ?? ultimoSnapshot?.categoria ?? undefined,
-      });
-      if (isFavorite(data.id) || isFavorite(data.anagrafica.nome)) {
-        saveFavoriteAthlete({
-          id: data.id,
-          name: data.anagrafica.nome,
-          squadra: data.anagrafica.societa || undefined,
-          ranking: ultimoSnapshot?.posizione ?? undefined,
-          punti: data.anagrafica.punti ?? ultimoSnapshot?.punti ?? undefined,
-          categoria: data.anagrafica.categoria ?? ultimoSnapshot?.categoria ?? undefined,
-          dataNascita: data.anagrafica.dataNascita ?? undefined,
-          fotoUrl: data.anagrafica.fotoUrl ?? undefined,
-        });
-      }
-      if (!hasPreloadedMatchesRef.current) {
-        const athleteActualCamId = data.campionatoAttuale ? String(data.campionatoAttuale.camId) : undefined;
-        const playedCamIds = (data.campionatiGiocati || []).map((c) => String(c.camId));
-        const targetId = data.id || atletaId;
-        const targetName = data.anagrafica?.nome || athleteName || '';
-        loadMatchesForAthlete(
-          targetId,
-          targetName,
-          camId || undefined,
-          athleteActualCamId,
-          playedCamIds,
-          data.anagrafica?.regione
-        );
-      } else {
-        setLoadingPartite(false);
-        setMatchTab('girone');
-      }
-      return () => {
-        isMounted = false;
-      };
-    }
-
     // Recupera anagrafica atleta e poi coordina il caricamento partite
     fetchAtleta(atletaId)
       .then((data) => {
@@ -644,22 +648,24 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
         setNotFound(false);
         setLoading(false);
 
-        if (onResolveAthlete && data.id && (data.id !== atletaId || !athleteName)) {
-          onResolveAthlete(data.id, data.anagrafica.nome);
-        }
-
         const storico = data.storicoClassifica || [];
         const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
 
-        // Sincronizza cronologia recente
-        addRecentAthlete({
-          id: data.id,
-          name: data.anagrafica.nome,
-          squadra: data.anagrafica.societa || undefined,
-          ranking: ultimoSnapshot?.posizione ?? undefined,
-          punti: data.anagrafica.punti ?? ultimoSnapshot?.punti ?? undefined,
-          categoria: data.anagrafica.categoria ?? ultimoSnapshot?.categoria ?? undefined,
-        });
+        if (!isPreviewRef.current) {
+          if (onResolveAthlete && data.id && (data.id !== atletaId || !athleteName)) {
+            onResolveAthlete(data.id, data.anagrafica.nome);
+          }
+
+          // Sincronizza cronologia recente
+          addRecentAthlete({
+            id: data.id,
+            name: data.anagrafica.nome,
+            squadra: data.anagrafica.societa || undefined,
+            ranking: ultimoSnapshot?.posizione ?? undefined,
+            punti: data.anagrafica.punti ?? ultimoSnapshot?.punti ?? undefined,
+            categoria: data.anagrafica.categoria ?? ultimoSnapshot?.categoria ?? undefined,
+          });
+        }
 
         // Sincronizza preferiti se presente
         if (isFavorite(data.id) || isFavorite(data.anagrafica.nome)) {
@@ -812,7 +818,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
   // Recupera in automatico i risultati set tramite la chiamata head_to_head per tutti gli incontri privi di punteggio set
   useEffect(() => {
-    if (!currentAtletaId) return;
+    if (!currentAtletaId || isPreview) return;
 
     const allMatches = [
       ...(campionatoPartite || []),
@@ -884,31 +890,34 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [currentAtletaId, campionatoPartite, atleta?.partiteRanking]);
+  }, [currentAtletaId, isPreview, campionatoPartite, atleta?.partiteRanking]);
 
   useEffect(() => {
     if (!isTopModal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !h2hOpponent && !halfAtletaTarget) {
+      if (e.key === 'Escape' && !h2hOpponent) {
         e.stopPropagation();
         requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [requestClose, isTopModal, h2hOpponent, halfAtletaTarget, isPhotoZoomOpen]);
+  }, [requestClose, isTopModal, h2hOpponent, isPhotoZoomOpen]);
 
   // Anteprima / zoom della foto dell'atleta
-  const zoomPhotoSrc = atleta?.anagrafica?.fotoUrl || (atleta?.id && /^\d+$/.test(atleta.id) ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg` : null);
-  const canOpenPhotoZoom = Boolean(zoomPhotoSrc) && !imgError;
+  const zoomPhotoSrc = athletePhoto;
+  const canOpenPhotoZoom = Boolean(zoomPhotoSrc) && !imgError && imgLoaded;
   const openPhotoZoom = () => setIsPhotoZoomOpen(true);
   const closePhotoZoom = () => setIsPhotoZoomOpen(false);
 
   if (typeof document === 'undefined') return null;
 
+  const isCompactState = !isPreview && !loading && (notFound || Boolean(error));
+
   return createPortal(
     <div
-      className={`modal-backdrop-simple modal-athlete-backdrop ${expandedFromHalf ? 'modal-backdrop-instant' : ''} ${isClosing ? 'modal-closing' : ''}`}
+      className={`modal-backdrop-simple modal-athlete-backdrop ${isPreview ? 'is-preview-backdrop' : ''} ${isClosing ? 'modal-closing' : ''}`}
+      style={zIndex ? { zIndex } : undefined}
       onMouseDown={(e) => {
         backdropMouseDownTargetRef.current = e.target;
       }}
@@ -921,7 +930,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
     >
       <div
         ref={cardRef}
-        className={`modal-card-simple atleta-modal-card ${expandedFromHalf ? 'modal-card-expanded-from-half' : ''}`}
+        className={`modal-card-simple atleta-modal-card ${isPreview ? 'is-preview-mode' : ''} ${isCompactState ? 'is-compact-state' : ''} ${hasExpandedInPlace ? 'is-expanded-in-place' : ''}`}
         onClick={(e) => e.stopPropagation()}
         onScroll={handleCardScroll}
       >
@@ -932,7 +941,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
             className={`modal-header-simple atleta-modal-header ${isScrolledPastHero ? 'is-scrolled' : 'is-dissolved'}`}
           >
             <div className="modal-header-athlete-identity">
-              {zoomPhotoSrc && !imgError ? (
+              {zoomPhotoSrc && !imgError && imgLoaded ? (
                 <img
                   src={zoomPhotoSrc}
                   alt={atleta?.anagrafica?.nome || athleteName || 'Atleta'}
@@ -1183,11 +1192,57 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           </div>
 
           {loading && (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
-              <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>
-                Caricamento dati dal portale FITeT in corso...
+            <div className="athlete-skeleton-wrap" aria-busy="true" aria-label="Caricamento scheda atleta">
+              <div className={`athlete-spotlight-layout ${!isPreview ? 'athlete-spotlight-layout--full' : ''}`}>
+                <div className="athlete-spotlight-photo-wrap athlete-skeleton-block" aria-hidden="true" />
+                <div className="athlete-spotlight-main-col">
+                  <div className="athlete-spotlight-info-block">
+                    <div className="athlete-skeleton-line athlete-skeleton-line--title athlete-skeleton-block" />
+                    <div className="athlete-skeleton-line athlete-skeleton-line--club athlete-skeleton-block" />
+                    <div className="athlete-skeleton-line athlete-skeleton-line--sub athlete-skeleton-block" />
+                    <div className="athlete-skeleton-pills">
+                      <span className="athlete-skeleton-pill athlete-skeleton-block" />
+                      <span className="athlete-skeleton-pill athlete-skeleton-block" />
+                      <span className="athlete-skeleton-pill athlete-skeleton-pill--wide athlete-skeleton-block" />
+                    </div>
+                  </div>
+
+                  <div className="overview-stats-card athlete-spotlight-stats-card athlete-skeleton-stats">
+                    <div className="overview-stats-row">
+                      {[0, 1, 2, 3].map((colIdx) => (
+                        <React.Fragment key={colIdx}>
+                          {colIdx > 0 && <div className="overview-stat-divider" aria-hidden="true" />}
+                          <div className="overview-stat-col athlete-skeleton-stat-col">
+                            <span className="athlete-skeleton-line athlete-skeleton-line--stat-label athlete-skeleton-block" />
+                            <span className="athlete-skeleton-line athlete-skeleton-line--stat-val athlete-skeleton-block" />
+                            <span className="athlete-skeleton-line athlete-skeleton-line--stat-sub athlete-skeleton-block" />
+                          </div>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div style={{ fontSize: '12px' }}>Lettura anagrafica e storico punti</div>
+
+              {!isPreview && (
+                <div className="athlete-skeleton-details">
+                  <div className="athlete-skeleton-section-bar">
+                    <span className="athlete-skeleton-line athlete-skeleton-line--section athlete-skeleton-block" />
+                    <span className="athlete-skeleton-line athlete-skeleton-line--tabs athlete-skeleton-block" />
+                  </div>
+                  <div className="athlete-skeleton-matches-grid">
+                    <div className="athlete-skeleton-match-card athlete-skeleton-block" />
+                    <div className="athlete-skeleton-match-card athlete-skeleton-block" />
+                    <div className="athlete-skeleton-match-card athlete-skeleton-block" />
+                  </div>
+                  <div className="athlete-skeleton-chart athlete-skeleton-block" />
+                </div>
+              )}
+
+              <div className="athlete-skeleton-caption">
+                <span className="athlete-skeleton-dot" aria-hidden="true" />
+                <span>Caricamento dati dal portale FITeT in corso...</span>
+              </div>
             </div>
           )}
 
@@ -1207,30 +1262,34 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           )}
 
           {atleta && !loading && (
-            <div className={!expandedFromHalf ? 'athlete-data-reveal' : undefined}>
+            <div className={!hasExpandedInPlace ? 'athlete-data-reveal' : undefined}>
               {/* Responsive Spotlight Layout: Centered Vertical on Mobile, 2-Column Horizontal on Desktop */}
-              <div className="athlete-spotlight-layout athlete-spotlight-layout--full">
+              <div className={`athlete-spotlight-layout ${!isPreview ? 'athlete-spotlight-layout--full' : ''}`}>
                 {/* Left Column (Desktop) / Top Centered (Mobile): Photo */}
                 <div
-                  className="athlete-spotlight-photo-wrap"
-                  style={{ cursor: 'pointer' }}
-                  onClick={openPhotoZoom}
-                  title="Apri anteprima foto"
+                  className={`athlete-spotlight-photo-wrap ${athletePhoto && !imgLoaded && !imgError ? 'is-photo-loading' : ''}`}
+                  style={{ cursor: canOpenPhotoZoom ? 'pointer' : 'default' }}
+                  onClick={canOpenPhotoZoom ? openPhotoZoom : undefined}
+                  title={canOpenPhotoZoom ? 'Apri anteprima foto' : undefined}
                 >
-                  {(() => {
-                    const athletePhoto = atleta.anagrafica.fotoUrl || (atleta.id && /^\d+$/.test(atleta.id) ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg` : null);
-                    return !imgError && athletePhoto ? (
-                      <img
-                        src={athletePhoto}
-                        alt={atleta.anagrafica.nome}
-                        referrerPolicy="no-referrer"
-                        onError={() => setImgError(true)}
-                      />
-                    ) : (
-                      <span className="img-med-placeholder">
-                      </span>
-                    );
-                  })()}
+                  <span
+                    className={`img-med-placeholder ${!athletePhoto || imgError ? 'is-visible' : ''}`}
+                    aria-hidden="true"
+                  />
+                  {athletePhoto && !imgError && (
+                    <img
+                      ref={photoImgRef}
+                      src={athletePhoto}
+                      alt={atleta.anagrafica.nome}
+                      referrerPolicy="no-referrer"
+                      className={`athlete-spotlight-photo-img ${imgLoaded ? 'is-loaded' : ''}`}
+                      onLoad={() => setImgLoaded(true)}
+                      onError={() => {
+                        setImgError(true);
+                        setImgLoaded(false);
+                      }}
+                    />
+                  )}
                 </div>
 
                 {/* Right Column (Desktop) / Centered Column (Mobile): Info + Stats */}
@@ -1432,10 +1491,11 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
               </div>
 
               {/* Sezione Partite e Dettagli */}
-              <div
-                id="athlete-partite-details-section"
-                className={expandedFromHalf ? 'athlete-expand-details-reveal' : undefined}
-              >
+              {!isPreview && (
+                <div
+                  id="athlete-partite-details-section"
+                  className={hasExpandedInPlace ? 'athlete-expand-details-reveal' : undefined}
+                >
                 {/* Sezione Partite: Girone Attivo / Incontri Ufficiali Ranking FITeT */}
                 {(() => {
                   const parseDateIT = (str: string): number => {
@@ -1933,7 +1993,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                             className="atleta-opponent-link"
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              setHalfAtletaTarget({ id: m.avversarioId, name: m.avversario });
+                                              const targetKey = m.avversarioId || m.avversario;
+                                              if (onPreviewAthlete) {
+                                                onPreviewAthlete(targetKey, m.avversario);
+                                              } else if (onSelectAthlete) {
+                                                onSelectAthlete(targetKey, m.avversario);
+                                              }
                                             }}
                                             title={`Visualizza scheda rapida di ${m.avversario}`}
                                           >
@@ -2117,7 +2182,12 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                               className="atleta-opponent-link"
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                setHalfAtletaTarget({ id: m.avversarioId, name: m.avversario });
+                                                const targetKey = m.avversarioId || m.avversario;
+                                                if (onPreviewAthlete) {
+                                                  onPreviewAthlete(targetKey, m.avversario);
+                                                } else if (onSelectAthlete) {
+                                                  onSelectAthlete(targetKey, m.avversario);
+                                                }
                                               }}
                                               title={`Visualizza scheda rapida di ${m.avversario}`}
                                             >
@@ -2270,9 +2340,34 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   </div>
                 </div>
               </div>
+              )}
             </div>
           )}
         </div>
+
+        {/* Footer Bar in modal preview with "Mostra altri dati" button */}
+        {isPreview && !notFound && !error && (
+          <div className="halfatleta-footer-bar">
+            <button
+              type="button"
+              className="btn-action"
+              onClick={requestClose}
+              style={{ padding: '7px 14px', fontSize: '13px' }}
+            >
+              Chiudi
+            </button>
+            <button
+              type="button"
+              className="halfatleta-btn-full"
+              onClick={handleExpandToFull}
+              disabled={loading && !atleta}
+              title={`Carica la scheda completa di ${currentAthleteName}`}
+            >
+              <span>Mostra altri dati</span>
+              <i className="bi bi-arrows-angle-expand"></i>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Athlete Photo Zoom / Preview Modal */}
@@ -2317,29 +2412,6 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           atleta2Nome={h2hOpponent.name}
           onClose={() => setH2hOpponent(null)}
           onSelectAthlete={onSelectAthlete}
-        />
-      )}
-
-      {/* Modal HalfAtleta (Riepilogo Rapido Avversario) */}
-      {halfAtletaTarget && (
-        <HalfAtletaModal
-          atletaKey={halfAtletaTarget.id || halfAtletaTarget.name}
-          athleteName={halfAtletaTarget.name}
-          onClose={() => setHalfAtletaTarget(null)}
-          onOpenFullModal={(resolvedId, name, prefill) => {
-            setHalfAtletaTarget(null);
-            if (onSelectAthlete) {
-              onSelectAthlete(resolvedId, name, prefill);
-            }
-          }}
-          onOpenSociety={
-            onOpenSociety
-              ? (soc) => {
-                setHalfAtletaTarget(null);
-                onOpenSociety(soc);
-              }
-              : undefined
-          }
         />
       )}
 
