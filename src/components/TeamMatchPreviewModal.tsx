@@ -395,15 +395,15 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
             },
             reverseFixture: directPrecedent
               ? {
-                giornata: directPrecedent.giornata,
-                fase: directPrecedent.tipo,
-                data: directPrecedent.data,
-                risultato: directPrecedent.risultato,
-                puntiCasa: directPrecedent.puntiCasa,
-                puntiOspite: directPrecedent.puntiOspite,
-                casaNome: directPrecedent.squadraCasa,
-                ospiteNome: directPrecedent.squadraOspite,
-              }
+                  giornata: directPrecedent.giornata,
+                  fase: directPrecedent.tipo,
+                  data: directPrecedent.data,
+                  risultato: directPrecedent.risultato,
+                  puntiCasa: directPrecedent.puntiCasa,
+                  puntiOspite: directPrecedent.puntiOspite,
+                  casaNome: directPrecedent.squadraCasa,
+                  ospiteNome: directPrecedent.squadraOspite,
+                }
               : null,
           }),
         });
@@ -1078,8 +1078,9 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
                                   </td>
                                   <td>
                                     <div
-                                      className={`tmp-sim-player ${sim.vincitore === 'casa' ? 'is-winner' : 'is-loser'} ${homeId && onOpenAtletaModal ? 'is-clickable' : ''
-                                        }`}
+                                      className={`tmp-sim-player ${sim.vincitore === 'casa' ? 'is-winner' : 'is-loser'} ${
+                                        homeId && onOpenAtletaModal ? 'is-clickable' : ''
+                                      }`}
                                       onClick={() => {
                                         if (homeId && onOpenAtletaModal) onOpenAtletaModal(homeId, sim.atletaCasa);
                                       }}
@@ -1091,8 +1092,9 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
                                   </td>
                                   <td>
                                     <div
-                                      className={`tmp-sim-player ${sim.vincitore === 'ospite' ? 'is-winner' : 'is-loser'} ${awayId && onOpenAtletaModal ? 'is-clickable' : ''
-                                        }`}
+                                      className={`tmp-sim-player ${sim.vincitore === 'ospite' ? 'is-winner' : 'is-loser'} ${
+                                        awayId && onOpenAtletaModal ? 'is-clickable' : ''
+                                      }`}
                                       onClick={() => {
                                         if (awayId && onOpenAtletaModal) onOpenAtletaModal(awayId, sim.atletaOspite);
                                       }}
@@ -1102,8 +1104,9 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
                                   </td>
                                   <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                                     <span
-                                      className={`tmp-set-pill ${sim.vincitore === 'casa' ? 'is-home-win' : 'is-away-win'
-                                        }`}
+                                      className={`tmp-set-pill ${
+                                        sim.vincitore === 'casa' ? 'is-home-win' : 'is-away-win'
+                                      }`}
                                     >
                                       {sim.setCasa} - {sim.setOspite}
                                     </span>
@@ -1308,8 +1311,9 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
                               <td>
                                 {row.away ? (
                                   <div
-                                    className={`tmp-player-cell is-right ${row.away.atletaId && onOpenAtletaModal ? 'is-clickable' : ''
-                                      }`}
+                                    className={`tmp-player-cell is-right ${
+                                      row.away.atletaId && onOpenAtletaModal ? 'is-clickable' : ''
+                                    }`}
                                     onClick={() => {
                                       if (row.away?.atletaId && onOpenAtletaModal) {
                                         onOpenAtletaModal(row.away.atletaId, row.away.nome);

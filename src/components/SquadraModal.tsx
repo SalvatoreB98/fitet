@@ -300,8 +300,8 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                         winRate >= 65
                           ? '#16a34a'
                           : winRate >= 40
-                            ? '#d97706'
-                            : '#dc2626';
+                          ? '#d97706'
+                          : '#dc2626';
 
                       return (
                         <tr

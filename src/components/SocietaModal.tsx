@@ -273,9 +273,9 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
 
   const hasLookupTarget = Boolean(
     initialResolvedId ||
-    (initialLookupQuery && initialLookupQuery.trim()) ||
-    lookupContext?.squadraId ||
-    lookupContext?.atletaId
+      (initialLookupQuery && initialLookupQuery.trim()) ||
+      lookupContext?.squadraId ||
+      lookupContext?.atletaId
   );
 
   const [activeSocietyId, setActiveSocietyId] = useState<string | null>(initialResolvedId);
@@ -848,61 +848,61 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
 
                   {showHistoricalSeasons && (
                     <div className="societa-season-list">
-                      {historicalSeasons.map((season) => {
-                        const isOpen = openSeasons.includes(season.anno);
-                        const isLoading = Boolean(seasonLoading[season.anno]);
-                        const loaded = seasonData[season.anno];
-                        const seasonErr = seasonError[season.anno];
+                    {historicalSeasons.map((season) => {
+                      const isOpen = openSeasons.includes(season.anno);
+                      const isLoading = Boolean(seasonLoading[season.anno]);
+                      const loaded = seasonData[season.anno];
+                      const seasonErr = seasonError[season.anno];
 
-                        return (
-                          <div
-                            className={`societa-season-item ${isOpen ? 'is-open' : ''}`}
-                            key={season.anno}
+                      return (
+                        <div
+                          className={`societa-season-item ${isOpen ? 'is-open' : ''}`}
+                          key={season.anno}
+                        >
+                          <button
+                            type="button"
+                            className="societa-season-toggle"
+                            onClick={() => toggleSeason(season)}
+                            aria-expanded={isOpen}
                           >
-                            <button
-                              type="button"
-                              className="societa-season-toggle"
-                              onClick={() => toggleSeason(season)}
-                              aria-expanded={isOpen}
-                            >
-                              <span className="societa-season-badge">{season.stagione}</span>
-                              <span className="societa-season-champs">
-                                {season.campionati.map((camp) => camp.nome).join(' · ')}
-                              </span>
-                              <span className="societa-season-arrow">
-                                {isLoading ? (
-                                  <span className="societa-spinner"></span>
-                                ) : (
-                                  <i
-                                    className={`bi bi-chevron-${isOpen ? 'up' : 'down'}`}
-                                  ></i>
-                                )}
-                              </span>
-                            </button>
+                            <span className="societa-season-badge">{season.stagione}</span>
+                            <span className="societa-season-champs">
+                              {season.campionati.map((camp) => camp.nome).join(' · ')}
+                            </span>
+                            <span className="societa-season-arrow">
+                              {isLoading ? (
+                                <span className="societa-spinner"></span>
+                              ) : (
+                                <i
+                                  className={`bi bi-chevron-${isOpen ? 'up' : 'down'}`}
+                                ></i>
+                              )}
+                            </span>
+                          </button>
 
-                            {isOpen && (
-                              <div className="societa-season-content">
-                                {seasonErr ? (
-                                  <div className="societa-inline-error">
-                                    <i className="bi bi-exclamation-circle"></i> {seasonErr}
-                                  </div>
-                                ) : loaded ? (
-                                  <SeasonChampionships
-                                    season={loaded}
-                                    showRanking={false}
-                                    onOpenAthlete={handleOpenCurrentAthlete}
-                                  />
-                                ) : (
-                                  <div className="societa-loading societa-loading-inline">
-                                    <span className="societa-spinner"></span>
-                                    <span>Caricamento stagione…</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                          {isOpen && (
+                            <div className="societa-season-content">
+                              {seasonErr ? (
+                                <div className="societa-inline-error">
+                                  <i className="bi bi-exclamation-circle"></i> {seasonErr}
+                                </div>
+                              ) : loaded ? (
+                                <SeasonChampionships
+                                  season={loaded}
+                                  showRanking={false}
+                                  onOpenAthlete={handleOpenCurrentAthlete}
+                                />
+                              ) : (
+                                <div className="societa-loading societa-loading-inline">
+                                  <span className="societa-spinner"></span>
+                                  <span>Caricamento stagione…</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                     </div>
                   )}
                 </section>
