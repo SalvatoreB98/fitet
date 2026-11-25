@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
-import { DashboardData, ChampionshipItem, SocietaInfo } from './types/fitet';
+import { AthleteModalPrefill, DashboardData, ChampionshipItem, SocietaInfo } from './types/fitet';
 import { fetchDashboard, fetchCampionati, detectMySociety, type SocietaLookupContext } from './services/api';
 import { Header, MainViewType, ChampionshipTabType, TorneiPortalView } from './components/Header';
 import { useSlideDirection } from './utils/useSlideDirection';
@@ -210,7 +210,7 @@ export const App: React.FC = () => {
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
 
   // Athlete modal navigation stack synced with /player/:id URL
-  const [athleteStack, setAthleteStack] = useState<Array<{ key: string; id: string; name: string; fromReferto?: boolean }>>(() => {
+  const [athleteStack, setAthleteStack] = useState<Array<{ key: string; id: string; name: string; fromReferto?: boolean; prefill?: AthleteModalPrefill }>>(() => {
     const fromUrl = getAthleteFromUrl();
     if (fromUrl) {
       return [{ key: 'athlete-init', id: fromUrl.id, name: fromUrl.name }];
@@ -234,7 +234,7 @@ export const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const setSelectedAthlete = (a: { id: string; name: string; fromReferto?: boolean }) => {
+  const setSelectedAthlete = (a: { id: string; name: string; fromReferto?: boolean; prefill?: AthleteModalPrefill }) => {
     addRecentAthlete({ id: a.id, name: a.name });
     trackClick('Scheda Atleta');
     setAthleteStack((prev) => {
@@ -1560,8 +1560,9 @@ export const App: React.FC = () => {
           campionatoNome={data?.championship?.nome}
           returnLabel={a.fromReferto ? 'Torna al referto' : 'Indietro'}
           isTopModal={index === athleteStack.length - 1}
+          initialData={a.prefill}
           onClose={closeTopAthlete}
-          onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+          onSelectAthlete={(id, name, prefill) => setSelectedAthlete({ id, name, fromReferto: false, prefill })}
           onResolveAthlete={handleResolveAthlete}
           onOpenSociety={handleOpenSocietyByName}
         />

@@ -450,6 +450,14 @@ export interface AtletaCampionatoPartiteResponse {
   error?: string;
 }
 
+export interface AthleteModalPrefill {
+  atleta?: DettaglioAtleta | null;
+  campionatoPartite?: PartitaCampionatoAtleta[] | null;
+  viewsCount?: number;
+  fromHalfModal?: boolean;
+  sourceRect?: { top: number; left: number; width: number; height: number };
+}
+
 export interface HeadToHeadIncontro {
   anno: string;
   data: string;

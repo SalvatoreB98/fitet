@@ -4,6 +4,7 @@ import { AthleteSearchResult, CampionatoAttualeInfo } from '../types/fitet';
 import { fetchAtleta, searchAtletiScelta } from '../services/api';
 import { getMyPlayerId, getMyPlayerName, getMyProfileSnapshot } from '../utils/myProfile';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { useModalTransition } from '../utils/useModalTransition';
 import { AthleteAvatar } from './AthleteAvatar';
 import {
   SERIE_CAMPIONATO,
@@ -233,7 +234,8 @@ export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({
   initialPlayerA,
   initialOpponent,
 }) => {
-  useBodyScrollLock(isOpen);
+  const { shouldRender, isClosing, requestClose } = useModalTransition(onClose, isOpen);
+  useBodyScrollLock(shouldRender);
 
   // Atleta A (inizializzato subito col proprio atleta salvato se presente)
   const [playerAId, setPlayerAId] = useState<string | undefined>(() => getMyPlayerId() || undefined);
@@ -603,12 +605,12 @@ export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        requestClose();
       }
     };
     window.addEventListener('keydown', handleKey, true);
     return () => window.removeEventListener('keydown', handleKey, true);
-  }, [isOpen, onClose]);
+  }, [isOpen, requestClose]);
 
   const updateMatch = (id: string, patch: Partial<SimulatedMatchItem>) => {
     setMatches((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
@@ -684,12 +686,12 @@ export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({
 
   const fmtSigned = (n: number) => (n > 0 ? `+${n.toLocaleString('it-IT')}` : n.toLocaleString('it-IT'));
 
-  if (!isOpen) return null;
+  if (!shouldRender) return null;
 
   return createPortal(
     <div
-      className="modal-backdrop-simple modal-h2h-backdrop h2h-picker-backdrop"
-      onClick={onClose}
+      className={`modal-backdrop-simple modal-h2h-backdrop h2h-picker-backdrop ${isClosing ? 'modal-closing' : ''}`}
+      onClick={requestClose}
       style={{ zIndex: 1700 }}
       role="dialog"
       aria-modal="true"
@@ -716,7 +718,7 @@ export const EloCalculatorModal: React.FC<EloCalculatorModalProps> = ({
           <button
             type="button"
             className="modal-close-btn"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Chiudi"
           >
             <i className="bi bi-x-lg" aria-hidden="true"></i>

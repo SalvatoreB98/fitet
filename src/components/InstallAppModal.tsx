@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useModalTransition } from '../utils/useModalTransition';
 import './InstallAppModal.css';
 
 interface InstallAppModalProps {
@@ -19,6 +20,7 @@ const detectPlatform = (): 'android' | 'ios' | 'desktop' => {
 };
 
 export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClose }) => {
+  const { shouldRender, isClosing, requestClose } = useModalTransition(onClose, isOpen);
   const [platform, setPlatform] = useState<'android' | 'ios' | 'desktop'>(detectPlatform);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
@@ -44,14 +46,14 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, requestClose]);
 
-  if (!isOpen || typeof document === 'undefined') return null;
+  if (!shouldRender || typeof document === 'undefined') return null;
 
   const handleDirectInstall = async () => {
     if (!deferredPrompt) return;
@@ -59,14 +61,14 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
     const choice = await deferredPrompt.userChoice;
     if (choice?.outcome === 'accepted') {
       setDeferredPrompt(null);
-      onClose();
+      requestClose();
     }
   };
 
   return createPortal(
     <div
-      className="install-modal-backdrop"
-      onClick={onClose}
+      className={`install-modal-backdrop ${isClosing ? 'modal-closing' : ''}`}
+      onClick={requestClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="install-app-title"
@@ -85,7 +87,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
           <button
             type="button"
             className="install-modal-close"
-            onClick={onClose}
+            onClick={requestClose}
             title="Chiudi"
             aria-label="Chiudi"
           >

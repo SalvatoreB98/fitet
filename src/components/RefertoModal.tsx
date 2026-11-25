@@ -4,6 +4,7 @@ import { RefertoIncontro, DettaglioPartitaIndividuale, PartitaRefertoIndividuale
 import { fetchReferto, fetchDettaglioPartita } from '../services/api';
 import { getTeamLogoUrl } from '../utils/teamLogos';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { useModalTransition } from '../utils/useModalTransition';
 import { TeamLogo } from './TeamLogo';
 import { AthleteAvatar } from './AthleteAvatar';
 import MarqueeText from './MarqueeText';
@@ -32,6 +33,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
   onOpenAtletaModal,
 }) => {
   useBodyScrollLock(true);
+  const { isClosing, requestClose } = useModalTransition(onClose);
 
   const [referto, setReferto] = useState<RefertoIncontro | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -92,11 +94,11 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isSubmodalOpen) return;
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') requestClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, isSubmodalOpen]);
+  }, [requestClose, isSubmodalOpen]);
 
   // Handle expanding a match to fetch / display full details
   const handleToggleExpandMatch = async (match: PartitaRefertoIndividuale) => {
@@ -133,7 +135,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="modal-backdrop-simple modal-referto-backdrop" onClick={onClose}>
+    <div className={`modal-backdrop-simple modal-referto-backdrop ${isClosing ? 'modal-closing' : ''}`} onClick={requestClose}>
       <div
         className="modal-card-simple referto-modal-card"
         onClick={(e) => e.stopPropagation()}
@@ -164,7 +166,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
             <button
               type="button"
               className="referto-icon-btn referto-close-btn"
-              onClick={onClose}
+              onClick={requestClose}
               title="Chiudi finestra (ESC)"
               aria-label="Chiudi finestra"
             >

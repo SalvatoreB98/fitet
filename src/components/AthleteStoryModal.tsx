@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { DettaglioAtleta } from '../types/fitet';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { useModalTransition } from '../utils/useModalTransition';
 
 interface AthleteStoryModalProps {
   isOpen: boolean;
@@ -50,7 +51,8 @@ export const AthleteStoryModal: React.FC<AthleteStoryModalProps> = ({
   onClose,
   atleta,
 }) => {
-  useBodyScrollLock(isOpen);
+  const { shouldRender, isClosing, requestClose } = useModalTransition(onClose, isOpen);
+  useBodyScrollLock(shouldRender);
 
   const [selectedTheme, setSelectedTheme] = useState<StoryTheme>('panoramica');
   const [loading, setLoading] = useState<boolean>(true);
@@ -113,14 +115,14 @@ export const AthleteStoryModal: React.FC<AthleteStoryModalProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, onClose]);
+  }, [isOpen, requestClose]);
 
-  if (!isOpen || typeof document === 'undefined') return null;
+  if (!shouldRender || typeof document === 'undefined') return null;
 
   // Scarica il file PNG sul dispositivo
   const handleDownload = () => {
@@ -190,8 +192,8 @@ export const AthleteStoryModal: React.FC<AthleteStoryModalProps> = ({
 
   return createPortal(
     <div
-      className="modal-backdrop-simple athlete-story-backdrop"
-      onClick={onClose}
+      className={`modal-backdrop-simple athlete-story-backdrop ${isClosing ? 'modal-closing' : ''}`}
+      onClick={requestClose}
       style={{ zIndex: 1750 }}
       role="dialog"
       aria-modal="true"
@@ -220,7 +222,7 @@ export const AthleteStoryModal: React.FC<AthleteStoryModalProps> = ({
           <button
             type="button"
             className="modal-close-btn"
-            onClick={onClose}
+            onClick={requestClose}
             title="Chiudi finestra (ESC)"
             aria-label="Chiudi finestra"
           >

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { CercaAtletaTab } from './CercaAtletaTab';
+import { useModalTransition } from '../utils/useModalTransition';
 import './SearchAtletaModal.css';
 
 interface SearchAtletaModalProps {
@@ -18,25 +19,27 @@ export const SearchAtletaModal: React.FC<SearchAtletaModalProps> = ({
   title = 'Cerca Atleta',
   subtitle = 'Trova un atleta e aprine la scheda',
 }) => {
+  const { shouldRender, isClosing, requestClose } = useModalTransition(onClose, isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, onClose]);
+  }, [isOpen, requestClose]);
 
-  if (!isOpen || typeof document === 'undefined') return null;
+  if (!shouldRender || typeof document === 'undefined') return null;
 
   return createPortal(
     <div
-      className="modal-backdrop-simple search-atleta-modal-backdrop"
+      className={`modal-backdrop-simple search-atleta-modal-backdrop ${isClosing ? 'modal-closing' : ''}`}
       style={{ zIndex: 1100 }}
-      onClick={onClose}
+      onClick={requestClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="search-atleta-modal-title"
@@ -60,7 +63,7 @@ export const SearchAtletaModal: React.FC<SearchAtletaModalProps> = ({
           <button
             type="button"
             className="modal-close-btn"
-            onClick={onClose}
+            onClick={requestClose}
             title="Chiudi finestra (ESC)"
             aria-label="Chiudi finestra"
           >

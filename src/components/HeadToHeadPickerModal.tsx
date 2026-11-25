@@ -4,6 +4,7 @@ import { AthleteSearchResult } from '../types/fitet';
 import { searchAtletiScelta } from '../services/api';
 import { getMyPlayerId, getMyPlayerName } from '../utils/myProfile';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { useModalTransition } from '../utils/useModalTransition';
 import { AthleteAvatar } from './AthleteAvatar';
 import './HeadToHeadPickerModal.css';
 
@@ -336,7 +337,8 @@ export const HeadToHeadPickerModal: React.FC<HeadToHeadPickerModalProps> = ({
   initialPlayer1,
   initialPlayer2,
 }) => {
-  useBodyScrollLock(isOpen);
+  const { shouldRender, isClosing, requestClose } = useModalTransition(onClose, isOpen);
+  useBodyScrollLock(shouldRender);
 
   const [player1, setPlayer1] = useState<HeadToHeadPlayer | null>(initialPlayer1 ?? null);
   const [player2, setPlayer2] = useState<HeadToHeadPlayer | null>(initialPlayer2 ?? null);
@@ -360,15 +362,15 @@ export const HeadToHeadPickerModal: React.FC<HeadToHeadPickerModalProps> = ({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation();
-        onClose();
+        requestClose();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, onClose]);
+  }, [isOpen, requestClose]);
 
-  if (!isOpen || typeof document === 'undefined') return null;
+  if (!shouldRender || typeof document === 'undefined') return null;
 
   const canCompare = Boolean(player1 && player2 && player1.id !== player2.id);
 
@@ -408,9 +410,9 @@ export const HeadToHeadPickerModal: React.FC<HeadToHeadPickerModalProps> = ({
 
   return createPortal(
     <div
-      className="modal-backdrop-simple modal-h2h-backdrop h2h-picker-backdrop"
+      className={`modal-backdrop-simple modal-h2h-backdrop h2h-picker-backdrop ${isClosing ? 'modal-closing' : ''}`}
       style={{ zIndex: 1700 }}
-      onClick={onClose}
+      onClick={requestClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="h2h-picker-title"
@@ -437,7 +439,7 @@ export const HeadToHeadPickerModal: React.FC<HeadToHeadPickerModalProps> = ({
           <button
             type="button"
             className="modal-close-btn"
-            onClick={onClose}
+            onClick={requestClose}
             title="Chiudi finestra (ESC)"
             aria-label="Chiudi finestra"
           >

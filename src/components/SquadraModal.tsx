@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { DettaglioSquadra, AtletaSquadraDettaglio } from '../types/fitet';
 import { fetchSquadra, type SocietaLookupContext } from '../services/api';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { useModalTransition } from '../utils/useModalTransition';
 import { TeamLogo } from './TeamLogo';
 import { AthleteAvatar } from './AthleteAvatar';
 import { MarqueeText } from './MarqueeText';
@@ -29,6 +30,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
   onOpenSociety,
 }) => {
   useBodyScrollLock(true);
+  const { isClosing, requestClose } = useModalTransition(onClose);
 
   const [data, setData] = useState<DettaglioSquadra | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -60,12 +62,12 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [onClose]);
+  }, [requestClose]);
 
   // Totals calculation
   const totalMatchesDisputate = data?.atleti.reduce((acc, a) => acc + a.partiteDisputate, 0) || 0;
@@ -81,7 +83,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="modal-backdrop-simple modal-referto-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+    <div className={`modal-backdrop-simple modal-referto-backdrop ${isClosing ? 'modal-closing' : ''}`} onClick={requestClose} role="dialog" aria-modal="true">
       <div
         className="modal-card-simple referto-modal-card squadra-modal-card"
         onClick={(e) => e.stopPropagation()}
@@ -144,7 +146,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
             <button
               type="button"
               className="modal-close-btn"
-              onClick={onClose}
+              onClick={requestClose}
               title="Chiudi finestra (ESC)"
               aria-label="Chiudi finestra"
             >
@@ -298,8 +300,8 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                         winRate >= 65
                           ? '#16a34a'
                           : winRate >= 40
-                          ? '#d97706'
-                          : '#dc2626';
+                            ? '#d97706'
+                            : '#dc2626';
 
                       return (
                         <tr

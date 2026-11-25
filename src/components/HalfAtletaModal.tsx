@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
+import { AthleteModalPrefill, DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
 import { fetchAtleta, fetchAtletaCampionatoPartite } from '../services/api';
 import { MarqueeText } from './MarqueeText';
 import { TeamLogo } from './TeamLogo';
@@ -8,13 +8,14 @@ import { recordAndGetAthleteViews } from '../utils/athleteViews';
 import { useFavoriteAthletes, saveFavoriteAthlete } from '../utils/favorites';
 import { aggregateAthleteMatchStats } from '../utils/aggregateAthleteStats';
 import { isValidAthleteHistoryName } from '../utils/history';
+import { useModalTransition } from '../utils/useModalTransition';
 import { AthleteNotFoundState } from './AthleteNotFoundState';
 
 export interface HalfAtletaModalProps {
   atletaKey: string;
   athleteName?: string;
   onClose: () => void;
-  onOpenFullModal: (resolvedId: string, name: string) => void;
+  onOpenFullModal: (resolvedId: string, name: string, prefill?: AthleteModalPrefill) => void;
   onOpenSociety?: (societyName: string) => void;
 }
 
@@ -34,6 +35,8 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
   const [imgError, setImgError] = useState<boolean>(false);
   const [viewsCount, setViewsCount] = useState<number>(0);
   const lastTrackedKeyRef = useRef<string | null>(null);
+
+  const { isClosing, requestClose } = useModalTransition(onClose);
 
   // Actions state (Favorite, Copy Link, Share)
   const { isFavorite, toggleFavorite } = useFavoriteAthletes();
@@ -252,12 +255,12 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [onClose]);
+  }, [requestClose]);
 
   const handleToggleFavorite = () => {
     const storico = atleta?.storicoClassifica || [];
@@ -332,10 +335,21 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
   };
 
   const handleOpenFull = () => {
+    const rect = cardRef.current?.getBoundingClientRect();
+    const prefill: AthleteModalPrefill = {
+      atleta,
+      campionatoPartite,
+      viewsCount,
+      fromHalfModal: true,
+      sourceRect: rect
+        ? { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
+        : undefined,
+    };
+
     if (atleta) {
-      onOpenFullModal(atleta.id, atleta.anagrafica.nome);
+      onOpenFullModal(atleta.id, atleta.anagrafica.nome, prefill);
     } else {
-      onOpenFullModal(atletaKey, athleteName || atletaKey);
+      onOpenFullModal(atletaKey, athleteName || atletaKey, prefill);
     }
   };
 
@@ -415,8 +429,8 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
 
   return createPortal(
     <div
-      className="modal-backdrop-simple halfatleta-modal-backdrop"
-      onClick={onClose}
+      className={`modal-backdrop-simple halfatleta-modal-backdrop ${isClosing ? 'modal-closing' : ''}`}
+      onClick={requestClose}
       role="dialog"
       aria-modal="true"
     >
@@ -475,7 +489,7 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
             <button
               type="button"
               className="modal-close-btn"
-              onClick={onClose}
+              onClick={requestClose}
               title="Chiudi finestra (ESC)"
               aria-label="Chiudi finestra"
             >
@@ -485,7 +499,7 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="modal-body-simple" style={{ padding: '22px 24px' }}>
+        <div className="modal-body-simple">
           {/* Top Action Bar (Star, Copy Link, Share, Close X) */}
           <div className="athlete-spotlight-top-bar">
             {atleta && !notFound && !error && (
@@ -586,7 +600,7 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
               type="button"
               className="athlete-spotlight-action-btn btn-close-modal"
               style={!atleta || notFound || error ? { marginLeft: 'auto' } : undefined}
-              onClick={onClose}
+              onClick={requestClose}
               title="Chiudi finestra (ESC)"
               aria-label="Chiudi finestra"
             >
@@ -628,7 +642,7 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
           {notFound && !loading && (
             <AthleteNotFoundState
               atletaId={atletaKey}
-              onClose={onClose}
+              onClose={requestClose}
               onRetry={handleRetry}
               retrying={retrying}
             />
@@ -636,7 +650,7 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
 
           {/* Loaded Athlete Spotlight Card */}
           {atleta && !loading && (
-            <div className="athlete-spotlight-layout">
+            <div className="athlete-spotlight-layout athlete-data-reveal">
               {/* Left Column (Desktop) / Top Centered (Mobile): Photo */}
               <div className="athlete-spotlight-photo-wrap">
                 {!imgError && athletePhoto ? (
@@ -786,7 +800,7 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
             <button
               type="button"
               className="btn-action"
-              onClick={onClose}
+              onClick={requestClose}
               style={{ padding: '7px 14px', fontSize: '13px' }}
             >
               Chiudi

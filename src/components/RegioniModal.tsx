@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChampionshipItem } from '../types/fitet';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { useDragScroll } from '../utils/useDragScroll';
+import { useModalTransition } from '../utils/useModalTransition';
 import {
   getCachedUserRegion,
   setUserRegion as saveUserRegion,
@@ -43,7 +44,8 @@ export const RegioniModal: React.FC<RegioniModalProps> = ({
   onSelectChampionship,
   onClose,
 }) => {
-  useBodyScrollLock(isOpen);
+  const { shouldRender, isClosing, requestClose } = useModalTransition(onClose, isOpen);
+  useBodyScrollLock(shouldRender);
   const {
     ref: regionsBarRef,
     isDragging: isDraggingRegions,
@@ -68,11 +70,11 @@ export const RegioniModal: React.FC<RegioniModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') requestClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, requestClose]);
 
   const handleChooseRegion = (region: string | null) => {
     setSearchQuery('');
@@ -212,18 +214,18 @@ export const RegioniModal: React.FC<RegioniModalProps> = ({
     );
   };
 
-  if (!isOpen) return null;
+  if (!shouldRender) return null;
 
   return createPortal(
     <div
-      className="championship-modal-backdrop"
+      className={`championship-modal-backdrop ${isClosing ? 'modal-closing' : ''}`}
       onMouseDown={(e) => {
         backdropMouseDownTargetRef.current = e.target;
       }}
       onClick={(e) => {
         if (isDraggingRegions || wasDraggingRegionsRecently()) return;
         if (e.target === e.currentTarget && backdropMouseDownTargetRef.current === e.currentTarget) {
-          onClose();
+          requestClose();
         }
       }}
       role="dialog"
@@ -249,7 +251,7 @@ export const RegioniModal: React.FC<RegioniModalProps> = ({
           <button
             type="button"
             className="modal-close-btn"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Chiudi e torna alla Home"
             title="Chiudi e torna alla Home"
           >

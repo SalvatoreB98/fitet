@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useFavoriteAthletes, FavoriteAthlete, saveFavoriteAthlete } from '../utils/favorites';
 import { fetchAtleta } from '../services/api';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { useModalTransition } from '../utils/useModalTransition';
 import { SearchAtletaModal } from './SearchAtletaModal';
 
 interface FavoritesModalProps {
@@ -18,7 +19,8 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   onSelectAthlete,
   onGoToSearch,
 }) => {
-  useBodyScrollLock(isOpen);
+  const { shouldRender, isClosing, requestClose } = useModalTransition(onClose, isOpen);
+  useBodyScrollLock(shouldRender);
   const { favorites, removeFavorite, clearAllFavorites } = useFavoriteAthletes();
   const [filterText, setFilterText] = useState('');
   const [failedImgs, setFailedImgs] = useState<Record<string, boolean>>({});
@@ -79,12 +81,12 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         // Se la ricerca è aperta, è lei a gestire ESC
         if (isSearchOpen) return;
         e.stopPropagation();
-        onClose();
+        requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, onClose, isSearchOpen]);
+  }, [isOpen, requestClose, isSearchOpen]);
 
   // Focus filter input when modal opens with multiple favorites
   useEffect(() => {
@@ -128,12 +130,12 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
     return trimmed;
   };
 
-  if (!isOpen || typeof document === 'undefined') return null;
+  if (!shouldRender || typeof document === 'undefined') return null;
 
   return createPortal(
     <div
-      className="modal-backdrop-simple favorites-modal-backdrop"
-      onClick={onClose}
+      className={`modal-backdrop-simple favorites-modal-backdrop ${isClosing ? 'modal-closing' : ''}`}
+      onClick={requestClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="favorites-modal-title"
@@ -164,7 +166,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
           <button
             type="button"
             className="modal-close-btn"
-            onClick={onClose}
+            onClick={requestClose}
             title="Chiudi finestra (ESC)"
             aria-label="Chiudi finestra"
           >

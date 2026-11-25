@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type { MatchVideoInfo } from '../types/fitet';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { useModalTransition } from '../utils/useModalTransition';
 
 interface MatchVideoModalProps {
   isOpen: boolean;
@@ -24,7 +25,8 @@ export const MatchVideoModal: React.FC<MatchVideoModalProps> = ({
   squadraOspite,
   giornata,
 }) => {
-  useBodyScrollLock(isOpen);
+  const { shouldRender, isClosing, requestClose } = useModalTransition(onClose, isOpen);
+  useBodyScrollLock(shouldRender);
 
   // Normalizza e valida la lista dei video
   const sanitizedVideos = React.useMemo(() => {
@@ -58,14 +60,14 @@ export const MatchVideoModal: React.FC<MatchVideoModalProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        onClose();
+        requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, requestClose]);
 
-  if (!isOpen || sanitizedVideos.length === 0) return null;
+  if (!shouldRender || sanitizedVideos.length === 0) return null;
 
   const currentVideo = sanitizedVideos.find((v) => v.videoId === activeVideoId) || sanitizedVideos[0];
   const videoId = currentVideo?.videoId;
@@ -80,8 +82,8 @@ export const MatchVideoModal: React.FC<MatchVideoModalProps> = ({
 
   return createPortal(
     <div
-      className="match-video-modal-backdrop"
-      onClick={onClose}
+      className={`match-video-modal-backdrop ${isClosing ? 'modal-closing' : ''}`}
+      onClick={requestClose}
       role="dialog"
       aria-modal="true"
       aria-label="Video incontro"
@@ -113,7 +115,7 @@ export const MatchVideoModal: React.FC<MatchVideoModalProps> = ({
           <button
             type="button"
             className="match-video-close-btn"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Chiudi"
           >
             <i className="bi bi-x-lg"></i>

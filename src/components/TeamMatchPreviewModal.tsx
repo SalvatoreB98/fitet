@@ -10,6 +10,7 @@ import {
 } from '../types/fitet';
 import { fetchSquadra } from '../services/api';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { useModalTransition } from '../utils/useModalTransition';
 import { TeamLogo } from './TeamLogo';
 import { AthleteAvatar } from './AthleteAvatar';
 import { HeadToHeadModal } from './HeadToHeadModal';
@@ -62,7 +63,8 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
   onOpenSquadraModal,
   onOpenAtletaModal,
 }) => {
-  useBodyScrollLock(isOpen);
+  const { shouldRender, isClosing, requestClose } = useModalTransition(onClose, isOpen);
+  useBodyScrollLock(shouldRender);
 
   const [homeRosterRaw, setHomeRosterRaw] = useState<DettaglioSquadra | null>(null);
   const [awayRosterRaw, setAwayRosterRaw] = useState<DettaglioSquadra | null>(null);
@@ -282,12 +284,12 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, isSubmodalOpen, h2hPair, onClose]);
+  }, [isOpen, isSubmodalOpen, h2hPair, requestClose]);
 
   const assignSinglesSlot = (side: 'home' | 'away', slotIndex: 0 | 1 | 2, playerKey: string) => {
     const setter = side === 'home' ? setHomeSinglesKeys : setAwaySinglesKeys;
@@ -393,15 +395,15 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
             },
             reverseFixture: directPrecedent
               ? {
-                  giornata: directPrecedent.giornata,
-                  fase: directPrecedent.tipo,
-                  data: directPrecedent.data,
-                  risultato: directPrecedent.risultato,
-                  puntiCasa: directPrecedent.puntiCasa,
-                  puntiOspite: directPrecedent.puntiOspite,
-                  casaNome: directPrecedent.squadraCasa,
-                  ospiteNome: directPrecedent.squadraOspite,
-                }
+                giornata: directPrecedent.giornata,
+                fase: directPrecedent.tipo,
+                data: directPrecedent.data,
+                risultato: directPrecedent.risultato,
+                puntiCasa: directPrecedent.puntiCasa,
+                puntiOspite: directPrecedent.puntiOspite,
+                casaNome: directPrecedent.squadraCasa,
+                ospiteNome: directPrecedent.squadraOspite,
+              }
               : null,
           }),
         });
@@ -657,10 +659,12 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
     );
   };
 
+  if (!shouldRender || typeof document === 'undefined') return null;
+
   return createPortal(
     <div
-      className="modal-backdrop-simple modal-referto-backdrop"
-      onClick={onClose}
+      className={`modal-backdrop-simple modal-referto-backdrop ${isClosing ? 'modal-closing' : ''}`}
+      onClick={requestClose}
       role="dialog"
       aria-modal="true"
     >
@@ -684,7 +688,7 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
             </div>
           </div>
 
-          <button type="button" onClick={onClose} aria-label="Chiudi" className="modal-close-btn">
+          <button type="button" onClick={requestClose} aria-label="Chiudi" className="modal-close-btn">
             <i className="bi bi-x-lg" aria-hidden="true"></i>
           </button>
         </div>
@@ -1074,9 +1078,8 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
                                   </td>
                                   <td>
                                     <div
-                                      className={`tmp-sim-player ${sim.vincitore === 'casa' ? 'is-winner' : 'is-loser'} ${
-                                        homeId && onOpenAtletaModal ? 'is-clickable' : ''
-                                      }`}
+                                      className={`tmp-sim-player ${sim.vincitore === 'casa' ? 'is-winner' : 'is-loser'} ${homeId && onOpenAtletaModal ? 'is-clickable' : ''
+                                        }`}
                                       onClick={() => {
                                         if (homeId && onOpenAtletaModal) onOpenAtletaModal(homeId, sim.atletaCasa);
                                       }}
@@ -1088,9 +1091,8 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
                                   </td>
                                   <td>
                                     <div
-                                      className={`tmp-sim-player ${sim.vincitore === 'ospite' ? 'is-winner' : 'is-loser'} ${
-                                        awayId && onOpenAtletaModal ? 'is-clickable' : ''
-                                      }`}
+                                      className={`tmp-sim-player ${sim.vincitore === 'ospite' ? 'is-winner' : 'is-loser'} ${awayId && onOpenAtletaModal ? 'is-clickable' : ''
+                                        }`}
                                       onClick={() => {
                                         if (awayId && onOpenAtletaModal) onOpenAtletaModal(awayId, sim.atletaOspite);
                                       }}
@@ -1100,9 +1102,8 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
                                   </td>
                                   <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                                     <span
-                                      className={`tmp-set-pill ${
-                                        sim.vincitore === 'casa' ? 'is-home-win' : 'is-away-win'
-                                      }`}
+                                      className={`tmp-set-pill ${sim.vincitore === 'casa' ? 'is-home-win' : 'is-away-win'
+                                        }`}
                                     >
                                       {sim.setCasa} - {sim.setOspite}
                                     </span>
@@ -1307,9 +1308,8 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
                               <td>
                                 {row.away ? (
                                   <div
-                                    className={`tmp-player-cell is-right ${
-                                      row.away.atletaId && onOpenAtletaModal ? 'is-clickable' : ''
-                                    }`}
+                                    className={`tmp-player-cell is-right ${row.away.atletaId && onOpenAtletaModal ? 'is-clickable' : ''
+                                      }`}
                                     onClick={() => {
                                       if (row.away?.atletaId && onOpenAtletaModal) {
                                         onOpenAtletaModal(row.away.atletaId, row.away.nome);

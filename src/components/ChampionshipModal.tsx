@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ChampionshipItem } from '../types/fitet';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { useDragScroll } from '../utils/useDragScroll';
+import { useModalTransition } from '../utils/useModalTransition';
 import {
   getCachedUserRegion,
   setUserRegion as saveUserRegion,
@@ -40,7 +41,8 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
   onClose,
   onSelectChampionship,
 }) => {
-  useBodyScrollLock(isOpen);
+  const { shouldRender, isClosing, requestClose } = useModalTransition(onClose, isOpen);
+  useBodyScrollLock(shouldRender);
   const { ref: regionsBarRef, isDragging: isDraggingRegions, dragProps: regionsDragProps } = useDragScroll<HTMLDivElement>();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,11 +60,11 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') requestClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, requestClose]);
 
   // Subscribe to user region changes
   useEffect(() => {
@@ -253,13 +255,13 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
     );
   };
 
-  if (!isOpen) return null;
+  if (!shouldRender) return null;
 
   return createPortal(
     <div
-      className="championship-modal-backdrop"
+      className={`championship-modal-backdrop ${isClosing ? 'modal-closing' : ''}`}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) requestClose();
       }}
       role="dialog"
       aria-modal="true"
@@ -282,7 +284,7 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
           <button
             type="button"
             className="modal-close-btn"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Chiudi finestra"
             title="Chiudi finestra (ESC)"
           >

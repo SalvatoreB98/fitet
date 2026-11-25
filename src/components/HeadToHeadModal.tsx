@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { HeadToHeadData } from '../types/fitet';
 import { fetchHeadToHead } from '../services/api';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
+import { useModalTransition } from '../utils/useModalTransition';
 import { HeadToHeadComparisonPanel } from './HeadToHeadComparisonPanel';
 import { HeadToHeadPickerModal, HeadToHeadPlayer } from './HeadToHeadPickerModal';
 
@@ -27,7 +28,8 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
   onSelectAthlete,
   onNewSearch,
 }) => {
-  useBodyScrollLock(isOpen);
+  const { shouldRender, isClosing, requestClose } = useModalTransition(onClose, isOpen);
+  useBodyScrollLock(shouldRender);
 
   const [activePlayer1, setActivePlayer1] = useState<HeadToHeadPlayer>({
     id: atleta1Id,
@@ -90,14 +92,14 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [isOpen, isPickerOpen, onClose]);
+  }, [isOpen, isPickerOpen, requestClose]);
 
-  if (!isOpen || typeof document === 'undefined') return null;
+  if (!shouldRender || typeof document === 'undefined') return null;
 
   const player1 = data?.atleta1 || {
     id: activePlayer1.id,
@@ -156,7 +158,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
   };
 
   return createPortal(
-    <div className="modal-backdrop-simple modal-h2h-backdrop" onClick={onClose} style={{ zIndex: 1600 }}>
+    <div className={`modal-backdrop-simple modal-h2h-backdrop ${isClosing ? 'modal-closing' : ''}`} onClick={requestClose} style={{ zIndex: 1600 }}>
       <div
         className="modal-card-simple h2h-modal-card"
         onClick={(e) => e.stopPropagation()}
@@ -190,7 +192,7 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={onClose}
+              onClick={requestClose}
               aria-label="Chiudi"
               className="modal-close-btn"
               style={{ color: 'color: var(--text-dark)!important' }}
