@@ -14,6 +14,13 @@ import { aggregateAthleteMatchStats } from '../utils/aggregateAthleteStats';
 import { AthleteStoryModal } from './AthleteStoryModal';
 import { AthleteNotFoundState } from './AthleteNotFoundState';
 import { useModalTransition } from '../utils/useModalTransition';
+import {
+  isPhotoLoaded,
+  isPhotoError,
+  markPhotoLoaded,
+  markPhotoError,
+  preloadPhoto,
+} from '../utils/photoCache';
 
 if (typeof window !== 'undefined' && typeof Image !== 'undefined') {
   ['/light-big-placeholder.png', '/dark-big-placeholder.png'].forEach((src) => {
@@ -85,34 +92,63 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const expandSourceRectRef = useRef<{ top: number; height: number } | null>(null);
 
   const [atleta, setAtleta] = useState<DettaglioAtleta | null>(null);
+  const currentAtletaRef = useRef<DettaglioAtleta | null>(null);
+  currentAtletaRef.current = atleta;
+
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState<boolean>(false);
-  const [imgError, setImgError] = useState<boolean>(false);
-  const [imgLoaded, setImgLoaded] = useState<boolean>(false);
   const [isPhotoZoomOpen, setIsPhotoZoomOpen] = useState<boolean>(false);
   const [viewsCount, setViewsCount] = useState<number>(0);
   const lastTrackedKeyRef = useRef<string | null>(null);
   const photoImgRef = useRef<HTMLImageElement>(null);
 
+  const effectiveId = atleta?.id || (/^\d+$/.test(atletaId) ? atletaId : null);
   const athletePhoto =
     atleta?.anagrafica?.fotoUrl ||
-    (atleta?.id && /^\d+$/.test(atleta.id)
-      ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg`
-      : null);
+    (effectiveId ? `https://portale.fitet.org/images/atleti/${effectiveId}.jpg` : null);
+
+  const [imgLoaded, setImgLoaded] = useState<boolean>(() => isPhotoLoaded(athletePhoto));
+  const [imgError, setImgError] = useState<boolean>(() => isPhotoError(athletePhoto));
 
   useEffect(() => {
+    if (!athletePhoto) {
+      setImgLoaded(false);
+      setImgError(false);
+      return;
+    }
+    if (isPhotoLoaded(athletePhoto)) {
+      setImgLoaded(true);
+      setImgError(false);
+      return;
+    }
+    if (isPhotoError(athletePhoto)) {
+      setImgLoaded(false);
+      setImgError(true);
+      return;
+    }
     setImgLoaded(false);
     setImgError(false);
-  }, [atletaId, athletePhoto]);
+    preloadPhoto(athletePhoto).then((ok) => {
+      if (ok) {
+        setImgLoaded(true);
+        setImgError(false);
+      } else {
+        setImgLoaded(false);
+        setImgError(true);
+      }
+    });
+  }, [athletePhoto]);
 
   useLayoutEffect(() => {
     const img = photoImgRef.current;
-    if (img && img.complete) {
+    if (img && img.complete && athletePhoto) {
       if (img.naturalWidth > 0) {
+        markPhotoLoaded(athletePhoto);
         setImgLoaded(true);
       } else {
+        markPhotoError(athletePhoto);
         setImgError(true);
       }
     }
@@ -520,12 +556,28 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
   useEffect(() => {
     let isMounted = true;
+
+    // Se l'atleta corrente è già caricato e corrisponde all'ID o al nome richiesto (es. espansione da preview a full con "Mostra altri dati"),
+    // NON resettare l'atleta e non ricaricare/distruggere l'interfaccia e la foto già a schermo.
+    const existing = currentAtletaRef.current;
+    const isSameAthlete = Boolean(
+      existing &&
+        (existing.id === atletaId ||
+          (existing.anagrafica?.nome && athleteName && existing.anagrafica.nome.toLowerCase() === athleteName.toLowerCase()) ||
+          (existing.id && atletaId && existing.id.toLowerCase() === atletaId.toLowerCase()))
+    );
+
+    if (isSameAthlete && existing) {
+      setLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
     setLoading(true);
     setAtleta(null);
     setError(null);
     setNotFound(false);
-    setImgError(false);
-    setImgLoaded(false);
     setCampionatoPartite(null);
     setSquadraCampionato(null);
 
@@ -947,7 +999,10 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   alt={atleta?.anagrafica?.nome || athleteName || 'Atleta'}
                   className="modal-header-athlete-thumb"
                   referrerPolicy="no-referrer"
-                  onError={() => setImgError(true)}
+                  onError={() => {
+                    markPhotoError(zoomPhotoSrc);
+                    setImgError(true);
+                  }}
                   onClick={canOpenPhotoZoom ? openPhotoZoom : undefined}
                   title={canOpenPhotoZoom ? 'Ingrandisci foto' : undefined}
                   style={{ cursor: canOpenPhotoZoom ? 'pointer' : 'default' }}
@@ -1283,8 +1338,13 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       alt={atleta.anagrafica.nome}
                       referrerPolicy="no-referrer"
                       className={`athlete-spotlight-photo-img ${imgLoaded ? 'is-loaded' : ''}`}
-                      onLoad={() => setImgLoaded(true)}
+                      onLoad={() => {
+                        markPhotoLoaded(athletePhoto);
+                        setImgLoaded(true);
+                        setImgError(false);
+                      }}
                       onError={() => {
+                        markPhotoError(athletePhoto);
                         setImgError(true);
                         setImgLoaded(false);
                       }}
@@ -2003,7 +2063,21 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                             title={`Visualizza scheda rapida di ${m.avversario}`}
                                           >
                                             <span className="atleta-opponent-text">
-                                              <img width={'16px'} src={`https://portale.fitet.org/images/atleti/${m.avversarioId}.jpg`} alt="" />
+                                              <img
+                                                width="16px"
+                                                height="16px"
+                                                src={`https://portale.fitet.org/images/atleti/${m.avversarioId}.jpg`}
+                                                alt=""
+                                                loading="lazy"
+                                                referrerPolicy="no-referrer"
+                                                onLoad={() => {
+                                                  markPhotoLoaded(`https://portale.fitet.org/images/atleti/${m.avversarioId}.jpg`);
+                                                }}
+                                                onError={(e) => {
+                                                  markPhotoError(`https://portale.fitet.org/images/atleti/${m.avversarioId}.jpg`);
+                                                  (e.target as HTMLElement).style.display = 'none';
+                                                }}
+                                              />
                                               <span></span>
                                               <span>{m.avversario}</span>
                                             </span>

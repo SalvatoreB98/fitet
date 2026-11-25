@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isPhotoError, markPhotoLoaded, markPhotoError } from '../utils/photoCache';
 
 export interface AthleteAvatarProps {
   atletaId?: string | null;
@@ -15,7 +16,8 @@ export const AthleteAvatar: React.FC<AthleteAvatarProps> = ({
   className = '',
   style,
 }) => {
-  const [error, setError] = useState(false);
+  const photoUrl = atletaId ? `https://portale.fitet.org/images/atleti/${atletaId}.jpg` : null;
+  const [error, setError] = useState<boolean>(() => (photoUrl ? isPhotoError(photoUrl) : false));
 
   const initials = nome
     .split(' ')
@@ -25,10 +27,8 @@ export const AthleteAvatar: React.FC<AthleteAvatarProps> = ({
     .join('')
     .toUpperCase();
 
-  const photoUrl = atletaId ? `https://portale.fitet.org/images/atleti/${atletaId}.jpg` : null;
-
   useEffect(() => {
-    setError(false);
+    setError(photoUrl ? isPhotoError(photoUrl) : false);
   }, [atletaId, photoUrl]);
 
   const dimension = typeof size === 'number' ? `${size}px` : size;
@@ -50,7 +50,11 @@ export const AthleteAvatar: React.FC<AthleteAvatarProps> = ({
           src={photoUrl}
           alt={nome}
           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          onError={() => setError(true)}
+          onLoad={() => markPhotoLoaded(photoUrl)}
+          onError={() => {
+            markPhotoError(photoUrl);
+            setError(true);
+          }}
           loading="lazy"
           referrerPolicy="no-referrer"
         />

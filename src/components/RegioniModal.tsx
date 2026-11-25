@@ -157,12 +157,21 @@ export const RegioniModal: React.FC<RegioniModalProps> = ({
     const needsFemLabel = isFem && !/\bfemm/i.test(cleanedTitle) && !/\bfemminil/i.test(cleanedTitle);
 
     return (
-      <button
+      <div
         key={`${champ.regione}_${champ.id}`}
-        type="button"
+        role="button"
+        tabIndex={0}
         className={`championship-card ${isSelected ? 'is-selected' : ''} ${isFem ? 'card-femminile' : 'card-maschile'}`}
         onClick={() => {
           onSelectChampionship(champ.id, champ.anno || 41, champ.formula || 19);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            if (e.target === e.currentTarget) {
+              e.preventDefault();
+              onSelectChampionship(champ.id, champ.anno || 41, champ.formula || 19);
+            }
+          }
         }}
       >
         <div className="championship-card-top">
@@ -211,7 +220,7 @@ export const RegioniModal: React.FC<RegioniModalProps> = ({
             </span>
           )}
         </div>
-      </button>
+      </div>
     );
   };
 
