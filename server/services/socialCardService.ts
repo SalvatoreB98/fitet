@@ -2,7 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Resvg } from '@resvg/resvg-js';
-import type { DettaglioAtleta } from '../../src/types/fitet';
+import type { DettaglioAtleta, PartitaCampionatoAtleta } from '../../src/types/fitet';
+import { aggregateAthleteMatchStats, type AthleteFormBadge } from '../../src/utils/aggregateAthleteStats';
 
 /**
  * Risolve il percorso del font TTF (Inter) incluso nel bundle del server.
@@ -342,186 +343,527 @@ export async function generateAthleteOgCard(athlete: DettaglioAtleta): Promise<B
 
 export type StoryTheme = 'panoramica' | 'torneo' | 'best_rank' | 'punti';
 
+export interface StoryRenderOptions {
+  campionatoPartite?: PartitaCampionatoAtleta[] | null;
+  campionatoNome?: string | null;
+  viewsCount?: number;
+}
+
+let cachedDarkPlaceholderBase64: string | null | undefined = undefined;
+
+function getDarkPlaceholderBase64(): string | null {
+  if (cachedDarkPlaceholderBase64 !== undefined) return cachedDarkPlaceholderBase64;
+  const currentDir = typeof __dirname !== 'undefined'
+    ? __dirname
+    : typeof import.meta?.url === 'string'
+      ? path.dirname(fileURLToPath(import.meta.url))
+      : process.cwd();
+
+  const candidates = [
+    path.resolve(process.cwd(), 'public', 'dark-big-placeholder.png'),
+    path.resolve(process.cwd(), 'dist', 'dark-big-placeholder.png'),
+    path.resolve(currentDir, '..', '..', 'public', 'dark-big-placeholder.png'),
+    path.resolve(currentDir, '..', 'public', 'dark-big-placeholder.png'),
+  ];
+
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        const buf = fs.readFileSync(p);
+        cachedDarkPlaceholderBase64 = `data:image/png;base64,${buf.toString('base64')}`;
+        return cachedDarkPlaceholderBase64;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  cachedDarkPlaceholderBase64 = null;
+  return null;
+}
+
+function formatCategoryPill(cat?: string): string | null {
+  if (!cat) return null;
+  const trimmed = cat.trim();
+  const match = trimmed.match(/^(\d+)/);
+  if (match) return `${match[1]}^`;
+  return trimmed;
+}
+
+function truncateText(text: string, maxLen: number): string {
+  const clean = text.trim();
+  if (clean.length <= maxLen) return clean;
+  return `${clean.slice(0, Math.max(1, maxLen - 1)).trim()}…`;
+}
+
+function buildRatingSparklineSvg(
+  storico: DettaglioAtleta['storicoClassifica'],
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  title: string,
+  accentColor = '#38bdf8'
+): string {
+  const valid = (storico || []).filter((s) => typeof s.punti === 'number' && s.punti > 0);
+  if (valid.length < 2) {
+    return `
+      <g transform="translate(${x}, ${y})">
+        <rect width="${width}" height="${height}" rx="22" fill="#111a2e" stroke="rgba(255,255,255,0.08)" stroke-width="1.5" />
+        <text x="28" y="42" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" letter-spacing="1.2">${escapeXml(title)}</text>
+        <text x="${width / 2}" y="${height / 2 + 16}" fill="#64748b" font-size="18" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Storico rilevazioni in aggiornamento</text>
+      </g>
+    `;
+  }
+
+  const pts = valid.map((s) => s.punti);
+  const minPt = Math.min(...pts);
+  const maxPt = Math.max(...pts);
+  const span = Math.max(1, maxPt - minPt);
+
+  const padL = 32;
+  const padR = 32;
+  const padT = 76;
+  const padB = 46;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+
+  const coords = valid.map((s, idx) => {
+    const px = padL + (idx / (valid.length - 1)) * plotW;
+    const norm = (s.punti - minPt) / span;
+    const py = padT + plotH - norm * plotH;
+    return { x: Math.round(px * 10) / 10, y: Math.round(py * 10) / 10, punti: s.punti, data: s.data };
+  });
+
+  const linePath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
+  const areaPath = `${linePath} L ${coords[coords.length - 1].x} ${padT + plotH} L ${coords[0].x} ${padT + plotH} Z`;
+  const first = coords[0];
+  const last = coords[coords.length - 1];
+  const delta = Math.round((last.punti - first.punti) * 10) / 10;
+  const deltaStr = delta > 0 ? `+${delta} pt` : `${delta} pt`;
+  const deltaColor = delta >= 0 ? '#10b981' : '#ef4444';
+
+  const formatShortDate = (d?: string) => {
+    if (!d) return '';
+    if (d.includes('-')) return d.split('-').reverse().join('/');
+    return d;
+  };
+
+  return `
+    <g transform="translate(${x}, ${y})">
+      <rect width="${width}" height="${height}" rx="22" fill="#111a2e" stroke="rgba(255,255,255,0.08)" stroke-width="1.5" />
+      <text x="28" y="42" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" letter-spacing="1.2">${escapeXml(title)}</text>
+      <text x="${width - 28}" y="42" fill="${deltaColor}" font-size="15" font-family="Inter, system-ui, sans-serif" font-weight="700" text-anchor="end">${escapeXml(deltaStr)} (${valid.length} rilevazioni)</text>
+
+      <!-- Subtle horizontal gridlines -->
+      <line x1="${padL}" y1="${padT}" x2="${width - padR}" y2="${padT}" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="4 6" />
+      <line x1="${padL}" y1="${padT + plotH / 2}" x2="${width - padR}" y2="${padT + plotH / 2}" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="4 6" />
+      <line x1="${padL}" y1="${padT + plotH}" x2="${width - padR}" y2="${padT + plotH}" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+
+      <path d="${areaPath}" fill="url(#storyChartArea)" />
+      <path d="${linePath}" fill="none" stroke="${accentColor}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+
+      <circle cx="${first.x}" cy="${first.y}" r="5.5" fill="#0b1426" stroke="${accentColor}" stroke-width="3" />
+      <circle cx="${last.x}" cy="${last.y}" r="7" fill="${accentColor}" stroke="#ffffff" stroke-width="2.5" />
+
+      <text x="${padL}" y="${height - 16}" fill="#64748b" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="600">${escapeXml(formatShortDate(first.data))} • ${escapeXml(first.punti.toLocaleString('it-IT'))} pt</text>
+      <text x="${width - padR}" y="${height - 16}" fill="#e2e8f0" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" text-anchor="end">${escapeXml(formatShortDate(last.data))} • ${escapeXml(last.punti.toLocaleString('it-IT'))} pt</text>
+    </g>
+  `;
+}
+
+function buildMatchesListSvg(
+  rows: Array<{ isWin: boolean; opponent: string; meta: string; rightText: string; rightColor?: string }>,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  title: string
+): string {
+  const maxRows = height >= 290 ? 4 : 3;
+  const visible = rows.slice(0, maxRows);
+  const rowStartY = 64;
+  const rowGap = 58;
+
+  const content = visible.length === 0
+    ? `<text x="${width / 2}" y="${height / 2 + 16}" fill="#64748b" font-size="18" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Nessun incontro recente registrato</text>`
+    : visible
+        .map((row, idx) => {
+          const ry = rowStartY + idx * rowGap;
+          const badgeFill = row.isWin ? 'rgba(16, 185, 129, 0.16)' : 'rgba(239, 68, 68, 0.16)';
+          const badgeStroke = row.isWin ? 'rgba(16, 185, 129, 0.45)' : 'rgba(239, 68, 68, 0.45)';
+          const badgeColor = row.isWin ? '#10b981' : '#f87171';
+          const badgeText = row.isWin ? 'V' : 'P';
+          const rightColor = row.rightColor || (row.isWin ? '#10b981' : '#f87171');
+          const divider = idx < visible.length - 1
+            ? `<line x1="28" y1="${ry + 48}" x2="${width - 28}" y2="${ry + 48}" stroke="rgba(255,255,255,0.06)" stroke-width="1" />`
+            : '';
+
+          return `
+            <g transform="translate(0, ${ry})">
+              <rect x="28" y="4" width="34" height="34" rx="10" fill="${badgeFill}" stroke="${badgeStroke}" stroke-width="1.2" />
+              <text x="45" y="27" fill="${badgeColor}" font-size="16" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${badgeText}</text>
+              <text x="78" y="20" fill="#f8fafc" font-size="18" font-family="Inter, system-ui, sans-serif" font-weight="700">${escapeXml(truncateText(row.opponent, 34))}</text>
+              <text x="78" y="40" fill="#94a3b8" font-size="13.5" font-family="Inter, system-ui, sans-serif" font-weight="500">${escapeXml(truncateText(row.meta, 46))}</text>
+              <text x="${width - 28}" y="28" fill="${rightColor}" font-size="17" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="end">${escapeXml(row.rightText)}</text>
+            </g>
+            ${divider}
+          `;
+        })
+        .join('');
+
+  return `
+    <g transform="translate(${x}, ${y})">
+      <rect width="${width}" height="${height}" rx="22" fill="#111a2e" stroke="rgba(255,255,255,0.08)" stroke-width="1.5" />
+      <text x="28" y="40" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" letter-spacing="1.2">${escapeXml(title)}</text>
+      ${content}
+    </g>
+  `;
+}
+
 /**
  * 2. Genera la Card Grafica per Instagram Stories (1080 x 1920 px, Aspect Ratio 9:16)
- * Pronta per download e condivisione su Instagram Stories, WhatsApp Status, TikTok.
+ * Progettata per rispecchiare fedelmente il design e la struttura di AtletaModal (semplificata senza pulsanti).
  */
 export async function generateAthleteStoryCard(
   athlete: DettaglioAtleta,
-  theme: StoryTheme = 'panoramica'
+  theme: StoryTheme = 'panoramica',
+  options?: StoryRenderOptions
 ): Promise<Buffer> {
   const m = extractAthleteMetrics(athlete);
-  const photoBase64 = await fetchImageAsBase64(m.fotoUrl);
+  const [fetchedPhoto, logoBase64] = await Promise.all([
+    fetchImageAsBase64(m.fotoUrl),
+    fetchImageAsBase64(athlete.anagrafica?.logoUrl || null),
+  ]);
+  const photoBase64 = fetchedPhoto || getDarkPlaceholderBase64();
 
-  const diffLabel = m.pointsDiff > 0 ? `+${m.pointsDiff} pt` : m.pointsDiff < 0 ? `${m.pointsDiff} pt` : '= 0 pt';
-  const diffColor = m.pointsDiff > 0 ? '#10b981' : m.pointsDiff < 0 ? '#ef4444' : '#94a3b8';
-  const categoryBadge = [m.category, m.sector].filter(Boolean).join(' • ');
+  // Calcolo statistiche identico ad AtletaModal
+  const storico = athlete.storicoClassifica || [];
+  const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
 
-  // Sezione Highlight variabile in base al tema selezionato
-  let highlightTitle = 'PANORAMICA STAGIONE';
-  let highlightVal1 = `${m.winRate}`;
-  let highlightSub1 = 'Vittorie Totali';
-  let highlightVal2 = `${diffLabel}`;
-  let highlightSub2 = 'Punti Stagionali';
-
-  if (theme === 'torneo' && m.lastTournamentSummary) {
-    highlightTitle = `ULTIMO TORNEO: ${m.lastTournamentSummary.nome.slice(0, 32)}`;
-    highlightVal1 = `${m.lastTournamentSummary.partiteVinte}/${m.lastTournamentSummary.partiteTotali}`;
-    highlightSub1 = 'Vinte nel Torneo';
-    highlightVal2 = `${m.lastTournamentSummary.puntiGuadagnati > 0 ? '+' : ''}${m.lastTournamentSummary.puntiGuadagnati} pt`;
-    highlightSub2 = 'Guadagno Punti';
-  } else if (theme === 'best_rank') {
-    highlightTitle = 'RECORD PERSONALE DI CLASSIFICA';
-    highlightVal1 = `${m.bestRank}`;
-    highlightSub1 = 'Miglior Posizione';
-    highlightVal2 = `${m.currentRank}`;
-    highlightSub2 = 'Ranking Attuale';
-  } else if (theme === 'punti') {
-    highlightTitle = 'VARIAZIONE PUNTI RANKING';
-    highlightVal1 = `${diffLabel}`;
-    highlightSub1 = 'Incremento Punti';
-    highlightVal2 = `${m.points.toLocaleString('it-IT')} pt`;
-    highlightSub2 = 'Punti Attuali';
+  let pts = athlete.anagrafica?.punti ?? 0;
+  if (pts < 10 && ultimoSnapshot && ultimoSnapshot.punti >= 100) {
+    pts = ultimoSnapshot.punti;
   }
+  let initPts = athlete.riepilogo?.puntiIniziali ?? 0;
+  if (initPts < 10 && ultimoSnapshot && ultimoSnapshot.punti >= 100) {
+    initPts = Math.round(initPts * 1000);
+  }
+
+  const pos = ultimoSnapshot?.posizione ?? null;
+  const stato = athlete.anagrafica?.stato;
+  const record = athlete.anagrafica?.recordClassifica;
+  const hasRecord = Boolean(record && !record.includes('n. il') && record.trim().length > 0);
+  const dataAgg = ultimoSnapshot?.data
+    ? (ultimoSnapshot.data.includes('-')
+        ? ultimoSnapshot.data.split('-').reverse().join('/')
+        : ultimoSnapshot.data)
+    : null;
+
+  const posText = pos ? `#${pos.toLocaleString('it-IT')}` : (stato || 'Fuori Quadro');
+  const posSub = hasRecord ? `Record: ${record}` : (dataAgg ? `Al ${dataAgg}` : 'Nazionale');
+
+  const aggregatedStats = aggregateAthleteMatchStats(
+    athlete,
+    options?.campionatoPartite ?? null,
+    options?.campionatoNome || athlete.campionatoAttuale?.nome
+  );
+  const partiteGiocate = aggregatedStats.partiteGiocate;
+  const partiteVinte = aggregatedStats.partiteVinte;
+  const partitePerse = aggregatedStats.partitePerse;
+  const percPositiva = aggregatedStats.percentualePositiva;
+
+  let puntiNetto = athlete.riepilogo?.puntiTotali ?? 0;
+  if (puntiNetto === 0 && athlete.partiteRanking?.dettaglioPunti) {
+    const diff =
+      (athlete.partiteRanking.dettaglioPunti.campionato || 0) +
+      (athlete.partiteRanking.dettaglioPunti.tornei || 0);
+    if (diff !== 0) puntiNetto = diff;
+  }
+  puntiNetto = Math.round(puntiNetto * 10) / 10;
+
+  let partiteSub = `Perse: ${partitePerse}`;
+  if (aggregatedStats.campionatoGiocate > 0 || aggregatedStats.torneiGiocate > 0) {
+    const parts: string[] = [];
+    if (aggregatedStats.torneiGiocate > 0) parts.push(`Tornei: ${aggregatedStats.torneiGiocate}`);
+    if (aggregatedStats.campionatoGiocate > 0) {
+      parts.push(`Camp: ${aggregatedStats.campionatoVinte}V-${aggregatedStats.campionatoPerse}P`);
+    }
+    partiteSub = parts.join(' - ');
+  }
+
+  const netLabel = puntiNetto > 0 ? `+${puntiNetto} pt netti` : `${puntiNetto} pt`;
+  const netColor = puntiNetto >= 0 ? '#10b981' : '#f87171';
+
+  // Dimensione font nome adattiva
+  const displayName = m.name.toUpperCase();
+  const nameFontSize = displayName.length > 24 ? 32 : displayName.length > 18 ? 38 : 44;
+
+  // Club + logo centrati
+  const clubText = truncateText(athlete.anagrafica?.societa?.trim() || 'Tesserato FITeT', 38);
+  const regione = athlete.anagrafica?.regione?.trim() || '';
+  const estimatedClubWidth = Math.min(760, clubText.length * 13.2);
+  const clubGroupWidth = logoBase64 ? estimatedClubWidth + 44 : estimatedClubWidth;
+  const clubTextX = logoBase64 ? 540 - 22 : 540;
+  const logoX = 540 + clubGroupWidth / 2 - 34;
+
+  // Metadata row (pill categoria, pill settore, divisore, data nascita, visite)
+  const catPill = formatCategoryPill(athlete.anagrafica?.categoria);
+  const sectorPill = athlete.anagrafica?.settore?.trim() || null;
+  const birthDate = athlete.anagrafica?.dataNascita?.trim() || null;
+  const views = options?.viewsCount && options.viewsCount > 0 ? options.viewsCount : 0;
+
+  interface MetaPiece {
+    kind: 'pill' | 'divider' | 'text';
+    text?: string;
+    width: number;
+  }
+  const metaPieces: MetaPiece[] = [];
+  if (catPill) metaPieces.push({ kind: 'pill', text: catPill, width: Math.max(58, catPill.length * 12 + 34) });
+  if (sectorPill) metaPieces.push({ kind: 'pill', text: sectorPill, width: Math.max(88, sectorPill.length * 10.5 + 34) });
+  if (metaPieces.length > 0 && (birthDate || views > 0)) {
+    metaPieces.push({ kind: 'divider', width: 18 });
+  }
+  if (birthDate) {
+    const txt = `Nato/a il ${birthDate}`;
+    metaPieces.push({ kind: 'text', text: txt, width: txt.length * 9.8 + 10 });
+  }
+  if (birthDate && views > 0) {
+    metaPieces.push({ kind: 'text', text: '•', width: 16 });
+  }
+  if (views > 0) {
+    const txt = `${views.toLocaleString('it-IT')} ${views === 1 ? 'visita' : 'visite'}`;
+    metaPieces.push({ kind: 'text', text: txt, width: txt.length * 9.6 + 10 });
+  }
+
+  const metaGap = 10;
+  const totalMetaWidth =
+    metaPieces.reduce((acc, p) => acc + p.width, 0) + Math.max(0, metaPieces.length - 1) * metaGap;
+  let cursorX = 540 - totalMetaWidth / 2;
+  const metaRowSvg = metaPieces
+    .map((piece) => {
+      const xPos = Math.round(cursorX);
+      cursorX += piece.width + metaGap;
+      if (piece.kind === 'pill') {
+        return `
+          <rect x="${xPos}" y="0" width="${Math.round(piece.width)}" height="36" rx="18" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.14)" stroke-width="1.2" />
+          <text x="${Math.round(xPos + piece.width / 2)}" y="24" fill="#e2e8f0" font-size="16.5" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">${escapeXml(piece.text)}</text>
+        `;
+      }
+      if (piece.kind === 'divider') {
+        return `<line x1="${Math.round(xPos + piece.width / 2)}" y1="8" x2="${Math.round(xPos + piece.width / 2)}" y2="28" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" />`;
+      }
+      return `<text x="${Math.round(xPos + piece.width / 2)}" y="24" fill="#94a3b8" font-size="17" font-family="Inter, system-ui, sans-serif" font-weight="500" text-anchor="middle">${escapeXml(piece.text)}</text>`;
+    })
+    .join('');
+
+  // Costruzione sezione inferiore in base al tema selezionato (sempre stile AtletaModal #111a2e)
+  const buildRecentBadgesRows = (badges: AthleteFormBadge[]) =>
+    badges.map((b) => ({
+      isWin: b.isVittoria,
+      opponent: b.avversario,
+      meta: [b.data, b.evento].filter(Boolean).join(' • ') || 'Incontro ufficiale',
+      rightText: b.risultatoSet || (b.isVittoria ? 'Vinta' : 'Persa'),
+    }));
+
+  let lowerSectionSvg = '';
+  if (theme === 'torneo' && m.lastTournamentSummary) {
+    const t = m.lastTournamentSummary;
+    const tPts = `${t.puntiGuadagnati > 0 ? '+' : ''}${t.puntiGuadagnati} pt`;
+    const tPtsColor = t.puntiGuadagnati >= 0 ? '#10b981' : '#f87171';
+    const torneiAll = athlete.partiteRanking?.tornei || [];
+    const lastTorneoMatches = torneiAll
+      .filter((tm) => tm.torneo === t.nome)
+      .slice(-4)
+      .reverse()
+      .map((tm) => ({
+        isWin: tm.isVittoria,
+        opponent: tm.avversario,
+        meta: [tm.data, tm.gara].filter(Boolean).join(' • ') || t.nome,
+        rightText: tm.punti !== undefined ? `${tm.punti > 0 ? '+' : ''}${tm.punti} pt` : (tm.isVittoria ? 'Vinta' : 'Persa'),
+      }));
+
+    lowerSectionSvg = `
+      <g transform="translate(96, 1046)">
+        <rect width="888" height="206" rx="22" fill="#111a2e" stroke="rgba(56,189,248,0.28)" stroke-width="1.5" />
+        <text x="28" y="40" fill="#38bdf8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" letter-spacing="1.2">ULTIMO TORNEO${t.data ? ` • ${escapeXml(t.data)}` : ''}</text>
+        <text x="28" y="76" fill="#ffffff" font-size="23" font-family="Inter, system-ui, sans-serif" font-weight="800">${escapeXml(truncateText(t.nome, 48))}</text>
+        <line x1="28" y1="96" x2="860" y2="96" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+        <text x="222" y="148" fill="#f8fafc" font-size="40" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${t.partiteVinte} <tspan fill="#64748b" font-size="26">/</tspan> ${t.partiteTotali}</text>
+        <text x="222" y="180" fill="#94a3b8" font-size="15" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Partite Vinte nel Torneo</text>
+        <line x1="444" y1="114" x2="444" y2="186" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" />
+        <text x="666" y="148" fill="${tPtsColor}" font-size="40" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(tPts)}</text>
+        <text x="666" y="180" fill="#94a3b8" font-size="15" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Bilancio Punti Torneo</text>
+      </g>
+      ${buildMatchesListSvg(lastTorneoMatches, 96, 1274, 888, 310, 'INCONTRI DEL TORNEO')}
+    `;
+  } else if (theme === 'best_rank') {
+    lowerSectionSvg = `
+      <g transform="translate(96, 1046)">
+        <rect width="888" height="206" rx="22" fill="#111a2e" stroke="rgba(245,158,11,0.32)" stroke-width="1.5" />
+        <text x="28" y="42" fill="#fbbf24" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" letter-spacing="1.2">BEST RANKING IN CARRIERA</text>
+        <line x1="28" y1="62" x2="860" y2="62" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+        <text x="222" y="136" fill="#fbbf24" font-size="48" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(m.bestRank)}</text>
+        <text x="222" y="174" fill="#94a3b8" font-size="15.5" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Record Personale Nazionale</text>
+        <line x1="444" y1="84" x2="444" y2="180" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" />
+        <text x="666" y="136" fill="#f8fafc" font-size="46" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(posText)}</text>
+        <text x="666" y="174" fill="#94a3b8" font-size="15.5" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Posizione Attuale</text>
+      </g>
+      ${buildRatingSparklineSvg(storico, 96, 1274, 888, 310, 'ANDAMENTO STORICO CLASSIFICA', '#fbbf24')}
+    `;
+  } else if (theme === 'punti') {
+    const seasonDiff = Math.round((pts - initPts) * 10) / 10;
+    const seasonDiffLabel = seasonDiff > 0 ? `+${seasonDiff} pt` : `${seasonDiff} pt`;
+    const seasonDiffColor = seasonDiff >= 0 ? '#10b981' : '#f87171';
+    lowerSectionSvg = `
+      <g transform="translate(96, 1046)">
+        <rect width="888" height="206" rx="22" fill="#111a2e" stroke="rgba(16,185,129,0.32)" stroke-width="1.5" />
+        <text x="28" y="42" fill="#10b981" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" letter-spacing="1.2">VARIAZIONE PUNTI STAGIONE</text>
+        <line x1="28" y1="62" x2="860" y2="62" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+        <text x="222" y="136" fill="${seasonDiffColor}" font-size="48" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(seasonDiffLabel)}</text>
+        <text x="222" y="174" fill="#94a3b8" font-size="15.5" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Variazione da Inizio Anno</text>
+        <line x1="444" y1="84" x2="444" y2="180" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" />
+        <text x="666" y="136" fill="#f8fafc" font-size="44" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(initPts.toLocaleString('it-IT'))} → ${escapeXml(pts.toLocaleString('it-IT'))}</text>
+        <text x="666" y="174" fill="#94a3b8" font-size="15.5" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Punti Iniziali → Attuali</text>
+      </g>
+      ${buildRatingSparklineSvg(storico, 96, 1274, 888, 310, 'PROGRESSIONE PUNTI RANKING', '#10b981')}
+    `;
+  } else {
+    // Default 'panoramica': Andamento Ranking + Ultime Partite (struttura fedele ad AtletaModal)
+    const recentRows = buildRecentBadgesRows(aggregatedStats.badges);
+    lowerSectionSvg = `
+      ${buildRatingSparklineSvg(storico, 96, 1046, 888, 250, 'ANDAMENTO PUNTI RANKING', '#38bdf8')}
+      ${buildMatchesListSvg(recentRows, 96, 1318, 888, 266, 'ULTIME PARTITE DISPUTATE')}
+    `;
+  }
+
+  const posFontSize = posText.length > 9 ? 25 : posText.length > 6 ? 31 : 36;
 
   const svg = `
 <svg width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bgStory" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#040914" />
-      <stop offset="30%" stop-color="#091427" />
-      <stop offset="70%" stop-color="#0c1d38" />
-      <stop offset="100%" stop-color="#050a17" />
+    <linearGradient id="storyBackdrop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#050b16" />
+      <stop offset="50%" stop-color="#081224" />
+      <stop offset="100%" stop-color="#050b16" />
     </linearGradient>
 
-    <linearGradient id="storyGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2563eb" />
-      <stop offset="50%" stop-color="#06b6d4" />
-      <stop offset="100%" stop-color="#10b981" />
+    <radialGradient id="topAmbient" cx="50%" cy="18%" r="55%">
+      <stop offset="0%" stop-color="#1d4ed8" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#081224" stop-opacity="0" />
+    </radialGradient>
+
+    <linearGradient id="storyChartArea" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.01" />
     </linearGradient>
 
-    <linearGradient id="highlightGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.95" />
-      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.95" />
+    <linearGradient id="statDividerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
     </linearGradient>
 
-    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#162238" stop-opacity="0.8" />
-      <stop offset="100%" stop-color="#0d1829" stop-opacity="0.8" />
-    </linearGradient>
-
-    <clipPath id="storyAvatarClip">
-      <circle cx="540" cy="470" r="135" />
+    <clipPath id="storyPhotoClip">
+      <rect x="408" y="256" width="264" height="304" rx="28" />
     </clipPath>
 
-    <filter id="glowFilter" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#0284c7" flood-opacity="0.35" />
+    <clipPath id="storyLogoClip">
+      <circle cx="${Math.round(logoX + 16)}" cy="669" r="16" />
+    </clipPath>
+
+    <filter id="modalShadow" x="-8%" y="-6%" width="116%" height="114%">
+      <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#000000" flood-opacity="0.55" />
+    </filter>
+
+    <filter id="photoShadow" x="-15%" y="-12%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.48" />
     </filter>
   </defs>
 
-  <!-- Canvas Background -->
-  <rect width="1080" height="1920" fill="url(#bgStory)" />
+  <!-- Dark Backdrop matching .modal-athlete-backdrop -->
+  <rect width="1080" height="1920" fill="url(#storyBackdrop)" />
+  <rect width="1080" height="1920" fill="url(#topAmbient)" />
 
-  <!-- Ambient Glow Effects -->
-  <circle cx="540" cy="460" r="380" fill="#2563eb" opacity="0.18" filter="blur(90px)" />
-  <circle cx="200" cy="1150" r="320" fill="#10b981" opacity="0.12" filter="blur(80px)" />
-  <circle cx="900" cy="1450" r="300" fill="#0284c7" opacity="0.14" filter="blur(90px)" />
-
-  <!-- Top Header Safe Area (y: 190 to 260) -->
-  <g transform="translate(0, 190)">
-    <rect x="360" y="0" width="360" height="42" rx="21" fill="#1e293b" stroke="#38bdf8" stroke-width="1.5" stroke-opacity="0.5" />
-    <circle cx="384" cy="21" r="7" fill="#10b981" />
-    <text x="545" y="27" fill="#ffffff" font-size="14.5" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="1.2">PORTALE RISULTATI FITeT</text>
+  <!-- Top Brand Pill (Instagram Safe Area) -->
+  <g transform="translate(0, 114)">
+    <rect x="355" y="0" width="370" height="44" rx="22" fill="#0b1426" stroke="#1a2d52" stroke-width="1.5" />
+    <circle cx="382" cy="22" r="6.5" fill="#10b981" />
+    <text x="548" y="28" fill="#e2e8f0" font-size="14.5" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="1.2">PORTALE RISULTATI FITeT</text>
   </g>
 
-  <!-- Hero Profile Section -->
-  <!-- Glowing Rings & Avatar -->
-  <circle cx="540" cy="470" r="148" fill="none" stroke="url(#storyGlow)" stroke-width="6" filter="url(#glowFilter)" />
-  <circle cx="540" cy="470" r="135" fill="#1e293b" />
+  <!-- Main Card matching .modal-card-simple.atleta-modal-card (dark theme) -->
+  <rect x="56" y="200" width="968" height="1426" rx="34" fill="#0b1426" stroke="#1a2d52" stroke-width="2" filter="url(#modalShadow)" />
+
+  <!-- 1. Rounded Portrait Photo matching .athlete-spotlight-photo-wrap -->
+  <rect x="408" y="256" width="264" height="304" rx="28" fill="#0f172a" stroke="rgba(255,255,255,0.14)" stroke-width="2" filter="url(#photoShadow)" />
   ${
     photoBase64
-      ? `<image href="${photoBase64}" x="405" y="335" width="270" height="270" clip-path="url(#storyAvatarClip)" preserveAspectRatio="xMidYMid slice" />`
-      : `<text x="540" y="505" fill="#38bdf8" font-size="88" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle">${escapeXml(m.initials)}</text>`
+      ? `<image href="${photoBase64}" x="408" y="256" width="264" height="304" clip-path="url(#storyPhotoClip)" preserveAspectRatio="xMidYMid slice" />
+         <rect x="408" y="256" width="264" height="304" rx="28" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="2" />`
+      : `<text x="540" y="432" fill="#94a3b8" font-size="78" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="2">${escapeXml(m.initials)}</text>`
   }
 
-  <!-- Athlete Name & Club -->
-  <text x="540" y="685" fill="#ffffff" font-size="46" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle" letter-spacing="-0.5">${escapeXml(m.name.toUpperCase())}</text>
-  <text x="540" y="730" fill="#94a3b8" font-size="22" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="600" text-anchor="middle">${escapeXml(m.club)}</text>
+  <!-- 2. Athlete Name matching .athlete-spotlight-name -->
+  <text x="540" y="624" fill="#ffffff" font-size="${nameFontSize}" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="0.8">${escapeXml(truncateText(displayName, 32))}</text>
 
-  <!-- Category & Sector Pill -->
+  <!-- 3. Society + Logo + Region matching .athlete-spotlight-club-wrap -->
+  <text x="${Math.round(clubTextX)}" y="676" fill="#e2e8f0" font-size="23" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle" text-decoration="underline">${escapeXml(clubText)}</text>
   ${
-    categoryBadge
-      ? `<rect x="${540 - Math.min(380, categoryBadge.length * 9 + 30) / 2}" y="760" width="${Math.min(380, categoryBadge.length * 9 + 30)}" height="34" rx="17" fill="#1e293b" stroke="#334155" stroke-width="1.2" />
-         <text x="540" y="783" fill="#38bdf8" font-size="13" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="0.8">${escapeXml(categoryBadge.toUpperCase())}</text>`
+    logoBase64
+      ? `<circle cx="${Math.round(logoX + 16)}" cy="669" r="17" fill="#ffffff" />
+         <image href="${logoBase64}" x="${Math.round(logoX)}" y="653" width="32" height="32" clip-path="url(#storyLogoClip)" preserveAspectRatio="xMidYMid meet" />`
+      : ''
+  }
+  ${
+    regione
+      ? `<text x="540" y="714" fill="#94a3b8" font-size="20" font-family="Inter, system-ui, sans-serif" font-weight="500" text-anchor="middle">(${escapeXml(regione)})</text>`
       : ''
   }
 
-  <!-- Feature Highlight Banner (y: 840 to 1100) -->
-  <g transform="translate(90, 840)">
-    <rect width="900" height="260" rx="24" fill="url(#highlightGrad)" stroke="url(#storyGlow)" stroke-width="2" filter="url(#glowFilter)" />
-
-    <!-- Banner Header -->
-    <text x="450" y="48" fill="#38bdf8" font-size="15" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="1">${escapeXml(highlightTitle.toUpperCase())}</text>
-    <line x1="40" y1="72" x2="860" y2="72" stroke="#334155" stroke-width="1" />
-
-    <!-- Two Key Highlight Metrics Inside Banner -->
-    <g transform="translate(0, 100)">
-      <!-- Left Column -->
-      <text x="225" y="55" fill="#ffffff" font-size="46" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle">${escapeXml(highlightVal1)}</text>
-      <text x="225" y="98" fill="#94a3b8" font-size="16" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="middle">${escapeXml(highlightSub1)}</text>
-
-      <line x1="450" y1="20" x2="450" y2="120" stroke="#334155" stroke-width="1.5" />
-
-      <!-- Right Column -->
-      <text x="675" y="55" fill="#10b981" font-size="46" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900" text-anchor="middle">${escapeXml(highlightVal2)}</text>
-      <text x="675" y="98" fill="#94a3b8" font-size="16" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="middle">${escapeXml(highlightSub2)}</text>
-    </g>
+  <!-- 4. Metadata Pills Row matching .athlete-spotlight-meta-row -->
+  <g transform="translate(0, ${regione ? 744 : 716})">
+    ${metaRowSvg}
   </g>
 
-  <!-- 4 Primary Stat Cards (y: 1140 to 1540) -->
-  <g transform="translate(90, 1140)">
-    <!-- Card 1: Ranking Italia -->
-    <g transform="translate(0, 0)">
-      <rect width="430" height="180" rx="20" fill="url(#cardGrad)" stroke="#1e293b" stroke-width="1.5" />
-      <text x="32" y="44" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">RANKING NAZIONALE</text>
-      <text x="32" y="108" fill="#38bdf8" font-size="46" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.currentRank)}</text>
-      <text x="32" y="148" fill="#64748b" font-size="15" font-family="Inter, system-ui, -apple-system, sans-serif">Classifica Ufficiale</text>
-    </g>
+  <!-- 5. 4-Column Stats Card matching .overview-stats-card.athlete-spotlight-stats-card -->
+  <g transform="translate(96, 816)">
+    <rect width="888" height="196" rx="22" fill="#111a2e" stroke="rgba(255,255,255,0.08)" stroke-width="1.5" />
 
-    <!-- Card 2: Punti Totali -->
-    <g transform="translate(470, 0)">
-      <rect width="430" height="180" rx="20" fill="url(#cardGrad)" stroke="#1e293b" stroke-width="1.5" />
-      <text x="32" y="44" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">PUNTI ATTUALI</text>
-      <text x="32" y="108" fill="#ffffff" font-size="44" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.points.toLocaleString('it-IT'))} <tspan font-size="22" fill="#64748b">pt</tspan></text>
-      <text x="32" y="148" fill="${diffColor}" font-size="15" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700">${escapeXml(diffLabel)} da inizio anno</text>
-    </g>
+    <!-- Col 1: POSIZIONE -->
+    <text x="111" y="50" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle" letter-spacing="1.2">POSIZIONE</text>
+    <text x="111" y="114" fill="#f8fafc" font-size="${posFontSize}" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(truncateText(posText, 13))}</text>
+    <text x="111" y="156" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="500" text-anchor="middle" opacity="0.88">${escapeXml(truncateText(posSub, 22))}</text>
 
-    <!-- Card 3: Partite Vinte / Giocate -->
-    <g transform="translate(0, 210)">
-      <rect width="430" height="180" rx="20" fill="url(#cardGrad)" stroke="#1e293b" stroke-width="1.5" />
-      <text x="32" y="44" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">PARTITE V / G</text>
-      <text x="32" y="108" fill="#ffffff" font-size="44" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.partiteVinte)} <tspan font-size="26" fill="#64748b">/</tspan> ${escapeXml(m.partiteGiocate)}</text>
-      <text x="32" y="148" fill="#10b981" font-size="15" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700">${escapeXml(m.winRate)} Vittorie</text>
-    </g>
+    <rect x="221.5" y="38" width="1.5" height="120" fill="url(#statDividerGrad)" />
 
-    <!-- Card 4: Best Rank -->
-    <g transform="translate(470, 210)">
-      <rect width="430" height="180" rx="20" fill="url(#cardGrad)" stroke="#1e293b" stroke-width="1.5" />
-      <text x="32" y="44" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">BEST RANKING</text>
-      <text x="32" y="108" fill="#f59e0b" font-size="44" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.bestRank)}</text>
-      <text x="32" y="148" fill="#64748b" font-size="15" font-family="Inter, system-ui, -apple-system, sans-serif">Record Personale</text>
-    </g>
+    <!-- Col 2: PUNTI RANK -->
+    <text x="333" y="50" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle" letter-spacing="1.2">PUNTI RANK</text>
+    <text x="333" y="114" fill="#f8fafc" font-size="36" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(pts.toLocaleString('it-IT'))}</text>
+    <text x="333" y="156" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="500" text-anchor="middle" opacity="0.88">Iniziali: ${escapeXml(initPts.toLocaleString('it-IT'))}</text>
+
+    <rect x="443.5" y="38" width="1.5" height="120" fill="url(#statDividerGrad)" />
+
+    <!-- Col 3: PARTITE V/G -->
+    <text x="555" y="50" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle" letter-spacing="1.2">PARTITE V/G</text>
+    <text x="555" y="114" fill="#f8fafc" font-size="36" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${partiteVinte} <tspan fill="#64748b" font-size="25" font-weight="500">/</tspan> ${partiteGiocate}</text>
+    <text x="555" y="156" fill="#94a3b8" font-size="13.5" font-family="Inter, system-ui, sans-serif" font-weight="500" text-anchor="middle" opacity="0.88">${escapeXml(truncateText(partiteSub, 24))}</text>
+
+    <rect x="665.5" y="38" width="1.5" height="120" fill="url(#statDividerGrad)" />
+
+    <!-- Col 4: % VITTORIE -->
+    <text x="777" y="50" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle" letter-spacing="1.2">% VITTORIE</text>
+    <text x="777" y="114" fill="#10b981" font-size="36" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${percPositiva}%</text>
+    <text x="777" y="156" fill="${netColor}" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">${escapeXml(netLabel)}</text>
   </g>
 
-  <!-- Bottom Instagram Safe Area & Call to Action (y: 1620 to 1820) -->
-  <g transform="translate(0, 1640)">
-    <!-- Pill link -->
-    <rect x="240" y="0" width="600" height="60" rx="30" fill="url(#storyGlow)" />
-    <rect x="242" y="2" width="596" height="56" rx="28" fill="#081324" />
-    <text x="540" y="37" fill="#38bdf8" font-size="17" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="0.5">portale-risultati-tt.it/player/${escapeXml(athlete.id)}</text>
+  <!-- 6. Simplified Lower Section (Chart + Matches / Focus Theme) -->
+  ${lowerSectionSvg}
 
-    <!-- Sub Footer -->
-    <text x="540" y="95" fill="#64748b" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="600" text-anchor="middle">Generato dal Portale Risultati FITeT • Condividi nelle tue Storie!</text>
+  <!-- Bottom Safe Area URL Pill -->
+  <g transform="translate(0, 1682)">
+    <rect x="230" y="0" width="620" height="58" rx="29" fill="#0b1426" stroke="#1a2d52" stroke-width="1.5" />
+    <text x="540" y="36" fill="#93c5fd" font-size="18" font-family="Inter, system-ui, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="0.4">portale-risultati-tt.it/player/${escapeXml(athlete.id)}</text>
+    <text x="540" y="96" fill="#64748b" font-size="14.5" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Scheda Atleta FITeT • Aggiornata in tempo reale</text>
   </g>
 </svg>
 `;

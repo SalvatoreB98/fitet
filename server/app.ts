@@ -2706,11 +2706,15 @@ app.get(['/api/og/player/:id.png', '/api/og/player/:id', '/api/og-player'], asyn
 
 // 2. Dynamic Instagram Story Card (1080 x 1920 PNG - 9:16)
 app.post('/api/story/render', async (req, res) => {
-    const { athlete, theme } = req.body || {};
+    const { athlete, theme, campionatoPartite, campionatoNome, viewsCount } = req.body || {};
     if (!athlete) return res.status(400).send('Missing athlete data');
 
     try {
-        const pngBuffer = await generateAthleteStoryCard(athlete, theme || 'panoramica');
+        const pngBuffer = await generateAthleteStoryCard(athlete, theme || 'panoramica', {
+            campionatoPartite: Array.isArray(campionatoPartite) ? campionatoPartite : null,
+            campionatoNome: typeof campionatoNome === 'string' ? campionatoNome : null,
+            viewsCount: typeof viewsCount === 'number' ? viewsCount : undefined,
+        });
         res.setHeader('Content-Type', 'image/png');
         res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
         return res.send(pngBuffer);

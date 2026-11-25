@@ -2421,6 +2421,9 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           isOpen={isStoryModalOpen}
           onClose={() => setIsStoryModalOpen(false)}
           atleta={atleta}
+          campionatoPartite={campionatoPartite}
+          campionatoNome={campionatoNome || atleta.campionatoAttuale?.nome}
+          viewsCount={viewsCount}
         />
       )}
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import type { DettaglioAtleta } from '../types/fitet';
+import type { DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { useModalTransition } from '../utils/useModalTransition';
 
@@ -8,6 +8,9 @@ interface AthleteStoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   atleta: DettaglioAtleta;
+  campionatoPartite?: PartitaCampionatoAtleta[] | null;
+  campionatoNome?: string | null;
+  viewsCount?: number;
 }
 
 export type StoryTheme = 'panoramica' | 'torneo' | 'best_rank' | 'punti';
@@ -50,6 +53,9 @@ export const AthleteStoryModal: React.FC<AthleteStoryModalProps> = ({
   isOpen,
   onClose,
   atleta,
+  campionatoPartite,
+  campionatoNome,
+  viewsCount,
 }) => {
   const { shouldRender, isClosing, requestClose } = useModalTransition(onClose, isOpen);
   useBodyScrollLock(shouldRender);
@@ -77,7 +83,13 @@ export const AthleteStoryModal: React.FC<AthleteStoryModalProps> = ({
     fetch('/api/story/render', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ athlete: atleta, theme: selectedTheme }),
+      body: JSON.stringify({
+        athlete: atleta,
+        theme: selectedTheme,
+        campionatoPartite: campionatoPartite ?? null,
+        campionatoNome: campionatoNome ?? null,
+        viewsCount: viewsCount ?? 0,
+      }),
     })
       .then((res) => {
         if (!res.ok) {
@@ -107,7 +119,7 @@ export const AthleteStoryModal: React.FC<AthleteStoryModalProps> = ({
       isMounted = false;
       if (imageUrl) URL.revokeObjectURL(imageUrl);
     };
-  }, [isOpen, atleta, selectedTheme]);
+  }, [isOpen, atleta, selectedTheme, campionatoPartite, campionatoNome, viewsCount]);
 
   // Gestione tasto ESC
   useEffect(() => {
