@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';
 import { fetchAtleta, fetchAtletaCampionatoPartite } from '../services/api';
 import { MarqueeText } from './MarqueeText';
+import { TeamLogo } from './TeamLogo';
 import { recordAndGetAthleteViews } from '../utils/athleteViews';
 import { useFavoriteAthletes, saveFavoriteAthlete } from '../utils/favorites';
 import { aggregateAthleteMatchStats } from '../utils/aggregateAthleteStats';
@@ -12,6 +13,7 @@ export interface HalfAtletaModalProps {
   athleteName?: string;
   onClose: () => void;
   onOpenFullModal: (resolvedId: string, name: string) => void;
+  onOpenSociety?: (societyName: string) => void;
 }
 
 export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
@@ -19,6 +21,7 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
   athleteName,
   onClose,
   onOpenFullModal,
+  onOpenSociety,
 }) => {
   const [atleta, setAtleta] = useState<DettaglioAtleta | null>(null);
   const [campionatoPartite, setCampionatoPartite] = useState<PartitaCampionatoAtleta[] | null>(null);
@@ -28,22 +31,28 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
   const [viewsCount, setViewsCount] = useState<number>(0);
   const lastTrackedKeyRef = useRef<string | null>(null);
 
+  // Actions state (Favorite, Copy Link, Share)
   const { isFavorite, toggleFavorite } = useFavoriteAthletes();
+  const [copied, setCopied] = useState<boolean>(false);
+  const [isShareMenuOpen, setIsShareMenuOpen] = useState<boolean>(false);
+  const [showToast, setShowToast] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string>('');
+  const shareMenuRef = useRef<HTMLDivElement>(null);
 
-  // Scroll reveal state for header (shows photo & name when atleta-profile-bar is scrolled past)
+  // Scroll reveal state for header (shows photo & name when hero is scrolled past)
   const [isScrolledPastHero, setIsScrolledPastHero] = useState<boolean>(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
-  const profileBarRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
 
   const handleCardScroll = useCallback(() => {
-    if (profileBarRef.current && headerRef.current) {
-      const barRect = profileBarRef.current.getBoundingClientRect();
+    if (heroRef.current && headerRef.current) {
+      const heroRect = heroRef.current.getBoundingClientRect();
       const headerRect = headerRef.current.getBoundingClientRect();
-      const isPast = barRect.bottom <= headerRect.bottom + 8;
+      const isPast = heroRect.bottom <= headerRect.bottom + 12;
       setIsScrolledPastHero(isPast);
     } else if (cardRef.current) {
-      setIsScrolledPastHero(cardRef.current.scrollTop > 110);
+      setIsScrolledPastHero(cardRef.current.scrollTop > 120);
     }
   }, []);
 
@@ -57,6 +66,27 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
   const currentAtletaId = atleta?.id || atletaKey;
   const currentAthleteName = atleta?.anagrafica?.nome || athleteName || 'Atleta';
   const isFav = isFavorite(currentAtletaId) || isFavorite(currentAthleteName);
+
+  // Share URL & handler
+  const sharePlayerId = atleta?.id || atletaKey;
+  const shareUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/player/${encodeURIComponent(sharePlayerId)}`
+    : `/player/${encodeURIComponent(sharePlayerId)}`;
+
+  // Close share popover on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(e.target as Node)) {
+        setIsShareMenuOpen(false);
+      }
+    };
+    if (isShareMenuOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isShareMenuOpen]);
 
   // Load data
   useEffect(() => {
@@ -166,6 +196,62 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
     });
   };
 
+  const handleCopyLink = async () => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        textArea.remove();
+      }
+      setCopied(true);
+      setToastMessage('Link copiato negli appunti!');
+      setShowToast(true);
+      setTimeout(() => setCopied(false), 2400);
+      setTimeout(() => setShowToast(false), 2400);
+      setIsShareMenuOpen(false);
+    } catch (err) {
+      console.error('Errore copia link:', err);
+    }
+  };
+
+  const handleShareWhatsApp = () => {
+    const name = atleta?.anagrafica?.nome || athleteName || 'Atleta';
+    const club = atleta?.anagrafica?.societa || '';
+    const cat = atleta?.anagrafica?.categoria ? `${atleta.anagrafica.categoria}ª Categoria` : '';
+    let msg = `🏓 *${name}*`;
+    if (cat) msg += ` (${cat})`;
+    if (club) msg += `\nSocietà: ${club}`;
+    if (pts) msg += `\n⭐ Punti: ${pts.toLocaleString('it-IT')}`;
+    msg += `\n\nVisualizza profilo:\n${shareUrl}`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+    setIsShareMenuOpen(false);
+  };
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        const name = atleta?.anagrafica?.nome || athleteName || 'Atleta';
+        await navigator.share({
+          title: `${name} - Scheda FITeT`,
+          text: `Scheda atleta di ${name}:`,
+          url: shareUrl,
+        });
+        setIsShareMenuOpen(false);
+      } catch {
+        // User cancelled
+      }
+    } else {
+      handleShareWhatsApp();
+    }
+  };
+
   const handleOpenFull = () => {
     if (atleta) {
       onOpenFullModal(atleta.id, atleta.anagrafica.nome);
@@ -218,6 +304,30 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
     if (diff !== 0) puntiNetto = diff;
   }
 
+  // Format category badge: e.g. "6" or "6ª Categoria" -> "6^"
+  const formatCategoryPill = (cat?: string) => {
+    if (!cat) return null;
+    const trimmed = cat.trim();
+    const match = trimmed.match(/^(\d+)/);
+    if (match) return `${match[1]}^`;
+    return trimmed;
+  };
+
+  // Format match subtext: e.g. "Tornei: 3 - Camp: 6V-2P"
+  const formatPartiteSub = () => {
+    if (aggregatedStats.campionatoGiocate > 0 || aggregatedStats.torneiGiocate > 0) {
+      const parts: string[] = [];
+      if (aggregatedStats.torneiGiocate > 0) {
+        parts.push(`Tornei: ${aggregatedStats.torneiGiocate}`);
+      }
+      if (aggregatedStats.campionatoGiocate > 0) {
+        parts.push(`Camp: ${aggregatedStats.campionatoVinte}V-${aggregatedStats.campionatoPerse}P`);
+      }
+      return parts.join(' - ');
+    }
+    return `Perse: ${partitePerse}`;
+  };
+
   const athletePhoto =
     atleta?.anagrafica?.fotoUrl ||
     (atleta?.id && /^\d+$/.test(atleta.id)
@@ -236,8 +346,17 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
         className="modal-card-simple halfatleta-modal-card"
         onClick={(e) => e.stopPropagation()}
         onScroll={handleCardScroll}
+        style={{ position: 'relative' }}
       >
-        {/* Header */}
+        {/* Toast Notification */}
+        {showToast && (
+          <div className="athlete-share-toast" role="status">
+            <i className="bi bi-check-circle-fill me-2 text-success"></i>
+            {toastMessage}
+          </div>
+        )}
+
+        {/* Sticky Header revealed on scroll */}
         <div
           ref={headerRef}
           className={`modal-header-simple atleta-modal-header ${isScrolledPastHero ? 'is-scrolled' : 'is-dissolved'}`}
@@ -273,9 +392,6 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
               aria-label={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
             >
               <i className={isFav ? 'bi bi-star-fill text-warning' : 'bi bi-star'}></i>
-              <span className="modal-favorite-btn-text d-none d-sm-inline">
-                {isFav ? 'Preferito' : 'Preferiti'}
-              </span>
             </button>
             <button
               type="button"
@@ -290,19 +406,124 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="modal-body-simple" style={{ padding: '18px 20px' }}>
+        <div className="modal-body-simple" style={{ padding: '22px 24px' }}>
+          {/* Top Action Bar (Star, Copy Link, Share, Close X) */}
+          <div className="athlete-spotlight-top-bar">
+            <div className="athlete-spotlight-top-actions">
+              {/* 1. Favorite / Star Button */}
+              <button
+                type="button"
+                className={`athlete-spotlight-action-btn btn-star ${isFav ? 'is-favorited' : ''}`}
+                onClick={handleToggleFavorite}
+                title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                aria-label={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                disabled={loading && !atleta}
+              >
+                <i className={isFav ? 'bi bi-star-fill' : 'bi bi-star'}></i>
+              </button>
+
+              {/* 2. Copy Link Button */}
+              <button
+                type="button"
+                className={`athlete-spotlight-action-btn btn-copy ${copied ? 'is-copied' : ''}`}
+                onClick={handleCopyLink}
+                title={copied ? 'Link Copiato!' : 'Copia link profilo condivisibile'}
+                aria-label="Copia link profilo"
+                disabled={loading && !atleta}
+              >
+                <i className={copied ? 'bi bi-check2' : 'bi bi-link-45deg'}></i>
+              </button>
+
+              {/* 3. Share Button with Popover */}
+              <div className="position-relative" ref={shareMenuRef}>
+                <button
+                  type="button"
+                  className={`athlete-spotlight-action-btn btn-share ${isShareMenuOpen ? 'is-open' : ''}`}
+                  onClick={() => setIsShareMenuOpen((prev) => !prev)}
+                  title="Condividi scheda atleta"
+                  aria-label="Condividi scheda atleta"
+                  disabled={loading && !atleta}
+                >
+                  <i className="bi bi-share-fill"></i>
+                </button>
+
+                {isShareMenuOpen && (
+                  <div className="athlete-share-popover">
+                    <div className="athlete-share-popover-header">
+                      <span>Condividi Scheda</span>
+                      <button
+                        type="button"
+                        className="btn-close-popover"
+                        onClick={() => setIsShareMenuOpen(false)}
+                        aria-label="Chiudi"
+                      >
+                        <i className="bi bi-x-lg"></i>
+                      </button>
+                    </div>
+                    <div className="athlete-share-url-box">
+                      <span className="athlete-share-url-text">{shareUrl}</span>
+                    </div>
+                    <div className="athlete-share-actions">
+                      <button
+                        type="button"
+                        className="athlete-share-action-btn btn-whatsapp"
+                        onClick={handleShareWhatsApp}
+                      >
+                        <i className="bi bi-whatsapp me-2" style={{ fontSize: '16px' }}></i>
+                        <span>Invia su WhatsApp</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="athlete-share-action-btn btn-copy-link"
+                        onClick={handleCopyLink}
+                      >
+                        <i className={`bi ${copied ? 'bi-check2 text-success' : 'bi-link-45deg'} me-2`} style={{ fontSize: '16px' }}></i>
+                        <span>{copied ? 'Link Copiato!' : 'Copia Link Diretto'}</span>
+                      </button>
+                      {typeof navigator !== 'undefined' && 'share' in navigator && (
+                        <button
+                          type="button"
+                          className="athlete-share-action-btn btn-native-share"
+                          onClick={handleNativeShare}
+                        >
+                          <i className="bi bi-box-arrow-up me-2" style={{ fontSize: '14px' }}></i>
+                          <span>Altre opzioni...</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <span className="athlete-spotlight-top-divider" aria-hidden="true" />
+
+            {/* Close Button X */}
+            <button
+              type="button"
+              className="athlete-spotlight-action-btn btn-close-modal"
+              onClick={onClose}
+              title="Chiudi finestra (ESC)"
+              aria-label="Chiudi finestra"
+            >
+              <i className="bi bi-x-lg"></i>
+            </button>
+          </div>
+
+          {/* Loading State */}
           {loading && (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+            <div style={{ textAlign: 'center', padding: '50px 20px', color: 'var(--text-muted)' }}>
               <div className="spinner-border text-primary mb-3" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
                 <span className="visually-hidden">Caricamento...</span>
               </div>
               <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '6px', color: 'var(--text-dark)' }}>
-                Caricamento riepilogo anagrafico e punti...
+                Caricamento profilo atleta...
               </div>
               <div style={{ fontSize: '12px' }}>Interrogazione in tempo reale di portale.fitet.org</div>
             </div>
           )}
 
+          {/* Error State */}
           {error && (
             <div className="modal-error-box">
               <strong>Errore:</strong> {error}
@@ -331,93 +552,110 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
             </div>
           )}
 
+          {/* Loaded Athlete Spotlight Card */}
           {atleta && !loading && (
-            <div>
-              {/* Profile Bar */}
-              <div className="atleta-profile-bar" ref={profileBarRef} style={{ marginBottom: '16px' }}>
-                <div className="atleta-profile-photo-wrap">
-                  {(() => {
-                    const athletePhoto =
-                      atleta.anagrafica.fotoUrl ||
-                      (atleta.id && /^\d+$/.test(atleta.id)
-                        ? `https://portale.fitet.org/images/atleti/${atleta.id}.jpg`
-                        : null);
-                    return !imgError && athletePhoto ? (
-                      <img
-                        src={athletePhoto}
-                        alt={atleta.anagrafica.nome}
-                        referrerPolicy="no-referrer"
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        onError={() => setImgError(true)}
-                      />
-                    ) : (
-                      <span style={{ fontSize: '24px', fontWeight: '700', color: 'var(--text-muted)' }}>
-                        {atleta.anagrafica.nome.slice(0, 2)}
-                      </span>
-                    );
-                  })()}
-                </div>
+            <div className="athlete-spotlight-layout">
+              {/* Left Column (Desktop) / Top Centered (Mobile): Photo */}
+              <div className="athlete-spotlight-photo-wrap">
+                {!imgError && athletePhoto ? (
+                  <img
+                    src={athletePhoto}
+                    alt={atleta.anagrafica.nome}
+                    referrerPolicy="no-referrer"
+                    onError={() => setImgError(true)}
+                  />
+                ) : (
+                  <span className="athlete-spotlight-initials">
+                    {atleta.anagrafica.nome.slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+              </div>
 
-                <div style={{ flex: '1 1 200px', minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: '18px',
-                      fontWeight: '700',
-                      color: 'var(--text-dark)',
-                      fontFamily: 'var(--font-serif)',
-                    }}
-                  >
+              {/* Right Column (Desktop) / Centered Column (Mobile): Info + Stats */}
+              <div className="athlete-spotlight-main-col">
+                <div className="athlete-spotlight-info-block" ref={heroRef}>
+                  {/* Athlete Name (Bold Uppercase) */}
+                  <h2 className="athlete-spotlight-name">
                     {atleta.anagrafica.nome}
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    <strong>Società:</strong> {atleta.anagrafica.societa || 'N.D.'}{' '}
-                    {atleta.anagrafica.regione && `(${atleta.anagrafica.regione})`}
-                  </div>
+                  </h2>
 
-                  {(atleta.anagrafica.dataNascita || viewsCount > 0) && (
-                    <div className="atleta-profile-meta-sub">
-                      {atleta.anagrafica.dataNascita && (
-                        <span>
-                          <i className="bi bi-calendar3 me-1" style={{ fontSize: '11px' }}></i>
-                          Nato/a il {atleta.anagrafica.dataNascita}
-                        </span>
-                      )}
-                      {atleta.anagrafica.dataNascita && viewsCount > 0 && <span style={{ opacity: 0.5 }}>•</span>}
-                      {viewsCount > 0 && (
-                        <span title={`${viewsCount.toLocaleString('it-IT')} visualizzazioni reali del profilo`}>
-                          <i className="bi bi-eye me-1" style={{ fontSize: '11px' }}></i>
-                          {viewsCount.toLocaleString('it-IT')} {viewsCount === 1 ? 'visita' : 'visite'}
+                  {/* Society & Region */}
+                  <div className="athlete-spotlight-club-wrap">
+                    <div className="athlete-spotlight-club-row">
+                      {atleta.anagrafica.societa && onOpenSociety ? (
+                        <button
+                          type="button"
+                          className="athlete-spotlight-club-btn"
+                          onClick={() => onOpenSociety(atleta.anagrafica.societa)}
+                          title={`Apri scheda società ${atleta.anagrafica.societa}`}
+                        >
+                          <span>{atleta.anagrafica.societa}</span>
+                          <TeamLogo
+                            teamName={atleta.anagrafica.societa}
+                            logoUrl={atleta.anagrafica.logoUrl}
+                            className="athlete-spotlight-team-logo"
+                          />
+                        </button>
+                      ) : (
+                        <span className="athlete-spotlight-club-text">
+                          {atleta.anagrafica.societa || 'N.D.'}
+                          {atleta.anagrafica.societa && (
+                            <TeamLogo
+                              teamName={atleta.anagrafica.societa}
+                              logoUrl={atleta.anagrafica.logoUrl}
+                              className="athlete-spotlight-team-logo"
+                            />
+                          )}
                         </span>
                       )}
                     </div>
-                  )}
+                    {atleta.anagrafica.regione && (
+                      <div className="athlete-spotlight-region">
+                        ({atleta.anagrafica.regione})
+                      </div>
+                    )}
+                  </div>
 
-                  {/* Status & Category Tags */}
-                  <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                  {/* Badges & Meta Row */}
+                  <div className="athlete-spotlight-meta-row">
                     {atleta.anagrafica.categoria && (
-                      <span className="badge badge-neutral">
-                        {/^\d+$/.test(atleta.anagrafica.categoria.trim())
-                          ? `${atleta.anagrafica.categoria}ª Categoria`
-                          : atleta.anagrafica.categoria}
+                      <span className="athlete-spotlight-pill">
+                        {formatCategoryPill(atleta.anagrafica.categoria)}
                       </span>
                     )}
                     {atleta.anagrafica.settore && (
-                      <span className="badge badge-neutral">{atleta.anagrafica.settore}</span>
+                      <span className="athlete-spotlight-pill">
+                        {atleta.anagrafica.settore}
+                      </span>
                     )}
-                    {atleta.anagrafica.stato && (
-                      <span className="badge badge-neutral">{atleta.anagrafica.stato}</span>
+                    {(atleta.anagrafica.categoria || atleta.anagrafica.settore) && (atleta.anagrafica.dataNascita || viewsCount > 0) && (
+                      <span className="athlete-spotlight-divider" aria-hidden="true" />
+                    )}
+                    {atleta.anagrafica.dataNascita && (
+                      <span className="athlete-spotlight-meta-item">
+                        <i className="bi bi-calendar3 me-1"></i>
+                        <span className="athlete-spotlight-born-prefix">Nato/a il&nbsp;</span>
+                        {atleta.anagrafica.dataNascita}
+                      </span>
+                    )}
+                    {atleta.anagrafica.dataNascita && viewsCount > 0 && (
+                      <span className="athlete-spotlight-bullet athlete-spotlight-meta-sep" aria-hidden="true">•</span>
+                    )}
+                    {viewsCount > 0 && (
+                      <span className="athlete-spotlight-meta-item" title={`${viewsCount.toLocaleString('it-IT')} visite reali del profilo`}>
+                        <i className="bi bi-eye me-1"></i>
+                        {viewsCount.toLocaleString('it-IT')} {viewsCount === 1 ? 'visita' : 'visite'}
+                      </span>
                     )}
                   </div>
                 </div>
-              </div>
 
-              {/* 4-Column Overview Stats Card */}
-              <div className="overview-stats-section" style={{ marginBottom: 0 }}>
-                <div className="overview-stats-card">
+                {/* 4-Column Overview Stats Card */}
+                <div className="overview-stats-card athlete-spotlight-stats-card">
                   <div className="overview-stats-row">
                     {/* 1. Posizione */}
                     <div className="overview-stat-col" title={`Posizione attuale: ${posText} (${posSub})`}>
-                      <span className="overview-stat-label">Posizione</span>
+                      <span className="overview-stat-label">POSIZIONE</span>
                       <MarqueeText className="overview-stat-value" text={posText} />
                       <MarqueeText className="overview-stat-sub" text={posSub} />
                     </div>
@@ -426,7 +664,7 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
 
                     {/* 2. Punti Rank */}
                     <div className="overview-stat-col" title={`Punti attuali: ${pts} pt (Iniziali: ${initPts} pt)`}>
-                      <span className="overview-stat-label">Punti Rank</span>
+                      <span className="overview-stat-label">PUNTI RANK</span>
                       <MarqueeText className="overview-stat-value" text={pts.toLocaleString('it-IT')} />
                       <MarqueeText className="overview-stat-sub" text={`Iniziali: ${initPts.toLocaleString('it-IT')}`} />
                     </div>
@@ -435,22 +673,22 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
 
                     {/* 3. Partite V/G */}
                     <div className="overview-stat-col" title={`Partite vinte: ${partiteVinte}, giocate: ${partiteGiocate}, perse: ${partitePerse}`}>
-                      <span className="overview-stat-label">Partite V/G</span>
+                      <span className="overview-stat-label">PARTITE V/G</span>
                       <MarqueeText className="overview-stat-value">
                         {partiteVinte} <span className="overview-stat-slash">/</span> {partiteGiocate}
                       </MarqueeText>
-                      <MarqueeText className="overview-stat-sub" text={`Perse: ${partitePerse}`} />
+                      <MarqueeText className="overview-stat-sub" text={formatPartiteSub()} />
                     </div>
 
                     <div className="overview-stat-divider" aria-hidden="true" />
 
                     {/* 4. % Vittorie */}
                     <div className="overview-stat-col" title={`% Vittorie: ${percPositiva}%, Guadagno netto: ${puntiNetto} pt`}>
-                      <span className="overview-stat-label">% Vittorie</span>
-                      <MarqueeText className="overview-stat-value" text={`${percPositiva}%`} />
+                      <span className="overview-stat-label">% VITTORIE</span>
+                      <MarqueeText className="overview-stat-value text-accent-green" text={`${percPositiva}%`} />
                       <MarqueeText
-                        className="overview-stat-sub"
-                        text={puntiNetto > 0 ? `+${puntiNetto} pt netti` : `${puntiNetto} pt`}
+                        className="overview-stat-sub text-accent-green"
+                        text={puntiNetto > 0 ? `+${puntiNetto} pt netti` : `${puntiNetto} pt netti`}
                       />
                     </div>
                   </div>
