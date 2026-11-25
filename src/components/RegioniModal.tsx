@@ -20,6 +20,7 @@ import {
   cleanChampionshipCardName,
   getChampionshipGender,
 } from '../utils/championshipUtils';
+import { SkeletonWrap, SkeletonSectionHead, SkeletonCardGrid } from './ModalSkeleton';
 
 interface RegioniModalProps {
   isOpen: boolean;
@@ -327,12 +328,10 @@ export const RegioniModal: React.FC<RegioniModalProps> = ({
         {/* Contenuto Modale: Griglia Comitati Regionali oppure Gironi del Comitato selezionato */}
         <div className="championship-list-container">
           {isLoadingCampionati && campionati.length === 0 ? (
-            <div className="championship-loading-state">
-              <div className="spinner-border text-primary mb-2" role="status" style={{ width: '2rem', height: '2rem' }}>
-                <span className="visually-hidden">Caricamento...</span>
-              </div>
-              <p>Caricamento comitati e campionati FITeT in corso...</p>
-            </div>
+            <SkeletonWrap label="Caricamento comitati e campionati" caption="Caricamento comitati e campionati FITeT in corso...">
+              <SkeletonSectionHead titleW={220} badgeW={80} />
+              <SkeletonCardGrid count={12} height={70} minWidth={160} />
+            </SkeletonWrap>
           ) : !selectedRegion ? (
             <div className="championship-group-section">
               <div className="championship-group-header" style={{ borderLeftColor: '#0284c7' }}>

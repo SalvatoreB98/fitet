@@ -21,6 +21,7 @@ import {
   cleanChampionshipCardName,
   getChampionshipGender,
 } from '../utils/championshipUtils';
+import { SkeletonWrap, SkeletonSectionHead, SkeletonCardGrid } from './ModalSkeleton';
 
 interface ChampionshipModalProps {
   isOpen: boolean;
@@ -412,12 +413,10 @@ export const ChampionshipModal: React.FC<ChampionshipModalProps> = ({
         {/* Championships List */}
         <div className="championship-list-container">
           {isLoadingCampionati && campionati.length === 0 ? (
-            <div className="championship-loading-state">
-              <div className="spinner-border text-primary mb-2" role="status" style={{ width: '2rem', height: '2rem' }}>
-                <span className="visually-hidden">Caricamento...</span>
-              </div>
-              <p>Caricamento campionati FITeT in corso...</p>
-            </div>
+            <SkeletonWrap label="Caricamento campionati FITeT" caption="Caricamento campionati FITeT in corso...">
+              <SkeletonSectionHead titleW={200} badgeW={70} />
+              <SkeletonCardGrid count={8} height={82} minWidth={240} />
+            </SkeletonWrap>
           ) : filteredCampionati.length === 0 ? (
             <div className="championship-empty-state">
               <i className="bi bi-search mb-2" style={{ fontSize: '28px', color: 'var(--text-muted)' }}></i>

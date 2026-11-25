@@ -6,6 +6,7 @@ import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { useModalTransition } from '../utils/useModalTransition';
 import { HeadToHeadComparisonPanel } from './HeadToHeadComparisonPanel';
 import { HeadToHeadPickerModal, HeadToHeadPlayer } from './HeadToHeadPickerModal';
+import { SkeletonWrap, SkeletonVersus, SkeletonSectionHead, SkeletonListRows } from './ModalSkeleton';
 
 interface HeadToHeadModalProps {
   isOpen: boolean;
@@ -157,10 +158,12 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
     setIsPickerOpen(false);
   };
 
+  const isCompactState = !loading && Boolean(error);
+
   return createPortal(
     <div className={`modal-backdrop-simple modal-h2h-backdrop ${isClosing ? 'modal-closing' : ''}`} onClick={requestClose} style={{ zIndex: 1600 }}>
       <div
-        className="modal-card-simple h2h-modal-card"
+        className={`modal-card-simple h2h-modal-card ${isClosing ? 'is-closing' : ''} ${isCompactState ? 'is-compact-state' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -205,10 +208,18 @@ export const HeadToHeadModal: React.FC<HeadToHeadModalProps> = ({
         {/* Modal Body */}
         <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
           {loading && (
-            <div style={{ textAlign: 'center', padding: '40px 10px', color: 'var(--text-muted)' }}>
-              <span className="spinner-border spinner-border-sm text-primary me-2" role="status"></span>
-              Caricamento confronti diretti da FITeT...
-            </div>
+            <SkeletonWrap label="Caricamento confronti diretti" caption="Caricamento confronti diretti da FITeT...">
+              <SkeletonVersus
+                leftLabel={player1.nome}
+                rightLabel={player2.nome}
+                avatarShape="circle"
+                showScoreBar
+              />
+              <div style={{ marginTop: '16px' }}>
+                <SkeletonSectionHead titleW={160} badgeW={60} />
+                <SkeletonListRows count={4} hasChevron />
+              </div>
+            </SkeletonWrap>
           )}
 
           {error && !loading && (

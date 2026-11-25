@@ -14,6 +14,7 @@ import { useModalTransition } from '../utils/useModalTransition';
 import { TeamLogo } from './TeamLogo';
 import { AthleteAvatar } from './AthleteAvatar';
 import { HeadToHeadModal } from './HeadToHeadModal';
+import { SkeletonWrap, SkeletonSectionHead, SkeletonTableRows } from './ModalSkeleton';
 import {
   EvaluatedPlayer,
   computeEvaluatedRoster,
@@ -867,10 +868,22 @@ export const TeamMatchPreviewModal: React.FC<TeamMatchPreviewModalProps> = ({
           </div>
 
           {loadingRosters && (
-            <div className="tmp-loading-box">
-              <span className="spinner-border spinner-border-sm text-primary me-2" role="status" />
-              Caricamento rose, ranking e statistiche giocatori da FITeT...
-            </div>
+            <SkeletonWrap
+              label="Caricamento rose e statistiche"
+              caption="Caricamento rose, ranking e statistiche giocatori da FITeT..."
+              className="mb-3"
+            >
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginTop: '12px' }}>
+                <div>
+                  <SkeletonSectionHead titleW={140} badgeW={60} />
+                  <SkeletonTableRows count={4} hasAvatar cols={2} />
+                </div>
+                <div>
+                  <SkeletonSectionHead titleW={140} badgeW={60} />
+                  <SkeletonTableRows count={4} hasAvatar cols={2} />
+                </div>
+              </div>
+            </SkeletonWrap>
           )}
 
           {rosterError && !loadingRosters && (

@@ -8,6 +8,7 @@ import { useModalTransition } from '../utils/useModalTransition';
 import { TeamLogo } from './TeamLogo';
 import { AthleteAvatar } from './AthleteAvatar';
 import MarqueeText from './MarqueeText';
+import { SkeletonWrap, SkeletonVersus, SkeletonSectionHead, SkeletonTableRows } from './ModalSkeleton';
 
 interface RefertoModalProps {
   incontroId: string;
@@ -131,13 +132,14 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
 
   const logoCasa = referto?.squadraCasa.logoUrl || getTeamLogoUrl(referto?.squadraCasa.nome || squadraCasaNome);
   const logoOspite = referto?.squadraOspite.logoUrl || getTeamLogoUrl(referto?.squadraOspite.nome || squadraOspiteNome);
+  const isCompactState = !loading && Boolean(error && !referto);
 
   if (typeof document === 'undefined') return null;
 
   return createPortal(
     <div className={`modal-backdrop-simple modal-referto-backdrop ${isClosing ? 'modal-closing' : ''}`} onClick={requestClose}>
       <div
-        className="modal-card-simple referto-modal-card"
+        className={`modal-card-simple referto-modal-card ${isClosing ? 'is-closing' : ''} ${isCompactState ? 'is-compact-state' : ''}`}
         onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: '860px', width: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
       >
@@ -178,15 +180,21 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
         {/* Modal Body */}
         <div className="modal-body-simple referto-modal-body" style={{ flex: 1, overflowY: 'auto' }}>
           {loading && !referto && (
-            <div style={{ textAlign: 'center', padding: '50px 20px', color: 'var(--text-muted)' }}>
-              <div className="spinner-border text-primary mb-3" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
-                <span className="visually-hidden">Caricamento...</span>
+            <SkeletonWrap
+              label="Caricamento referto di gara"
+              caption="Recupero risultati ufficiali e parziali set da portale.fitet.org..."
+            >
+              <SkeletonVersus
+                leftLabel={squadraCasaNome || 'Squadra Casa'}
+                rightLabel={squadraOspiteNome || 'Squadra Ospite'}
+                avatarShape="square"
+                showScoreBar
+              />
+              <div style={{ marginTop: '18px' }}>
+                <SkeletonSectionHead titleW={160} badgeW={90} />
+                <SkeletonTableRows count={6} hasAvatar={false} cols={3} />
               </div>
-              <div style={{ fontSize: '14.5px', fontWeight: '600', marginBottom: '6px', color: 'var(--text-dark)' }}>
-                Caricamento referto di gara in corso...
-              </div>
-              <div style={{ fontSize: '12px' }}>Recupero risultati ufficiali e parziali set da portale.fitet.org</div>
-            </div>
+            </SkeletonWrap>
           )}
 
           {error && !referto && (

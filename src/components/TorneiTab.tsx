@@ -27,6 +27,7 @@ import {
   TorneiItalyMap,
   TorneiMapSelection,
 } from './TorneiItalyMap';
+import { SkeletonWrap, SkeletonSectionHead, SkeletonListRows, SkeletonTableRows, SkeletonCardGrid } from './ModalSkeleton';
 import {
   getMyPlayerId,
   getMyPlayerName,
@@ -1831,20 +1832,18 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
 
               <div className="tornei-phase-body">
                 {loadingGara ? (
-                  <div className="tornei-loading-state tornei-loading-compact">
-                    <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}>
-                      <span className="visually-hidden">Caricamento...</span>
-                    </div>
-                    <p className="tornei-loading-text">Caricamento turno...</p>
-                  </div>
+                  <SkeletonWrap label="Caricamento turno" caption="Caricamento turno...">
+                    <SkeletonTableRows count={4} cols={3} />
+                  </SkeletonWrap>
                 ) : bracketViewMode === 'bracket' ? (
                   bracketLoading ? (
-                    <div className="tornei-loading-state tornei-loading-compact">
-                      <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}>
-                        <span className="visually-hidden">Caricamento tabellone...</span>
+                    <SkeletonWrap label="Generazione tabellone" caption="Generazione del tabellone completo...">
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', padding: '16px 0' }}>
+                        <SkeletonListRows count={4} />
+                        <SkeletonListRows count={2} />
+                        <SkeletonListRows count={1} />
                       </div>
-                      <p className="tornei-loading-text">Generazione del tabellone completo...</p>
-                    </div>
+                    </SkeletonWrap>
                   ) : (
                     <TorneoBracket
                       rounds={currentFullBracketRounds}
@@ -1941,12 +1940,9 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
 
               <div className="tornei-phase-body">
                 {loadingGara ? (
-                  <div className="tornei-loading-state tornei-loading-compact">
-                    <div className="spinner-border text-primary" role="status" style={{ width: '2rem', height: '2rem' }}>
-                      <span className="visually-hidden">Caricamento...</span>
-                    </div>
-                    <p className="tornei-loading-text">Caricamento gironi...</p>
-                  </div>
+                  <SkeletonWrap label="Caricamento gironi" caption="Caricamento gironi...">
+                    <SkeletonCardGrid count={4} height={90} minWidth={220} />
+                  </SkeletonWrap>
                 ) : garaData.gironi.length > 0 ? (
                   <div className="tornei-gironi-list">
                     {garaData.gironi.map((gir) => {
@@ -2363,12 +2359,10 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
           </header>
 
           {loadingGara ? (
-            <div className="tornei-loading-state">
-              <div className="spinner-border text-primary" role="status" style={{ width: '2.2rem', height: '2.2rem' }}>
-                <span className="visually-hidden">Caricamento...</span>
-              </div>
-              <p className="tornei-loading-text">Caricamento dati gara dal portale FITeT...</p>
-            </div>
+            <SkeletonWrap label="Caricamento gara torneo" caption="Caricamento dati gara dal portale FITeT...">
+              <SkeletonSectionHead titleW={160} badgeW={40} />
+              <SkeletonListRows count={4} hasChevron />
+            </SkeletonWrap>
           ) : !garaData ? (
             <div className="tornei-empty-box">
               <span>Impossibile caricare i dati di questa gara.</span>
@@ -2512,10 +2506,9 @@ export const TorneiTab: React.FC<TorneiTabProps> = ({
             </div>
 
             {loadingDettaglio ? (
-              <div className="tornei-inline-loading">
-                <span className="spinner-border spinner-border-sm text-primary" role="status" aria-hidden="true"></span>
-                <span>Caricamento gare...</span>
-              </div>
+              <SkeletonWrap label="Caricamento gare torneo" caption="Caricamento gare ufficiali dal portale FITeT...">
+                <SkeletonListRows count={5} hasChevron />
+              </SkeletonWrap>
             ) : dettaglioError ? (
               <div className="tornei-empty-box">
                 <span>{dettaglioError}</span>

@@ -7,6 +7,7 @@ import { useModalTransition } from '../utils/useModalTransition';
 import { TeamLogo } from './TeamLogo';
 import { AthleteAvatar } from './AthleteAvatar';
 import { MarqueeText } from './MarqueeText';
+import { SkeletonWrap, SkeletonStatsCard, SkeletonSectionHead, SkeletonTableRows } from './ModalSkeleton';
 
 export interface SquadraModalProps {
   squadraId: string;
@@ -79,13 +80,14 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
   const setDiff = totalSetVinti - totalSetPersi;
 
   const displayName = data?.nome || squadraNome || `Squadra ${squadraId}`;
+  const isCompactState = !loading && Boolean(error && !data);
 
   if (typeof document === 'undefined') return null;
 
   return createPortal(
     <div className={`modal-backdrop-simple modal-referto-backdrop ${isClosing ? 'modal-closing' : ''}`} onClick={requestClose} role="dialog" aria-modal="true">
       <div
-        className="modal-card-simple referto-modal-card squadra-modal-card"
+        className={`modal-card-simple referto-modal-card squadra-modal-card ${isClosing ? 'is-closing' : ''} ${isCompactState ? 'is-compact-state' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Simple Blue Header matching the app's design system */}
@@ -158,15 +160,16 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
         {/* Modal Body */}
         <div className="modal-body-simple" style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
           {loading && !data && (
-            <div style={{ textAlign: 'center', padding: '50px 20px', color: 'var(--text-muted)' }}>
-              <div className="spinner-border text-primary mb-3" role="status" style={{ width: '2.5rem', height: '2.5rem' }}>
-                <span className="visually-hidden">Caricamento...</span>
+            <SkeletonWrap
+              label="Caricamento dati squadra"
+              caption="Caricamento scheda squadra e percentuali atleti da portale.fitet.org..."
+            >
+              <SkeletonStatsCard cols={4} />
+              <div style={{ marginTop: '18px' }}>
+                <SkeletonSectionHead titleW={180} badgeW={80} />
+                <SkeletonTableRows count={6} hasAvatar cols={3} />
               </div>
-              <div style={{ fontSize: '14.5px', fontWeight: '600', marginBottom: '6px', color: 'var(--text-dark)' }}>
-                Caricamento scheda squadra e percentuali atleti...
-              </div>
-              <div style={{ fontSize: '12px' }}>Interrogazione in tempo reale di portale.fitet.org</div>
-            </div>
+            </SkeletonWrap>
           )}
 
           {error && !data && (
