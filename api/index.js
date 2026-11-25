@@ -646,10 +646,180 @@ var ViewsService = class {
 var viewsService = new ViewsService();
 
 // server/services/analyticsService.ts
-import { createClient as createClient3 } from "@supabase/supabase-js";
+import { createClient as createClient4 } from "@supabase/supabase-js";
 import crypto from "crypto";
+import dotenv3 from "dotenv";
+
+// server/services/trafficSourceService.ts
+import { createClient as createClient3 } from "@supabase/supabase-js";
 import dotenv2 from "dotenv";
 dotenv2.config();
+var MAX_SOURCE_LEN = 100;
+var MAX_MEDIUM_LEN = 64;
+var MAX_REFERRER_LEN = 300;
+var MAX_PATH_LEN = 200;
+function detectDeviceType(userAgent) {
+  return /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(userAgent || "") ? "mobile" : "desktop";
+}
+function sanitizeSource(raw) {
+  if (typeof raw !== "string") return "direct";
+  const clean = raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, MAX_SOURCE_LEN);
+  return clean || "direct";
+}
+function sanitizeUtmMedium(raw) {
+  if (typeof raw !== "string") return null;
+  const clean = raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, MAX_MEDIUM_LEN);
+  return clean || null;
+}
+function sanitizeReferrer(raw) {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    const clean = `${parsed.origin}${parsed.pathname}`.slice(0, MAX_REFERRER_LEN);
+    return clean;
+  } catch {
+    return trimmed.slice(0, MAX_REFERRER_LEN);
+  }
+}
+function sanitizeLandingPath(raw) {
+  if (typeof raw !== "string") return "/";
+  const trimmed = raw.trim();
+  if (!trimmed) return "/";
+  const pathOnly = trimmed.split("?")[0].split("#")[0] || "/";
+  const normalized = pathOnly.startsWith("/") ? pathOnly : `/${pathOnly}`;
+  return normalized.slice(0, MAX_PATH_LEN) || "/";
+}
+var TrafficSourceService = class {
+  client = null;
+  dailyAggregation = /* @__PURE__ */ new Map();
+  constructor() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (url && key) {
+      this.client = createClient3(url, key, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+    }
+  }
+  logStructured(date, entry) {
+    const aggKey = `${date}:${entry.source}:${entry.deviceType}`;
+    const count = (this.dailyAggregation.get(aggKey) || 0) + 1;
+    this.dailyAggregation.set(aggKey, count);
+    console.log(
+      JSON.stringify({
+        event: "traffic_source",
+        date,
+        source: entry.source,
+        utmMedium: entry.utmMedium || null,
+        landingPath: entry.landingPath,
+        deviceType: entry.deviceType,
+        dailyCount: count
+      })
+    );
+  }
+  async recordTrafficSource(entry) {
+    const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    if (!this.client) {
+      this.logStructured(today, entry);
+      return;
+    }
+    try {
+      const { error } = await this.client.from("traffic_sources").insert({
+        date: today,
+        source: entry.source,
+        utm_medium: entry.utmMedium || null,
+        referrer: entry.referrer || null,
+        landing_path: entry.landingPath,
+        device_type: entry.deviceType
+      });
+      if (error) {
+        console.warn("[TrafficSourceService] Errore inserimento Supabase, fallback su log:", error.message);
+        this.logStructured(today, entry);
+      }
+    } catch (err) {
+      console.warn("[TrafficSourceService] Eccezione Supabase, fallback su log:", err?.message || err);
+      this.logStructured(today, entry);
+    }
+  }
+  async getTrafficSources(startDate, endDate) {
+    if (!this.client) {
+      return {
+        total: 0,
+        sources: [],
+        mediums: [],
+        referrers: [],
+        landingPaths: [],
+        devices: []
+      };
+    }
+    try {
+      const pageSize = 1e3;
+      const maxPages = 50;
+      const allRows = [];
+      for (let page = 0; page < maxPages; page++) {
+        const from = page * pageSize;
+        const { data, error } = await this.client.from("traffic_sources").select("source, utm_medium, referrer, landing_path, device_type, date").gte("date", startDate).lte("date", endDate).order("date", { ascending: false }).range(from, from + pageSize - 1);
+        if (error) {
+          console.warn("[TrafficSourceService] Errore lettura traffic_sources:", error.message);
+          break;
+        }
+        const batch = data || [];
+        allRows.push(...batch);
+        if (batch.length < pageSize) break;
+      }
+      const sourceMap = /* @__PURE__ */ new Map();
+      const mediumMap = /* @__PURE__ */ new Map();
+      const referrerMap = /* @__PURE__ */ new Map();
+      const landingMap = /* @__PURE__ */ new Map();
+      const deviceMap = /* @__PURE__ */ new Map();
+      for (const row of allRows) {
+        const s = (row.source || "direct").trim().toLowerCase();
+        sourceMap.set(s, (sourceMap.get(s) || 0) + 1);
+        let m = (row.utm_medium || "").trim().toLowerCase();
+        if (!m) {
+          if (s === "direct") m = "direct";
+          else if (["google", "bing", "yahoo", "duckduckgo", "ecosia", "yandex"].includes(s)) m = "organic";
+          else if (["facebook", "instagram", "twitter", "t.co", "linkedin", "tiktok", "youtube"].includes(s)) m = "social";
+          else if (["whatsapp", "telegram"].includes(s)) m = "messaging";
+          else m = "referral";
+        }
+        mediumMap.set(m, (mediumMap.get(m) || 0) + 1);
+        const ref = (row.referrer || "").trim();
+        const refLabel = ref || "(diretto / nessuno)";
+        referrerMap.set(refLabel, (referrerMap.get(refLabel) || 0) + 1);
+        const lp = (row.landing_path || "/").trim();
+        landingMap.set(lp, (landingMap.get(lp) || 0) + 1);
+        const dev = (row.device_type || "desktop").trim().toLowerCase();
+        deviceMap.set(dev, (deviceMap.get(dev) || 0) + 1);
+      }
+      const toSorted = (map, limit = 20) => Array.from(map.entries()).map(([target, count]) => ({ target, count })).sort((a, b) => b.count - a.count).slice(0, limit);
+      return {
+        total: allRows.length,
+        sources: toSorted(sourceMap),
+        mediums: toSorted(mediumMap),
+        referrers: toSorted(referrerMap),
+        landingPaths: toSorted(landingMap),
+        devices: toSorted(deviceMap)
+      };
+    } catch (err) {
+      console.warn("[TrafficSourceService] Eccezione lettura traffic_sources:", err?.message || err);
+      return {
+        total: 0,
+        sources: [],
+        mediums: [],
+        referrers: [],
+        landingPaths: [],
+        devices: []
+      };
+    }
+  }
+};
+var trafficSourceService = new TrafficSourceService();
+
+// server/services/analyticsService.ts
+dotenv3.config();
 var MAX_TYPE_LEN = 32;
 var MAX_TARGET_LEN = 200;
 var ANALYTICS_START_DATE = "2026-11-04";
@@ -718,7 +888,7 @@ var AnalyticsService = class {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
     if (url && key) {
       try {
-        this.supabase = createClient3(url, key, {
+        this.supabase = createClient4(url, key, {
           auth: {
             persistSession: false,
             autoRefreshToken: false
@@ -909,6 +1079,7 @@ var AnalyticsService = class {
     const clampedStartDate = rawStartDate < ANALYTICS_START_DATE ? ANALYTICS_START_DATE : rawStartDate;
     const startDate = clampedStartDate > endDate ? endDate : clampedStartDate;
     let rows = [];
+    const trafficSourcesPromise = trafficSourceService.getTrafficSources(startDate, endDate);
     if (this.supabase) {
       rows = await this.fetchAllDailyRows(startDate, endDate);
     } else {
@@ -916,6 +1087,7 @@ var AnalyticsService = class {
         (r) => r.date >= startDate && r.date <= endDate
       );
     }
+    const trafficSources = await trafficSourcesPromise;
     const dailyMap = /* @__PURE__ */ new Map();
     for (const dateStr of enumerateUtcDates(startDate, endDate)) {
       dailyMap.set(dateStr, { pages: 0, visitors: 0, clicks: 0 });
@@ -1068,7 +1240,8 @@ var AnalyticsService = class {
         nodes,
         edges: graphEdges
       },
-      topPaths
+      topPaths,
+      trafficSources
     };
   }
 };
@@ -1109,102 +1282,6 @@ function buildTopMultiStepPaths(edges) {
   return journeys.sort((a, b) => b.estimatedCount - a.estimatedCount).slice(0, 10);
 }
 var analyticsService = new AnalyticsService();
-
-// server/services/trafficSourceService.ts
-import { createClient as createClient4 } from "@supabase/supabase-js";
-import dotenv3 from "dotenv";
-dotenv3.config();
-var MAX_SOURCE_LEN = 100;
-var MAX_MEDIUM_LEN = 64;
-var MAX_REFERRER_LEN = 300;
-var MAX_PATH_LEN = 200;
-function detectDeviceType(userAgent) {
-  return /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(userAgent || "") ? "mobile" : "desktop";
-}
-function sanitizeSource(raw) {
-  if (typeof raw !== "string") return "direct";
-  const clean = raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, MAX_SOURCE_LEN);
-  return clean || "direct";
-}
-function sanitizeUtmMedium(raw) {
-  if (typeof raw !== "string") return null;
-  const clean = raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, MAX_MEDIUM_LEN);
-  return clean || null;
-}
-function sanitizeReferrer(raw) {
-  if (typeof raw !== "string") return null;
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  try {
-    const parsed = new URL(trimmed);
-    const clean = `${parsed.origin}${parsed.pathname}`.slice(0, MAX_REFERRER_LEN);
-    return clean;
-  } catch {
-    return trimmed.slice(0, MAX_REFERRER_LEN);
-  }
-}
-function sanitizeLandingPath(raw) {
-  if (typeof raw !== "string") return "/";
-  const trimmed = raw.trim();
-  if (!trimmed) return "/";
-  const pathOnly = trimmed.split("?")[0].split("#")[0] || "/";
-  const normalized = pathOnly.startsWith("/") ? pathOnly : `/${pathOnly}`;
-  return normalized.slice(0, MAX_PATH_LEN) || "/";
-}
-var TrafficSourceService = class {
-  client = null;
-  dailyAggregation = /* @__PURE__ */ new Map();
-  constructor() {
-    const url = process.env.SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-    if (url && key) {
-      this.client = createClient4(url, key, {
-        auth: { persistSession: false, autoRefreshToken: false }
-      });
-    }
-  }
-  logStructured(date, entry) {
-    const aggKey = `${date}:${entry.source}:${entry.deviceType}`;
-    const count = (this.dailyAggregation.get(aggKey) || 0) + 1;
-    this.dailyAggregation.set(aggKey, count);
-    console.log(
-      JSON.stringify({
-        event: "traffic_source",
-        date,
-        source: entry.source,
-        utmMedium: entry.utmMedium || null,
-        landingPath: entry.landingPath,
-        deviceType: entry.deviceType,
-        dailyCount: count
-      })
-    );
-  }
-  async recordTrafficSource(entry) {
-    const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    if (!this.client) {
-      this.logStructured(today, entry);
-      return;
-    }
-    try {
-      const { error } = await this.client.from("traffic_sources").insert({
-        date: today,
-        source: entry.source,
-        utm_medium: entry.utmMedium || null,
-        referrer: entry.referrer || null,
-        landing_path: entry.landingPath,
-        device_type: entry.deviceType
-      });
-      if (error) {
-        console.warn("[TrafficSourceService] Errore inserimento Supabase, fallback su log:", error.message);
-        this.logStructured(today, entry);
-      }
-    } catch (err) {
-      console.warn("[TrafficSourceService] Eccezione Supabase, fallback su log:", err?.message || err);
-      this.logStructured(today, entry);
-    }
-  }
-};
-var trafficSourceService = new TrafficSourceService();
 
 // server/services/userAgentParser.ts
 function detectDeviceType2(userAgent) {
@@ -1556,10 +1633,15 @@ function renderAnalyticsAdminHtml() {
     }
     .tables-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 16px;
     }
-    @media (max-width: 820px) {
+    @media (max-width: 1080px) {
+      .tables-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 720px) {
       .tables-grid {
         grid-template-columns: 1fr;
       }
@@ -1575,7 +1657,10 @@ function renderAnalyticsAdminHtml() {
     .panel-tabs {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      white-space: nowrap;
     }
     .panel-tab {
       appearance: none;
@@ -1788,6 +1873,21 @@ function renderAnalyticsAdminHtml() {
       <div class="card">
         <div class="panel-header">
           <div class="panel-tabs">
+            <button class="panel-tab active" type="button" id="tabTrafficSource">Sorgente</button>
+            <button class="panel-tab" type="button" id="tabTrafficMedium">Canale</button>
+            <button class="panel-tab" type="button" id="tabTrafficReferrer">Referrer</button>
+            <button class="panel-tab" type="button" id="tabTrafficLanding">Landing</button>
+          </div>
+          <span class="panel-col-label" id="trafficColLabel">Accessi</span>
+        </div>
+        <div class="list-rows" id="trafficList">
+          <div class="empty-state">Caricamento...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="panel-header">
+          <div class="panel-tabs">
             <button class="panel-tab active" type="button" data-right-tab="clicks" id="tabRightClicks">Click</button>
             <button class="panel-tab" type="button" data-right-tab="flows" id="tabRightFlows">Flussi</button>
           </div>
@@ -1874,6 +1974,7 @@ function renderAnalyticsAdminHtml() {
     let activeMetrics = new Set(['visitors']);
     let separateScales = false;
     let activeRightTab = 'clicks';
+    let activeTrafficTab = 'source';
     let lastData = null;
     let trendChart = null;
 
@@ -2113,6 +2214,63 @@ function renderAnalyticsAdminHtml() {
       hint.textContent = text;
     }
 
+    function formatSourceLabel(src) {
+      const s = String(src || '').toLowerCase();
+      if (s === 'direct') return 'Diretto / Segnalibri';
+      if (s === 'google') return 'Google Search';
+      if (s === 'bing') return 'Bing Search';
+      if (s === 'yahoo') return 'Yahoo Search';
+      if (s === 'duckduckgo') return 'DuckDuckGo';
+      if (s === 'facebook') return 'Facebook';
+      if (s === 'instagram') return 'Instagram';
+      if (s === 'whatsapp') return 'WhatsApp';
+      if (s === 'telegram') return 'Telegram';
+      if (s === 't.co' || s === 'twitter' || s === 'x') return 'X (Twitter)';
+      if (s === 'chatgpt.com') return 'ChatGPT';
+      return src;
+    }
+
+    function formatMediumLabel(med) {
+      const m = String(med || '').toLowerCase();
+      if (m === 'direct') return 'Diretto';
+      if (m === 'organic') return 'Ricerca organica';
+      if (m === 'social') return 'Social media';
+      if (m === 'referral') return 'Referral / Link esterno';
+      if (m === 'messaging') return 'Messaggistica';
+      if (m === 'cpc' || m === 'ads') return 'Campagna (ADV)';
+      if (m === 'email') return 'Email';
+      return med;
+    }
+
+    function renderTrafficPanel() {
+      if (!lastData) return;
+      const ts = lastData.trafficSources || {};
+
+      document.getElementById('tabTrafficSource').classList.toggle('active', activeTrafficTab === 'source');
+      document.getElementById('tabTrafficMedium').classList.toggle('active', activeTrafficTab === 'medium');
+      document.getElementById('tabTrafficReferrer').classList.toggle('active', activeTrafficTab === 'referrer');
+      document.getElementById('tabTrafficLanding').classList.toggle('active', activeTrafficTab === 'landing');
+
+      let items = [];
+      let emptyMsg = 'Nessun dato registrato nel periodo.';
+
+      if (activeTrafficTab === 'source') {
+        items = (ts.sources || []).map((s) => ({ label: formatSourceLabel(s.target), count: s.count }));
+        emptyMsg = 'Nessuna sorgente registrata nel periodo.';
+      } else if (activeTrafficTab === 'medium') {
+        items = (ts.mediums || []).map((m) => ({ label: formatMediumLabel(m.target), count: m.count }));
+        emptyMsg = 'Nessun canale registrato nel periodo.';
+      } else if (activeTrafficTab === 'referrer') {
+        items = (ts.referrers || []).map((r) => ({ label: r.target, count: r.count }));
+        emptyMsg = 'Nessun referrer registrato nel periodo.';
+      } else if (activeTrafficTab === 'landing') {
+        items = (ts.landingPaths || []).map((l) => ({ label: l.target, count: l.count }));
+        emptyMsg = 'Nessuna landing page registrata nel periodo.';
+      }
+
+      renderBarList('trafficList', items, emptyMsg);
+    }
+
     function renderRightPanel() {
       if (!lastData) return;
       document.getElementById('tabRightClicks').classList.toggle('active', activeRightTab === 'clicks');
@@ -2149,6 +2307,7 @@ function renderAnalyticsAdminHtml() {
 
       const pageItems = (data.topPages || []).map((p) => ({ label: p.target, count: p.count }));
       renderBarList('pagesList', pageItems, 'Nessuna pagina registrata nel periodo.');
+      renderTrafficPanel();
       renderRightPanel();
       renderDimensions(data);
     }
@@ -2225,6 +2384,23 @@ function renderAnalyticsAdminHtml() {
     document.getElementById('tabRightFlows').addEventListener('click', () => {
       activeRightTab = 'flows';
       renderRightPanel();
+    });
+
+    document.getElementById('tabTrafficSource').addEventListener('click', () => {
+      activeTrafficTab = 'source';
+      renderTrafficPanel();
+    });
+    document.getElementById('tabTrafficMedium').addEventListener('click', () => {
+      activeTrafficTab = 'medium';
+      renderTrafficPanel();
+    });
+    document.getElementById('tabTrafficReferrer').addEventListener('click', () => {
+      activeTrafficTab = 'referrer';
+      renderTrafficPanel();
+    });
+    document.getElementById('tabTrafficLanding').addEventListener('click', () => {
+      activeTrafficTab = 'landing';
+      renderTrafficPanel();
     });
 
     document.getElementById('btn7').addEventListener('click', () => loadAnalytics(7));

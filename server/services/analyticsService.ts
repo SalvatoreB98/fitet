@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
+import { trafficSourceService, type TrafficSourcesSummary } from './trafficSourceService';
 
 dotenv.config();
 
@@ -86,6 +87,7 @@ export interface AnalyticsSummary {
     edges: ClickFlowEdge[];
   };
   topPaths: MultiStepJourney[];
+  trafficSources: TrafficSourcesSummary;
 }
 
 interface DailyAnalyticsRow {
@@ -435,6 +437,7 @@ class AnalyticsService {
     const startDate = clampedStartDate > endDate ? endDate : clampedStartDate;
 
     let rows: DailyAnalyticsRow[] = [];
+    const trafficSourcesPromise = trafficSourceService.getTrafficSources(startDate, endDate);
 
     if (this.supabase) {
       // Supabase/PostgREST tronca ogni risposta a `db-max-rows` (default 1000).
@@ -447,6 +450,8 @@ class AnalyticsService {
         (r) => r.date >= startDate && r.date <= endDate
       );
     }
+
+    const trafficSources = await trafficSourcesPromise;
 
     // Costruisci tutti i giorni dell'intervallo dal startDate (min 4 novembre) fino a oggi
     const dailyMap = new Map<string, { pages: number; visitors: number; clicks: number }>();
@@ -634,6 +639,7 @@ class AnalyticsService {
         edges: graphEdges,
       },
       topPaths,
+      trafficSources,
     };
   }
 }

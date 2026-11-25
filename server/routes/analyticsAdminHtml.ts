@@ -290,10 +290,15 @@ export function renderAnalyticsAdminHtml(): string {
     }
     .tables-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 16px;
     }
-    @media (max-width: 820px) {
+    @media (max-width: 1080px) {
+      .tables-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 720px) {
       .tables-grid {
         grid-template-columns: 1fr;
       }
@@ -309,7 +314,10 @@ export function renderAnalyticsAdminHtml(): string {
     .panel-tabs {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      white-space: nowrap;
     }
     .panel-tab {
       appearance: none;
@@ -522,6 +530,21 @@ export function renderAnalyticsAdminHtml(): string {
       <div class="card">
         <div class="panel-header">
           <div class="panel-tabs">
+            <button class="panel-tab active" type="button" id="tabTrafficSource">Sorgente</button>
+            <button class="panel-tab" type="button" id="tabTrafficMedium">Canale</button>
+            <button class="panel-tab" type="button" id="tabTrafficReferrer">Referrer</button>
+            <button class="panel-tab" type="button" id="tabTrafficLanding">Landing</button>
+          </div>
+          <span class="panel-col-label" id="trafficColLabel">Accessi</span>
+        </div>
+        <div class="list-rows" id="trafficList">
+          <div class="empty-state">Caricamento...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="panel-header">
+          <div class="panel-tabs">
             <button class="panel-tab active" type="button" data-right-tab="clicks" id="tabRightClicks">Click</button>
             <button class="panel-tab" type="button" data-right-tab="flows" id="tabRightFlows">Flussi</button>
           </div>
@@ -608,6 +631,7 @@ export function renderAnalyticsAdminHtml(): string {
     let activeMetrics = new Set(['visitors']);
     let separateScales = false;
     let activeRightTab = 'clicks';
+    let activeTrafficTab = 'source';
     let lastData = null;
     let trendChart = null;
 
@@ -847,6 +871,63 @@ export function renderAnalyticsAdminHtml(): string {
       hint.textContent = text;
     }
 
+    function formatSourceLabel(src) {
+      const s = String(src || '').toLowerCase();
+      if (s === 'direct') return 'Diretto / Segnalibri';
+      if (s === 'google') return 'Google Search';
+      if (s === 'bing') return 'Bing Search';
+      if (s === 'yahoo') return 'Yahoo Search';
+      if (s === 'duckduckgo') return 'DuckDuckGo';
+      if (s === 'facebook') return 'Facebook';
+      if (s === 'instagram') return 'Instagram';
+      if (s === 'whatsapp') return 'WhatsApp';
+      if (s === 'telegram') return 'Telegram';
+      if (s === 't.co' || s === 'twitter' || s === 'x') return 'X (Twitter)';
+      if (s === 'chatgpt.com') return 'ChatGPT';
+      return src;
+    }
+
+    function formatMediumLabel(med) {
+      const m = String(med || '').toLowerCase();
+      if (m === 'direct') return 'Diretto';
+      if (m === 'organic') return 'Ricerca organica';
+      if (m === 'social') return 'Social media';
+      if (m === 'referral') return 'Referral / Link esterno';
+      if (m === 'messaging') return 'Messaggistica';
+      if (m === 'cpc' || m === 'ads') return 'Campagna (ADV)';
+      if (m === 'email') return 'Email';
+      return med;
+    }
+
+    function renderTrafficPanel() {
+      if (!lastData) return;
+      const ts = lastData.trafficSources || {};
+
+      document.getElementById('tabTrafficSource').classList.toggle('active', activeTrafficTab === 'source');
+      document.getElementById('tabTrafficMedium').classList.toggle('active', activeTrafficTab === 'medium');
+      document.getElementById('tabTrafficReferrer').classList.toggle('active', activeTrafficTab === 'referrer');
+      document.getElementById('tabTrafficLanding').classList.toggle('active', activeTrafficTab === 'landing');
+
+      let items = [];
+      let emptyMsg = 'Nessun dato registrato nel periodo.';
+
+      if (activeTrafficTab === 'source') {
+        items = (ts.sources || []).map((s) => ({ label: formatSourceLabel(s.target), count: s.count }));
+        emptyMsg = 'Nessuna sorgente registrata nel periodo.';
+      } else if (activeTrafficTab === 'medium') {
+        items = (ts.mediums || []).map((m) => ({ label: formatMediumLabel(m.target), count: m.count }));
+        emptyMsg = 'Nessun canale registrato nel periodo.';
+      } else if (activeTrafficTab === 'referrer') {
+        items = (ts.referrers || []).map((r) => ({ label: r.target, count: r.count }));
+        emptyMsg = 'Nessun referrer registrato nel periodo.';
+      } else if (activeTrafficTab === 'landing') {
+        items = (ts.landingPaths || []).map((l) => ({ label: l.target, count: l.count }));
+        emptyMsg = 'Nessuna landing page registrata nel periodo.';
+      }
+
+      renderBarList('trafficList', items, emptyMsg);
+    }
+
     function renderRightPanel() {
       if (!lastData) return;
       document.getElementById('tabRightClicks').classList.toggle('active', activeRightTab === 'clicks');
@@ -883,6 +964,7 @@ export function renderAnalyticsAdminHtml(): string {
 
       const pageItems = (data.topPages || []).map((p) => ({ label: p.target, count: p.count }));
       renderBarList('pagesList', pageItems, 'Nessuna pagina registrata nel periodo.');
+      renderTrafficPanel();
       renderRightPanel();
       renderDimensions(data);
     }
@@ -959,6 +1041,23 @@ export function renderAnalyticsAdminHtml(): string {
     document.getElementById('tabRightFlows').addEventListener('click', () => {
       activeRightTab = 'flows';
       renderRightPanel();
+    });
+
+    document.getElementById('tabTrafficSource').addEventListener('click', () => {
+      activeTrafficTab = 'source';
+      renderTrafficPanel();
+    });
+    document.getElementById('tabTrafficMedium').addEventListener('click', () => {
+      activeTrafficTab = 'medium';
+      renderTrafficPanel();
+    });
+    document.getElementById('tabTrafficReferrer').addEventListener('click', () => {
+      activeTrafficTab = 'referrer';
+      renderTrafficPanel();
+    });
+    document.getElementById('tabTrafficLanding').addEventListener('click', () => {
+      activeTrafficTab = 'landing';
+      renderTrafficPanel();
     });
 
     document.getElementById('btn7').addEventListener('click', () => loadAnalytics(7));
