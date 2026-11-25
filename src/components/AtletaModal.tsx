@@ -405,7 +405,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       name: string,
       preferredCamId?: string,
       actualCamId?: string,
-      playedCamIds?: string[]
+      playedCamIds?: string[],
+      regione?: string
     ) => {
       setLoadingPartite(true);
       try {
@@ -418,6 +419,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
         let combinedMatches: PartitaCampionatoAtleta[] = [];
         let resolvedSquadra: string | null = null;
+        let autoDiscoveredCamp: { camId: number; nome: string; squadra?: string } | null = null;
 
         if (knownCamIds.length > 0) {
           // Ordina mettendo preferredCamId per primo se appartiene ai campionati giocati dall'atleta
@@ -427,7 +429,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
           const results = await Promise.all(
             orderedKnown.map((cId) =>
-              fetchAtletaCampionatoPartite(id, cId, undefined, name).catch(() => null)
+              fetchAtletaCampionatoPartite(id, cId, undefined, name, false, regione).catch(() => null)
             )
           );
 
@@ -443,14 +445,41 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
 
         // Fallback su preferredCamId se non era tra i campionati noti nel ranking ma l'utente lo ha aperto da quel girone
         if (combinedMatches.length === 0 && preferredCamId && !knownCamIds.includes(preferredCamId)) {
-          const fallbackRes = await fetchAtletaCampionatoPartite(id, preferredCamId, undefined, name).catch(() => null);
+          const fallbackRes = await fetchAtletaCampionatoPartite(id, preferredCamId, undefined, name, false, regione).catch(() => null);
           if (fallbackRes && fallbackRes.matches && fallbackRes.matches.length > 0) {
             combinedMatches = fallbackRes.matches;
             resolvedSquadra = fallbackRes.squadra || null;
           }
         }
 
+        // Fallback 'auto' per atleti Fuori Quadro / Non classificati aperti da URL diretto (/player/:id) o ricerca
+        if (combinedMatches.length === 0 && knownCamIds.length === 0 && !preferredCamId) {
+          const autoRes = await fetchAtletaCampionatoPartite(id, 'auto', undefined, name, false, regione).catch(() => null);
+          if (autoRes && autoRes.matches && autoRes.matches.length > 0) {
+            combinedMatches = autoRes.matches;
+            resolvedSquadra = autoRes.squadra || null;
+            if (autoRes.camId && /^\d+$/.test(String(autoRes.camId))) {
+              autoDiscoveredCamp = {
+                camId: Number(autoRes.camId),
+                nome: autoRes.campionatoNome || 'Campionato',
+                squadra: autoRes.squadra,
+              };
+            }
+          }
+        }
+
         if (isMounted) {
+          if (autoDiscoveredCamp) {
+            setAtleta((prev) =>
+              prev && !prev.campionatoAttuale
+                ? {
+                  ...prev,
+                  campionatoAttuale: autoDiscoveredCamp!,
+                  campionatiGiocati: [autoDiscoveredCamp!],
+                }
+                : prev
+            );
+          }
           if (combinedMatches.length > 0) {
             setCampionatoPartite(combinedMatches);
             setSquadraCampionato(resolvedSquadra);
@@ -515,7 +544,14 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
         const targetName = data.anagrafica?.nome || athleteName || '';
 
         // Carica partite gestendo il mismatch tra camId esterno e campionato reale dell'atleta
-        loadMatchesForAthlete(targetId, targetName, camId || undefined, athleteActualCamId, playedCamIds);
+        loadMatchesForAthlete(
+          targetId,
+          targetName,
+          camId || undefined,
+          athleteActualCamId,
+          playedCamIds,
+          data.anagrafica?.regione
+        );
       })
       .catch((err) => {
         if (isMounted) {
@@ -587,10 +623,18 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       }
 
       if (combinedMatches.length === 0 && camId && !knownCamIds.includes(camId)) {
-        const fallbackRes = await fetchAtletaCampionatoPartite(targetId, camId, undefined, targetName, true).catch(() => null);
+        const fallbackRes = await fetchAtletaCampionatoPartite(targetId, camId, undefined, targetName, true, freshData?.anagrafica?.regione).catch(() => null);
         if (fallbackRes && fallbackRes.matches && fallbackRes.matches.length > 0) {
           combinedMatches = fallbackRes.matches;
           resolvedSquadra = fallbackRes.squadra || null;
+        }
+      }
+
+      if (combinedMatches.length === 0 && knownCamIds.length === 0 && !camId) {
+        const autoRes = await fetchAtletaCampionatoPartite(targetId, 'auto', undefined, targetName, true, freshData?.anagrafica?.regione).catch(() => null);
+        if (autoRes && autoRes.matches && autoRes.matches.length > 0) {
+          combinedMatches = autoRes.matches;
+          resolvedSquadra = autoRes.squadra || null;
         }
       }
 

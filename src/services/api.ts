@@ -504,7 +504,8 @@ export async function fetchAtletaCampionatoPartite(
   cam: string | number,
   squadraId?: string,
   atletaNome?: string,
-  force = false
+  force = false,
+  regione?: string
 ): Promise<AtletaCampionatoPartiteResponse> {
   const params = new URLSearchParams({
     atletaId,
@@ -512,6 +513,7 @@ export async function fetchAtletaCampionatoPartite(
   });
   if (squadraId) params.append('squadraId', squadraId);
   if (atletaNome) params.append('atletaNome', atletaNome);
+  if (regione) params.append('regione', regione);
   if (force) params.append('force', 'true');
   const url = `${API_BASE}/atleta-campionato-partite?${params.toString()}`;
 

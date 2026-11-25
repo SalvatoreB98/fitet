@@ -112,7 +112,14 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
           if (knownCamIds.length > 0) {
             Promise.all(
               knownCamIds.map((cId) =>
-                fetchAtletaCampionatoPartite(data.id || atletaKey, cId, undefined, data.anagrafica?.nome).catch(() => null)
+                fetchAtletaCampionatoPartite(
+                  data.id || atletaKey,
+                  cId,
+                  undefined,
+                  data.anagrafica?.nome,
+                  false,
+                  data.anagrafica?.regione
+                ).catch(() => null)
               )
             ).then((results) => {
               if (!isMounted) return;
@@ -124,6 +131,22 @@ export const HalfAtletaModal: React.FC<HalfAtletaModalProps> = ({
               }
               setCampionatoPartite(merged);
             });
+          } else {
+            fetchAtletaCampionatoPartite(
+              data.id || atletaKey,
+              'auto',
+              undefined,
+              data.anagrafica?.nome,
+              false,
+              data.anagrafica?.regione
+            )
+              .then((autoRes) => {
+                if (!isMounted) return;
+                if (autoRes && autoRes.matches && autoRes.matches.length > 0) {
+                  setCampionatoPartite(autoRes.matches);
+                }
+              })
+              .catch(() => { });
           }
 
           if (isFavorite(data.id) || isFavorite(data.anagrafica.nome)) {

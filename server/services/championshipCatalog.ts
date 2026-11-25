@@ -247,7 +247,7 @@ class ChampionshipCatalog {
     // 1. Prioritizza campionati della regione dell'atleta, poi campionati nazionali.
     // Quando il sesso è noto, i campionati del sesso opposto vengono esclusi: molti
     // campionati maschili e femminili condividono lo stesso nome (es. "A/1 Gir.U").
-    const regionalCamps = targetRegNorm 
+    const regionalCamps = targetRegNorm
       ? allCamps.filter(c => cleanNorm(c.regione) === targetRegNorm)
       : [];
     const nationalCamps = allCamps.filter(c => cleanNorm(c.regione) === 'nazionale');
@@ -269,7 +269,7 @@ class ChampionshipCatalog {
     for (const camp of searchPool) {
       const statsCached = cacheService.get<StatisticaAtleta[]>(`statistiche_${camp.id}`);
       if (statsCached && Array.isArray(statsCached)) {
-        const found = statsCached.find(s => 
+        const found = statsCached.find(s =>
           (targetIdStr && String(s.atletaId || '').trim() === targetIdStr) ||
           (targetNomeNorm && cleanNorm(s.atleta) === targetNomeNorm)
         );
@@ -286,13 +286,20 @@ class ChampionshipCatalog {
       return undefined;
     }
 
-    // 3. Se non ancora in cache, facciamo il fetch delle statistiche dei campionati regionali a piccoli batch,
-    // rispettando un budget temporale massimo per evitare timeout HTTP.
+    // 3. Se non ancora in cache, facciamo il fetch delle statistiche dei campionati regionali (e poi nazionali) a piccoli batch,
+    // sfruttando il rate-limiter e la cache HTML già integrati in FitetClient.
     const startedAt = Date.now();
     const maxDurationMs = options?.maxDurationMs ?? 8000;
-    const fetchPool = targetSesso ? genderMatches : searchPool;
+    const basePool = targetSesso ? genderMatches : searchPool;
+    // Se la regione è nota, scansiona prima solo i campionati di quella regione; passa ai nazionali solo se non trovato
+    const fetchPool = targetRegNorm
+      ? [
+        ...basePool.filter(c => cleanNorm(c.regione) === targetRegNorm),
+        ...basePool.filter(c => cleanNorm(c.regione) !== targetRegNorm),
+      ]
+      : basePool;
     const mapping = athleteResolver.getMapping();
-    const batchSize = 2;
+    const batchSize = 3;
     let completedFullScan = true;
     for (let i = 0; i < fetchPool.length; i += batchSize) {
       if (Date.now() - startedAt >= maxDurationMs) {
@@ -300,7 +307,7 @@ class ChampionshipCatalog {
         break;
       }
       if (i > 0) {
-        await FitetClient.sleepWithJitter(1500, 3000);
+        await FitetClient.sleepWithJitter(120, 280);
         if (Date.now() - startedAt >= maxDurationMs) {
           completedFullScan = false;
           break;
@@ -320,7 +327,7 @@ class ChampionshipCatalog {
               }
             }
             if (stats && Array.isArray(stats)) {
-              const found = stats.find(s => 
+              const found = stats.find(s =>
                 (targetIdStr && String(s.atletaId || '').trim() === targetIdStr) ||
                 (targetNomeNorm && cleanNorm(s.atleta) === targetNomeNorm)
               );
@@ -400,35 +407,35 @@ class ChampionshipCatalog {
           `https://portale.fitet.org/risultati/regioni/menu_reg.php?REG=${reg.id}`
         );
         const $ = cheerio.load(text);
-          $('a[href*="CAM="]').each((_, el) => {
-            const href = $(el).attr('href') || '';
-            const m = href.match(/CAM=(\d+)/i);
-            if (m) {
-              const id = parseInt(m[1], 10);
-              const name = $(el).text().replace(/\s+/g, ' ').trim();
-              if (id && name) {
-                let cat = 'Regionale';
-                const firstPart = name.split(' ')[0];
-                if (firstPart.includes('/') || firstPart.length <= 4) {
-                  cat = firstPart;
-                }
-                const isFem = /femm|femminil/i.test(name) || /femm|femminil/i.test(cat);
-                all.push({
-                  id,
-                  nome: name,
-                  categoria: cat,
-                  regione: reg.nome,
-                  regioneId: reg.id,
-                  anno: 41,
-                  formula: 19,
-                  sesso: isFem ? 'F' : 'M',
-                });
+        $('a[href*="CAM="]').each((_, el) => {
+          const href = $(el).attr('href') || '';
+          const m = href.match(/CAM=(\d+)/i);
+          if (m) {
+            const id = parseInt(m[1], 10);
+            const name = $(el).text().replace(/\s+/g, ' ').trim();
+            if (id && name) {
+              let cat = 'Regionale';
+              const firstPart = name.split(' ')[0];
+              if (firstPart.includes('/') || firstPart.length <= 4) {
+                cat = firstPart;
               }
+              const isFem = /femm|femminil/i.test(name) || /femm|femminil/i.test(cat);
+              all.push({
+                id,
+                nome: name,
+                categoria: cat,
+                regione: reg.nome,
+                regioneId: reg.id,
+                anno: 41,
+                formula: 19,
+                sesso: isFem ? 'F' : 'M',
+              });
             }
-          });
-        } catch (e) {
-          console.error(`Error scraping region ${reg.nome}:`, e);
-        }
+          }
+        });
+      } catch (e) {
+        console.error(`Error scraping region ${reg.nome}:`, e);
+      }
     }
 
     return all;

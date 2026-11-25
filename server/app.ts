@@ -1407,6 +1407,28 @@ app.get('/api/atleta/:id', async (req, res) => {
                     cached.campionatoAttuale = corrected.playedCamps[0];
                     cached.campionatiGiocati = corrected.playedCamps;
                     cacheService.set(cacheKey, cached, TTL_ATLETA);
+                } else if (!cached.campionatiGiocati || cached.campionatiGiocati.length === 0) {
+                    // Per atleti "Fuori Quadro" / "Non classificato" senza incontri nel ranking,
+                    // verifica se il campionato regionale/nazionale è risolvibile dal catalogo
+                    const fallback = await championshipCatalog.findAthleteChampionship(
+                        id,
+                        cached.anagrafica?.nome,
+                        cached.anagrafica?.regione,
+                        corrected.athleteSesso || null,
+                        { maxDurationMs: 4500 }
+                    );
+                    if (fallback) {
+                        const campEntry = {
+                            camId: fallback.id,
+                            nome: fallback.nome,
+                            categoria: fallback.categoria,
+                            regione: fallback.regione,
+                            squadra: fallback.squadra,
+                        };
+                        cached.campionatoAttuale = campEntry;
+                        cached.campionatiGiocati = [campEntry];
+                        cacheService.set(cacheKey, cached, TTL_ATLETA);
+                    }
                 }
                 if (cached.anagrafica?.societa && !cached.anagrafica.logoUrl) {
                     const resolvedLogo = teamResolver.getLogo(cached.anagrafica.societa);
@@ -1453,7 +1475,7 @@ app.get('/api/atleta/:id', async (req, res) => {
                 atleta.anagrafica?.nome,
                 atleta.anagrafica?.regione,
                 inferredSesso,
-                { cacheOnly: true }
+                { maxDurationMs: 4500 }
             );
             if (fallback && !playedCamps.some(pc => pc.camId === fallback.id)) {
                 playedCamps.push({
@@ -1887,35 +1909,13 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
     let cam = req.query.cam as string;
     let squadraId = req.query.squadraId as string | undefined;
     let atletaNome = req.query.atletaNome as string | undefined;
+    let regione = req.query.regione as string | undefined;
 
     if (!atletaId) {
         return res.json({ matches: [], squadra: null });
     }
 
-    // Se cam non è specificato o è 'auto', cerchiamo automaticamente il campionato dell'atleta
-    if (!cam || cam === 'auto' || cam === 'null' || cam === 'undefined') {
-        // Se il dettaglio atleta è già in cache, ricava il sesso dalle partite di campionato
-        // per evitare di assegnare la variante maschile a una giocatrice (e viceversa).
-        const cachedAtleta = cacheService.get<any>(`atleta_${atletaId}`);
-        let autoSesso: 'M' | 'F' | undefined;
-        const cachedCampMatches: any[] = cachedAtleta?.partiteRanking?.campionato || [];
-        for (const m of cachedCampMatches) {
-            const campSesso = normalizeChampionshipGender(m?.sesso);
-            if (campSesso) {
-                autoSesso = campSesso;
-                break;
-            }
-        }
-
-        const autoCamp = await championshipCatalog.findAthleteChampionship(atletaId, atletaNome, undefined, autoSesso);
-        if (autoCamp) {
-            cam = String(autoCamp.id);
-        } else {
-            return res.json({ matches: [], squadra: null });
-        }
-    }
-
-    // Se l'atletaId non è puramente numerico (es. passato il nome), prova a risolverlo
+    // Se l'atletaId non è puramente numerico (es. passato il nome), prova a risolverlo prima della ricerca campionato
     if (!/^\d+$/.test(atletaId)) {
         let cleanName = atletaId;
         try { cleanName = decodeURIComponent(atletaId); } catch { }
@@ -1927,6 +1927,14 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
         }
     }
 
+    const cachedAtleta = cacheService.get<any>(`atleta_${atletaId}`);
+    if (!atletaNome && cachedAtleta?.anagrafica?.nome) {
+        atletaNome = cachedAtleta.anagrafica.nome;
+    }
+    if (!regione && cachedAtleta?.anagrafica?.regione) {
+        regione = cachedAtleta.anagrafica.regione;
+    }
+
     // Se manca il nome atleta ma l'ID è noto, ricava il nome dal mapping
     if (!atletaNome && /^\d+$/.test(atletaId)) {
         const mapping = athleteResolver.getMapping();
@@ -1935,6 +1943,47 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
                 atletaNome = name;
                 break;
             }
+        }
+    }
+
+    let resolvedCampNome: string | undefined;
+
+    // Se cam non è specificato o è 'auto', cerchiamo automaticamente il campionato dell'atleta (inclusi regionali)
+    if (!cam || cam === 'auto' || cam === 'null' || cam === 'undefined') {
+        let autoSesso: 'M' | 'F' | undefined;
+        const cachedCampMatches: any[] = cachedAtleta?.partiteRanking?.campionato || [];
+        for (const m of cachedCampMatches) {
+            const campSesso = normalizeChampionshipGender(m?.sesso);
+            if (campSesso) {
+                autoSesso = campSesso;
+                break;
+            }
+        }
+
+        const autoCamp = await championshipCatalog.findAthleteChampionship(
+            atletaId,
+            atletaNome,
+            regione,
+            autoSesso,
+            { maxDurationMs: 6000 }
+        );
+        if (autoCamp) {
+            cam = String(autoCamp.id);
+            resolvedCampNome = autoCamp.nome;
+            if (cachedAtleta && (!cachedAtleta.campionatiGiocati || cachedAtleta.campionatiGiocati.length === 0)) {
+                const campEntry = {
+                    camId: autoCamp.id,
+                    nome: autoCamp.nome,
+                    categoria: autoCamp.categoria,
+                    regione: autoCamp.regione,
+                    squadra: autoCamp.squadra,
+                };
+                cachedAtleta.campionatoAttuale = campEntry;
+                cachedAtleta.campionatiGiocati = [campEntry];
+                cacheService.set(`atleta_${atletaId}`, cachedAtleta, TTL_ATLETA);
+            }
+        } else {
+            return res.json({ matches: [], squadra: null });
         }
     }
 
@@ -2112,8 +2161,14 @@ app.get('/api/atleta-campionato-partite', async (req, res) => {
             });
         });
 
+        if (!resolvedCampNome && /^\d+$/.test(cam)) {
+            const campMeta = await championshipCatalog.getChampionship(Number(cam));
+            if (campMeta?.nome) resolvedCampNome = campMeta.nome;
+        }
+
         const responsePayload: AtletaCampionatoPartiteResponse = {
             camId: cam,
+            campionatoNome: resolvedCampNome,
             squadra: squadraNome,
             matches,
         };
