@@ -683,8 +683,16 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                   <div className="match-detail-referto-list">
                     {otherDayMatches.map((om) => (
                       <div key={om.id} className="match-detail-referto-row">
-                        <div className="match-detail-referto-players" title={`${om.squadraCasa} vs ${om.squadraOspite}`}>
-                          {om.squadraCasa} <span style={{ color: 'var(--text-muted)' }}>vs</span> {om.squadraOspite}
+                        <div className="match-detail-day-teams" title={`${om.squadraCasa} vs ${om.squadraOspite}`}>
+                          <span className="match-detail-day-team">
+                            <TeamLogo teamName={om.squadraCasa} size={18} />
+                            <span className="match-detail-day-team-name">{om.squadraCasa}</span>
+                          </span>
+                          <span className="match-detail-day-vs">vs</span>
+                          <span className="match-detail-day-team">
+                            <TeamLogo teamName={om.squadraOspite} size={18} />
+                            <span className="match-detail-day-team-name">{om.squadraOspite}</span>
+                          </span>
                         </div>
                         <div className="match-detail-referto-score">
                           {om.disputato && om.puntiCasa !== null && om.puntiOspite !== null

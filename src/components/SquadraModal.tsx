@@ -20,6 +20,20 @@ export interface SquadraModalProps {
   onOpenSociety?: (societyName: string, context?: SocietaLookupContext) => void;
 }
 
+function getAthleteWinRate(a: AtletaSquadraDettaglio): { winRate: number; winRateColor: string } {
+  let winRate = Number(a.percentualeVittorie) || 0;
+  if (winRate > 100) {
+    if (a.partiteDisputate > 0) {
+      winRate = Math.round((a.partiteVinte / a.partiteDisputate) * 1000) / 10;
+    } else {
+      while (winRate > 100) winRate /= 10;
+    }
+  }
+  winRate = Math.max(0, Math.min(100, winRate));
+  const winRateColor = winRate >= 65 ? '#16a34a' : winRate >= 40 ? '#d97706' : '#dc2626';
+  return { winRate, winRateColor };
+}
+
 export const SquadraModal: React.FC<SquadraModalProps> = ({
   squadraId,
   squadraNome,
@@ -272,7 +286,80 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                 </span>
               </div>
 
-              {/* Roster Table */}
+              {/* Mobile (<600px): Carousel/Slider Card Atleti & Doppio */}
+              <div className="squadra-mobile-carousel-wrap">
+                <div className="squadra-mobile-carousel" role="region" aria-label="Atleti della squadra">
+                  {data.atleti.map((a: AtletaSquadraDettaglio, idx: number) => {
+                    const isClickable = !a.isDoppio && Boolean(a.atletaId) && Boolean(onOpenAtletaModal);
+                    const { winRate } = getAthleteWinRate(a);
+
+                    return (
+                      <div
+                        key={`mobile_${a.atletaId || a.nome}_${idx}`}
+                        role={isClickable ? 'button' : undefined}
+                        tabIndex={isClickable ? 0 : undefined}
+                        onClick={() => {
+                          if (isClickable && onOpenAtletaModal) {
+                            onOpenAtletaModal(a.atletaId, a.nome);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (isClickable && onOpenAtletaModal && (e.key === 'Enter' || e.key === ' ')) {
+                            e.preventDefault();
+                            onOpenAtletaModal(a.atletaId, a.nome);
+                          }
+                        }}
+                        className={`squadra-mobile-card${isClickable ? ' is-clickable' : ''}`}
+                      >
+                        {/* Foto grande + Nome */}
+                        <div className="squadra-mobile-card-top">
+                          {a.isDoppio ? (
+                            <div className="squadra-mobile-doppio-photo" title="Coppia di doppio">
+                              <i className="bi bi-people-fill" />
+                            </div>
+                          ) : (
+                            <div className="squadra-mobile-photo-wrap">
+                              <AthleteAvatar atletaId={a.atletaId} nome={a.nome} size="100%" avatarPlaceholder />
+                            </div>
+                          )}
+
+                          <div className="squadra-mobile-card-name" title={a.nome}>
+                            {a.nome}
+                          </div>
+                        </div>
+
+                        {/* Tabella essenziale con colori tenui */}
+                        <table className="squadra-mobile-mini-table">
+                          <tbody>
+                            <tr>
+                              <th>Rank</th>
+                              <td>
+                                {a.isDoppio
+                                  ? 'Doppio'
+                                  : a.rankPosizione
+                                    ? `#${a.rankPosizione}`
+                                    : 'N.C.'}
+                              </td>
+                            </tr>
+                            <tr>
+                              <th>Partite</th>
+                              <td>
+                                {a.partiteVinte}/{a.partiteDisputate}
+                              </td>
+                            </tr>
+                            <tr>
+                              <th>% Vitt</th>
+                              <td>{winRate}%</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Roster Table (Desktop / >=600px) */}
               <div className="squadra-table-wrapper">
                 <table className="squadra-roster-table">
                   <thead>
@@ -290,21 +377,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                   <tbody>
                     {data.atleti.map((a: AtletaSquadraDettaglio, idx: number) => {
                       const isClickable = !a.isDoppio && Boolean(a.atletaId) && Boolean(onOpenAtletaModal);
-                      let winRate = Number(a.percentualeVittorie) || 0;
-                      if (winRate > 100) {
-                        if (a.partiteDisputate > 0) {
-                          winRate = Math.round((a.partiteVinte / a.partiteDisputate) * 1000) / 10;
-                        } else {
-                          while (winRate > 100) winRate /= 10;
-                        }
-                      }
-                      winRate = Math.max(0, Math.min(100, winRate));
-                      const winRateColor =
-                        winRate >= 65
-                          ? '#16a34a'
-                          : winRate >= 40
-                          ? '#d97706'
-                          : '#dc2626';
+                      const { winRate, winRateColor } = getAthleteWinRate(a);
 
                       return (
                         <tr

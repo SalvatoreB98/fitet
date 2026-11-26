@@ -7303,6 +7303,152 @@ body.modal-open {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+.squadra-mobile-carousel-wrap {
+  display: none;
+}
+
+@media (max-width: 599px) {
+  .squadra-table-wrapper {
+    display: none;
+  }
+
+  .squadra-mobile-carousel-wrap {
+    display: block;
+    margin: 0 -4px;
+  }
+
+  .squadra-mobile-carousel {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding: 4px 4px 10px;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .squadra-mobile-card {
+    flex: 0 0 38.5%;
+    min-width: 132px;
+    scroll-snap-align: start;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
+  }
+
+  .squadra-mobile-card.is-clickable {
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+
+  .squadra-mobile-card.is-clickable:active {
+    transform: scale(0.98);
+    border-color: var(--color-primary-500);
+  }
+
+  .squadra-mobile-card-top {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+  }
+
+  .squadra-mobile-photo-wrap {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border-radius: 10px;
+  }
+
+  .squadra-mobile-photo-wrap .athlete-avatar-wrapper {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    border-radius: 10px !important;
+  }
+
+  .squadra-mobile-photo-wrap .athlete-avatar-initials {
+    font-size: 24px !important;
+  }
+
+  .squadra-mobile-doppio-photo {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 10px;
+    background: var(--bg-th);
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: var(--text-muted);
+  }
+
+  .squadra-mobile-card-identity {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    width: 100%;
+    padding: 8px;
+  }
+
+  .squadra-mobile-card-name {
+    font-size: 11.5px;
+    font-weight: 800;
+    color: var(--text-dark);
+    line-height: 1.2;
+    width: 100%;
+    padding: 0 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .squadra-mobile-mini-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-light);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .squadra-mobile-mini-table tr {
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .squadra-mobile-mini-table tr:last-child {
+    border-bottom: none;
+  }
+
+  .squadra-mobile-mini-table th {
+    padding: 4px 6px;
+    text-align: left;
+    font-size: 9.5px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .squadra-mobile-mini-table td {
+    padding: 4px 6px;
+    text-align: right;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+}
+
 .mini-progress-track {
   width: 36px;
   height: 5px;

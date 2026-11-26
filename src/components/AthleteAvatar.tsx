@@ -8,6 +8,7 @@ export interface AthleteAvatarProps {
   size?: number | string;
   className?: string;
   style?: React.CSSProperties;
+  avatarPlaceholder?: boolean;
 }
 
 export const AthleteAvatar: React.FC<AthleteAvatarProps> = ({
@@ -17,9 +18,29 @@ export const AthleteAvatar: React.FC<AthleteAvatarProps> = ({
   size = 28,
   className = '',
   style,
+  avatarPlaceholder = false,
 }) => {
   const photoUrl = photoUrlOverride || (atletaId ? `https://portale.fitet.org/images/atleti/${atletaId}.jpg` : null);
   const [error, setError] = useState<boolean>(() => (photoUrl ? isPhotoError(photoUrl) : false));
+  const [isDarkTheme, setIsDarkTheme] = useState<boolean>(() =>
+    typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+  );
+
+  useEffect(() => {
+    if (!avatarPlaceholder || typeof document === 'undefined') return;
+    const updateTheme = () => {
+      setIsDarkTheme(document.documentElement.getAttribute('data-theme') === 'dark');
+    };
+    updateTheme();
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, [avatarPlaceholder]);
+
+  const isBig = (typeof size === 'number' && size >= 64) || size === '100%';
+  const placeholderSrc = isDarkTheme
+    ? (isBig ? '/dark-big-placeholder.png' : '/dark-placeholder.png')
+    : (isBig ? '/light-big-placeholder.png' : '/light-placeholder.png');
 
   const initials = nome
     .split(' ')
@@ -59,6 +80,13 @@ export const AthleteAvatar: React.FC<AthleteAvatarProps> = ({
           }}
           loading="lazy"
           referrerPolicy="no-referrer"
+        />
+      ) : avatarPlaceholder ? (
+        <img
+          src={placeholderSrc}
+          alt={nome}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          loading="lazy"
         />
       ) : (
         <span
