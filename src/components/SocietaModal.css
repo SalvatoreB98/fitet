@@ -442,7 +442,7 @@
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border-color);
-  background: var(--bg-th);
+  background: var(--bg-card);
   text-align: left;
   cursor: pointer;
   transition: transform 0.16s ease, border-color 0.16s ease;
@@ -613,7 +613,7 @@
   flex-direction: column;
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  background: var(--bg-th);
+  background: var(--bg-card);
   padding: 14px 16px 8px 16px;
   filter: drop-shadow(0px 0px 5px rgba(0, 0, 0, 0.2));
 }
@@ -1570,12 +1570,10 @@
 .societa-skeleton-bar,
 .societa-skeleton-avatar {
   display: block;
-  background: linear-gradient(
-    90deg,
-    rgba(148, 163, 184, 0.14) 25%,
-    rgba(148, 163, 184, 0.28) 50%,
-    rgba(148, 163, 184, 0.14) 75%
-  );
+  background: linear-gradient(90deg,
+      rgba(148, 163, 184, 0.14) 25%,
+      rgba(148, 163, 184, 0.28) 50%,
+      rgba(148, 163, 184, 0.14) 75%);
   background-size: 200% 100%;
   animation: societaShimmer 1.4s ease-in-out infinite;
   border-radius: 6px;
@@ -1583,12 +1581,10 @@
 
 [data-theme="dark"] .societa-skeleton-bar,
 [data-theme="dark"] .societa-skeleton-avatar {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.06) 25%,
-    rgba(255, 255, 255, 0.14) 50%,
-    rgba(255, 255, 255, 0.06) 75%
-  );
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.06) 25%,
+      rgba(255, 255, 255, 0.14) 50%,
+      rgba(255, 255, 255, 0.06) 75%);
   background-size: 200% 100%;
 }
 
@@ -1753,6 +1749,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .societa-skeleton-bar,
   .societa-skeleton-avatar,
   .societa-content-reveal {
