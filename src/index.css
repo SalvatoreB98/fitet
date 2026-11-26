@@ -2766,7 +2766,6 @@ body.modal-open {
   top: 0;
   z-index: 100;
   flex-shrink: 0;
-  background: var(--bg-card, #ffffff);
   color: var(--text-dark, #0f172a);
   padding: 13px 20px;
   display: flex;
