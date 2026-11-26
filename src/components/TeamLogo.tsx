@@ -11,7 +11,7 @@ export interface TeamLogoProps {
   title?: string;
 }
 
-const GENERIC_FEDERALE_LOGO = 'https://portale.fitet.org/images/societa/img_generica.jpg';
+const GENERIC_FEDERALE_LOGO = '/generica.png';
 
 export const TeamLogo: React.FC<TeamLogoProps> = ({
   teamName,

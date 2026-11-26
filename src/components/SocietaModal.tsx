@@ -20,6 +20,7 @@ import { useModalTransition } from '../utils/useModalTransition';
 import { resolveCachedSocietyId } from '../utils/teamLogos';
 import { TeamLogo } from './TeamLogo';
 import { AthleteAvatar } from './AthleteAvatar';
+import { SquadraModal } from './SquadraModal';
 import './SocietaModal.css';
 
 export interface SocietaModalProps {
@@ -104,13 +105,31 @@ const TeamBlock: React.FC<{
   showRanking: boolean;
   onOpenAthlete?: (athlete: SocietaAtletaStagione) => void;
   onOpenChampionship?: () => void;
-}> = ({ team, showRanking, onOpenAthlete, onOpenChampionship }) => {
+  onOpenTeam?: () => void;
+}> = ({ team, showRanking, onOpenAthlete, onOpenChampionship, onOpenTeam }) => {
   const singles = team.atleti.filter((a) => !a.isDoppio);
   const doubles = team.atleti.filter((a) => a.isDoppio);
+  const canOpenTeam = Boolean(onOpenTeam && team.squadraId);
 
   return (
     <div className="societa-team-block">
-      <div className="societa-team-head">
+      <div
+        className={`societa-team-head${canOpenTeam ? ' is-clickable' : ''}`}
+        role={canOpenTeam ? 'button' : undefined}
+        tabIndex={canOpenTeam ? 0 : undefined}
+        onClick={canOpenTeam ? onOpenTeam : undefined}
+        onKeyDown={
+          canOpenTeam
+            ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onOpenTeam?.();
+                }
+              }
+            : undefined
+        }
+        title={canOpenTeam ? `Apri scheda squadra ${team.nome}` : undefined}
+      >
         <TeamLogo teamName={team.nome} size={36} className="societa-team-logo" />
         <div className="societa-team-name-wrap">
           <span className="societa-team-name">{team.nome}</span>
@@ -127,7 +146,10 @@ const TeamBlock: React.FC<{
           <button
             type="button"
             className="societa-team-points"
-            onClick={onOpenChampionship}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenChampionship?.();
+            }}
             title="Apri il campionato"
             disabled={!onOpenChampionship}
           >
@@ -181,7 +203,8 @@ const SeasonChampionships: React.FC<{
   showRanking: boolean;
   onOpenAthlete?: (athlete: SocietaAtletaStagione) => void;
   onOpenChampionship?: (camId: number, anno: number) => void;
-}> = ({ season, showRanking, onOpenAthlete, onOpenChampionship }) => {
+  onOpenTeam?: (team: SocietaSquadraStagione, camId: number, anno: number) => void;
+}> = ({ season, showRanking, onOpenAthlete, onOpenChampionship, onOpenTeam }) => {
   if (season.campionati.length === 0) {
     return (
       <div className="societa-empty-state">
@@ -236,6 +259,11 @@ const SeasonChampionships: React.FC<{
                 onOpenAthlete={onOpenAthlete}
                 onOpenChampionship={
                   onOpenChampionship ? () => onOpenChampionship(camp.campId, camp.anno) : undefined
+                }
+                onOpenTeam={
+                  onOpenTeam && team.squadraId
+                    ? () => onOpenTeam(team, camp.campId, camp.anno)
+                    : undefined
                 }
               />
             ))}
@@ -299,6 +327,12 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
   const [showAllHistorical, setShowAllHistorical] = useState(false);
   const [resolvingAthlete, setResolvingAthlete] = useState<string | null>(null);
   const [historicalError, setHistoricalError] = useState<string | null>(null);
+  const [selectedTeamModal, setSelectedTeamModal] = useState<{
+    squadraId: string;
+    squadraNome: string;
+    camId: number;
+    annoId: number;
+  } | null>(null);
 
   useEffect(() => {
     setActiveSocietyId(initialResolvedId);
@@ -386,14 +420,14 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (event.key === 'Escape' && !selectedTeamModal) {
         event.stopPropagation();
         requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [requestClose]);
+  }, [requestClose, selectedTeamModal]);
 
   const handleManualLookup = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -874,6 +908,14 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
                     showRanking
                     onOpenAthlete={handleOpenCurrentAthlete}
                     onOpenChampionship={onSelectChampionship ? handleOpenChampionship : undefined}
+                    onOpenTeam={(team, cId, anno) =>
+                      setSelectedTeamModal({
+                        squadraId: team.squadraId,
+                        squadraNome: team.nome,
+                        camId: cId,
+                        annoId: anno,
+                      })
+                    }
                   />
                 </section>
               ) : (
@@ -947,6 +989,14 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
                                     season={loaded}
                                     showRanking={false}
                                     onOpenAthlete={handleOpenCurrentAthlete}
+                                    onOpenTeam={(team, cId, anno) =>
+                                      setSelectedTeamModal({
+                                        squadraId: team.squadraId,
+                                        squadraNome: team.nome,
+                                        camId: cId,
+                                        annoId: anno,
+                                      })
+                                    }
                                   />
                                 ) : (
                                   <div className="societa-loading societa-loading-inline">
@@ -1107,6 +1157,25 @@ export const SocietaModal: React.FC<SocietaModalProps> = ({
           )}
         </div>
       </div>
+
+      {selectedTeamModal && (
+        <SquadraModal
+          squadraId={selectedTeamModal.squadraId}
+          squadraNome={selectedTeamModal.squadraNome}
+          camId={selectedTeamModal.camId}
+          annoId={selectedTeamModal.annoId}
+          zIndex={(zIndex || 1150) + 100}
+          onClose={() => setSelectedTeamModal(null)}
+          onOpenAtletaModal={
+            onOpenAtletaModal
+              ? (id, name) => {
+                  setSelectedTeamModal(null);
+                  onOpenAtletaModal(id, name);
+                }
+              : undefined
+          }
+        />
+      )}
     </div>,
     document.body
   );

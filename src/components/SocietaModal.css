@@ -627,6 +627,24 @@
   margin-bottom: 2px;
 }
 
+.societa-team-head.is-clickable {
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 6px;
+  margin: -6px -6px 2px -6px;
+  transition: background 0.15s ease;
+}
+
+.societa-team-head.is-clickable:hover {
+  background: var(--bg-hover);
+}
+
+.societa-team-head.is-clickable:hover .societa-team-name {
+  color: var(--color-primary-600);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .societa-team-badges {
   display: inline-flex;
   align-items: center;

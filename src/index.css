@@ -7369,16 +7369,16 @@ body.modal-open {
   padding: 2px 0 6px;
 }
 
-@media (min-width: 600px) {
-  .squadra-mobile-carousel {
-    grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
-    gap: 10px;
-  }
-}
 
 @media (max-width: 359px) {
   .squadra-mobile-carousel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 800px) {
+  .squadra-mobile-carousel {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
