@@ -184,16 +184,36 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
 
   // Se è un incontro di campionato/girone, determina il camId corretto e recupera incontro a squadre + altre partite giornata + referto
   const resolvedChampInfo = useMemo(() => {
-    if (match.tipo === 'torneo') return { effectiveCamId: undefined, clubHint: undefined };
+    if (match.tipo === 'torneo') {
+      return { effectiveCamId: undefined, clubHint: undefined, displayTitle: match.titolo };
+    }
     const list = playedChampionships || [];
+    const stripChamp = (s?: string) =>
+      (s || '')
+        .toUpperCase()
+        .replace(/\b(SERIE|GIRONE|GIR|MASCHILE|FEMMINILE)\b/g, ' ')
+        .replace(/[^A-Z0-9]/g, '');
+
     const titleNorm = normTeam(match.titolo);
-    const matched = list.find((c) => {
+    const titleStripped = stripChamp(match.titolo);
+
+    let matched = list.find((c) => {
       const cn = normTeam(c.nome);
-      return cn && titleNorm && (cn.includes(titleNorm) || titleNorm.includes(cn));
+      const cs = stripChamp(c.nome);
+      return (
+        (cn && titleNorm && (cn.includes(titleNorm) || titleNorm.includes(cn))) ||
+        (cs && titleStripped && (cs.includes(titleStripped) || titleStripped.includes(cs)))
+      );
     });
+
+    if (!matched && list.length === 1) {
+      matched = list[0];
+    }
+
     return {
-      effectiveCamId: matched?.camId ?? camId ?? list[0]?.camId,
+      effectiveCamId: matched?.camId ?? list[0]?.camId ?? camId,
       clubHint: matched?.squadra || match.sottotitolo || athleteClub,
+      displayTitle: matched?.nome || match.titolo,
     };
   }, [match.tipo, match.titolo, match.sottotitolo, playedChampionships, camId, athleteClub]);
 
@@ -379,10 +399,10 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
           <div className="match-detail-top-info">
             <p className="match-detail-kicker">{kickerLabel}</p>
             <div className="match-detail-meta-row">
-              {match.titolo && (
+              {(resolvedChampInfo.displayTitle || match.titolo) && (
                 <span className="match-detail-meta-pill">
                   <i className="bi bi-trophy-fill" style={{ fontSize: '10px', opacity: 0.75 }} />
-                  <span>{match.titolo}</span>
+                  <span>{resolvedChampInfo.displayTitle || match.titolo}</span>
                 </span>
               )}
               {match.giornata !== undefined && (

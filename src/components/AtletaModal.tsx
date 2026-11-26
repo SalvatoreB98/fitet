@@ -1837,7 +1837,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                               id: `girone-${idx}`,
                               tipo: 'girone',
                               data: matchingRanking?.data || m.data || `G${m.giornata}`,
-                              titolo: campionatoNome || atleta.campionatoAttuale?.nome || 'Campionato Girone',
+                              titolo: atleta.campionatoAttuale?.nome || campionatoNome || 'Campionato Girone',
                               sottotitolo: squadraCampionato || undefined,
                               avversario: m.avversario,
                               avversarioId: matchingRanking?.avversarioId,
@@ -2518,7 +2518,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           }
           athletePoints={atleta?.anagrafica?.punti ?? atleta?.riepilogo?.punteggioFinale}
           athleteCategory={atleta?.anagrafica?.categoria}
-          camId={camId ? parseInt(String(camId), 10) : atleta?.campionatoAttuale?.camId}
+          camId={atleta?.campionatoAttuale?.camId ?? (camId ? parseInt(String(camId), 10) : undefined)}
           playedChampionships={atleta?.campionatiGiocati}
           zIndex={(zIndex || 1200) + 5}
           isTopModal={isTopModal}
