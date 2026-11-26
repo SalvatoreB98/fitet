@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { DettaglioSquadra, AtletaSquadraDettaglio } from '../types/fitet';
-import { fetchSquadra, type SocietaLookupContext } from '../services/api';
+import { DettaglioSquadra, AtletaSquadraDettaglio, SquadraClassifica } from '../types/fitet';
+import { fetchDashboard, fetchSquadra, type SocietaLookupContext } from '../services/api';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { useModalTransition } from '../utils/useModalTransition';
 import { TeamLogo } from './TeamLogo';
@@ -71,6 +71,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
   const { isClosing, requestClose } = useModalTransition(onClose);
 
   const [data, setData] = useState<DettaglioSquadra | null>(null);
+  const [standingsRow, setStandingsRow] = useState<SquadraClassifica | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +97,31 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
   useEffect(() => {
     loadData();
   }, [squadraId, camId, annoId]);
+
+  // Recupera posizione in classifica e incontri V/P della squadra dal dashboard del campionato
+  useEffect(() => {
+    if (!camId) {
+      setStandingsRow(null);
+      return;
+    }
+    let active = true;
+    fetchDashboard(camId, annoId)
+      .then((dash) => {
+        if (!active || !dash?.classifica?.length) return;
+        const norm = (s?: string) => (s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const targetName = norm(data?.nome || squadraNome);
+        const found =
+          dash.classifica.find((t) => t.squadraId && t.squadraId === squadraId) ||
+          (targetName ? dash.classifica.find((t) => norm(t.nome) === targetName) : undefined);
+        if (active) setStandingsRow(found || null);
+      })
+      .catch(() => {
+        if (active) setStandingsRow(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [camId, annoId, squadraId, data?.nome, squadraNome]);
 
   // Handle ESC key to close
   useEffect(() => {
@@ -240,6 +266,24 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
 
           {data && (
             <div>
+              {/* Posizione in classifica & Incontri V/P (stile societa-stats-row) */}
+              {standingsRow && (
+                <div className="societa-stats-row" style={{ marginBottom: '12px', justifyContent: 'flex-end' }}>
+                  <div className="societa-stat">
+                    <strong>{standingsRow.posizione ? `#${standingsRow.posizione}` : '—'}</strong>
+                    <span>classifica</span>
+                  </div>
+                  <div className="societa-stat">
+                    <strong>{standingsRow.incontriVinti}</strong>
+                    <span>incontri Vinti</span>
+                  </div>
+                  <div className="societa-stat">
+                    <strong>{standingsRow.incontriPersi}</strong>
+                    <span>incontri Persi</span>
+                  </div>
+                </div>
+              )}
+
               {/* Summary Highlight Card in the exact style of overview-stats-card */}
               <div className="overview-stats-card" style={{ marginBottom: '18px' }}>
                 <div className="overview-stats-row">
@@ -379,270 +423,270 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
               {/* Vista Card (Default) */}
               {rosterViewMode === 'card' ? (
                 <div className="squadra-mobile-carousel-wrap">
-                <div className="squadra-mobile-carousel" role="region" aria-label="Atleti della squadra">
-                  {data.atleti
-                    .filter((a) =>
-                      rosterFilter === 'all' ? true : rosterFilter === 'singolo' ? !a.isDoppio : a.isDoppio
-                    )
-                    .map((a: AtletaSquadraDettaglio, idx: number) => {
-                      const isClickable = !a.isDoppio && Boolean(a.atletaId) && Boolean(onOpenAtletaModal);
-                      const { winRate, winRateColor } = getAthleteWinRate(a);
-                      const ringRadius = 31;
-                      const ringCircumference = 2 * Math.PI * ringRadius;
-                      const ringOffset = ringCircumference * (1 - winRate / 100);
-                      const doubleInitials = a.isDoppio ? getDoubleInitials(a.nome) : '';
-
-                      return (
-                        <div
-                          key={`mobile_${a.atletaId || a.nome}_${idx}`}
-                          role={isClickable ? 'button' : undefined}
-                          tabIndex={isClickable ? 0 : undefined}
-                          onClick={() => {
-                            if (isClickable && onOpenAtletaModal) {
-                              onOpenAtletaModal(a.atletaId, a.nome);
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            if (isClickable && onOpenAtletaModal && (e.key === 'Enter' || e.key === ' ')) {
-                              e.preventDefault();
-                              onOpenAtletaModal(a.atletaId, a.nome);
-                            }
-                          }}
-                          className={`squadra-mobile-card${isClickable ? ' is-clickable' : ''}`}
-                        >
-                          <div className="squadra-mobile-card-top">
-                            {a.isDoppio ? (
-                              <div className="squadra-mobile-doppio-circles" title="Coppia di doppio">
-                                <span className="squadra-doppio-circle is-icon">
-                                  <i className="bi bi-people-fill" />
-                                </span>
-                                <span className="squadra-doppio-circle is-initials">
-                                  +{doubleInitials}
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="squadra-mobile-ring-wrap">
-                                <svg
-                                  className="squadra-mobile-ring-svg"
-                                  viewBox="0 0 70 70"
-                                  aria-hidden="true"
-                                >
-                                  <circle
-                                    className="squadra-mobile-ring-track"
-                                    cx="35"
-                                    cy="35"
-                                    r={ringRadius}
-                                  />
-                                  {winRate > 0 && (
-                                    <circle
-                                      className="squadra-mobile-ring-fill"
-                                      cx="35"
-                                      cy="35"
-                                      r={ringRadius}
-                                      stroke={winRateColor}
-                                      strokeDasharray={ringCircumference}
-                                      strokeDashoffset={ringOffset}
-                                    />
-                                  )}
-                                </svg>
-                                <div className="squadra-mobile-ring-avatar">
-                                  <AthleteAvatar atletaId={a.atletaId} nome={a.nome} size={54} avatarPlaceholder />
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="squadra-mobile-card-name" title={a.nome}>
-                              {a.nome}
-                            </div>
-
-                            <span className="squadra-mobile-rank-pill">
-                              {a.isDoppio
-                                ? 'Doppio'
-                                : a.rankPosizione
-                                  ? `#${a.rankPosizione}`
-                                  : 'N.C.'}
-                            </span>
-                          </div>
-
-                          <div className="squadra-mobile-card-stats">
-                            <div className="squadra-mobile-stat-line">
-                              <span className="squadra-mobile-stat-lbl">Partite V/P</span>
-                              <span
-                                className="squadra-mobile-vp-badge"
-                                style={{
-                                  color: winRateColor,
-                                  backgroundColor: `${winRateColor}1a`,
-                                }}
-                              >
-                                {a.partiteVinte} / {a.partitePerse}
-                              </span>
-                            </div>
-                            <div className="squadra-mobile-stat-line">
-                              <span className="squadra-mobile-stat-lbl">Vittorie</span>
-                              <span className="squadra-mobile-pct-val" style={{ color: winRateColor }}>
-                                {winRate}%
-                              </span>
-                            </div>
-                            <div className="progress-win-rate-track">
-                              <div
-                                className="progress-win-rate-bar"
-                                style={{ width: `${winRate}%`, background: winRateColor }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-              ) : (
-              /* Vista Elenco (Tabella) */
-              <div className="squadra-table-wrapper">
-                <table className="squadra-roster-table">
-                  <thead>
-                    <tr className="squadra-roster-thead-tr">
-                      <th style={{ padding: '10px 12px' }}>Atleta</th>
-                      <th style={{ padding: '10px 10px', textAlign: 'center' }}>Ranking</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'center' }} title="Partite Disputate">PD</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'center' }} title="Partite Vinte">PaV</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'center' }} title="Partite Perse">PaP</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'center' }} title="Set Vinti / Persi">Set</th>
-                      <th style={{ padding: '10px 8px', textAlign: 'center' }} title="Punti Vinti / Persi">Punti</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }} title="% Partite Vinte">% Vittorie</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                  <div className="squadra-mobile-carousel" role="region" aria-label="Atleti della squadra">
                     {data.atleti
                       .filter((a) =>
                         rosterFilter === 'all' ? true : rosterFilter === 'singolo' ? !a.isDoppio : a.isDoppio
                       )
                       .map((a: AtletaSquadraDettaglio, idx: number) => {
-                      const isClickable = !a.isDoppio && Boolean(a.atletaId) && Boolean(onOpenAtletaModal);
-                      const { winRate, winRateColor } = getAthleteWinRate(a);
+                        const isClickable = !a.isDoppio && Boolean(a.atletaId) && Boolean(onOpenAtletaModal);
+                        const { winRate, winRateColor } = getAthleteWinRate(a);
+                        const ringRadius = 31;
+                        const ringCircumference = 2 * Math.PI * ringRadius;
+                        const ringOffset = ringCircumference * (1 - winRate / 100);
+                        const doubleInitials = a.isDoppio ? getDoubleInitials(a.nome) : '';
 
-                      return (
-                        <tr
-                          key={`${a.atletaId || a.nome}_${idx}`}
-                          onClick={() => {
-                            if (isClickable && onOpenAtletaModal) {
-                              onOpenAtletaModal(a.atletaId, a.nome);
-                            }
-                          }}
-                          className={`squadra-roster-tr ${isClickable ? 'is-clickable hover-row-highlight' : ''}`}
-                          title={isClickable ? `Visualizza scheda federale di ${a.nome}` : undefined}
-                        >
-                          {/* Athlete Info */}
-                          <td style={{ padding: '9px 12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        return (
+                          <div
+                            key={`mobile_${a.atletaId || a.nome}_${idx}`}
+                            role={isClickable ? 'button' : undefined}
+                            tabIndex={isClickable ? 0 : undefined}
+                            onClick={() => {
+                              if (isClickable && onOpenAtletaModal) {
+                                onOpenAtletaModal(a.atletaId, a.nome);
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (isClickable && onOpenAtletaModal && (e.key === 'Enter' || e.key === ' ')) {
+                                e.preventDefault();
+                                onOpenAtletaModal(a.atletaId, a.nome);
+                              }
+                            }}
+                            className={`squadra-mobile-card${isClickable ? ' is-clickable' : ''}`}
+                          >
+                            <div className="squadra-mobile-card-top">
                               {a.isDoppio ? (
-                                <div
-                                  className="squadra-doppio-avatar"
-                                  title="Coppia di doppio"
-                                >
-                                  <i className="bi bi-people-fill text-secondary"></i>
+                                <div className="squadra-mobile-doppio-circles" title="Coppia di doppio">
+                                  <span className="squadra-doppio-circle is-icon">
+                                    <i className="bi bi-people-fill" />
+                                  </span>
+                                  <span className="squadra-doppio-circle is-initials">
+                                    +{doubleInitials}
+                                  </span>
                                 </div>
                               ) : (
-                                <AthleteAvatar atletaId={a.atletaId} nome={a.nome} size={30} />
-                              )}
-                              <div style={{ minWidth: 0 }}>
-                                <div className={`squadra-roster-name ${isClickable ? 'is-clickable' : ''}`}>
-                                  <span style={{ textDecoration: isClickable ? 'underline' : 'none', textUnderlineOffset: '2px' }}>
-                                    {a.nome}
-                                  </span>
-                                  {isClickable && (
-                                    <i className="bi bi-box-arrow-up-right" style={{ fontSize: '10.5px', opacity: 0.75 }}></i>
-                                  )}
+                                <div className="squadra-mobile-ring-wrap">
+                                  <svg
+                                    className="squadra-mobile-ring-svg"
+                                    viewBox="0 0 70 70"
+                                    aria-hidden="true"
+                                  >
+                                    <circle
+                                      className="squadra-mobile-ring-track"
+                                      cx="35"
+                                      cy="35"
+                                      r={ringRadius}
+                                    />
+                                    {winRate > 0 && (
+                                      <circle
+                                        className="squadra-mobile-ring-fill"
+                                        cx="35"
+                                        cy="35"
+                                        r={ringRadius}
+                                        stroke={winRateColor}
+                                        strokeDasharray={ringCircumference}
+                                        strokeDashoffset={ringOffset}
+                                      />
+                                    )}
+                                  </svg>
+                                  <div className="squadra-mobile-ring-avatar">
+                                    <AthleteAvatar atletaId={a.atletaId} nome={a.nome} size={54} avatarPlaceholder />
+                                  </div>
                                 </div>
-                                {a.isDoppio && (
-                                  <span className="squadra-doppio-badge">
-                                    Doppio
-                                  </span>
-                                )}
+                              )}
+
+                              <div className="squadra-mobile-card-name" title={a.nome}>
+                                {a.nome}
                               </div>
-                            </div>
-                          </td>
 
-                          {/* Ranking */}
-                          <td style={{ padding: '9px 10px', textAlign: 'center' }}>
-                            {a.isDoppio ? (
-                              <span style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>-</span>
-                            ) : a.rankPosizione || a.rankPunti ? (
-                              <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
-                                {a.rankPosizione && (
-                                  <span className="squadra-rank-pos">
-                                    #{a.rankPosizione}
-                                  </span>
-                                )}
-                                {a.rankPunti !== null && (
-                                  <span className="squadra-rank-pts">
-                                    {a.rankPunti.toLocaleString('it-IT')} pt
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>N.C.</span>
-                            )}
-                          </td>
-
-                          {/* PD */}
-                          <td style={{ padding: '9px 8px', textAlign: 'center', fontWeight: 600 }}>
-                            {a.partiteDisputate}
-                          </td>
-
-                          {/* PaV */}
-                          <td style={{ padding: '9px 8px', textAlign: 'center', color: '#16a34a', fontWeight: 700 }}>
-                            {a.partiteVinte}
-                          </td>
-
-                          {/* PaP */}
-                          <td style={{ padding: '9px 8px', textAlign: 'center', color: '#dc2626', fontWeight: 700 }}>
-                            {a.partitePerse}
-                          </td>
-
-                          {/* SV / SP */}
-                          <td style={{ padding: '9px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                            <span style={{ color: '#16a34a', fontWeight: 600 }}>{a.setVinti}</span>
-                            <span style={{ margin: '0 2px', color: 'var(--text-muted)' }}>:</span>
-                            <span style={{ color: '#dc2626', fontWeight: 600 }}>{a.setPersi}</span>
-                          </td>
-
-                          {/* PV / PP */}
-                          <td style={{ padding: '9px 8px', textAlign: 'center', whiteSpace: 'nowrap', fontSize: '11.5px' }}>
-                            <span style={{ color: 'var(--text-dark)' }}>{a.puntiVinti}</span>
-                            <span style={{ margin: '0 2px', color: 'var(--text-muted)' }}>-</span>
-                            <span style={{ color: 'var(--text-muted)' }}>{a.puntiPersi}</span>
-                          </td>
-
-                          {/* % pv */}
-                          <td style={{ padding: '9px 12px', textAlign: 'right' }}>
-                            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                              <span
-                                style={{
-                                  fontSize: '12px',
-                                  fontWeight: 700,
-                                  color: winRateColor,
-                                }}
-                              >
-                                {winRate}%
+                              <span className="squadra-mobile-rank-pill">
+                                {a.isDoppio
+                                  ? 'Doppio'
+                                  : a.rankPosizione
+                                    ? `#${a.rankPosizione}`
+                                    : 'N.C.'}
                               </span>
-                              <div className="mini-progress-track">
-                                <div
+                            </div>
+
+                            <div className="squadra-mobile-card-stats">
+                              <div className="squadra-mobile-stat-line">
+                                <span className="squadra-mobile-stat-lbl">Partite V/P</span>
+                                <span
+                                  className="squadra-mobile-vp-badge"
                                   style={{
-                                    width: `${winRate}%`,
-                                    height: '100%',
-                                    background: winRateColor,
-                                    borderRadius: '3px',
+                                    color: winRateColor,
+                                    backgroundColor: `${winRateColor}1a`,
                                   }}
+                                >
+                                  {a.partiteVinte} / {a.partitePerse}
+                                </span>
+                              </div>
+                              <div className="squadra-mobile-stat-line">
+                                <span className="squadra-mobile-stat-lbl">Vittorie</span>
+                                <span className="squadra-mobile-pct-val" style={{ color: winRateColor }}>
+                                  {winRate}%
+                                </span>
+                              </div>
+                              <div className="progress-win-rate-track">
+                                <div
+                                  className="progress-win-rate-bar"
+                                  style={{ width: `${winRate}%`, background: winRateColor }}
                                 />
                               </div>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              ) : (
+                /* Vista Elenco (Tabella) */
+                <div className="squadra-table-wrapper">
+                  <table className="squadra-roster-table">
+                    <thead>
+                      <tr className="squadra-roster-thead-tr">
+                        <th style={{ padding: '10px 12px' }}>Atleta</th>
+                        <th style={{ padding: '10px 10px', textAlign: 'center' }}>Ranking</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'center' }} title="Partite Disputate">PD</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'center' }} title="Partite Vinte">PaV</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'center' }} title="Partite Perse">PaP</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'center' }} title="Set Vinti / Persi">Set</th>
+                        <th style={{ padding: '10px 8px', textAlign: 'center' }} title="Punti Vinti / Persi">Punti</th>
+                        <th style={{ padding: '10px 12px', textAlign: 'right' }} title="% Partite Vinte">% Vittorie</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.atleti
+                        .filter((a) =>
+                          rosterFilter === 'all' ? true : rosterFilter === 'singolo' ? !a.isDoppio : a.isDoppio
+                        )
+                        .map((a: AtletaSquadraDettaglio, idx: number) => {
+                          const isClickable = !a.isDoppio && Boolean(a.atletaId) && Boolean(onOpenAtletaModal);
+                          const { winRate, winRateColor } = getAthleteWinRate(a);
+
+                          return (
+                            <tr
+                              key={`${a.atletaId || a.nome}_${idx}`}
+                              onClick={() => {
+                                if (isClickable && onOpenAtletaModal) {
+                                  onOpenAtletaModal(a.atletaId, a.nome);
+                                }
+                              }}
+                              className={`squadra-roster-tr ${isClickable ? 'is-clickable hover-row-highlight' : ''}`}
+                              title={isClickable ? `Visualizza scheda federale di ${a.nome}` : undefined}
+                            >
+                              {/* Athlete Info */}
+                              <td style={{ padding: '9px 12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                  {a.isDoppio ? (
+                                    <div
+                                      className="squadra-doppio-avatar"
+                                      title="Coppia di doppio"
+                                    >
+                                      <i className="bi bi-people-fill text-secondary"></i>
+                                    </div>
+                                  ) : (
+                                    <AthleteAvatar atletaId={a.atletaId} nome={a.nome} size={30} />
+                                  )}
+                                  <div style={{ minWidth: 0 }}>
+                                    <div className={`squadra-roster-name ${isClickable ? 'is-clickable' : ''}`}>
+                                      <span style={{ textDecoration: isClickable ? 'underline' : 'none', textUnderlineOffset: '2px' }}>
+                                        {a.nome}
+                                      </span>
+                                      {isClickable && (
+                                        <i className="bi bi-box-arrow-up-right" style={{ fontSize: '10.5px', opacity: 0.75 }}></i>
+                                      )}
+                                    </div>
+                                    {a.isDoppio && (
+                                      <span className="squadra-doppio-badge">
+                                        Doppio
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Ranking */}
+                              <td style={{ padding: '9px 10px', textAlign: 'center' }}>
+                                {a.isDoppio ? (
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>-</span>
+                                ) : a.rankPosizione || a.rankPunti ? (
+                                  <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    {a.rankPosizione && (
+                                      <span className="squadra-rank-pos">
+                                        #{a.rankPosizione}
+                                      </span>
+                                    )}
+                                    {a.rankPunti !== null && (
+                                      <span className="squadra-rank-pts">
+                                        {a.rankPunti.toLocaleString('it-IT')} pt
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>N.C.</span>
+                                )}
+                              </td>
+
+                              {/* PD */}
+                              <td style={{ padding: '9px 8px', textAlign: 'center', fontWeight: 600 }}>
+                                {a.partiteDisputate}
+                              </td>
+
+                              {/* PaV */}
+                              <td style={{ padding: '9px 8px', textAlign: 'center', color: '#16a34a', fontWeight: 700 }}>
+                                {a.partiteVinte}
+                              </td>
+
+                              {/* PaP */}
+                              <td style={{ padding: '9px 8px', textAlign: 'center', color: '#dc2626', fontWeight: 700 }}>
+                                {a.partitePerse}
+                              </td>
+
+                              {/* SV / SP */}
+                              <td style={{ padding: '9px 8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                <span style={{ color: '#16a34a', fontWeight: 600 }}>{a.setVinti}</span>
+                                <span style={{ margin: '0 2px', color: 'var(--text-muted)' }}>:</span>
+                                <span style={{ color: '#dc2626', fontWeight: 600 }}>{a.setPersi}</span>
+                              </td>
+
+                              {/* PV / PP */}
+                              <td style={{ padding: '9px 8px', textAlign: 'center', whiteSpace: 'nowrap', fontSize: '11.5px' }}>
+                                <span style={{ color: 'var(--text-dark)' }}>{a.puntiVinti}</span>
+                                <span style={{ margin: '0 2px', color: 'var(--text-muted)' }}>-</span>
+                                <span style={{ color: 'var(--text-muted)' }}>{a.puntiPersi}</span>
+                              </td>
+
+                              {/* % pv */}
+                              <td style={{ padding: '9px 12px', textAlign: 'right' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                                  <span
+                                    style={{
+                                      fontSize: '12px',
+                                      fontWeight: 700,
+                                      color: winRateColor,
+                                    }}
+                                  >
+                                    {winRate}%
+                                  </span>
+                                  <div className="mini-progress-track">
+                                    <div
+                                      style={{
+                                        width: `${winRate}%`,
+                                        height: '100%',
+                                        background: winRateColor,
+                                        borderRadius: '3px',
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           )}
