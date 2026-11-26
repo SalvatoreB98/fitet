@@ -7,6 +7,7 @@ import { useModalTransition } from '../utils/useModalTransition';
 import { AthleteAvatar } from './AthleteAvatar';
 import { TeamLogo } from './TeamLogo';
 import { RefertoModal } from './RefertoModal';
+import { SquadraModal } from './SquadraModal';
 import { registerTeamLogos } from '../utils/teamLogos';
 import './MatchDetailModal.css';
 
@@ -147,17 +148,19 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
   const [referto, setReferto] = useState<RefertoIncontro | null>(null);
   const [loadingReferto, setLoadingReferto] = useState(false);
   const [isRefertoModalOpen, setIsRefertoModalOpen] = useState(false);
+  const [teamIdsByName, setTeamIdsByName] = useState<Record<string, string>>({});
+  const [selectedTeamModal, setSelectedTeamModal] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isTopModal && !isRefertoModalOpen) {
+      if (e.key === 'Escape' && isTopModal && !isRefertoModalOpen && !selectedTeamModal) {
         e.stopPropagation();
         requestClose();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [requestClose, isTopModal, isRefertoModalOpen]);
+  }, [requestClose, isTopModal, isRefertoModalOpen, selectedTeamModal]);
 
   // Carica in background i dettagli dell'avversario (foto, ID reale, rank, punti, società)
   useEffect(() => {
@@ -229,6 +232,13 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
         if (!active || !dash?.calendario) return;
         if (dash.classifica?.length) {
           registerTeamLogos(dash.classifica);
+          const idMap: Record<string, string> = {};
+          for (const t of dash.classifica) {
+            if (t.nome && t.squadraId) {
+              idMap[normTeam(t.nome)] = t.squadraId;
+            }
+          }
+          if (active) setTeamIdsByName(idMap);
         }
         const allTeamMatches = dash.calendario.flatMap((g) => [
           ...(g.partiteAndata || []),
@@ -589,42 +599,88 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
             <div>
               <p className="match-detail-section-label">Incontro a Squadre • Risultato Generale</p>
               <div className="match-detail-card">
-                {teamMatch ? (
-                  <div className="match-detail-team-grid">
-                    <div className="match-detail-team-side">
-                      <div className="match-detail-team-logo-wrap">
-                        <TeamLogo
-                          teamName={teamMatch.squadraCasa}
-                          logoUrl={referto?.squadraCasa?.logoUrl}
-                          size={40}
-                        />
-                      </div>
-                      <div className="match-detail-team-name">{teamMatch.squadraCasa}</div>
-                    </div>
+                {teamMatch ? (() => {
+                  const casaId = teamIdsByName[normTeam(teamMatch.squadraCasa)];
+                  const ospiteId = teamIdsByName[normTeam(teamMatch.squadraOspite)];
+                  const canOpenTeams = Boolean(resolvedChampInfo.effectiveCamId);
 
-                    <div className="match-detail-center-score">
-                      <div className="match-detail-team-score">
-                        {teamMatch.puntiCasa !== null && teamMatch.puntiOspite !== null
-                          ? `${teamMatch.puntiCasa} - ${teamMatch.puntiOspite}`
-                          : '-'}
+                  return (
+                    <div className="match-detail-team-grid">
+                      <div className="match-detail-team-side">
+                        {casaId && canOpenTeams ? (
+                          <button
+                            type="button"
+                            className="match-detail-team-btn"
+                            onClick={() => setSelectedTeamModal({ id: casaId, name: teamMatch.squadraCasa })}
+                            title={`Apri scheda squadra ${teamMatch.squadraCasa}`}
+                          >
+                            <div className="match-detail-team-logo-wrap">
+                              <TeamLogo
+                                teamName={teamMatch.squadraCasa}
+                                logoUrl={referto?.squadraCasa?.logoUrl}
+                                size={40}
+                              />
+                            </div>
+                            <div className="match-detail-team-name">{teamMatch.squadraCasa}</div>
+                          </button>
+                        ) : (
+                          <>
+                            <div className="match-detail-team-logo-wrap">
+                              <TeamLogo
+                                teamName={teamMatch.squadraCasa}
+                                logoUrl={referto?.squadraCasa?.logoUrl}
+                                size={40}
+                              />
+                            </div>
+                            <div className="match-detail-team-name">{teamMatch.squadraCasa}</div>
+                          </>
+                        )}
                       </div>
-                      <span className="match-detail-meta-pill">
-                        {teamMatch.disputato ? 'Incontro Concluso' : 'In Programma'}
-                      </span>
-                    </div>
 
-                    <div className="match-detail-team-side">
-                      <div className="match-detail-team-logo-wrap">
-                        <TeamLogo
-                          teamName={teamMatch.squadraOspite}
-                          logoUrl={referto?.squadraOspite?.logoUrl}
-                          size={40}
-                        />
+                      <div className="match-detail-center-score">
+                        <div className="match-detail-team-score">
+                          {teamMatch.puntiCasa !== null && teamMatch.puntiOspite !== null
+                            ? `${teamMatch.puntiCasa} - ${teamMatch.puntiOspite}`
+                            : '-'}
+                        </div>
+                        <span className="match-detail-meta-pill">
+                          {teamMatch.disputato ? 'Incontro Concluso' : 'In Programma'}
+                        </span>
                       </div>
-                      <div className="match-detail-team-name">{teamMatch.squadraOspite}</div>
+
+                      <div className="match-detail-team-side">
+                        {ospiteId && canOpenTeams ? (
+                          <button
+                            type="button"
+                            className="match-detail-team-btn"
+                            onClick={() => setSelectedTeamModal({ id: ospiteId, name: teamMatch.squadraOspite })}
+                            title={`Apri scheda squadra ${teamMatch.squadraOspite}`}
+                          >
+                            <div className="match-detail-team-logo-wrap">
+                              <TeamLogo
+                                teamName={teamMatch.squadraOspite}
+                                logoUrl={referto?.squadraOspite?.logoUrl}
+                                size={40}
+                              />
+                            </div>
+                            <div className="match-detail-team-name">{teamMatch.squadraOspite}</div>
+                          </button>
+                        ) : (
+                          <>
+                            <div className="match-detail-team-logo-wrap">
+                              <TeamLogo
+                                teamName={teamMatch.squadraOspite}
+                                logoUrl={referto?.squadraOspite?.logoUrl}
+                                size={40}
+                              />
+                            </div>
+                            <div className="match-detail-team-name">{teamMatch.squadraOspite}</div>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ) : (
+                  );
+                })() : (
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center' }}>
                     Caricamento incontro a squadre...
                   </div>
@@ -667,10 +723,10 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
 
           {/* Altre partite di questa giornata */}
           {otherDayMatches.length > 0 && (
-            <div>
+            <div className={`container-others ${showOtherDayMatches ? 'is-expanded' : ''}`}>
               <button
                 type="button"
-                className="match-detail-day-toggle"
+                className={`match-detail-day-toggle ${showOtherDayMatches ? 'is-expanded' : ''}`}
                 onClick={() => setShowOtherDayMatches((prev) => !prev)}
                 aria-expanded={showOtherDayMatches}
               >
@@ -706,21 +762,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
               )}
             </div>
           )}
-          {/* Azioni Campionato: Apri Referto Completo */}
-          {teamMatch?.incontroId && (
-            <div className="match-detail-actions-row">
-              <button
-                type="button"
-                className="match-detail-action-btn"
-                onClick={() => setIsRefertoModalOpen(true)}
-              >
-                <i className="bi bi-file-earmark-text" />
-                <span>Apri referto completo</span>
-              </button>
-            </div>
-          )}
         </div>
-
         {/* Footer */}
         <div className="match-detail-footer">
           <button type="button" className="match-detail-footer-close" onClick={requestClose}>
@@ -738,6 +780,25 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
           squadraOspiteNome={teamMatch.squadraOspite}
           zIndex={(zIndex || 1205) + 400}
           onClose={() => setIsRefertoModalOpen(false)}
+        />
+      )}
+
+      {selectedTeamModal && resolvedChampInfo.effectiveCamId && (
+        <SquadraModal
+          squadraId={selectedTeamModal.id}
+          squadraNome={selectedTeamModal.name}
+          camId={resolvedChampInfo.effectiveCamId}
+          annoId={annoId}
+          zIndex={(zIndex || 1205) + 400}
+          onClose={() => setSelectedTeamModal(null)}
+          onOpenAtletaModal={
+            onOpenOpponentProfile
+              ? (id, name) => {
+                setSelectedTeamModal(null);
+                onOpenOpponentProfile(id, name);
+              }
+              : undefined
+          }
         />
       )}
     </div>,

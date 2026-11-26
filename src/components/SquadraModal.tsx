@@ -14,6 +14,7 @@ export interface SquadraModalProps {
   squadraNome?: string;
   camId: number;
   annoId?: number;
+  zIndex?: number;
   onClose: () => void;
   onOpenAtletaModal?: (id: string, name: string) => void;
   onFilterCalendario?: (teamName: string) => void;
@@ -60,6 +61,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
   squadraNome,
   camId,
   annoId = 41,
+  zIndex,
   onClose,
   onOpenAtletaModal,
   onFilterCalendario,
@@ -127,7 +129,13 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className={`modal-backdrop-simple modal-referto-backdrop ${isClosing ? 'modal-closing' : ''}`} onClick={requestClose} role="dialog" aria-modal="true">
+    <div
+      className={`modal-backdrop-simple modal-referto-backdrop ${isClosing ? 'modal-closing' : ''}`}
+      style={zIndex ? { zIndex } : undefined}
+      onClick={requestClose}
+      role="dialog"
+      aria-modal="true"
+    >
       <div
         className={`modal-card-simple referto-modal-card squadra-modal-card ${isClosing ? 'is-closing' : ''} ${isCompactState ? 'is-compact-state' : ''}`}
         onClick={(e) => e.stopPropagation()}
