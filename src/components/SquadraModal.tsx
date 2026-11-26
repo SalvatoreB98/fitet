@@ -34,6 +34,27 @@ function getAthleteWinRate(a: AtletaSquadraDettaglio): { winRate: number; winRat
   return { winRate, winRateColor };
 }
 
+function getDoubleInitials(nome: string): string {
+  const parts = nome
+    .split(/[-–/]/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    return parts
+      .slice(0, 2)
+      .map((p) => p[0])
+      .join('')
+      .toUpperCase();
+  }
+  return nome
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
+}
+
 export const SquadraModal: React.FC<SquadraModalProps> = ({
   squadraId,
   squadraNome,
@@ -51,6 +72,8 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [rosterFilter, setRosterFilter] = useState<'all' | 'singolo' | 'doppio'>('all');
+  const [rosterViewMode, setRosterViewMode] = useState<'card' | 'list'>('card');
 
   const loadData = async (force = false) => {
     if (force) setRefreshing(true);
@@ -94,6 +117,11 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
   const setDiff = totalSetVinti - totalSetPersi;
 
   const displayName = data?.nome || squadraNome || `Squadra ${squadraId}`;
+  const headerDisplayName = displayName
+    .replace(/\bdilettantistic[ao]\b\.?/gi, 'D.')
+    .replace(/\btennis\s*tavolo\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   const isCompactState = !loading && Boolean(error && !data);
 
   if (typeof document === 'undefined') return null;
@@ -116,7 +144,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <h3 className="squadra-header-title" title={displayName}>
-                  {displayName}
+                  {headerDisplayName}
                 </h3>
                 <span className="modal-badge-pill">
                   FITeT #{camId}
@@ -281,85 +309,186 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                     Clicca su un atleta per visualizzare la scheda anagrafica federale e lo storico punti
                   </div>
                 </div>
-                <span className="squadra-roster-count">
-                  {data.atleti.length} {data.atleti.length === 1 ? 'record' : 'record'}
-                </span>
-              </div>
-
-              {/* Mobile (<600px): Carousel/Slider Card Atleti & Doppio */}
-              <div className="squadra-mobile-carousel-wrap">
-                <div className="squadra-mobile-carousel" role="region" aria-label="Atleti della squadra">
-                  {data.atleti.map((a: AtletaSquadraDettaglio, idx: number) => {
-                    const isClickable = !a.isDoppio && Boolean(a.atletaId) && Boolean(onOpenAtletaModal);
-                    const { winRate } = getAthleteWinRate(a);
-
-                    return (
-                      <div
-                        key={`mobile_${a.atletaId || a.nome}_${idx}`}
-                        role={isClickable ? 'button' : undefined}
-                        tabIndex={isClickable ? 0 : undefined}
-                        onClick={() => {
-                          if (isClickable && onOpenAtletaModal) {
-                            onOpenAtletaModal(a.atletaId, a.nome);
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (isClickable && onOpenAtletaModal && (e.key === 'Enter' || e.key === ' ')) {
-                            e.preventDefault();
-                            onOpenAtletaModal(a.atletaId, a.nome);
-                          }
-                        }}
-                        className={`squadra-mobile-card${isClickable ? ' is-clickable' : ''}`}
-                      >
-                        {/* Foto grande + Nome */}
-                        <div className="squadra-mobile-card-top">
-                          {a.isDoppio ? (
-                            <div className="squadra-mobile-doppio-photo" title="Coppia di doppio">
-                              <i className="bi bi-people-fill" />
-                            </div>
-                          ) : (
-                            <div className="squadra-mobile-photo-wrap">
-                              <AthleteAvatar atletaId={a.atletaId} nome={a.nome} size="100%" avatarPlaceholder />
-                            </div>
-                          )}
-
-                          <div className="squadra-mobile-card-name" title={a.nome}>
-                            {a.nome}
-                          </div>
-                        </div>
-
-                        {/* Tabella essenziale con colori tenui */}
-                        <table className="squadra-mobile-mini-table">
-                          <tbody>
-                            <tr>
-                              <th>Rank</th>
-                              <td>
-                                {a.isDoppio
-                                  ? 'Doppio'
-                                  : a.rankPosizione
-                                    ? `#${a.rankPosizione}`
-                                    : 'N.C.'}
-                              </td>
-                            </tr>
-                            <tr>
-                              <th>Partite</th>
-                              <td>
-                                {a.partiteVinte}/{a.partiteDisputate}
-                              </td>
-                            </tr>
-                            <tr>
-                              <th>% Vitt</th>
-                              <td>{winRate}%</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    );
-                  })}
+                <div className="pill-switcher-container">
+                  <button
+                    type="button"
+                    onClick={() => setRosterViewMode('card')}
+                    title="Vista Card"
+                    className={`pill-switcher-btn ${rosterViewMode === 'card' ? 'active' : ''}`}
+                  >
+                    <i className="bi bi-grid-3x3-gap me-1"></i>Card
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRosterViewMode('list')}
+                    title="Vista Elenco"
+                    className={`pill-switcher-btn ${rosterViewMode === 'list' ? 'active' : ''}`}
+                  >
+                    <i className="bi bi-list-ul me-1"></i>Elenco
+                  </button>
                 </div>
               </div>
 
-              {/* Roster Table (Desktop / >=600px) */}
+              {/* Filter Tabs */}
+              <div className="squadra-mobile-filter-bar">
+                <div className="squadra-mobile-filter-pills" role="tablist" aria-label="Filtra atleti">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={rosterFilter === 'all'}
+                    className={`squadra-mobile-filter-pill${rosterFilter === 'all' ? ' is-active' : ''}`}
+                    onClick={() => setRosterFilter('all')}
+                  >
+                    Tutti ({data.atleti.length})
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={rosterFilter === 'singolo'}
+                    className={`squadra-mobile-filter-pill${rosterFilter === 'singolo' ? ' is-active' : ''}`}
+                    onClick={() => setRosterFilter('singolo')}
+                  >
+                    Singolo
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={rosterFilter === 'doppio'}
+                    className={`squadra-mobile-filter-pill${rosterFilter === 'doppio' ? ' is-active' : ''}`}
+                    onClick={() => setRosterFilter('doppio')}
+                  >
+                    Doppio
+                  </button>
+                </div>
+                <span className="squadra-mobile-record-pill">
+                  {data.atleti.filter((a) =>
+                    rosterFilter === 'all' ? true : rosterFilter === 'singolo' ? !a.isDoppio : a.isDoppio
+                  ).length}{' '}
+                  record
+                </span>
+              </div>
+
+              {/* Vista Card (Default) */}
+              {rosterViewMode === 'card' ? (
+                <div className="squadra-mobile-carousel-wrap">
+                <div className="squadra-mobile-carousel" role="region" aria-label="Atleti della squadra">
+                  {data.atleti
+                    .filter((a) =>
+                      rosterFilter === 'all' ? true : rosterFilter === 'singolo' ? !a.isDoppio : a.isDoppio
+                    )
+                    .map((a: AtletaSquadraDettaglio, idx: number) => {
+                      const isClickable = !a.isDoppio && Boolean(a.atletaId) && Boolean(onOpenAtletaModal);
+                      const { winRate, winRateColor } = getAthleteWinRate(a);
+                      const ringRadius = 31;
+                      const ringCircumference = 2 * Math.PI * ringRadius;
+                      const ringOffset = ringCircumference * (1 - winRate / 100);
+                      const doubleInitials = a.isDoppio ? getDoubleInitials(a.nome) : '';
+
+                      return (
+                        <div
+                          key={`mobile_${a.atletaId || a.nome}_${idx}`}
+                          role={isClickable ? 'button' : undefined}
+                          tabIndex={isClickable ? 0 : undefined}
+                          onClick={() => {
+                            if (isClickable && onOpenAtletaModal) {
+                              onOpenAtletaModal(a.atletaId, a.nome);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (isClickable && onOpenAtletaModal && (e.key === 'Enter' || e.key === ' ')) {
+                              e.preventDefault();
+                              onOpenAtletaModal(a.atletaId, a.nome);
+                            }
+                          }}
+                          className={`squadra-mobile-card${isClickable ? ' is-clickable' : ''}`}
+                        >
+                          <div className="squadra-mobile-card-top">
+                            {a.isDoppio ? (
+                              <div className="squadra-mobile-doppio-circles" title="Coppia di doppio">
+                                <span className="squadra-doppio-circle is-icon">
+                                  <i className="bi bi-people-fill" />
+                                </span>
+                                <span className="squadra-doppio-circle is-initials">
+                                  +{doubleInitials}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="squadra-mobile-ring-wrap">
+                                <svg
+                                  className="squadra-mobile-ring-svg"
+                                  viewBox="0 0 70 70"
+                                  aria-hidden="true"
+                                >
+                                  <circle
+                                    className="squadra-mobile-ring-track"
+                                    cx="35"
+                                    cy="35"
+                                    r={ringRadius}
+                                  />
+                                  {winRate > 0 && (
+                                    <circle
+                                      className="squadra-mobile-ring-fill"
+                                      cx="35"
+                                      cy="35"
+                                      r={ringRadius}
+                                      stroke={winRateColor}
+                                      strokeDasharray={ringCircumference}
+                                      strokeDashoffset={ringOffset}
+                                    />
+                                  )}
+                                </svg>
+                                <div className="squadra-mobile-ring-avatar">
+                                  <AthleteAvatar atletaId={a.atletaId} nome={a.nome} size={54} avatarPlaceholder />
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="squadra-mobile-card-name" title={a.nome}>
+                              {a.nome}
+                            </div>
+
+                            <span className="squadra-mobile-rank-pill">
+                              {a.isDoppio
+                                ? 'Doppio'
+                                : a.rankPosizione
+                                  ? `#${a.rankPosizione}`
+                                  : 'N.C.'}
+                            </span>
+                          </div>
+
+                          <div className="squadra-mobile-card-stats">
+                            <div className="squadra-mobile-stat-line">
+                              <span className="squadra-mobile-stat-lbl">Partite V/P</span>
+                              <span
+                                className="squadra-mobile-vp-badge"
+                                style={{
+                                  color: winRateColor,
+                                  backgroundColor: `${winRateColor}1a`,
+                                }}
+                              >
+                                {a.partiteVinte} / {a.partitePerse}
+                              </span>
+                            </div>
+                            <div className="squadra-mobile-stat-line">
+                              <span className="squadra-mobile-stat-lbl">Vittorie</span>
+                              <span className="squadra-mobile-pct-val" style={{ color: winRateColor }}>
+                                {winRate}%
+                              </span>
+                            </div>
+                            <div className="progress-win-rate-track">
+                              <div
+                                className="progress-win-rate-bar"
+                                style={{ width: `${winRate}%`, background: winRateColor }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+              ) : (
+              /* Vista Elenco (Tabella) */
               <div className="squadra-table-wrapper">
                 <table className="squadra-roster-table">
                   <thead>
@@ -375,7 +504,11 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {data.atleti.map((a: AtletaSquadraDettaglio, idx: number) => {
+                    {data.atleti
+                      .filter((a) =>
+                        rosterFilter === 'all' ? true : rosterFilter === 'singolo' ? !a.isDoppio : a.isDoppio
+                      )
+                      .map((a: AtletaSquadraDettaglio, idx: number) => {
                       const isClickable = !a.isDoppio && Boolean(a.atletaId) && Boolean(onOpenAtletaModal);
                       const { winRate, winRateColor } = getAthleteWinRate(a);
 
@@ -502,6 +635,7 @@ export const SquadraModal: React.FC<SquadraModalProps> = ({
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
           )}
         </div>
