@@ -7,6 +7,7 @@ import { useModalTransition } from '../utils/useModalTransition';
 import { AthleteAvatar } from './AthleteAvatar';
 import { TeamLogo } from './TeamLogo';
 import { RefertoModal } from './RefertoModal';
+import { registerTeamLogos } from '../utils/teamLogos';
 import './MatchDetailModal.css';
 
 export interface MatchDetailItem {
@@ -226,6 +227,9 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
     fetchDashboard(targetCamId, annoId)
       .then(async (dash) => {
         if (!active || !dash?.calendario) return;
+        if (dash.classifica?.length) {
+          registerTeamLogos(dash.classifica);
+        }
         const allTeamMatches = dash.calendario.flatMap((g) => [
           ...(g.partiteAndata || []),
           ...(g.partiteRitorno || []),
@@ -589,7 +593,11 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                   <div className="match-detail-team-grid">
                     <div className="match-detail-team-side">
                       <div className="match-detail-team-logo-wrap">
-                        <TeamLogo teamName={teamMatch.squadraCasa} size={40} />
+                        <TeamLogo
+                          teamName={teamMatch.squadraCasa}
+                          logoUrl={referto?.squadraCasa?.logoUrl}
+                          size={40}
+                        />
                       </div>
                       <div className="match-detail-team-name">{teamMatch.squadraCasa}</div>
                     </div>
@@ -607,7 +615,11 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
 
                     <div className="match-detail-team-side">
                       <div className="match-detail-team-logo-wrap">
-                        <TeamLogo teamName={teamMatch.squadraOspite} size={40} />
+                        <TeamLogo
+                          teamName={teamMatch.squadraOspite}
+                          logoUrl={referto?.squadraOspite?.logoUrl}
+                          size={40}
+                        />
                       </div>
                       <div className="match-detail-team-name">{teamMatch.squadraOspite}</div>
                     </div>
