@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { formatSocietyName } from './textUtils';
 import { SquadraClassifica } from '../../src/types/fitet';
 
 export function parseClassifica(html: string): SquadraClassifica[] {
@@ -14,7 +15,7 @@ export function parseClassifica(html: string): SquadraClassifica[] {
     const href = teamLink.attr('href') || '';
     const squadraIdMatch = href.match(/SQUADRA=(\d+)/i);
     const squadraId = squadraIdMatch ? squadraIdMatch[1] : '';
-    const nome = teamLink.text().replace(/\s+/g, ' ').trim();
+    const nome = formatSocietyName(teamLink.text().replace(/\s+/g, ' ').trim());
 
     const cells = $row.find('td');
     if (cells.length < 14) return;

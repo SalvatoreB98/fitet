@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { formatSocietyName } from './textUtils';
 import { GiornataCalendario, PartitaCalendario } from '../../src/types/fitet';
 
 export function parseCalendario(html: string): GiornataCalendario[] {
@@ -82,8 +83,8 @@ export function parseCalendario(html: string): GiornataCalendario[] {
           tipo,
           data,
           ora,
-          squadraCasa: casa,
-          squadraOspite: ospite,
+          squadraCasa: formatSocietyName(casa),
+          squadraOspite: formatSocietyName(ospite),
           risultato: disputato ? `${puntiCasa} - ${puntiOspite}` : '-',
           puntiCasa,
           puntiOspite,

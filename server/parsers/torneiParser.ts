@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { formatSocietyName } from './textUtils';
 import {
   TorneoItem,
   TorneoDettaglioResponse,
@@ -397,7 +398,7 @@ export function parseIscrizioniGara(
     const statusClass = (nameP.attr('class') || 'dettagli').trim();
     const punti = cleanText($(tds[3]).text());
     const puntiIscrizione = parseInt(punti.replace(/\./g, '').replace(/[^\d-]/g, ''), 10) || 0;
-    const societa = cleanText($(tds[4]).text());
+    const societa = formatSocietyName(cleanText($(tds[4]).text()));
     const posizione = parseInt(posText, 10) || iscritti.length + 1;
 
     iscritti.push({
@@ -552,9 +553,9 @@ function parseMatchTable(
   if (r1Tds.length < 3 || r2Tds.length < 3) return null;
 
   const atleta1 = cleanText($(r1Tds[0]).find('p.dettagli').first().text());
-  const societa1 = cleanText($(r1Tds[0]).find('p.soc').first().text());
+  const societa1 = formatSocietyName(cleanText($(r1Tds[0]).find('p.soc').first().text()));
   const atleta2 = cleanText($(r2Tds[0]).find('p.dettagli').first().text());
-  const societa2 = cleanText($(r2Tds[0]).find('p.soc').first().text());
+  const societa2 = formatSocietyName(cleanText($(r2Tds[0]).find('p.soc').first().text()));
 
   if (!atleta1 && !atleta2) return null;
 

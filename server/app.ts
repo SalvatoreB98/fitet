@@ -26,6 +26,7 @@ import { parseClassifica } from './parsers/classificaParser';
 import { parseCalendario } from './parsers/calendarioParser';
 import { parseStatisticheAtleti } from './parsers/statisticheParser';
 import { parseDettaglioAtleta, extractRankingIframeUrl, parsePartiteRanking } from './parsers/atletaParser';
+import { formatSocietyName } from './parsers/textUtils';
 import { headToHeadService } from './services/headToHeadService';
 import { handlePredictH2H } from '../api/predict-h2h';
 import { handlePredictTeamMatch } from '../api/predict-team-match';
@@ -1467,10 +1468,13 @@ app.get('/api/atleta/:id', async (req, res) => {
                         cacheService.set(cacheKey, cached, TTL_ATLETA);
                     }
                 }
-                if (cached.anagrafica?.societa && !cached.anagrafica.logoUrl) {
-                    const resolvedLogo = teamResolver.getLogo(cached.anagrafica.societa);
-                    if (resolvedLogo) {
-                        cached.anagrafica.logoUrl = resolvedLogo;
+                if (cached.anagrafica?.societa) {
+                    cached.anagrafica.societa = formatSocietyName(cached.anagrafica.societa);
+                    if (!cached.anagrafica.logoUrl) {
+                        const resolvedLogo = teamResolver.getLogo(cached.anagrafica.societa);
+                        if (resolvedLogo) {
+                            cached.anagrafica.logoUrl = resolvedLogo;
+                        }
                     }
                 }
                 return res.json(cached);

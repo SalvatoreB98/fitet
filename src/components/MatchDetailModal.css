@@ -538,6 +538,37 @@
   flex-shrink: 0;
 }
 
+.match-detail-day-teams {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px 6px;
+}
+
+.match-detail-day-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.match-detail-day-team-name {
+  color: var(--text-dark, #0f172a);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.match-detail-day-vs {
+  color: var(--text-muted, #526174);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
 .match-detail-actions-row {
   display: flex;
   flex-wrap: wrap;

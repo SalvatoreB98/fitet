@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { formatSocietyName } from './textUtils';
 import { StatisticaAtleta } from '../../src/types/fitet';
 
 export function parseStatisticheAtleti(
@@ -53,7 +54,7 @@ export function parseStatisticheAtleti(
       bandieraUrl,
       atleta: nomeText,
       atletaId: athleteId,
-      squadra,
+      squadra: formatSocietyName(squadra),
       incontriDisputati,
       partiteDisputate,
       partiteVinte,

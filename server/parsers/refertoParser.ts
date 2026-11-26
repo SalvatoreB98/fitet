@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { formatSocietyName } from './textUtils';
 import { RefertoIncontro, PartitaRefertoIndividuale, DettaglioPartitaIndividuale, SetScore } from '../../src/types/fitet';
 
 function resolveFitetUrl(src?: string): string | undefined {
@@ -182,14 +183,14 @@ export function parseRefertoIncontro(
     arbitro,
     campoGara,
     squadraCasa: {
-      nome: casaNome || 'Squadra Casa',
+      nome: formatSocietyName(casaNome) || 'Squadra Casa',
       logoUrl: logoCasa,
       punti: puntiCasa,
       setTotali: setTotaliCasa,
       puntiTotali: puntiTotaliCasa,
     },
     squadraOspite: {
-      nome: ospiteNome || 'Squadra Ospite',
+      nome: formatSocietyName(ospiteNome) || 'Squadra Ospite',
       logoUrl: logoOspite,
       punti: puntiOspite,
       setTotali: setTotaliOspite,

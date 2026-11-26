@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { formatSocietyName } from './textUtils';
 import type {
   SocietaAtletaStagione,
   SocietaAtletaStorico,
@@ -72,7 +73,7 @@ export function parseDatiSquadra(
   const addressCells = societyTables.eq(1).find('tr').eq(1).find('td, th');
   const contactCells = societyTables.eq(2).find('tr').eq(1).find('td, th');
 
-  const societyName = cleanText(registryCells.eq(0).text());
+  const societyName = formatSocietyName(cleanText(registryCells.eq(0).text()));
   const alboFederale =
     cleanText(registryCells.eq(1).text()).match(/\d{2,6}/)?.[0] ||
     fallbackSocietyId ||

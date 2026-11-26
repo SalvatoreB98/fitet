@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { formatSocietyName } from './textUtils';
 import { DettaglioSquadra, AtletaSquadraDettaglio } from '../../src/types/fitet';
 
 export function parseDettaglioSquadra(
@@ -12,7 +13,7 @@ export function parseDettaglioSquadra(
   // Extract team name from table header
   const titleText = $('table tr:first-child').text().replace(/\s+/g, ' ').trim();
   const teamNameMatch = titleText.match(/Atleti della squadra:\s*(.+)$/i);
-  const nome = teamNameMatch ? teamNameMatch[1].trim() : 'Squadra ' + squadraId;
+  const nome = formatSocietyName(teamNameMatch ? teamNameMatch[1].trim() : 'Squadra ' + squadraId);
 
   const atleti: AtletaSquadraDettaglio[] = [];
 

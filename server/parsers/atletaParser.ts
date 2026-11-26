@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { formatSocietyName } from './textUtils';
 import {
   DettaglioAtleta,
   StoricoRankingSnapshot,
@@ -356,7 +357,7 @@ export function parseDettaglioAtleta(
   const luogoNascita = dataNascitaRaw.replace(/.*?a\s*/i, '').trim();
 
   const settore = getFieldValue('Settore Agonistico') || 'Seniores';
-  const societa = getFieldValue("Societa' appartenenza") || getFieldValue('Societa') || '';
+  const societa = formatSocietyName(getFieldValue("Societa' appartenenza") || getFieldValue('Societa') || '');
   const regione = getFieldValue('Regione') || '';
 
   const catRaw = getFieldValue('Categoria');
