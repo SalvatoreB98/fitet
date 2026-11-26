@@ -1415,7 +1415,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       </div>
                       {atleta.anagrafica.regione && (
                         <div className="athlete-spotlight-region">
-                          • {atleta.anagrafica.regione}
+                          📍 {atleta.anagrafica.regione}
                         </div>
                       )}
                     </div>

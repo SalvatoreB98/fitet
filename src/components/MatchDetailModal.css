@@ -354,49 +354,69 @@
   color: var(--color-info-text, #0369a1);
 }
 
-.match-detail-sets-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
-  gap: 8px;
+.match-detail-sets-table-wrap {
   margin-top: 14px;
-}
-
-.match-detail-set-box {
-  position: relative;
-  background: var(--bg-hover, #f8fafc);
   border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 10px;
-  padding: 8px;
+  overflow-x: auto;
+}
+
+.match-detail-sets-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-variant-numeric: tabular-nums;
   text-align: center;
 }
 
-.match-detail-set-box.is-won {
-  background: var(--color-success-bg, #ecfdf5);
-  border-color: var(--color-success-border, #a7f3d0);
+.match-detail-sets-table th,
+.match-detail-sets-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-light, #f1f5f9);
+  font-size: clamp(12px, 1.15vw, 13.5px);
 }
 
-.match-detail-set-dot {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-success-text, #047857);
-}
-
-.match-detail-set-label {
-  font-size: clamp(10.5px, 0.95vw, 11.5px);
-  font-weight: 600;
+.match-detail-sets-table thead th {
+  background: var(--bg-th, #f1f5f9);
   color: var(--text-muted, #526174);
-  margin-bottom: 2px;
+  font-size: clamp(10.5px, 0.95vw, 11.5px);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.match-detail-set-score {
-  font-size: clamp(13.5px, 1.3vw, 15.5px);
-  font-weight: 800;
+.match-detail-sets-table .is-player-col {
   color: var(--text-dark, #0f172a);
-  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.match-detail-sets-table .is-set-col {
+  width: 78px;
+  font-size: clamp(10.5px, 0.95vw, 11.5px);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #526174);
+  border-left: 1px solid var(--border-light, #f1f5f9);
+  border-right: 1px solid var(--border-light, #f1f5f9);
+}
+
+.match-detail-sets-table td.is-won {
+  color: var(--color-success-text, #047857);
+  font-weight: 800;
+}
+
+.match-detail-sets-table tfoot td {
+  border-bottom: none;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-th, #f1f5f9);
+  font-weight: 800;
+}
+
+.match-detail-sets-table tfoot td.is-win {
+  color: var(--color-success-text, #047857);
 }
 
 .match-detail-h2h-btn {

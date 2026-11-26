@@ -46,13 +46,13 @@ interface MatchDetailModalProps {
   onNavigateToGiornata?: (camId?: number, giornata?: number) => void;
 }
 
-function parseSetWonByAthlete(setStr: string): boolean | null {
+function parseSetScores(setStr: string): { a: number; b: number; wonByAthlete: boolean | null } | null {
   const m = setStr.trim().match(/^(\d+)\s*[-:]\s*(\d+)$/);
   if (!m) return null;
   const a = parseInt(m[1], 10);
   const b = parseInt(m[2], 10);
-  if (Number.isNaN(a) || Number.isNaN(b) || a === b) return null;
-  return a > b;
+  if (Number.isNaN(a) || Number.isNaN(b)) return null;
+  return { a, b, wonByAthlete: a === b ? null : a > b };
 }
 
 function normTeam(name?: string): string {
@@ -323,6 +323,21 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
     return `${scope} • DETTAGLIO INCONTRO`;
   }, [match.tipo]);
 
+  const effectiveSets = useMemo(() => {
+    if (match.sets && match.sets.length > 0) return match.sets;
+    if (!referto?.partite?.length) return [];
+    const rp = referto.partite.find(
+      (p) =>
+        (playerNamesMatch(p.atletaCasa, athleteName) && playerNamesMatch(p.atletaOspite, match.avversario)) ||
+        (playerNamesMatch(p.atletaCasa, match.avversario) && playerNamesMatch(p.atletaOspite, athleteName))
+    );
+    if (!rp?.sets?.length) return [];
+    const athleteIsCasa = playerNamesMatch(rp.atletaCasa, athleteName);
+    return rp.sets.map((s) =>
+      athleteIsCasa ? `${s.puntiCasa}-${s.puntiOspite}` : `${s.puntiOspite}-${s.puntiCasa}`
+    );
+  }, [match.sets, referto, athleteName, match.avversario]);
+
   const mainScore = match.risultatoSet || (match.isVittoria ? 'V' : 'S');
   const athleteRankLabel = athleteRank ? `#${athleteRank}` : athleteCategory || '-';
   const oppRankLabel = loadingOpponent ? '...' : oppRank ? `#${oppRank}` : oppCategory || '-';
@@ -503,24 +518,46 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Griglia Set */}
-            {match.sets && match.sets.length > 0 && (
-              <div className="match-detail-sets-grid">
-                {match.sets.map((setStr, i) => {
-                  const won = parseSetWonByAthlete(setStr);
-                  return (
-                    <div
-                      key={`${setStr}-${i}`}
-                      className={`match-detail-set-box${won === true ? ' is-won' : ''}`}
-                    >
-                      {won === true && <span className="match-detail-set-dot" aria-hidden="true" />}
-                      <div className="match-detail-set-label">Set {i + 1}</div>
-                      <div className="match-detail-set-score">{setStr}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            {/* Tabella Set (Verticale) */}
+            {effectiveSets.length > 0 && (() => {
+              const parsedSets = effectiveSets.map((s) => parseSetScores(s));
+              const setsWonA = parsedSets.filter((p) => p?.wonByAthlete === true).length;
+              const setsWonB = parsedSets.filter((p) => p?.wonByAthlete === false).length;
+
+              return (
+                <div className="match-detail-sets-table-wrap">
+                  <table className="match-detail-sets-table is-vertical" aria-label="Parziali dei set">
+                    <thead>
+                      <tr>
+                        <th className="is-player-col" title={athleteName}>{athleteName}</th>
+                        <th className="is-set-col">Set</th>
+                        <th className="is-player-col" title={match.avversario}>{match.avversario}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parsedSets.map((p, i) => (
+                        <tr key={`set-row-${i}`}>
+                          <td className={p?.wonByAthlete === true ? 'is-won' : undefined}>
+                            {p ? p.a : effectiveSets[i]}
+                          </td>
+                          <td className="is-set-col">{i + 1}°</td>
+                          <td className={p?.wonByAthlete === false ? 'is-won' : undefined}>
+                            {p ? p.b : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td className={setsWonA > setsWonB ? 'is-win' : undefined}>{setsWonA}</td>
+                        <td className="is-set-col"> - </td>
+                        <td className={setsWonB > setsWonA ? 'is-win' : undefined}>{setsWonB}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Sezione Incontro a Squadre */}
