@@ -1679,6 +1679,7 @@
   .modal-torneo-detail-card {
     max-height: 92vh;
     max-height: 92dvh;
+    min-height: 92dvh;
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
   }

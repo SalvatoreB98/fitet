@@ -3,6 +3,7 @@ import { GiornataCalendario, PartitaCalendario, MatchVideoInfo, SquadraClassific
 import { MarqueeText } from './MarqueeText';
 import { RefertoModal } from './RefertoModal';
 import { MatchVideoModal } from './MatchVideoModal';
+import { LazyYouTubeThumb } from './LazyYouTubeThumb';
 import { TeamMatchPreviewModal } from './TeamMatchPreviewModal';
 import { TeamLogo } from './TeamLogo';
 import { ChampionshipBellButton } from './ChampionshipBellButton';
@@ -765,11 +766,10 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                         });
                       }}
                     >
-                      <img
-                        src={`https://i.ytimg.com/vi/${firstBloccoVideo.video.videoId}/mqdefault.jpg`}
+                      <LazyYouTubeThumb
+                        videoId={firstBloccoVideo.video.videoId}
                         alt=""
                         className="giornata-video-preview-img"
-                        loading="lazy"
                       />
                       <span className="giornata-video-preview-play">
                         <i className="bi bi-play-fill"></i>
@@ -952,11 +952,10 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
                                   }}
                                 >
                                   <span className="btn-video-thumb-wrap">
-                                    <img
-                                      src={`https://i.ytimg.com/vi/${matchVideosList[0].videoId}/mqdefault.jpg`}
+                                    <LazyYouTubeThumb
+                                      videoId={matchVideosList[0].videoId}
                                       alt=""
                                       className="btn-video-thumb-img"
-                                      loading="lazy"
                                     />
                                     <span className="btn-video-thumb-play">
                                       <i className="bi bi-play-fill"></i>

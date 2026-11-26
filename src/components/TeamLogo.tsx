@@ -53,6 +53,13 @@ export const TeamLogo: React.FC<TeamLogoProps> = ({
     ? { width: size, height: size, minWidth: size, minHeight: size }
     : {};
 
+  const numericSize =
+    typeof size === 'number'
+      ? size
+      : typeof size === 'string' && /^\d+$/.test(size)
+        ? Number(size)
+        : undefined;
+
   // Level 0: Try primaryUrl
   // Level 1: Fallback to official generic FITeT logo
   // Level 2: Fallback to styled initials badge (prevents layout collapse and stops infinite loops)
@@ -88,6 +95,9 @@ export const TeamLogo: React.FC<TeamLogoProps> = ({
       }}
       onError={handleError}
       loading="lazy"
+      decoding="async"
+      width={numericSize}
+      height={numericSize}
       referrerPolicy="no-referrer"
     />
   );

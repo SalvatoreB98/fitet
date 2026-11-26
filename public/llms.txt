@@ -1,0 +1,21 @@
+# Portale Risultati FITeT
+
+> Portale web indipendente per consultare risultati, classifiche, calendari e schede ranking dei campionati italiani di tennistavolo FITeT (Serie A1, A2, B1, B2, C1, C2, D1, D2, D3, maschili e femminili), tornei nazionali e regionali.
+
+Il sito è una web app mobile-first in italiano. Le pagine pubbliche principali sono raggiungibili senza autenticazione e i dati sono organizzati per campionato, giornata, squadra e atleta.
+
+## Risorse principali
+
+- [Home](https://portale-risultati-tt.it/): panoramica di campionati, incontri, video e accesso alle sezioni principali.
+- [Campionato](https://portale-risultati-tt.it/campionato/1902): classifica, calendario andata/ritorno, referti e statistiche di un campionato (sostituire l'ID con quello desiderato).
+- [Scheda atleta](https://portale-risultati-tt.it/player/655182): ranking FITeT, storico, partite e confronto testa a testa (sostituire l'ID con quello desiderato).
+- [Portali regionali](https://portale-risultati-tt.it/regioni/marche): risultati e campionati regionali per regione italiana.
+- [Catalogo macchina](https://portale-risultati-tt.it/ai-catalog.json): elenco JSON delle rotte pubbliche e dei parametri supportati.
+- [Manifest ARD](https://portale-risultati-tt.it/.well-known/ard.json): descrizione delle risorse agentiche del portale (Agentic Resource Discovery).
+
+## Note per gli agenti
+
+- Le rotte con parametri usano identificativi numerici FITeT: `/player/{id}` per gli atleti e `/campionato/{camId}` per i campionati.
+- `/regioni/{slug}` usa lo slug della regione in minuscolo (es. `marche`, `lombardia`, `sicilia`).
+- Gli endpoint sotto `/api/` sono riservati all'applicazione e non sono pensati per l'indicizzazione o l'uso da parte di agenti esterni.
+- Per i dati aggregati in formato JSON consultare il [catalogo macchina](https://portale-risultati-tt.it/ai-catalog.json).

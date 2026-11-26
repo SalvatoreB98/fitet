@@ -700,7 +700,7 @@
 .my-profile-empty-text {
   max-width: 580px;
   margin: 3px 0 0;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 12.5px;
   line-height: 1.5;
 }
@@ -801,7 +801,7 @@
 .my-profile-state-eyebrow {
   display: block;
   margin-bottom: 2px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -819,7 +819,7 @@
 
 .my-profile-state-text {
   margin: 2px 0 0;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -934,7 +934,7 @@
 }
 
 [data-theme="light"] .my-profile-hero-club {
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
 }
 
 [data-theme="light"] .my-profile-hero-club i {
@@ -946,7 +946,7 @@
 }
 
 [data-theme="light"] .my-profile-hero-metric-label {
-  color: #64748b;
+  color: #526174;
 }
 
 [data-theme="light"] .my-profile-hero-metric-value {
@@ -955,11 +955,11 @@
 }
 
 [data-theme="light"] .my-profile-hero-metric-unit {
-  color: #64748b;
+  color: #526174;
 }
 
 [data-theme="light"] .my-profile-hero-form-empty {
-  color: #64748b;
+  color: #526174;
 }
 
 [data-theme="light"] .my-profile-hero-badge {

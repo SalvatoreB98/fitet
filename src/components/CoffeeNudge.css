@@ -45,7 +45,7 @@
   min-width: 0;
   font-size: 12px;
   line-height: 1.45;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   text-align: center;
   justify-content: center;
   align-items: center;
@@ -89,7 +89,7 @@
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 10px;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;

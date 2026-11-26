@@ -406,7 +406,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
                                 {isLoadingDettaglio && (
                                   <div className="referto-detail-loading">
                                     <div className="spinner-border spinner-border-sm text-secondary me-2" role="status"></div>
-                                    <span>Caricamento parziali e dati atleti...</span>
+                                    <i className='bi arrow-counterclockwise'></i>
                                   </div>
                                 )}
 

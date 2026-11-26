@@ -41,7 +41,7 @@
 
 .ranking-subtitle {
   font-size: 0.82rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   margin: 3px 0 0;
 }
 
@@ -96,7 +96,7 @@
   border-radius: 9px;
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -106,7 +106,7 @@
 
 .ranking-gender-btn.active {
   background: var(--card-bg, #ffffff);
-  color: var(--primary, #0284c7);
+  color: var(--primary, #0369a1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
@@ -119,7 +119,7 @@
 .ranking-select-label {
   font-size: 0.84rem;
   font-weight: 600;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   display: inline-flex;
   align-items: center;
   margin: 0;
@@ -148,7 +148,7 @@
 }
 
 .ranking-select-input:focus {
-  border-color: #0284c7;
+  border-color: #0369a1;
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
 }
 
@@ -156,7 +156,7 @@
   position: absolute;
   right: 11px;
   pointer-events: none;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 0.75rem;
 }
 
@@ -212,7 +212,7 @@
 
 .ranking-loading-text {
   font-size: 0.95rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-weight: 500;
 }
 
@@ -322,7 +322,7 @@
 }
 
 .rank-medal.silver {
-  color: #64748b;
+  color: #526174;
 }
 
 .rank-medal.bronze {
@@ -393,7 +393,7 @@
 
 .athlete-link-btn:hover .athlete-link-text,
 .athlete-link-btn:hover .athlete-link-text .marquee-text-content {
-  color: var(--primary, #0284c7);
+  color: var(--primary, #0369a1);
   text-decoration: underline;
 }
 
@@ -409,13 +409,13 @@
 
 .athlete-link-btn:hover .athlete-link-arrow {
   opacity: 1;
-  color: var(--primary, #0284c7);
+  color: var(--primary, #0369a1);
   transform: translate(1px, -1px);
 }
 
 .athlete-mobile-meta {
   font-size: 0.74rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   max-width: 200px;
 }
 
@@ -500,7 +500,7 @@
 .ranking-page-nav-btn:hover:not(:disabled) {
   background: var(--bg-hover, #f1f5f9);
   border-color: #94a3b8;
-  color: #0284c7;
+  color: #0369a1;
 }
 
 .ranking-page-nav-btn:disabled {
@@ -510,7 +510,7 @@
 
 .ranking-page-indicator {
   font-size: 0.85rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
 }
 
 /* Responsive utilities */
@@ -755,9 +755,9 @@
 
 [data-theme="dark"] .ranking-page-nav-btn:disabled {
   opacity: 0.35;
-  color: #64748b;
+  color: #526174;
   border-color: #1a2d52;
-  background: #0b1426;
+  background: var(--bg-container);
 }
 
 /* 7. Loading & Error & Empty States */
@@ -907,7 +907,7 @@
 .ranking-macro-pill.is-active {
   background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
   color: #ffffff;
-  border-color: #0284c7;
+  border-color: #0369a1;
   box-shadow: 0 4px 12px rgba(2, 132, 199, 0.28);
 }
 
@@ -942,7 +942,7 @@
 .ranking-subchip-btn.is-active {
   background: #0284c7;
   color: #ffffff;
-  border-color: #0284c7;
+  border-color: #0369a1;
   box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
 }
 
@@ -983,7 +983,7 @@
 .ranking-search-icon {
   position: absolute;
   left: 10px;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #cbd5e1);
   font-size: 0.8rem;
   pointer-events: none;
 }
@@ -1001,7 +1001,7 @@
 }
 
 .ranking-search-input:focus {
-  border-color: #0284c7;
+  border-color: #0369a1;
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
 }
 
@@ -1010,7 +1010,7 @@
   right: 8px;
   border: none;
   background: transparent;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #cbd5e1);
   cursor: pointer;
   padding: 0;
   display: inline-flex;
@@ -1025,7 +1025,7 @@
 /* Unranked badge for Fuori Quadro / Provvisori */
 .rank-badge-unranked {
   background: var(--bg-soft, #f1f5f9);
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   border: 1px dashed var(--border-color, #cbd5e1);
   padding: 2px 7px;
   border-radius: 7px;
@@ -1058,7 +1058,7 @@
 .ranking-no-results-box {
   padding: 30px 20px;
   text-align: center;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 0.9rem;
 }
 

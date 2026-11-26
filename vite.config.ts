@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import purgecss from '@fullhuman/postcss-purgecss';
 
 const BACKEND_TARGET = 'http://127.0.0.1:3001';
 
@@ -12,8 +13,39 @@ const isConnRefused = (err: any): boolean => {
   return String(err.message || '').includes('ECONNREFUSED');
 };
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  css: mode === 'production' ? {
+    postcss: {
+      plugins: [
+        purgecss({
+          content: ['./index.html', './src/**/*.{ts,tsx,js,jsx}'],
+          defaultExtractor: (content) => content.match(/[\w-/:]+(?<!:)/g) || [],
+          safelist: {
+            standard: [
+              'html',
+              'body',
+              'show',
+              'active',
+              'fade',
+              'modal-open',
+              'spin-icon',
+            ],
+            deep: [
+              /^bi-/,
+              /^is-/,
+              /^data-theme/,
+              /^data-bs-theme/,
+            ],
+            greedy: [
+              /\[data-theme/,
+              /\[data-bs-theme/,
+            ],
+          },
+        }),
+      ],
+    },
+  } : undefined,
   server: {
     port: 5173,
     proxy: {
@@ -46,4 +78,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

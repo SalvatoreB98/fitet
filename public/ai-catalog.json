@@ -1,0 +1,61 @@
+{
+  "name": "Portale Risultati FITeT",
+  "description": "Portale indipendente per risultati, classifiche, calendari e schede ranking dei campionati italiani di tennistavolo FITeT.",
+  "url": "https://portale-risultati-tt.it/",
+  "version": "1.0.0",
+  "updatedAt": "2026-11-26T00:00:00Z",
+  "language": "it-IT",
+  "resources": [
+    {
+      "path": "/",
+      "title": "Home",
+      "description": "Panoramica di campionati, incontri, video e sezioni del portale.",
+      "mediaType": "text/html"
+    },
+    {
+      "path": "/campionato/{camId}",
+      "title": "Campionato",
+      "description": "Classifica, calendario andata/ritorno, referti e statistiche di un campionato FITeT.",
+      "mediaType": "text/html",
+      "parameters": {
+        "camId": "Identificativo numerico del campionato (es. 1902)."
+      }
+    },
+    {
+      "path": "/player/{athleteId}",
+      "title": "Scheda atleta",
+      "description": "Ranking FITeT, storico classifica, partite e confronto testa a testa di un atleta.",
+      "mediaType": "text/html",
+      "parameters": {
+        "athleteId": "Identificativo numerico FITeT dell'atleta (es. 655182)."
+      }
+    },
+    {
+      "path": "/regioni/{slug}",
+      "title": "Portale regionale",
+      "description": "Campionati e risultati regionali FITeT.",
+      "mediaType": "text/html",
+      "parameters": {
+        "slug": "Slug della regione in minuscolo (es. marche, lombardia, sicilia)."
+      }
+    },
+    {
+      "path": "/llms.txt",
+      "title": "llms.txt",
+      "description": "Guida in Markdown per modelli linguistici e agenti.",
+      "mediaType": "text/plain"
+    },
+    {
+      "path": "/ai-catalog.json",
+      "title": "Catalogo macchina",
+      "description": "Questo catalogo JSON delle rotte pubbliche.",
+      "mediaType": "application/json"
+    },
+    {
+      "path": "/.well-known/ard.json",
+      "title": "Manifest ARD",
+      "description": "Manifest Agentic Resource Discovery del portale.",
+      "mediaType": "application/json"
+    }
+  ]
+}

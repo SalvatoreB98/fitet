@@ -7,6 +7,7 @@
   width: 96%;
   max-height: 92vh;
   max-height: 92dvh;
+  min-height: 92dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -144,7 +145,7 @@
   flex-wrap: wrap;
   margin-top: 3px;
   font-size: 0.76rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
 }
 
 [data-theme="dark"] .societa-header-meta {
@@ -207,7 +208,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  background: var(--bg-card);
+  background: var(--bg-container);
 }
 
 /* --------------------------------------------------------------------------
@@ -1278,7 +1279,7 @@
    -------------------------------------------------------------------------- */
 
 [data-theme="dark"] .societa-modal-body {
-  background: var(--bg-card);
+  background: var(--bg-container);
 }
 
 [data-theme="dark"] .societa-manual-panel {

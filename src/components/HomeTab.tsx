@@ -1,6 +1,7 @@
 import React, { useMemo, useEffect, useRef, useState } from 'react';
 import { ChampionshipItem, DashboardData, MatchVideoInfo, SocietaInfo } from '../types/fitet';
 import { MatchVideoModal } from './MatchVideoModal';
+import { LazyYouTubeThumb } from './LazyYouTubeThumb';
 import { TeamLogo } from './TeamLogo';
 import {
   useFavoriteAthletes,
@@ -164,6 +165,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   const [selectedHomeVideo, setSelectedHomeVideo] = useState<MatchVideoInfo | null>(null);
   const [videoSearchQuery, setVideoSearchQuery] = useState('');
   const [isVideoSearchOpen, setIsVideoSearchOpen] = useState(false);
+  const [expandedVideoGroups, setExpandedVideoGroups] = useState<Record<string, boolean>>({});
   const videoSearchInputRef = useRef<HTMLInputElement>(null);
 
   const filteredHomeVideos = useMemo(() => {
@@ -1647,6 +1649,11 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 if (!list || list.length === 0) return null;
                 const serieConfig = SERIE_CONFIGS[groupKey];
 
+                const isGroupExpanded = Boolean(expandedVideoGroups[groupKey]) || videoSearchQuery.trim().length > 0;
+                const INITIAL_VIDEOS_LIMIT = 4;
+                const visibleVideos = isGroupExpanded ? list : list.slice(0, INITIAL_VIDEOS_LIMIT);
+                const hiddenVideosCount = Math.max(0, list.length - visibleVideos.length);
+
                 return (
                   <div key={groupKey} className="championship-group-section">
                     <div className="home-section-title-wrap" style={{ marginBottom: '10px' }}>
@@ -1668,7 +1675,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                     </div>
 
                     <div className="home-cards-grid">
-                      {list.map((video) => {
+                      {visibleVideos.map((video) => {
                         const hasTeams = Boolean(video.teamHome && video.teamAway);
                         const mainTitle = hasTeams ? `${video.teamHome} - ${video.teamAway}` : video.title;
 
@@ -1680,11 +1687,10 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                           >
                             <div className="home-video-card-row">
                               <div className="home-video-thumb-box">
-                                <img
-                                  src={`https://i.ytimg.com/vi/${video.videoId}/mqdefault.jpg`}
+                                <LazyYouTubeThumb
+                                  videoId={video.videoId}
                                   alt=""
                                   className="home-video-thumb-img"
-                                  loading="lazy"
                                 />
                                 <span className="home-video-thumb-overlay">
                                   <i className="bi bi-play-fill"></i>
@@ -1708,7 +1714,6 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                                 </h4>
                                 {video.matchDay && video.channelName && (
                                   <p className="home-card-sub home-video-card-sub">
-                                    <img src="" alt="" />
                                     {video.channelName}
                                   </p>
                                 )}
@@ -1733,6 +1738,20 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                         );
                       })}
                     </div>
+                    {hiddenVideosCount > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
+                        <button
+                          type="button"
+                          className="home-section-btn"
+                          onClick={() =>
+                            setExpandedVideoGroups((prev) => ({ ...prev, [groupKey]: true }))
+                          }
+                        >
+                          <span>Mostra altri {hiddenVideosCount} video</span>
+                          <i className="bi bi-chevron-down" aria-hidden="true"></i>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

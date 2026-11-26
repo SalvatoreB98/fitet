@@ -40,7 +40,7 @@ html {
   --color-success-border: #a7f3d0;
 
   --color-info-bg: #f0f9ff;
-  --color-info-text: #0284c7;
+  --color-info-text: #0369a1;
   --color-info-border: #bae6fd;
 
   --color-warning-bg: #fffbeb;
@@ -65,7 +65,7 @@ html {
   --border-input: #cbd5e1;
 
   --text-main: #1e293b;
-  --text-muted: #64748b;
+  --text-muted: #475569;
   --text-dark: #0f172a;
 
   /* Shadows */
@@ -484,7 +484,7 @@ nav {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
 }
 
 .burger-menu-close {
@@ -496,7 +496,7 @@ nav {
   border-radius: 8px;
   border: 1px solid var(--border-color, #cbd5e1);
   background: var(--bg-hover, #f8fafc);
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   cursor: pointer;
   transition: all 0.15s ease;
   flex-shrink: 0;
@@ -659,7 +659,7 @@ nav {
 
 .burger-item-desc {
   font-size: 11.5px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   line-height: 1.3;
   white-space: nowrap;
   overflow: hidden;
@@ -672,7 +672,7 @@ nav {
 
 .burger-item-arrow {
   font-size: 13px;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #cbd5e1);
   opacity: 0.6;
   transition: transform 0.2s ease, opacity 0.2s ease;
   margin-left: auto;
@@ -938,7 +938,7 @@ nav {
 
 .portal-nav-tab {
   background: transparent;
-  color: #94a3b8;
+  color: #cbd5e1;
   border: none;
   border-bottom: 3px solid transparent;
   font-family: var(--font-sans);
@@ -1152,7 +1152,7 @@ nav {
   padding: 0;
   border: none;
   background: rgba(148, 163, 184, 0.25);
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   border-radius: 50%;
   font-size: 10px;
   font-weight: 700;
@@ -1517,7 +1517,7 @@ nav {
 
 .miei-torneo-expand-hint:hover {
   background: rgba(1, 87, 155, 0.08);
-  color: var(--color-primary-700, #0284c7);
+  color: var(--color-primary-700, #0369a1);
 }
 
 [data-theme="dark"] .miei-torneo-expand-hint {
@@ -1633,13 +1633,13 @@ nav {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 11.5px;
 }
 
 .match-meta-datetime {
   font-weight: 500;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
 }
 
 .match-meta-dot {
@@ -1649,7 +1649,7 @@ nav {
 
 .match-meta-phase {
   font-weight: 500;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   opacity: 0.5;
   font-style: italic;
 }
@@ -1664,13 +1664,13 @@ nav {
 
 .match-status-label.status-disputato {
   font-weight: 600;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   letter-spacing: 0.02em;
 }
 
 .match-status-label.status-programmato {
   font-weight: 400;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #cbd5e1);
 }
 
 .match-status-label.status-in-corso {
@@ -1768,14 +1768,14 @@ nav {
 .team-name-text.name-loser,
 .team-name-text.name-loser .marquee-text-content {
   font-weight: 400;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   opacity: 1;
 }
 
 .team-name-text.name-neutral,
 .team-name-text.name-neutral .marquee-text-content {
   font-weight: 400;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   opacity: 1;
 }
 
@@ -1797,14 +1797,14 @@ nav {
 
 .match-card-score-digit.score-loser {
   font-weight: 400;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   opacity: 0.85;
 }
 
 .match-card-score-digit.score-pending {
   font-weight: 400;
   font-size: 15px;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #cbd5e1);
   opacity: 0.6;
 }
 
@@ -1821,7 +1821,7 @@ nav {
 .match-card-draw-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -1833,7 +1833,7 @@ nav {
   background: transparent;
   border: none;
   padding: 0;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 11.5px;
   font-weight: 500;
   cursor: pointer;
@@ -2147,7 +2147,7 @@ nav {
   font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 400;
-  color: #94a3b8;
+  color: #cbd5e1;
   margin-top: 2px;
 }
 
@@ -2256,7 +2256,7 @@ nav {
 .pos-num-plain {
   font-weight: 600;
   font-size: 12.5px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
 }
 
 /* ==========================================================================
@@ -2309,7 +2309,7 @@ nav {
 .ranking-hierarchy-hint {
   text-align: center;
   font-size: 11.5px;
-  color: #64748b;
+  color: #526174;
   margin: 0 16px 14px 16px;
 }
 
@@ -2497,7 +2497,7 @@ nav {
 
 .form-n {
   background: #f1f5f9;
-  color: #64748b;
+  color: #526174;
   border: 1px solid #cbd5e1;
 }
 
@@ -2582,21 +2582,30 @@ nav {
   padding-bottom: 2em;
 }
 
+.portal-footer a {
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.portal-footer a:hover {
+  color: var(--color-primary-700);
+}
+
 .portal-footer-coffee {
   margin-top: 4px;
   font-size: 11px;
-  opacity: 0.85;
   background-color: var(-color-accent-amber);
 }
 
 .portal-footer-coffee a {
-  color: inherit;
+  color: #1d4ed8;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .portal-footer-coffee a:hover {
-  color: var(--color-primary-600);
+  color: var(--color-primary-700);
 }
 
 /* Modal Animation & Refinement */
@@ -2668,7 +2677,7 @@ body.modal-open {
 .modal-header-simple .modal-close-btn {
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
-  color: #64748b !important;
+  color: #526174 !important;
   box-shadow: none !important;
 }
 
@@ -2787,7 +2796,7 @@ body.modal-open {
 }
 
 .modal-header-simple .modal-header-subtext {
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
 }
 
 /* ==========================================================================
@@ -2824,6 +2833,7 @@ body.modal-open {
 
 .atleta-modal-card.is-expanded-in-place {
   will-change: height, transform;
+  min-height: 92dvh;
 }
 
 .atleta-floating-close-btn {
@@ -2838,7 +2848,7 @@ body.modal-open {
 
 .atleta-floating-close-btn:hover {
   background: var(--bg-hover, #e2e8f0) !important;
-  border-color: var(--text-muted, #94a3b8) !important;
+  border-color: var(--text-muted, #cbd5e1) !important;
   color: var(--text-dark, #0f172a) !important;
 }
 
@@ -3063,7 +3073,7 @@ body.modal-open {
 .favorite-card-initials {
   font-size: 14px;
   font-weight: 700;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
 }
 
 .favorite-card-info {
@@ -3089,7 +3099,7 @@ body.modal-open {
 
 .favorite-card-sub {
   font-size: 11.5px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3114,7 +3124,7 @@ body.modal-open {
   padding: 1.5px 6.5px;
   border-radius: 4px;
   background: var(--bg-th, #f1f5f9);
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   border: 1px solid var(--border-color, #e2e8f0);
   line-height: 1.35;
 }
@@ -3316,7 +3326,7 @@ body.modal-open {
 
 
 [data-theme="dark"] .ranking-card-block {
-  background: #0b1426;
+  background: var(--bg-container);
   border-color: #1a2d52;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
@@ -3354,13 +3364,18 @@ body.modal-open {
 [data-theme="dark"] .portal-footer {
   background: #060c18;
   border-top-color: #14223d;
-  color: #64748b;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .portal-footer a,
+[data-theme="dark"] .portal-footer-coffee a {
+  color: #60a5fa;
 }
 
 
 
 [data-theme="dark"] .match-card {
-  background: #0b1426;
+  background: var(--bg-container);
   border-color: #1a2d52;
   box-shadow: none;
 }
@@ -3377,7 +3392,7 @@ body.modal-open {
 }
 
 [data-theme="dark"] .match-status-label.status-programmato {
-  color: #64748b;
+  color: #526174;
 }
 
 [data-theme="dark"] .team-name-text.name-winner,
@@ -3406,7 +3421,7 @@ body.modal-open {
 }
 
 [data-theme="dark"] .match-card-score-digit.score-pending {
-  color: #64748b;
+  color: #526174;
 }
 
 [data-theme="dark"] .match-card-bottom {
@@ -3426,12 +3441,12 @@ body.modal-open {
 }
 
 [data-theme="dark"] .no-matches-found {
-  background: #0b1426;
+  background: var(--bg-container);
   border-color: #1a2d52;
 }
 
 [data-theme="dark"] .modal-card-simple {
-  background: #0b1426;
+  background: var(--bg-container);
   border-color: #1a2d52;
   color: #e2e8f0;
 }
@@ -4243,6 +4258,7 @@ body.modal-open {
 }
 
 .referto-expanded-panel {
+  position: relative;
   padding: 12px 16px 16px 16px;
   background: var(--bg-th);
   border-top: 1px solid var(--border-color);
@@ -4255,11 +4271,15 @@ body.modal-open {
   padding: 12px;
   font-size: 12px;
   color: var(--text-muted);
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 
 .expanded-detail-grid {
   display: flex;
   justify-content: center;
+  position: relative;
 }
 
 .sets-table-box {
@@ -4379,7 +4399,7 @@ body.modal-open {
 }
 
 [data-theme="dark"] .referto-match-row {
-  background: #0b1426;
+  background: var(--bg-container);
   border-color: #1a2d52;
 }
 
@@ -4399,7 +4419,7 @@ body.modal-open {
 }
 
 [data-theme="dark"] .sets-table-box {
-  background: #0b1426;
+  background: var(--bg-container);
   border-color: #1a2d52;
 }
 
@@ -4750,7 +4770,7 @@ body.modal-open {
   }
 
   [data-theme="dark"] .sets-table-box {
-    background: #0b1426;
+    background: var(--bg-container);
     border-color: #1a2d52;
   }
 }
@@ -4850,7 +4870,7 @@ body.modal-open {
 
 .championship-modal-header p {
   font-size: 12px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   margin: 3px 0 0 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4873,7 +4893,7 @@ body.modal-open {
   position: absolute;
   left: 14px;
   font-size: 14px;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #cbd5e1);
   pointer-events: none;
 }
 
@@ -4899,7 +4919,7 @@ body.modal-open {
   right: 12px;
   background: transparent;
   border: none;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #cbd5e1);
   cursor: pointer;
   padding: 4px;
   display: flex;
@@ -4960,7 +4980,7 @@ body.modal-open {
 .gender-pill-m.active {
   background: #0284c7;
   color: #ffffff;
-  border-color: #0284c7;
+  border-color: #0369a1;
   box-shadow: 0 2px 6px rgba(2, 132, 199, 0.22);
 }
 
@@ -5127,7 +5147,7 @@ body.modal-open {
 .region-tag {
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
 }
 
 .champ-gender-badge {
@@ -5143,7 +5163,7 @@ body.modal-open {
 
 .gender-badge-m {
   background: rgba(2, 132, 199, 0.1);
-  color: #0284c7;
+  color: #0369a1;
   border: 1px solid rgba(2, 132, 199, 0.2);
 }
 
@@ -5181,7 +5201,7 @@ body.modal-open {
 }
 
 .cam-id-hint {
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #cbd5e1);
   font-family: monospace;
 }
 
@@ -5216,7 +5236,7 @@ body.modal-open {
   justify-content: center;
   padding: 50px 20px;
   text-align: center;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 13px;
 }
 
@@ -5239,7 +5259,7 @@ body.modal-open {
   gap: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
 }
 
 .custom-cam-input-group {
@@ -5646,7 +5666,7 @@ body.modal-open {
 .overview-stat-slash {
   font-weight: 500;
   font-size: 14px;
-  color: #64748b;
+  color: #526174;
   margin: 0 1px;
 }
 
@@ -6069,7 +6089,7 @@ body.modal-open {
 }
 
 .no-championship-desc {
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   max-width: 440px;
   font-size: 14px;
   line-height: 1.5;
@@ -6110,7 +6130,7 @@ body.modal-open {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: #0284c7;
+  color: #0369a1;
 }
 
 .modal-header-icon-box.is-amber {
@@ -6162,7 +6182,7 @@ body.modal-open {
 .modal-header-subtext {
   font-size: 12px;
   font-weight: 500;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
@@ -6184,7 +6204,7 @@ body.modal-open {
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #cbd5e1);
   font-size: 13px;
   pointer-events: none;
 }
@@ -6204,7 +6224,7 @@ body.modal-open {
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #cbd5e1);
   cursor: pointer;
   padding: 2px 4px;
 }
@@ -6240,7 +6260,7 @@ body.modal-open {
 }
 
 .modal-empty-state-desc {
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 13.5px;
   max-width: 400px;
   line-height: 1.5;
@@ -6255,7 +6275,7 @@ body.modal-open {
   align-items: center;
   justify-content: space-between;
   font-size: 12px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -6276,7 +6296,7 @@ body.modal-open {
 .modal-footer-clear-btn {
   background: none;
   border: none;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #cbd5e1);
   cursor: pointer;
   font-size: 11.5px;
   padding: 2px 6px;
@@ -6296,7 +6316,7 @@ body.modal-open {
 .modal-footer-cancel-btn {
   background: none;
   border: none;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   cursor: pointer;
   font-size: 11px;
 }
@@ -7060,7 +7080,7 @@ body.modal-open {
 .table-portal-footer {
   padding: 10px 20px;
   font-size: 11px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   display: flex;
   justify-content: space-between;
   flex-wrap: wrap;
@@ -7104,7 +7124,7 @@ body.modal-open {
 
 .athlete-avatar-initials {
   font-weight: 700;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   letter-spacing: -0.3px;
   display: inline-flex;
   align-items: center;
@@ -7118,7 +7138,7 @@ body.modal-open {
   border-radius: 6px;
   background: var(--bg-th, #f1f5f9);
   border: 1px solid var(--border-color, #cbd5e1);
-  color: var(--color-primary-600, #0284c7);
+  color: var(--color-primary-600, #0369a1);
   font-weight: 700;
   letter-spacing: -0.2px;
   overflow: hidden;
@@ -7448,7 +7468,7 @@ body.modal-open {
 }
 
 .squadra-roster-name.is-clickable {
-  color: var(--color-primary-600, #0284c7);
+  color: var(--color-primary-600, #0369a1);
 }
 
 .squadra-doppio-badge {
@@ -7467,7 +7487,7 @@ body.modal-open {
 
 .squadra-rank-pts {
   font-size: 10.5px;
-  color: var(--color-primary-600, #0284c7);
+  color: var(--color-primary-600, #0369a1);
   font-weight: 600;
 }
 
@@ -7814,7 +7834,7 @@ body.modal-open {
   align-items: center;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   background: var(--bg-hover, rgba(0, 0, 0, 0.04));
   padding: 2px 8px;
   border-radius: 6px;
@@ -7839,7 +7859,7 @@ body.modal-open {
 
 .ping-pong-status-desc {
   font-size: 13px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   margin: 0 0 16px 0;
   max-width: 380px;
   line-height: 1.45;
@@ -7847,7 +7867,7 @@ body.modal-open {
 
 .ping-pong-submessage {
   font-size: 11.5px;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, #cbd5e1);
   margin-top: -10px;
   margin-bottom: 14px;
 }
@@ -7994,13 +8014,13 @@ body.modal-open {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
 }
 
 .athlete-share-popover-header .btn-close-popover {
   background: transparent;
   border: none;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 14px;
   cursor: pointer;
   padding: 2px 4px;
@@ -8031,7 +8051,7 @@ body.modal-open {
 .athlete-share-url-text {
   font-size: 11px;
   font-family: monospace;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   display: block;
   white-space: nowrap;
   overflow: hidden;
@@ -8117,7 +8137,7 @@ body.modal-open {
 
 .athlete-share-action-btn.btn-native-share {
   background: transparent;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   border-color: var(--border-color, #e2e8f0);
 }
 
@@ -8519,7 +8539,7 @@ body.modal-open {
 
 .venue-stat-label {
   font-size: 11.5px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   margin-top: 4px;
   font-weight: 500;
 }
@@ -8558,7 +8578,7 @@ body.modal-open {
 
 .championship-consultation-callout .callout-icon {
   font-size: 16px;
-  color: #0284c7;
+  color: #0369a1;
   flex-shrink: 0;
 }
 
@@ -8749,7 +8769,7 @@ body.modal-open {
   gap: 5px;
   font-size: 11.5px;
   font-weight: 500;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   background: var(--bg-hover, rgba(0, 0, 0, 0.03));
   border: 1px solid var(--border-color, #e2e8f0);
   padding: 2px 8px;
@@ -8826,7 +8846,7 @@ body.modal-open {
   background: var(--bg-card, #f8fafc);
   border: 1px dashed var(--border-color, #e2e8f0);
   font-size: 0.82rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
 }
 
 .btn-show-past-toggle {
@@ -8919,6 +8939,7 @@ body.modal-open {
   max-width: 520px;
   max-height: 92vh;
   max-height: 92dvh;
+  min-height: 92dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg-card, #ffffff);
@@ -8980,7 +9001,7 @@ body.modal-open {
 .athlete-story-subtitle {
   margin: 0;
   font-size: 11px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -9166,7 +9187,7 @@ body.modal-open {
 .athlete-story-action-btn.btn-download:hover {
   background: var(--bg-hover);
   border-color: #38bdf8;
-  color: #0284c7;
+  color: #0369a1;
 }
 
 .athlete-story-action-btn.btn-share-main {
@@ -9224,6 +9245,7 @@ body.modal-open {
   width: 100%;
   max-height: 92vh;
   max-height: 92dvh;
+  min-height: 92dvh;
   box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
@@ -9309,7 +9331,7 @@ body.modal-open {
   padding: 2px 7px;
   border-radius: 6px;
   background: rgba(100, 116, 139, 0.12);
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   border: 1px solid var(--border-color, #cbd5e1);
 }
 
@@ -9334,7 +9356,7 @@ body.modal-open {
   border-radius: 8px;
   border: 1px solid var(--border-color, #cbd5e1);
   background: var(--bg-hover, #f8fafc);
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   cursor: pointer;
   transition: all 0.15s ease;
   flex-shrink: 0;
@@ -9364,7 +9386,7 @@ body.modal-open {
   gap: 5px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   white-space: nowrap;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -9453,7 +9475,7 @@ body.modal-open {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   flex-wrap: wrap;
 }
 

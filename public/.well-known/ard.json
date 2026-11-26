@@ -1,0 +1,35 @@
+{
+  "$schema": "https://agenticresourcediscovery.org/spec/schema/ard-entry.schema.json",
+  "entries": [
+    {
+      "identifier": "urn:air:portale-risultati-tt.it:web:public-catalog",
+      "displayName": "Portale Risultati FITeT - Catalogo risorse pubbliche",
+      "description": "Catalogo machine-readable delle rotte pubbliche del portale FITeT: campionati, classifiche, calendari, referti, atleti, societa e tornei di tennistavolo.",
+      "type": "application/ai-registry+json",
+      "url": "https://portale-risultati-tt.it/ai-catalog.json",
+      "representativeQueries": [
+        "classifica del campionato FITeT serie D1 girone nord",
+        "calendario e risultati degli incontri di tennistavolo",
+        "scheda ranking e storico di un atleta FITeT"
+      ],
+      "capabilities": [
+        "championship-standings",
+        "match-calendar",
+        "match-reports",
+        "athlete-ranking",
+        "society-profile",
+        "tournament-search"
+      ],
+      "tags": [
+        "table-tennis",
+        "tennistavolo",
+        "FITeT",
+        "risultati",
+        "classifiche",
+        "campionati"
+      ],
+      "version": "1.0.0",
+      "updatedAt": "2026-11-26T00:00:00Z"
+    }
+  ]
+}

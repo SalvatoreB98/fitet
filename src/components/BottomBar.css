@@ -119,7 +119,7 @@
   padding: 7px 12px;
   border: none;
   background: transparent;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   cursor: pointer;
   transition: color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
   user-select: none;
@@ -182,7 +182,7 @@
 
 /* Search Atleta item subtle accent */
 .bottom-bar-search-item {
-  color: var(--primary, #0284c7);
+  color: var(--primary, #0369a1);
 }
 
 .bottom-bar-search-item:hover {
@@ -191,7 +191,7 @@
 
 /* La mia società (solo desktop) */
 .bottom-bar-society-item {
-  color: var(--primary, #0284c7);
+  color: var(--primary, #0369a1);
 }
 
 .bottom-bar-society-item:hover {

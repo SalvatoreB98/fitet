@@ -216,7 +216,7 @@
 }
 
 .home-hero-region {
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 12px;
   font-weight: 600;
   display: inline-flex;
@@ -234,7 +234,7 @@
 }
 
 .home-hero-subtitle {
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 13px;
   line-height: 1.45;
   margin: 4px 0 0 0;
@@ -350,7 +350,7 @@
   font-family: var(--font-sans, sans-serif);
   font-size: 12px;
   font-weight: 700;
-  opacity: 0.25;
+  color: var(--text-muted, #475569);
 }
 
 .home-section-btn {
@@ -464,7 +464,7 @@
 
 .home-athlete-team {
   font-size: 12px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -495,7 +495,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   margin-bottom: 2px;
 }
 
@@ -519,7 +519,7 @@
 .home-empty-simple {
   margin: 0;
   font-size: 13.5px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   padding: 4px 0 8px 0;
 }
 
@@ -614,7 +614,7 @@
 .home-soft-region {
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #475569);
   background: var(--bg-th, #f1f5f9);
   padding: 3px 8px;
   border-radius: 6px;
@@ -626,7 +626,7 @@
 .home-soft-region.date {
   all: unset;
   font-size: 10px;
-  opacity: 0.5;
+  color: var(--text-muted, #475569);
 }
 
 .home-card-main {
@@ -644,7 +644,7 @@
 }
 
 .home-card-sub {
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   font-size: 12px;
   margin: 0;
 }
@@ -1074,7 +1074,7 @@
 .home-consultation-tag {
   font-size: 11px;
   font-weight: 700;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -1082,7 +1082,7 @@
 .home-consultation-tag-chip {
   font-size: 10.5px;
   font-weight: 700;
-  color: #0284c7;
+  color: #0369a1;
   background: rgba(2, 132, 199, 0.12);
   padding: 2px 7px;
   border-radius: 4px;
@@ -1101,7 +1101,7 @@
 
 .home-consultation-sub {
   font-size: 12px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, #526174);
   margin-top: 2px;
 }
 
@@ -1219,14 +1219,14 @@
 }
 
 .home-played-pill:hover {
-  border-color: #0284c7;
-  color: #0284c7;
+  border-color: #0369a1;
+  color: #0369a1;
 }
 
 .home-played-pill.active {
   background: #0284c7;
   color: #ffffff;
-  border-color: #0284c7;
+  border-color: #0369a1;
   box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
 }
 
@@ -1248,7 +1248,7 @@
 [data-theme="dark"] .home-played-pill.active {
   background: #0284c7;
   color: #ffffff;
-  border-color: #0284c7;
+  border-color: #0369a1;
 }
 
 /* ==========================================================================

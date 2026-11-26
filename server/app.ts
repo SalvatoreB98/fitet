@@ -1,4 +1,5 @@
 import express from 'express';
+import compression from 'compression';
 import cors from 'cors';
 import crypto from 'crypto';
 import path from 'path';
@@ -86,8 +87,20 @@ import {
 
 export const app = express();
 
+app.use(compression());
 app.use(cors());
 app.use(express.json());
+
+// Header di sicurezza HTTP
+app.use((req, res, next) => {
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    if (req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production') {
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    return next();
+});
 
 // Blocco preventivo bot e crawler aggressivi che consumano CPU scansionando API
 const AGGRESSIVE_BOT_REGEX = /AhrefsBot|SemrushBot|DotBot|PetalBot|Bytespider|MJ12bot|MegaIndex|BLEXBot|ZoominfoBot/i;
@@ -146,13 +159,11 @@ app.use((req, res, next) => {
         isForceRefreshRequest(req)
     ) {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-        res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
         res.setHeader('CDN-Cache-Control', 'no-store');
         return next();
     }
 
     // Cache CDN e browser bilanciata per le risposte GET pubbliche
-    res.setHeader('Vercel-CDN-Cache-Control', CDN_HEADER_DEFAULT);
     res.setHeader('CDN-Cache-Control', CDN_HEADER_DEFAULT);
     res.setHeader('Cache-Control', BROWSER_HEADER_DEFAULT);
 
@@ -160,7 +171,6 @@ app.use((req, res, next) => {
     const originalJson = res.json.bind(res);
     res.json = ((body: unknown) => {
         if (res.statusCode >= 400) {
-            res.removeHeader('Vercel-CDN-Cache-Control');
             res.removeHeader('CDN-Cache-Control');
             res.setHeader('Cache-Control', 'no-store');
         }
@@ -194,7 +204,7 @@ const trackRequestDailyVisitor = (req: express.Request, mode?: 'PWA' | 'Browser'
     }
 
     const parsedUa = parseUserAgent(userAgent);
-    const rawCountry = req.headers['x-vercel-ip-country'] || req.headers['cf-ipcountry'] || req.headers['x-geo-country'];
+    const rawCountry = req.headers['cf-ipcountry'] || req.headers['x-geo-country'];
     const countryCode = typeof rawCountry === 'string' ? rawCountry.trim().toUpperCase() : '';
     const country = /^[A-Z]{2}$/.test(countryCode) ? countryCode : '';
 
@@ -2679,7 +2689,6 @@ app.get(['/api/og/player/:id.png', '/api/og/player/:id', '/api/og-player'], asyn
     const cachedEntry = ogCardCache.get(id);
     if (cachedEntry && Date.now() < cachedEntry.expiresAt) {
         res.setHeader('Content-Type', 'image/png');
-        res.setHeader('Vercel-CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
         res.setHeader('CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
         res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
         return res.send(cachedEntry.buffer);
@@ -2694,7 +2703,6 @@ app.get(['/api/og/player/:id.png', '/api/og/player/:id', '/api/og-player'], asyn
         const pngBuffer = await generateAthleteOgCard(athlete);
         ogCardCache.set(id, { buffer: pngBuffer, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
         res.setHeader('Content-Type', 'image/png');
-        res.setHeader('Vercel-CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
         res.setHeader('CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
         res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
         return res.send(pngBuffer);
@@ -2823,7 +2831,6 @@ app.get(['/player/:id', '/atleta/:id'], async (req, res, next) => {
 
         html = html.replace(/<head>/i, `<head>${ogMeta}`);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Vercel-CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
         res.setHeader('CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
         res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=604800');
         return res.send(html);
@@ -3053,7 +3060,6 @@ app.post('/api/click', express.text({ type: 'text/plain' }), async (req, res) =>
 
 app.get('/api/analytics', requireAnalyticsBasicAuth, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-    res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
     res.setHeader('CDN-Cache-Control', 'no-store');
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
 
@@ -3070,16 +3076,83 @@ app.get('/api/analytics', requireAnalyticsBasicAuth, async (req, res) => {
 
 app.get('/admin/analytics', requireAnalyticsBasicAuth, (_req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-    res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
     res.setHeader('CDN-Cache-Control', 'no-store');
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     return res.type('html').send(renderAnalyticsAdminHtml());
 });
 
-// Serve static frontend files in production only when running as standalone node server (not on Vercel)
-if (!process.env.VERCEL) {
-    const distPath = path.resolve(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+// ---------------------------------------------------------------------------
+// Agentic discovery: llms.txt + ARD manifest (Lighthouse "Agentic Browsing")
+// ---------------------------------------------------------------------------
+const distPath = path.resolve(process.cwd(), 'dist');
+const publicPath = path.resolve(process.cwd(), 'public');
+
+function sendPublicAsset(
+    res: express.Response,
+    relativePath: string,
+    contentType: string,
+    cacheControl = 'public, max-age=3600',
+): boolean {
+    const candidates = [
+        path.join(publicPath, relativePath),
+        path.join(distPath, relativePath),
+    ];
+    for (const file of candidates) {
+        if (!fs.existsSync(file)) continue;
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', cacheControl);
+        res.sendFile(file);
+        return true;
+    }
+    return false;
+}
+
+app.get('/llms.txt', (_req, res) => {
+    if (!sendPublicAsset(res, 'llms.txt', 'text/plain; charset=utf-8')) {
+        res.status(404).type('text/plain').send('Not Found');
+    }
+});
+
+app.get(['/ai-catalog.json', '/.well-known/ard.json', '/.well-known/ai-catalog.json'], (req, res) => {
+    const relativePath = req.path.replace(/^\//, '');
+    if (!sendPublicAsset(res, relativePath, 'application/json; charset=utf-8')) {
+        res.status(404).json({ error: 'Not Found' });
+    }
+});
+
+// Serve static frontend files in production
+{
+    // Gli asset con hash nel nome possono restare in cache 1 anno (immutable)
+    app.use('/assets', express.static(path.join(distPath, 'assets'), {
+        maxAge: '1y',
+        immutable: true,
+    }));
+
+    // Font self-hosted (immutable)
+    app.use('/fonts', express.static(path.join(distPath, 'fonts'), {
+        maxAge: '1y',
+        immutable: true,
+    }));
+
+    // Il resto (index.html, manifest, service worker, immagini non hashate)
+    app.use(express.static(distPath, {
+        maxAge: 0,
+        etag: true,
+        lastModified: true,
+        setHeaders: (res, filePath) => {
+            const normalized = filePath.replace(/\\/g, '/').toLowerCase();
+            if (normalized.endsWith('.html') || normalized.endsWith('/sw.js') || normalized.endsWith('/manifest.json')) {
+                res.setHeader('Cache-Control', 'no-cache');
+                return;
+            }
+            const ext = path.extname(normalized);
+            if (['.woff2', '.woff', '.ttf', '.otf', '.png', '.webp', '.avif', '.jpg', '.jpeg', '.svg', '.ico'].includes(ext)) {
+                res.setHeader('Cache-Control', 'public, max-age=604800');
+                return;
+            }
+            res.setHeader('Cache-Control', 'no-cache');
+        },
+    }));
 
     // Dynamic OG & SEO tags for /regioni/:slug and /regione/:slug
     app.get(['/regioni/:slug', '/regione/:slug'], async (req, res, next) => {
@@ -3087,6 +3160,7 @@ if (!process.env.VERCEL) {
         const preRenderedFile = path.join(distPath, 'regioni', slug.toLowerCase(), 'index.html');
         if (fs.existsSync(preRenderedFile)) {
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.setHeader('Cache-Control', 'no-cache');
             return res.sendFile(preRenderedFile);
         }
         return next();
@@ -3122,6 +3196,7 @@ if (!process.env.VERCEL) {
 `;
             html = html.replace(/<title>.*?<\/title>/i, ogMeta);
             res.setHeader('Content-Type', 'text/html; charset=utf-8');
+            res.setHeader('Cache-Control', 'no-cache');
             return res.send(html);
         } catch {
             return next();
@@ -3149,6 +3224,7 @@ if (!process.env.VERCEL) {
     app.get('*', (req, res, next) => {
         if (req.path.startsWith('/api')) return next();
         const indexFile = path.join(distPath, 'index.html');
+        res.setHeader('Cache-Control', 'no-cache');
         res.sendFile(indexFile, (err) => {
             if (err) res.status(404).send('Not Found');
         });
