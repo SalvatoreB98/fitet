@@ -10,6 +10,8 @@ import { recordAndGetAthleteViews } from '../utils/athleteViews';
 import { useFavoriteAthletes, saveFavoriteAthlete } from '../utils/favorites';
 import { addRecentAthlete, isValidAthleteHistoryName } from '../utils/history';
 import { TeamLogo } from './TeamLogo';
+import { AthleteAvatar } from './AthleteAvatar';
+import { MatchDetailModal, type MatchDetailItem } from './MatchDetailModal';
 import { aggregateAthleteMatchStats } from '../utils/aggregateAthleteStats';
 import { AthleteStoryModal } from './AthleteStoryModal';
 import { AthleteNotFoundState } from './AthleteNotFoundState';
@@ -43,6 +45,7 @@ interface AtletaModalProps {
   onPromoteToFull?: (resolvedId: string, resolvedName: string) => void;
   onResolveAthlete?: (resolvedId: string, resolvedName: string) => void;
   onOpenSociety?: (societyName: string, context?: SocietaLookupContext) => void;
+  onNavigateToGiornata?: (camId?: number, giornata?: number) => void;
   isTopModal?: boolean;
 }
 
@@ -79,6 +82,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   onPromoteToFull,
   onResolveAthlete,
   onOpenSociety,
+  onNavigateToGiornata,
   isTopModal = true,
 }) => {
   useBodyScrollLock(true);
@@ -315,6 +319,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [viewMode, setViewMode] = useState<'slider' | 'list'>('slider');
   const [analyticsTab, setAnalyticsTab] = useState<'chart' | 'table'>('chart');
   const [h2hOpponent, setH2hOpponent] = useState<{ id?: string; name: string } | null>(null);
+  const [h2hOpponentIds, setH2hOpponentIds] = useState<Record<string, string>>({});
+  const [selectedMatchDetail, setSelectedMatchDetail] = useState<MatchDetailItem | null>(null);
   const [h2hScores, setH2hScores] = useState<Record<string, { punteggio: string; data?: string }>>({});
   const [loadingH2h, setLoadingH2h] = useState<Record<string, boolean>>({});
 
@@ -908,6 +914,16 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       fetchHeadToHead(currentAtletaId, oppParam)
         .then((data) => {
           if (!isMounted) return;
+          if (data?.atleta2?.id) {
+            const resolvedId = data.atleta2.id;
+            const oppNorm = opp.name.toUpperCase().trim();
+            const respNorm = (data.atleta2.nome || '').toUpperCase().trim();
+            setH2hOpponentIds((prev) => ({
+              ...prev,
+              [oppNorm]: resolvedId,
+              ...(respNorm ? { [respNorm]: resolvedId } : {}),
+            }));
+          }
           setH2hScores((prev) => {
             const next = { ...prev };
             if (data && data.incontri && data.incontri.length > 0) {
@@ -947,14 +963,14 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   useEffect(() => {
     if (!isTopModal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !h2hOpponent) {
+      if (e.key === 'Escape' && !h2hOpponent && !selectedMatchDetail) {
         e.stopPropagation();
         requestClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [requestClose, isTopModal, h2hOpponent, isPhotoZoomOpen]);
+  }, [requestClose, isTopModal, h2hOpponent, selectedMatchDetail, isPhotoZoomOpen]);
 
   // Anteprima / zoom della foto dell'atleta
   const zoomPhotoSrc = athletePhoto;
@@ -1399,7 +1415,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                       </div>
                       {atleta.anagrafica.regione && (
                         <div className="athlete-spotlight-region">
-                          ({atleta.anagrafica.regione})
+                          • {atleta.anagrafica.regione}
                         </div>
                       )}
                     </div>
@@ -1407,7 +1423,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                     {/* Badges & Meta Row */}
                     <div className="athlete-spotlight-meta-row">
                       {atleta.anagrafica.categoria && (
-                        <span className="athlete-spotlight-pill">
+                        <span className="athlete-spotlight-pill is-category">
                           {formatCategoryPill(atleta.anagrafica.categoria)}
                         </span>
                       )}
@@ -1944,7 +1960,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                 {[...matchesToDisplay].reverse().map((m, idx) => {
                                   const matchDateNorm = normDate(m.data);
                                   const oppNameKey = (m.avversario || '').toUpperCase().trim();
-                                  const oppIdKey = m.avversarioId || '';
+                                  const oppIdKey = m.avversarioId || h2hOpponentIds[oppNameKey] || '';
                                   const h2hMatch =
                                     (oppIdKey && matchDateNorm ? h2hScores[`${oppIdKey}_${matchDateNorm}`] : null) ||
                                     (oppNameKey && matchDateNorm ? h2hScores[`${oppNameKey}_${matchDateNorm}`] : null) ||
@@ -1962,7 +1978,29 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                   return (
                                     <div
                                       key={m.id || idx}
-                                      className="atleta-match-card atleta-match-slider-card"
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={() =>
+                                        setSelectedMatchDetail({
+                                          ...m,
+                                          avversarioId: oppIdKey || m.avversarioId,
+                                          data: displayDate,
+                                          risultatoSet: exactScore || m.risultatoSet,
+                                        })
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault();
+                                          setSelectedMatchDetail({
+                                            ...m,
+                                            avversarioId: oppIdKey || m.avversarioId,
+                                            data: displayDate,
+                                            risultatoSet: exactScore || m.risultatoSet,
+                                          });
+                                        }
+                                      }}
+                                      className="atleta-match-card atleta-match-slider-card is-clickable"
+                                      title={`Apri dettaglio incontro contro ${m.avversario}`}
                                     >
                                       {/* Top Row: Outcome badge, Giornata/Fase, Punti Guadagnati, and Date */}
                                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
@@ -2063,22 +2101,11 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                             title={`Visualizza scheda rapida di ${m.avversario}`}
                                           >
                                             <span className="atleta-opponent-text">
-                                              <img
-                                                width="16px"
-                                                height="16px"
-                                                src={`https://portale.fitet.org/images/atleti/${m.avversarioId}.jpg`}
-                                                alt=""
-                                                loading="lazy"
-                                                referrerPolicy="no-referrer"
-                                                onLoad={() => {
-                                                  markPhotoLoaded(`https://portale.fitet.org/images/atleti/${m.avversarioId}.jpg`);
-                                                }}
-                                                onError={(e) => {
-                                                  markPhotoError(`https://portale.fitet.org/images/atleti/${m.avversarioId}.jpg`);
-                                                  (e.target as HTMLElement).style.display = 'none';
-                                                }}
+                                              <AthleteAvatar
+                                                atletaId={oppIdKey || m.avversarioId}
+                                                nome={m.avversario}
+                                                size={18}
                                               />
-                                              <span></span>
                                               <span>{m.avversario}</span>
                                             </span>
                                             <i className="bi bi-box-arrow-up-right atleta-opponent-icon"></i>
@@ -2094,7 +2121,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                             className="btn-h2h-inline"
                                           >
                                             <i className="bi bi-arrow-left-right" style={{ fontSize: '9px' }}></i>
-                                            Visualizza storico (testa a testa)
+                                            Dati e pronostico IA
                                           </button>
                                         </div>
                                       </div>
@@ -2174,7 +2201,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                                 {[...matchesToDisplay].reverse().map((m, idx) => {
                                   const matchDateNorm = normDate(m.data);
                                   const oppNameKey = (m.avversario || '').toUpperCase().trim();
-                                  const oppIdKey = m.avversarioId || '';
+                                  const oppIdKey = m.avversarioId || h2hOpponentIds[oppNameKey] || '';
                                   const h2hMatch =
                                     (oppIdKey && matchDateNorm ? h2hScores[`${oppIdKey}_${matchDateNorm}`] : null) ||
                                     (oppNameKey && matchDateNorm ? h2hScores[`${oppNameKey}_${matchDateNorm}`] : null) ||
@@ -2475,6 +2502,38 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
           </div>
         </div>
       ) : null}
+
+      {/* Modal Dettaglio Incontro */}
+      {selectedMatchDetail && (
+        <MatchDetailModal
+          match={selectedMatchDetail}
+          athleteId={currentAtletaId}
+          athleteName={currentAthleteName}
+          athletePhotoUrl={atleta?.anagrafica?.fotoUrl}
+          athleteClub={atleta?.anagrafica?.societa}
+          athleteRank={
+            atleta?.storicoClassifica?.length
+              ? (atleta.storicoClassifica[atleta.storicoClassifica.length - 1]?.posizione ?? undefined)
+              : undefined
+          }
+          athletePoints={atleta?.anagrafica?.punti ?? atleta?.riepilogo?.punteggioFinale}
+          athleteCategory={atleta?.anagrafica?.categoria}
+          camId={camId ? parseInt(String(camId), 10) : atleta?.campionatoAttuale?.camId}
+          playedChampionships={atleta?.campionatiGiocati}
+          zIndex={(zIndex || 1200) + 5}
+          isTopModal={isTopModal}
+          onClose={() => setSelectedMatchDetail(null)}
+          onOpenHeadToHead={(opp) => setH2hOpponent(opp)}
+          onOpenOpponentProfile={(idOrName, name) => {
+            if (onPreviewAthlete) {
+              onPreviewAthlete(idOrName, name);
+            } else if (onSelectAthlete) {
+              onSelectAthlete(idOrName, name);
+            }
+          }}
+          onNavigateToGiornata={onNavigateToGiornata}
+        />
+      )}
 
       {/* Modal Testa a Testa con l'avversario selezionato */}
       {h2hOpponent && (

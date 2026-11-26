@@ -311,6 +311,33 @@ function computeTeamForm(classifica: SquadraClassifica[], calendario: GiornataCa
 }
 
 /**
+ * Popola avversarioId mancante nelle partite ranking usando il mapping locale nome -> ID.
+ */
+function enrichPartiteRankingOpponentIds(partiteRanking: PartiteRankingAtleta | undefined): void {
+    if (!partiteRanking) return;
+    const mapping = athleteResolver.getMapping();
+    const resolveFromMap = (name?: string): string | undefined => {
+        if (!name) return undefined;
+        const clean = name.trim().toUpperCase().replace(/\s+/g, ' ');
+        if (!clean) return undefined;
+        if (mapping[clean]) return mapping[clean];
+        const parts = clean.split(' ');
+        if (parts.length === 2) {
+            const swapped = `${parts[1]} ${parts[0]}`;
+            if (mapping[swapped]) return mapping[swapped];
+        }
+        return undefined;
+    };
+
+    for (const m of partiteRanking.campionato || []) {
+        if (!m.avversarioId) m.avversarioId = resolveFromMap(m.avversario);
+    }
+    for (const m of partiteRanking.tornei || []) {
+        if (!m.avversarioId) m.avversarioId = resolveFromMap(m.avversario);
+    }
+}
+
+/**
  * Risolve i campionati giocati dall'atleta a partire dalle partite di ranking.
  *
  * Il nome del campionato nel ranking non distingue maschile/femminile
@@ -1461,6 +1488,7 @@ app.get('/api/atleta/:id', async (req, res) => {
             try {
                 const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);
                 partiteRanking = parsePartiteRanking(iframeHtml, id);
+                enrichPartiteRankingOpponentIds(partiteRanking);
                 const idClassMatch = iframeUrl.match(/\/html\/(\d+)\//i);
                 if (idClassMatch) resolvedIdClass = parseInt(idClassMatch[1], 10);
             } catch (iframeErr) {

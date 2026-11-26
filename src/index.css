@@ -6330,11 +6330,9 @@ body.modal-open {
 /* --- Head to Head Modal --- */
 .h2h-modal-header {
   padding: 14px 18px;
-  border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--bg-th, #f8fafc);
 }
 
 .h2h-header-icon {
@@ -6986,6 +6984,17 @@ body.modal-open {
   padding: 11px 13px;
   min-height: 130px;
   box-sizing: border-box;
+}
+
+.atleta-match-slider-card.is-clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.atleta-match-slider-card.is-clickable:hover {
+  border-color: var(--color-primary-500, #4e7a9c);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  filter: brightness(1.1);
 }
 
 .atleta-match-list-container {
@@ -8917,10 +8926,9 @@ body.modal-open {
 }
 
 .atleta-opponent-text {
-  img {
-    margin-right: 0.5em;
-    border-radius: 4px;
-  }
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 /* ==========================================================================
@@ -9627,6 +9635,10 @@ body.modal-open {
   }
 }
 
+.team-logo-img {
+  border-radius: 100%;
+}
+
 @media screen and (max-width: 379px) {
   .team-logo-img {}
 }
@@ -9877,24 +9889,20 @@ body.modal-open {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(148, 163, 184, 0.1) 25%,
-    rgba(148, 163, 184, 0.24) 50%,
-    rgba(148, 163, 184, 0.1) 75%
-  );
+  background: linear-gradient(90deg,
+      rgba(148, 163, 184, 0.1) 25%,
+      rgba(148, 163, 184, 0.24) 50%,
+      rgba(148, 163, 184, 0.1) 75%);
   background-size: 200% 100%;
   animation: modalSkeletonShimmer 1.4s ease-in-out infinite;
   pointer-events: none;
 }
 
 [data-theme="dark"] .athlete-spotlight-photo-wrap.is-photo-loading::before {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.04) 25%,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(255, 255, 255, 0.04) 75%
-  );
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.04) 25%,
+      rgba(255, 255, 255, 0.12) 50%,
+      rgba(255, 255, 255, 0.04) 75%);
   background-size: 200% 100%;
 }
 
@@ -9960,25 +9968,31 @@ body.modal-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  font-size: clamp(11.8px, 3.3vw, 14.5px);
+  gap: 6px;
+  font-size: clamp(12.2px, 3.3vw, 14.5px);
   font-weight: 600;
-  color: var(--text-dark);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  color: #38bdf8;
+  text-decoration: none;
   background: transparent;
   border: none;
   padding: 0;
   cursor: pointer;
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+[data-theme="light"] .athlete-spotlight-club-btn,
+[data-theme="light"] .athlete-spotlight-club-text {
+  color: #0369a1;
 }
 
 .athlete-spotlight-club-btn:hover {
-  color: #93c5fd;
+  color: #7dd3fc;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 [data-theme="light"] .athlete-spotlight-club-btn:hover {
-  color: #1d4ed8;
+  color: #0284c7;
 }
 
 .athlete-spotlight-team-logo {
@@ -10008,20 +10022,37 @@ body.modal-open {
 .athlete-spotlight-pill {
   display: inline-flex;
   align-items: center;
-  padding: 2px clamp(8px, 2.5vw, 12px);
+  padding: 2px clamp(9px, 2.5vw, 12px);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  font-size: clamp(10.5px, 2.9vw, 12.5px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: clamp(11px, 2.9vw, 12.5px);
   font-weight: 600;
   color: var(--text-dark, #e2e8f0);
   line-height: 1.4;
+}
+
+.athlete-spotlight-pill.is-category {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.34);
+  color: #fcd34d;
+  font-weight: 700;
 }
 
 [data-theme="light"] .athlete-spotlight-pill {
   background: #f1f5f9;
   border-color: #cbd5e1;
   color: #334155;
+}
+
+[data-theme="light"] .athlete-spotlight-pill.is-category {
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
+.athlete-spotlight-born-prefix {
+  display: none;
 }
 
 .athlete-spotlight-divider {
@@ -10327,7 +10358,7 @@ body.modal-open {
   }
 
   .athlete-spotlight-born-prefix {
-    display: inline;
+    display: none;
   }
 
   .athlete-spotlight-meta-sep {
@@ -10602,11 +10633,11 @@ body.modal-open {
   pointer-events: none !important;
 }
 
-.modal-closing > .modal-card-simple,
-.modal-closing > .championship-modal-dialog,
-.modal-closing > .install-modal-box,
-.modal-closing > .match-video-modal-box,
-.modal-closing > .athlete-photo-zoom-card {
+.modal-closing>.modal-card-simple,
+.modal-closing>.championship-modal-dialog,
+.modal-closing>.install-modal-box,
+.modal-closing>.match-video-modal-box,
+.modal-closing>.athlete-photo-zoom-card {
   animation: modalScaleOut 0.18s cubic-bezier(0.4, 0, 1, 1) forwards !important;
   pointer-events: none !important;
 }
@@ -10664,12 +10695,10 @@ body.modal-open {
 }
 
 .athlete-skeleton-block {
-  background: linear-gradient(
-    90deg,
-    rgba(148, 163, 184, 0.14) 25%,
-    rgba(148, 163, 184, 0.28) 50%,
-    rgba(148, 163, 184, 0.14) 75%
-  ) !important;
+  background: linear-gradient(90deg,
+      rgba(148, 163, 184, 0.14) 25%,
+      rgba(148, 163, 184, 0.28) 50%,
+      rgba(148, 163, 184, 0.14) 75%) !important;
   background-size: 200% 100% !important;
   animation: modalSkeletonShimmer 1.4s ease-in-out infinite;
   border-color: transparent !important;
@@ -10677,12 +10706,10 @@ body.modal-open {
 }
 
 [data-theme="dark"] .athlete-skeleton-block {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.06) 25%,
-    rgba(255, 255, 255, 0.14) 50%,
-    rgba(255, 255, 255, 0.06) 75%
-  ) !important;
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.06) 25%,
+      rgba(255, 255, 255, 0.14) 50%,
+      rgba(255, 255, 255, 0.06) 75%) !important;
   background-size: 200% 100% !important;
 }
 
@@ -10814,6 +10841,7 @@ body.modal-open {
 }
 
 @keyframes modalSkeletonPulse {
+
   0%,
   100% {
     opacity: 0.35;
@@ -10847,6 +10875,7 @@ body.modal-open {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .athlete-skeleton-block,
   .athlete-skeleton-dot,
   .athlete-data-reveal,
@@ -10863,12 +10892,10 @@ body.modal-open {
    ========================================================================== */
 .skel {
   display: block;
-  background: linear-gradient(
-    90deg,
-    rgba(148, 163, 184, 0.14) 25%,
-    rgba(148, 163, 184, 0.28) 50%,
-    rgba(148, 163, 184, 0.14) 75%
-  ) !important;
+  background: linear-gradient(90deg,
+      rgba(148, 163, 184, 0.14) 25%,
+      rgba(148, 163, 184, 0.28) 50%,
+      rgba(148, 163, 184, 0.14) 75%) !important;
   background-size: 200% 100% !important;
   animation: modalSkeletonShimmer 1.4s ease-in-out infinite;
   border-color: transparent !important;
@@ -10876,12 +10903,10 @@ body.modal-open {
 }
 
 [data-theme="dark"] .skel {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.06) 25%,
-    rgba(255, 255, 255, 0.14) 50%,
-    rgba(255, 255, 255, 0.06) 75%
-  ) !important;
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.06) 25%,
+      rgba(255, 255, 255, 0.14) 50%,
+      rgba(255, 255, 255, 0.06) 75%) !important;
   background-size: 200% 100% !important;
 }
 

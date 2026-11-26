@@ -18,6 +18,7 @@ interface RefertoModalProps {
   squadraOspiteNome?: string;
   statisticheAtleti?: Array<{ atleta: string; atletaId: string | null }>;
   isSubmodalOpen?: boolean;
+  zIndex?: number;
   onClose: () => void;
   onOpenAtletaModal?: (id: string, name: string) => void;
 }
@@ -30,6 +31,7 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
   squadraOspiteNome,
   statisticheAtleti,
   isSubmodalOpen,
+  zIndex,
   onClose,
   onOpenAtletaModal,
 }) => {
@@ -137,7 +139,11 @@ export const RefertoModal: React.FC<RefertoModalProps> = ({
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className={`modal-backdrop-simple modal-referto-backdrop ${isClosing ? 'modal-closing' : ''}`} onClick={requestClose}>
+    <div
+      className={`modal-backdrop-simple modal-referto-backdrop ${isClosing ? 'modal-closing' : ''}`}
+      style={zIndex ? { zIndex } : undefined}
+      onClick={requestClose}
+    >
       <div
         className={`modal-card-simple referto-modal-card ${isClosing ? 'is-closing' : ''} ${isCompactState ? 'is-compact-state' : ''}`}
         onClick={(e) => e.stopPropagation()}

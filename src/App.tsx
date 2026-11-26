@@ -206,6 +206,7 @@ export const App: React.FC = () => {
   }>({});
 
   const [selectedTeamFilter, setSelectedTeamFilter] = useState<string | null>(null);
+  const [selectedGiornataFilter, setSelectedGiornataFilter] = useState<number | null>(null);
 
   // Athlete modal navigation stack synced with /player/:id URL
   const [athleteStack, setAthleteStack] = useState<
@@ -1421,6 +1422,7 @@ export const App: React.FC = () => {
                   isSubmodalOpen={Boolean(selectedAthlete) || Boolean(selectedSquadra)}
                   currentCamId={camId ?? undefined}
                   annoId={annoId}
+                  initialGiornata={selectedGiornataFilter}
                   onClearTeamFilter={() => setSelectedTeamFilter(null)}
                   onSelectTeamFilter={(team) => setSelectedTeamFilter(team)}
                   onOpenSquadraModal={handleOpenSquadra}
@@ -1600,13 +1602,22 @@ export const App: React.FC = () => {
           returnLabel={a.fromReferto ? 'Torna al referto' : 'Indietro'}
           isTopModal={index === athleteStack.length - 1}
           initialMode={a.mode || 'full'}
-          zIndex={1200 + index * 10}
+          zIndex={1200 + index * 20}
           onClose={closeTopAthlete}
           onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
           onPreviewAthlete={(id, name) => openPreviewAthlete(id, name)}
           onPromoteToFull={(resolvedId, resolvedName) => promotePreviewAthlete(a.key, resolvedId, resolvedName)}
           onResolveAthlete={handleResolveAthlete}
           onOpenSociety={handleOpenSocietyByName}
+          onNavigateToGiornata={(targetCamId, giornata) => {
+            setAthleteStack([]);
+            if (targetCamId && targetCamId !== camId) {
+              handleSelectChampionship(targetCamId, annoId);
+            }
+            setSelectedGiornataFilter(typeof giornata === 'number' ? giornata : null);
+            setMainView('campionato');
+            setChampionshipTab('calendario');
+          }}
         />
       ))}
 

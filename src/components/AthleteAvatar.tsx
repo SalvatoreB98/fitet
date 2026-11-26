@@ -3,6 +3,7 @@ import { isPhotoError, markPhotoLoaded, markPhotoError } from '../utils/photoCac
 
 export interface AthleteAvatarProps {
   atletaId?: string | null;
+  photoUrlOverride?: string | null;
   nome: string;
   size?: number | string;
   className?: string;
@@ -11,12 +12,13 @@ export interface AthleteAvatarProps {
 
 export const AthleteAvatar: React.FC<AthleteAvatarProps> = ({
   atletaId,
+  photoUrlOverride,
   nome,
   size = 28,
   className = '',
   style,
 }) => {
-  const photoUrl = atletaId ? `https://portale.fitet.org/images/atleti/${atletaId}.jpg` : null;
+  const photoUrl = photoUrlOverride || (atletaId ? `https://portale.fitet.org/images/atleti/${atletaId}.jpg` : null);
   const [error, setError] = useState<boolean>(() => (photoUrl ? isPhotoError(photoUrl) : false));
 
   const initials = nome

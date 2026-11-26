@@ -21,6 +21,7 @@ interface CalendarioTabProps {
   currentCamId?: number;
   annoId?: number;
   championshipName?: string;
+  initialGiornata?: number | null;
   /** Indica se la scheda Calendario è quella attualmente visibile. */
   isActive?: boolean;
 }
@@ -115,9 +116,16 @@ export const CalendarioTab: React.FC<CalendarioTabProps> = ({
   currentCamId,
   annoId = 41,
   championshipName,
+  initialGiornata,
   isActive = true,
 }) => {
   const [selectedGiornata, setSelectedGiornata] = useState<number | 'all'>('all');
+
+  useEffect(() => {
+    if (typeof initialGiornata === 'number' && !Number.isNaN(initialGiornata)) {
+      setSelectedGiornata(initialGiornata);
+    }
+  }, [initialGiornata]);
   const [faseFilter, setFaseFilter] = useState<'all' | 'andata' | 'ritorno'>('all');
   const [isScrolledToCurrent, setIsScrolledToCurrent] = useState(false);
   const [selectedPreviewMatch, setSelectedPreviewMatch] = useState<PartitaCalendario | null>(null);
