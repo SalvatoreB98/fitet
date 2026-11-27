@@ -97,6 +97,20 @@ app.use((req, res, next) => {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Content-Security-Policy', [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' data: https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https:",
+        "connect-src 'self' https://*.supabase.co https://portale.fitet.org",
+        "frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com",
+        "media-src 'self' blob:",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+    ].join('; '));
     if (req.secure || req.headers['x-forwarded-proto'] === 'https' || process.env.NODE_ENV === 'production') {
         res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     }
@@ -161,6 +175,11 @@ app.use((req, res, next) => {
     ) {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
         res.setHeader('CDN-Cache-Control', 'no-store');
+        return next();
+    }
+
+    // Gli asset statici (JS/CSS con hash, font) hanno le loro policy di cache dedicate
+    if (req.path.startsWith('/assets/') || req.path.startsWith('/fonts/')) {
         return next();
     }
 
@@ -3172,12 +3191,20 @@ app.get(['/ai-catalog.json', '/.well-known/ard.json', '/.well-known/ai-catalog.j
     app.use('/assets', express.static(path.join(distPath, 'assets'), {
         maxAge: '1y',
         immutable: true,
+        setHeaders: (res) => {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            res.setHeader('CDN-Cache-Control', 'public, max-age=31536000, immutable');
+        },
     }));
 
     // Font self-hosted (immutable)
     app.use('/fonts', express.static(path.join(distPath, 'fonts'), {
         maxAge: '1y',
         immutable: true,
+        setHeaders: (res) => {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+            res.setHeader('CDN-Cache-Control', 'public, max-age=31536000, immutable');
+        },
     }));
 
     // Il resto (index.html, manifest, service worker, immagini non hashate)

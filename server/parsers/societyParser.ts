@@ -89,7 +89,7 @@ export function parseDatiSquadra(
       logoUrl ||
       (alboFederale
         ? `${PORTAL_BASE}/images/societa/${alboFederale}.jpg`
-        : `/generica.png`),
+        : `/generica.webp`),
     alboFederale,
     primaAffiliazione: primaAffiliazione || undefined,
     indirizzo: cleanText(addressCells.eq(0).text()) || undefined,
