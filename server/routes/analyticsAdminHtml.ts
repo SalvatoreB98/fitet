@@ -1086,8 +1086,12 @@ export function renderAnalyticsAdminHtml(): string {
 
       if (sched.tableMissing) {
         setScheduleHint('Tabella oraria non attiva: esegui supabase/hourly_analytics.sql su Supabase.');
+        host.innerHTML = '<div class="empty-state">Tabella oraria non attiva su Supabase. Esegui <code>supabase/hourly_analytics.sql</code> nel SQL Editor di Supabase per iniziare a registrare orari e giorni.</div>';
+        return;
       } else if (!sched.available) {
         setScheduleHint('Nessun dato orario ancora: i conteggi iniziano con la migrazione oraria.');
+        host.innerHTML = '<div class="empty-state">Nessun dato orario ancora disponibile: i conteggi iniziano da quando viene eseguita la migrazione <code>supabase/hourly_analytics.sql</code>.</div>';
+        return;
       } else if (total <= 0) {
         setScheduleHint('Nessun ' + cfg.label.toLowerCase() + ' registrato nel periodo selezionato.');
       } else {

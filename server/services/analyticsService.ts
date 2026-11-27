@@ -624,6 +624,8 @@ class AnalyticsService {
   async getAnalytics(requestedDays = 30): Promise<AnalyticsSummary> {
     const rangeDays = requestedDays <= 7 ? 7 : 30;
     const endDate = getUtcDateString(0);
+    const romeToday = getRomeDateHour().date;
+    const hourlyEndDate = romeToday > endDate ? romeToday : endDate;
     const rawStartDate = getUtcDateString(-(rangeDays - 1));
     const clampedStartDate = rawStartDate < ANALYTICS_START_DATE ? ANALYTICS_START_DATE : rawStartDate;
     const startDate = clampedStartDate > endDate ? endDate : clampedStartDate;
@@ -642,7 +644,7 @@ class AnalyticsService {
       // dashboard continua a funzionare e mostra un avviso dedicato.
       const [dailyRows, hourlyResult] = await Promise.all([
         this.fetchAllDailyRows(startDate, endDate),
-        this.fetchAllHourlyRows(startDate, endDate).catch((err: any) => {
+        this.fetchAllHourlyRows(startDate, hourlyEndDate).catch((err: any) => {
           console.warn('[AnalyticsService] Aggregazione oraria non disponibile:', err?.message || err);
           return { rows: [] as HourlyAnalyticsRow[], tableMissing: true };
         }),
@@ -655,7 +657,7 @@ class AnalyticsService {
         (r) => r.date >= startDate && r.date <= endDate
       );
       hourlyRows = Array.from(this.memoryHourly.values()).filter(
-        (r) => r.date >= startDate && r.date <= endDate
+        (r) => r.date >= startDate && r.date <= hourlyEndDate
       );
     }
 
@@ -851,7 +853,7 @@ class AnalyticsService {
       hourlySchedule: this.buildHourlySchedule(
         hourlyRows,
         startDate,
-        endDate,
+        hourlyEndDate,
         hourlyTableMissing
       ),
     };
