@@ -1,6 +1,5 @@
 // server/app.ts
 import express from "express";
-import compression from "compression";
 import cors from "cors";
 import crypto2 from "crypto";
 import path7 from "path";
@@ -879,7 +878,6 @@ var trafficSourceService = new TrafficSourceService();
 
 // server/services/analyticsService.ts
 dotenv3.config();
-var HOURLY_METRIC_KEYS = ["pages", "visitors", "clicks"];
 var MAX_TYPE_LEN = 32;
 var MAX_TARGET_LEN = 200;
 var ANALYTICS_START_DATE = "2026-11-04";
@@ -907,33 +905,6 @@ function getUtcDateString(offsetDays = 0) {
   d.setUTCHours(0, 0, 0, 0);
   d.setUTCDate(d.getUTCDate() + offsetDays);
   return d.toISOString().slice(0, 10);
-}
-function getRomeDateHour(now = /* @__PURE__ */ new Date()) {
-  try {
-    const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Europe/Rome",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      hourCycle: "h23"
-    }).formatToParts(now);
-    const get = (type) => parts.find((p) => p.type === type)?.value || "";
-    const year = get("year");
-    const month = get("month");
-    const day = get("day");
-    const hour = Math.min(23, Math.max(0, parseInt(get("hour"), 10) || 0));
-    if (!year || !month || !day) throw new Error("data non valida");
-    return { date: `${year}-${month}-${day}`, hour };
-  } catch {
-    return { date: getUtcDateString(0), hour: now.getUTCHours() };
-  }
-}
-function weekdayIndexFromIso(dateStr) {
-  const iso = String(dateStr || "").slice(0, 10);
-  const d = /* @__PURE__ */ new Date(`${iso}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return 0;
-  return (d.getUTCDay() + 6) % 7;
 }
 function enumerateUtcDates(startDate, endDate) {
   const dates = [];
@@ -966,7 +937,6 @@ var AnalyticsService = class {
   // Fallback in-memory solo per ambiente locale privo di credenziali Supabase
   memoryFallback = /* @__PURE__ */ new Map();
   memoryVisitors = /* @__PURE__ */ new Set();
-  memoryHourly = /* @__PURE__ */ new Map();
   ephemeralVisitorSalt = crypto.randomBytes(32).toString("hex");
   constructor() {
     this.initClient();
@@ -1008,25 +978,6 @@ var AnalyticsService = class {
       this.memoryFallback.set(key, { date, type, target, count: 1 });
     }
   }
-  /** Fallback locale dell'aggregazione oraria (solo senza credenziali Supabase). */
-  incrementMemoryHourly(kind) {
-    const { date, hour } = getRomeDateHour();
-    const key = `${date}|${hour}`;
-    let row = this.memoryHourly.get(key);
-    if (!row) {
-      row = { date, hour, pages: 0, visitors: 0, clicks: 0 };
-      this.memoryHourly.set(key, row);
-    }
-    if (kind === "page") row.pages += 1;
-    else if (kind === "visitor") row.visitors += 1;
-    else row.clicks += 1;
-    if (this.memoryHourly.size > 5e3) {
-      const cutoff = getUtcDateString(-60);
-      for (const [k, value] of this.memoryHourly) {
-        if (value.date < cutoff) this.memoryHourly.delete(k);
-      }
-    }
-  }
   /**
    * Chiama la RPC Postgres `increment_metric(p_type, p_target)` senza mai lanciare eccezioni bloccanti.
    */
@@ -1036,9 +987,6 @@ var AnalyticsService = class {
     if (!cleanType || !cleanTarget) return;
     if (!this.supabase) {
       this.incrementMemoryFallback(cleanType, cleanTarget);
-      if (cleanType === "page" || cleanType === "click") {
-        this.incrementMemoryHourly(cleanType);
-      }
       return;
     }
     try {
@@ -1083,7 +1031,6 @@ var AnalyticsService = class {
     if (!this.supabase) {
       this.memoryVisitors.add(dedupKey);
       this.incrementMemoryFallback("visitor", "unique");
-      this.incrementMemoryHourly("visitor");
       return;
     }
     try {
@@ -1188,108 +1135,22 @@ var AnalyticsService = class {
     return allRows;
   }
   /**
-   * Legge le righe dell'aggregazione oraria. Se la migrazione
-   * `supabase/hourly_analytics.sql` non è ancora stata applicata la tabella
-   * manca: in quel caso non blocchiamo la dashboard ma segnaliamo `tableMissing`.
-   */
-  async fetchAllHourlyRows(startDate, endDate) {
-    if (!this.supabase) return { rows: [], tableMissing: false };
-    const pageSize = 1e3;
-    const maxPages = 200;
-    const allRows = [];
-    for (let page = 0; page < maxPages; page += 1) {
-      const from = page * pageSize;
-      const { data, error } = await this.supabase.from("hourly_analytics").select("date, hour, pages, visitors, clicks").gte("date", startDate).lte("date", endDate).order("date", { ascending: true }).order("hour", { ascending: true }).range(from, from + pageSize - 1);
-      if (error) {
-        if (error.code === "42P01" || error.code === "PGRST205" || /could not find the table|does not exist|schema cache/i.test(error.message)) {
-          return { rows: allRows, tableMissing: true };
-        }
-        throw new Error(`Lettura hourly_analytics fallita: ${error.message}`);
-      }
-      const batch = data || [];
-      allRows.push(...batch);
-      if (batch.length < pageSize) break;
-    }
-    return { rows: allRows, tableMissing: false };
-  }
-  /** Costruisce le matrici giorno × ora usate dalla heatmap della dashboard. */
-  buildHourlySchedule(rows, startDate, endDate, tableMissing) {
-    const dates = enumerateUtcDates(startDate, endDate);
-    const weekdayDayCounts = new Array(7).fill(0);
-    for (const dateStr of dates) {
-      weekdayDayCounts[weekdayIndexFromIso(dateStr)] += 1;
-    }
-    const heatmap = {
-      pages: new Array(168).fill(0),
-      visitors: new Array(168).fill(0),
-      clicks: new Array(168).fill(0)
-    };
-    const byHour = {
-      pages: new Array(24).fill(0),
-      visitors: new Array(24).fill(0),
-      clicks: new Array(24).fill(0)
-    };
-    const byWeekday = {
-      pages: new Array(7).fill(0),
-      visitors: new Array(7).fill(0),
-      clicks: new Array(7).fill(0)
-    };
-    for (const row of rows) {
-      const hour = Math.min(23, Math.max(0, Math.trunc(Number(row.hour) || 0)));
-      const weekday = weekdayIndexFromIso(row.date);
-      const heatmapIndex = weekday * 24 + hour;
-      for (const key of HOURLY_METRIC_KEYS) {
-        const value = Math.max(0, Math.trunc(Number(row[key]) || 0));
-        if (value === 0) continue;
-        heatmap[key][heatmapIndex] += value;
-        byHour[key][hour] += value;
-        byWeekday[key][weekday] += value;
-      }
-    }
-    return {
-      available: rows.length > 0,
-      tableMissing,
-      timezone: "Europe/Rome",
-      days: dates.length,
-      weekdayDayCounts,
-      heatmap,
-      byHour,
-      byWeekday
-    };
-  }
-  /**
    * Restituisce i dati aggregati degli ultimi N giorni (default 30, supporta 7 o 30)
    * inclusi grafici giornalieri, top pagine, top click e flusso di navigazione utenti.
    */
   async getAnalytics(requestedDays = 30) {
     const rangeDays = requestedDays <= 7 ? 7 : 30;
     const endDate = getUtcDateString(0);
-    const romeToday = getRomeDateHour().date;
-    const hourlyEndDate = romeToday > endDate ? romeToday : endDate;
     const rawStartDate = getUtcDateString(-(rangeDays - 1));
     const clampedStartDate = rawStartDate < ANALYTICS_START_DATE ? ANALYTICS_START_DATE : rawStartDate;
     const startDate = clampedStartDate > endDate ? endDate : clampedStartDate;
     let rows = [];
-    let hourlyRows = [];
-    let hourlyTableMissing = false;
     const trafficSourcesPromise = trafficSourceService.getTrafficSources(startDate, endDate);
     if (this.supabase) {
-      const [dailyRows, hourlyResult] = await Promise.all([
-        this.fetchAllDailyRows(startDate, endDate),
-        this.fetchAllHourlyRows(startDate, hourlyEndDate).catch((err) => {
-          console.warn("[AnalyticsService] Aggregazione oraria non disponibile:", err?.message || err);
-          return { rows: [], tableMissing: true };
-        })
-      ]);
-      rows = dailyRows;
-      hourlyRows = hourlyResult.rows;
-      hourlyTableMissing = hourlyResult.tableMissing;
+      rows = await this.fetchAllDailyRows(startDate, endDate);
     } else {
       rows = Array.from(this.memoryFallback.values()).filter(
         (r) => r.date >= startDate && r.date <= endDate
-      );
-      hourlyRows = Array.from(this.memoryHourly.values()).filter(
-        (r) => r.date >= startDate && r.date <= hourlyEndDate
       );
     }
     const trafficSources = await trafficSourcesPromise;
@@ -1446,13 +1307,7 @@ var AnalyticsService = class {
         edges: graphEdges
       },
       topPaths,
-      trafficSources,
-      hourlySchedule: this.buildHourlySchedule(
-        hourlyRows,
-        startDate,
-        hourlyEndDate,
-        hourlyTableMissing
-      )
+      trafficSources
     };
   }
 };
@@ -2002,122 +1857,6 @@ function renderAnalyticsAdminHtml() {
         grid-template-columns: 1fr;
       }
     }
-    .schedule-card {
-      margin-bottom: 16px;
-    }
-    .heatmap-scroll {
-      overflow-x: auto;
-      padding: 16px 16px 8px;
-    }
-    .heatmap {
-      display: grid;
-      grid-template-columns: 52px repeat(24, minmax(22px, 1fr));
-      gap: 3px;
-      min-width: 720px;
-    }
-    .heatmap-corner,
-    .heatmap-hour-label {
-      font-size: 0.62rem;
-      color: var(--muted);
-      text-align: center;
-      padding: 2px 0;
-      font-variant-numeric: tabular-nums;
-      user-select: none;
-    }
-    .heatmap-hour-label.major {
-      color: #a3a3a3;
-    }
-    .heatmap-day-label {
-      font-size: 0.72rem;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      padding-right: 6px;
-      white-space: nowrap;
-      user-select: none;
-    }
-    .heatmap-day-label.is-peak {
-      color: var(--text);
-      font-weight: 600;
-    }
-    .heatmap-cell {
-      position: relative;
-      aspect-ratio: 1 / 1;
-      min-height: 22px;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.035);
-      cursor: default;
-      transition: outline-color 0.12s ease, transform 0.12s ease;
-    }
-    .heatmap-cell:hover {
-      outline: 1px solid rgba(255, 255, 255, 0.6);
-      outline-offset: -1px;
-      transform: scale(1.06);
-      z-index: 1;
-    }
-    .heatmap-cell-value {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.56rem;
-      font-weight: 500;
-      font-variant-numeric: tabular-nums;
-      color: #ffffff;
-      opacity: 0.9;
-      pointer-events: none;
-    }
-    @media (max-width: 860px) {
-      .heatmap-cell-value {
-        display: none;
-      }
-    }
-    .heatmap-legend {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      flex-wrap: wrap;
-      gap: 6px;
-      padding: 0 16px 14px;
-      font-size: 0.68rem;
-      color: var(--muted);
-    }
-    .heatmap-legend-swatches {
-      display: flex;
-      gap: 2px;
-    }
-    .heatmap-legend-swatch {
-      width: 16px;
-      height: 8px;
-      border-radius: 2px;
-    }
-    .schedule-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .schedule-chip {
-      font-size: 0.7rem;
-      font-weight: 500;
-      padding: 3px 9px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.02);
-      color: var(--muted);
-      white-space: nowrap;
-    }
-    .schedule-chip strong {
-      color: var(--text);
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-    }
-    @media (max-width: 640px) {
-      .schedule-meta {
-        display: none;
-      }
-    }
   </style>
 </head>
 <body>
@@ -2181,37 +1920,6 @@ function renderAnalyticsAdminHtml() {
       </div>
       <div class="chart-wrap">
         <canvas id="trendChart"></canvas>
-      </div>
-    </div>
-
-    <div class="dim-section">
-      <div class="section-heading">
-        <h2>Orari e giorni</h2>
-        <span class="section-hint">Quando gli utenti visitano e aprono pi\xF9 pagine \xB7 fuso Europe/Rome</span>
-      </div>
-      <div class="card schedule-card">
-        <div class="panel-header">
-          <div class="panel-tabs">
-            <button class="panel-tab active" type="button" data-schedule-metric="pages" id="schedTabPages">Pagine viste</button>
-            <button class="panel-tab" type="button" data-schedule-metric="visitors" id="schedTabVisitors">Visitatori</button>
-            <button class="panel-tab" type="button" data-schedule-metric="clicks" id="schedTabClicks">Click</button>
-          </div>
-          <div class="schedule-meta">
-            <span class="schedule-chip" id="schedPeakHour">Ora di punta <strong>-</strong></span>
-            <span class="schedule-chip" id="schedPeakDay">Giorno di punta <strong>-</strong></span>
-          </div>
-        </div>
-        <div class="heatmap-scroll">
-          <div class="heatmap" id="scheduleHeatmap">
-            <div class="empty-state">Caricamento...</div>
-          </div>
-        </div>
-        <div class="heatmap-legend">
-          <span>Meno</span>
-          <div class="heatmap-legend-swatches" id="scheduleLegend"></div>
-          <span>Pi\xF9</span>
-          <span id="scheduleLegendLabel" style="margin-left: 8px;"></span>
-        </div>
       </div>
     </div>
 
@@ -2343,15 +2051,6 @@ function renderAnalyticsAdminHtml() {
       pages: { label: 'Pagine Viste', color: '#38bdf8', fillTop: 'rgba(56, 189, 248, 0.18)', fillMultiTop: 'rgba(56, 189, 248, 0.10)' },
       clicks: { label: 'Click Utenti', color: '#10b981', fillTop: 'rgba(16, 185, 129, 0.18)', fillMultiTop: 'rgba(16, 185, 129, 0.10)' },
     };
-
-    let activeScheduleMetric = 'pages';
-    const SCHEDULE_CONFIGS = {
-      pages: { label: 'Pagine viste', rgb: '56, 189, 248' },
-      visitors: { label: 'Visitatori', rgb: '0, 112, 243' },
-      clicks: { label: 'Click', rgb: '16, 185, 129' },
-    };
-    const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
-    const WEEKDAY_FULL = ['Luned\xEC', 'Marted\xEC', 'Mercoled\xEC', 'Gioved\xEC', 'Venerd\xEC', 'Sabato', 'Domenica'];
 
     function syncMetricTabsUI() {
       document.querySelectorAll('.metric-tab').forEach((el) => {
@@ -2581,119 +2280,6 @@ function renderAnalyticsAdminHtml() {
       hint.textContent = text;
     }
 
-    function compactNumber(value) {
-      const n = Number(value) || 0;
-      if (n >= 10000) return Math.round(n / 1000) + 'k';
-      if (n >= 1000) return (n / 1000).toFixed(1).replace('.', ',') + 'k';
-      return String(n);
-    }
-
-    function setScheduleHint(text) {
-      const hint = document.getElementById('scheduleLegendLabel');
-      if (hint) hint.textContent = text;
-    }
-
-    function renderSchedule() {
-      const host = document.getElementById('scheduleHeatmap');
-      if (!host || !lastData || !lastData.hourlySchedule) return;
-
-      const sched = lastData.hourlySchedule;
-      const cfg = SCHEDULE_CONFIGS[activeScheduleMetric] || SCHEDULE_CONFIGS.pages;
-      const values = (sched.heatmap && sched.heatmap[activeScheduleMetric]) || new Array(168).fill(0);
-      const byHour = (sched.byHour && sched.byHour[activeScheduleMetric]) || [];
-      const byWeekday = (sched.byWeekday && sched.byWeekday[activeScheduleMetric]) || [];
-
-      document.querySelectorAll('[data-schedule-metric]').forEach((el) => {
-        el.classList.toggle('active', el.dataset.scheduleMetric === activeScheduleMetric);
-      });
-
-      const total = values.reduce((sum, value) => sum + (Number(value) || 0), 0);
-      const max = Math.max.apply(null, values.concat([1]));
-
-      let peakHour = 0;
-      let peakHourValue = 0;
-      byHour.forEach((value, hour) => {
-        if (Number(value) > peakHourValue) {
-          peakHourValue = Number(value);
-          peakHour = hour;
-        }
-      });
-      let peakDay = 0;
-      let peakDayValue = 0;
-      byWeekday.forEach((value, weekday) => {
-        if (Number(value) > peakDayValue) {
-          peakDayValue = Number(value);
-          peakDay = weekday;
-        }
-      });
-
-      const peakHourEl = document.getElementById('schedPeakHour');
-      const peakDayEl = document.getElementById('schedPeakDay');
-      if (total <= 0) {
-        if (peakHourEl) peakHourEl.innerHTML = 'Ora di punta <strong>-</strong>';
-        if (peakDayEl) peakDayEl.innerHTML = 'Giorno di punta <strong>-</strong>';
-      } else {
-        const hourLabel = String(peakHour).padStart(2, '0') + ':00';
-        if (peakHourEl) peakHourEl.innerHTML = 'Ora di punta <strong>' + hourLabel + '</strong>';
-        if (peakDayEl) peakDayEl.innerHTML = 'Giorno di punta <strong>' + WEEKDAY_LABELS[peakDay] + '</strong>';
-      }
-
-      if (sched.tableMissing) {
-        setScheduleHint('Tabella oraria non attiva: esegui supabase/hourly_analytics.sql su Supabase.');
-        host.innerHTML = '<div class="empty-state">Tabella oraria non attiva su Supabase. Esegui <code>supabase/hourly_analytics.sql</code> nel SQL Editor di Supabase per iniziare a registrare orari e giorni.</div>';
-        return;
-      } else if (!sched.available) {
-        setScheduleHint('Nessun dato orario ancora: i conteggi iniziano con la migrazione oraria.');
-        host.innerHTML = '<div class="empty-state">Nessun dato orario ancora disponibile: i conteggi iniziano da quando viene eseguita la migrazione <code>supabase/hourly_analytics.sql</code>.</div>';
-        return;
-      } else if (total <= 0) {
-        setScheduleHint('Nessun ' + cfg.label.toLowerCase() + ' registrato nel periodo selezionato.');
-      } else {
-        const days = Math.max(1, Number(sched.days) || 1);
-        const weekdayCount = Math.max(
-          1,
-          Number((sched.weekdayDayCounts && sched.weekdayDayCounts[peakDay]) || 1)
-        );
-        const avgHour = peakHourValue / days;
-        const avgDay = peakDayValue / weekdayCount;
-        setScheduleHint(
-          'Europe/Rome \xB7 media ' + cfg.label.toLowerCase() + ': ' +
-          avgHour.toFixed(1).replace('.', ',') + '/ora alle ' + String(peakHour).padStart(2, '0') + ':00 \xB7 ' +
-          avgDay.toFixed(1).replace('.', ',') + '/' + WEEKDAY_LABELS[peakDay].toLowerCase()
-        );
-      }
-
-      const legend = document.getElementById('scheduleLegend');
-      if (legend) {
-        legend.innerHTML = [0.08, 0.24, 0.44, 0.64, 0.9].map(function (alpha) {
-          return '<span class="heatmap-legend-swatch" style="background: rgba(' + cfg.rgb + ', ' + alpha + ')"></span>';
-        }).join('');
-      }
-
-      let html = '<div class="heatmap-corner"></div>';
-      for (let hour = 0; hour < 24; hour += 1) {
-        html += '<div class="heatmap-hour-label' + (hour % 6 === 0 ? ' major' : '') + '">' +
-          String(hour).padStart(2, '0') + '</div>';
-      }
-      for (let weekday = 0; weekday < 7; weekday += 1) {
-        html += '<div class="heatmap-day-label' + (weekday === peakDay && total > 0 ? ' is-peak' : '') + '">' +
-          WEEKDAY_LABELS[weekday] + '</div>';
-        for (let hour = 0; hour < 24; hour += 1) {
-          const value = Number(values[weekday * 24 + hour]) || 0;
-          const alpha = value > 0 ? 0.14 + 0.78 * Math.pow(value / max, 0.6) : 0;
-          const style = value > 0 ? ' style="background: rgba(' + cfg.rgb + ', ' + alpha.toFixed(3) + ')"' : '';
-          const hourLabel = String(hour).padStart(2, '0') + ':00-' + String(hour).padStart(2, '0') + ':59';
-          const label = WEEKDAY_FULL[weekday] + ' ' + hourLabel + ' \u2014 ' +
-            value.toLocaleString('it-IT') + ' ' + cfg.label.toLowerCase();
-          html += '<div class="heatmap-cell" role="img" aria-label="' + escapeHtml(label) + '"' +
-            ' title="' + escapeHtml(label) + '"' + style + '>' +
-            (value > 0 ? '<span class="heatmap-cell-value">' + compactNumber(value) + '</span>' : '') +
-            '</div>';
-        }
-      }
-      host.innerHTML = html;
-    }
-
     function formatSourceLabel(src) {
       const s = String(src || '').toLowerCase();
       if (s === 'direct') return 'Diretto / Segnalibri';
@@ -2784,7 +2370,6 @@ function renderAnalyticsAdminHtml() {
       document.getElementById('kpiClicksAvg').textContent = (data.totals.avgClicksPerDay || 0) + '/g';
 
       renderTrendChart();
-      renderSchedule();
 
       const pageItems = (data.topPages || []).map((p) => ({ label: p.target, count: p.count }));
       renderBarList('pagesList', pageItems, 'Nessuna pagina registrata nel periodo.');
@@ -2813,7 +2398,7 @@ function renderAnalyticsAdminHtml() {
         const warnEl = document.getElementById('configWarn');
         if (!lastData.configured) {
           warnEl.style.display = 'block';
-          warnEl.textContent = 'Modalit\xE0 fallback in memoria: configura SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY e applica supabase/daily_analytics.sql + supabase/hourly_analytics.sql per la persistenza su Postgres.';
+          warnEl.textContent = 'Modalit\xE0 fallback in memoria: configura SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY e applica supabase/daily_analytics.sql per la persistenza su Postgres.';
         } else {
           warnEl.style.display = 'none';
         }
@@ -2888,13 +2473,6 @@ function renderAnalyticsAdminHtml() {
     document.getElementById('btn30').addEventListener('click', () => loadAnalytics(30));
     document.getElementById('btnRefresh').addEventListener('click', () => loadAnalytics(currentDays));
 
-    document.querySelectorAll('[data-schedule-metric]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        activeScheduleMetric = btn.dataset.scheduleMetric || 'pages';
-        renderSchedule();
-      });
-    });
-
     loadAnalytics(30);
   </script>
 </body>
@@ -2925,7 +2503,7 @@ var athlete_mapping_default = {
   "BUTERA SALVATORE": "829250",
   "PALERMO DOMENICO": "751507",
   "BASILE SARA": "778245",
-  "FEDERICO MARIO": "611538",
+  "FEDERICO MARIO": "774477",
   "MONTESANTO MATTEO": "797039",
   "TARTARO RAFFAELE": "837324",
   "BELSITO DANIEL": "808429",
@@ -3746,12 +3324,12 @@ var AthleteResolver = class {
   }
   loadMapping() {
     try {
-      if (fs2.existsSync(this.runtimeMappingFile)) {
-        const content = fs2.readFileSync(this.runtimeMappingFile, "utf8");
-        this.mapping = { ...this.mapping, ...JSON.parse(content) };
-      }
       if (fs2.existsSync(this.staticMappingFile)) {
         const content = fs2.readFileSync(this.staticMappingFile, "utf8");
+        this.mapping = { ...this.mapping, ...JSON.parse(content) };
+      }
+      if (fs2.existsSync(this.runtimeMappingFile)) {
+        const content = fs2.readFileSync(this.runtimeMappingFile, "utf8");
         this.mapping = { ...this.mapping, ...JSON.parse(content) };
       }
     } catch {
@@ -3785,12 +3363,15 @@ var AthleteResolver = class {
       let results = await FitetClient.searchAtleta(cleanName);
       const norm = (s) => s.replace(/[^a-zA-Z]/g, "").toUpperCase();
       const target = norm(cleanName);
-      const findBestMatch = (list) => list.find((r) => norm(r.value) === target) || list.find((r) => norm(r.value).includes(target) || target.includes(norm(r.value)));
-      let exact = findBestMatch(results);
+      let exact = results.find(
+        (r) => norm(r.value) === target || norm(r.value).includes(target) || target.includes(norm(r.value))
+      );
       if (!exact && cleanName.includes(" ")) {
         const surname = cleanName.split(" ")[0];
         results = await FitetClient.searchAtleta(surname);
-        exact = findBestMatch(results);
+        exact = results.find(
+          (r) => norm(r.value) === target || norm(r.value).includes(target) || target.includes(norm(r.value))
+        );
       }
       if (exact) {
         this.mapping[cleanName] = exact.id;
@@ -3959,12 +3540,6 @@ var TeamResolver = class {
     if (!coreQuery || coreQuery.length < 3) return void 0;
     let bestSubstringUrl;
     let bestSubstringDiff = Infinity;
-    const hasWholePhrase = (haystack, needle) => {
-      if (haystack === needle) return true;
-      const paddedH = ` ${haystack} `;
-      const paddedN = ` ${needle} `;
-      return paddedH.includes(paddedN);
-    };
     for (const [k, url] of Object.entries(this.logos)) {
       const coreKey = normalizeCoreTeamName(k);
       if (!coreKey || coreKey.length < 3) continue;
@@ -3972,7 +3547,7 @@ var TeamResolver = class {
         return url;
       }
       if (coreKey.length >= 4 && coreQuery.length >= 4) {
-        if (hasWholePhrase(coreKey, coreQuery) || hasWholePhrase(coreQuery, coreKey)) {
+        if (coreKey.includes(coreQuery) || coreQuery.includes(coreKey)) {
           const diff = Math.abs(coreKey.length - coreQuery.length);
           if (diff < bestSubstringDiff) {
             bestSubstringDiff = diff;
@@ -3989,14 +3564,14 @@ var TeamResolver = class {
     for (const [k, url] of Object.entries(this.logos)) {
       const keyTokens = extractCoreTokens(k).filter((t) => t.length >= 4);
       if (keyTokens.length === 0) continue;
-      const matchedCount = queryTokens.filter((qt) => keyTokens.includes(qt)).length;
+      const matchedCount = queryTokens.filter(
+        (qt) => keyTokens.some((kt) => kt === qt || kt.length >= 5 && qt.length >= 5 && (kt.includes(qt) || qt.includes(kt)))
+      ).length;
       if (matchedCount === 0) continue;
       const allQueryMatched = matchedCount === queryTokens.length;
       const allKeyMatched = matchedCount === keyTokens.length;
-      const maxTokens = Math.max(queryTokens.length, keyTokens.length);
-      const coverageOk = matchedCount >= 2 || allQueryMatched && allKeyMatched || matchedCount / maxTokens >= 0.5;
       const score = matchedCount * 10 + (allQueryMatched ? 5 : 0) + (allKeyMatched ? 5 : 0) - Math.abs(keyTokens.length - queryTokens.length);
-      if (coverageOk && score > bestTokenScore) {
+      if ((allQueryMatched || allKeyMatched || matchedCount >= 2) && score > bestTokenScore) {
         bestTokenScore = score;
         bestTokenUrl = url;
       }
@@ -4601,14 +4176,6 @@ import * as cheerio4 from "cheerio";
 
 // server/parsers/statisticheParser.ts
 import * as cheerio3 from "cheerio";
-
-// server/parsers/textUtils.ts
-function formatSocietyName(name) {
-  if (!name) return "";
-  return name.replace(/\bDilettantistic[ao]\b\.?/gi, "D.").replace(/\s+/g, " ").trim();
-}
-
-// server/parsers/statisticheParser.ts
 function parseStatisticheAtleti(html, athleteMapping = {}) {
   const $ = cheerio3.load(html);
   const atleti = [];
@@ -4644,7 +4211,7 @@ function parseStatisticheAtleti(html, athleteMapping = {}) {
       bandieraUrl,
       atleta: nomeText,
       atletaId: athleteId,
-      squadra: formatSocietyName(squadra),
+      squadra,
       incontriDisputati,
       partiteDisputate,
       partiteVinte,
@@ -5279,7 +4846,7 @@ function parseDettaglioAtleta(html, atletaId, partiteRanking) {
   const dataNascita = dataNascitaMatch ? dataNascitaMatch[1] : dataNascitaRaw;
   const luogoNascita = dataNascitaRaw.replace(/.*?a\s*/i, "").trim();
   const settore = getFieldValue("Settore Agonistico") || "Seniores";
-  const societa = formatSocietyName(getFieldValue("Societa' appartenenza") || getFieldValue("Societa") || "");
+  const societa = getFieldValue("Societa' appartenenza") || getFieldValue("Societa") || "";
   const regione = getFieldValue("Regione") || "";
   const catRaw = getFieldValue("Categoria");
   let categoria = catRaw;
@@ -5414,7 +4981,7 @@ function parseDettaglioSquadra(html, squadraId, camId, logoUrl) {
   const $ = cheerio6.load(html);
   const titleText = $("table tr:first-child").text().replace(/\s+/g, " ").trim();
   const teamNameMatch = titleText.match(/Atleti della squadra:\s*(.+)$/i);
-  const nome = formatSocietyName(teamNameMatch ? teamNameMatch[1].trim() : "Squadra " + squadraId);
+  const nome = teamNameMatch ? teamNameMatch[1].trim() : "Squadra " + squadraId;
   const atleti = [];
   $("table tr").each((_, row) => {
     const $row = $(row);
@@ -5522,13 +5089,13 @@ function parseDatiSquadra(html, fallbackSquadraId = "", fallbackSocietyId = "") 
   const registryCells = societyTables.eq(0).find("tr").eq(1).find("td, th");
   const addressCells = societyTables.eq(1).find("tr").eq(1).find("td, th");
   const contactCells = societyTables.eq(2).find("tr").eq(1).find("td, th");
-  const societyName = formatSocietyName(cleanText(registryCells.eq(0).text()));
+  const societyName = cleanText(registryCells.eq(0).text());
   const alboFederale = cleanText(registryCells.eq(1).text()).match(/\d{2,6}/)?.[0] || fallbackSocietyId || logoUrl.match(/\/societa\/(\d+)\./i)?.[1] || "";
   const primaAffiliazione = cleanText(registryCells.eq(2).text());
   const info = {
     societyId: alboFederale,
     nome: societyName || `Societ\xE0 #${alboFederale || fallbackSquadraId}`,
-    logoUrl: logoUrl || (alboFederale ? `${PORTAL_BASE}/images/societa/${alboFederale}.jpg` : `/generica.webp`),
+    logoUrl: logoUrl || (alboFederale ? `${PORTAL_BASE}/images/societa/${alboFederale}.jpg` : `${PORTAL_BASE}/images/societa/img_generica.jpg`),
     alboFederale,
     primaAffiliazione: primaAffiliazione || void 0,
     indirizzo: cleanText(addressCells.eq(0).text()) || void 0,
@@ -6345,7 +5912,7 @@ function parseClassifica(html) {
     const href = teamLink.attr("href") || "";
     const squadraIdMatch = href.match(/SQUADRA=(\d+)/i);
     const squadraId = squadraIdMatch ? squadraIdMatch[1] : "";
-    const nome = formatSocietyName(teamLink.text().replace(/\s+/g, " ").trim());
+    const nome = teamLink.text().replace(/\s+/g, " ").trim();
     const cells = $row.find("td");
     if (cells.length < 14) return;
     const getCellInt = (idx) => {
@@ -6459,8 +6026,8 @@ function parseCalendario(html) {
           tipo,
           data,
           ora,
-          squadraCasa: formatSocietyName(casa),
-          squadraOspite: formatSocietyName(ospite),
+          squadraCasa: casa,
+          squadraOspite: ospite,
           risultato: disputato ? `${puntiCasa} - ${puntiOspite}` : "-",
           puntiCasa,
           puntiOspite,
@@ -9234,7 +8801,7 @@ function parseIscrizioniGara(html, athleteMapping) {
     const statusClass = (nameP.attr("class") || "dettagli").trim();
     const punti = cleanText2($(tds[3]).text());
     const puntiIscrizione = parseInt(punti.replace(/\./g, "").replace(/[^\d-]/g, ""), 10) || 0;
-    const societa = formatSocietyName(cleanText2($(tds[4]).text()));
+    const societa = cleanText2($(tds[4]).text());
     const posizione = parseInt(posText, 10) || iscritti.length + 1;
     iscritti.push({
       posizione,
@@ -9351,9 +8918,9 @@ function parseMatchTable($, table, athleteMapping) {
   const r2Tds = $(rows[1]).find("td");
   if (r1Tds.length < 3 || r2Tds.length < 3) return null;
   const atleta1 = cleanText2($(r1Tds[0]).find("p.dettagli").first().text());
-  const societa1 = formatSocietyName(cleanText2($(r1Tds[0]).find("p.soc").first().text()));
+  const societa1 = cleanText2($(r1Tds[0]).find("p.soc").first().text());
   const atleta2 = cleanText2($(r2Tds[0]).find("p.dettagli").first().text());
-  const societa2 = formatSocietyName(cleanText2($(r2Tds[0]).find("p.soc").first().text()));
+  const societa2 = cleanText2($(r2Tds[0]).find("p.soc").first().text());
   if (!atleta1 && !atleta2) return null;
   const p1Points = [];
   $(rows[0]).find("p.punti").each((_, p) => {
@@ -10304,14 +9871,14 @@ function parseRefertoIncontro(html, incontroId, camId, formulaId) {
     arbitro,
     campoGara,
     squadraCasa: {
-      nome: formatSocietyName(casaNome) || "Squadra Casa",
+      nome: casaNome || "Squadra Casa",
       logoUrl: logoCasa,
       punti: puntiCasa,
       setTotali: setTotaliCasa,
       puntiTotali: puntiTotaliCasa
     },
     squadraOspite: {
-      nome: formatSocietyName(ospiteNome) || "Squadra Ospite",
+      nome: ospiteNome || "Squadra Ospite",
       logoUrl: logoOspite,
       punti: puntiOspite,
       setTotali: setTotaliOspite,
@@ -11119,32 +10686,8 @@ function getTorneoCategoryByKey(key) {
 // server/app.ts
 import * as cheerio15 from "cheerio";
 var app = express();
-app.use(compression());
 app.use(cors());
 app.use(express.json());
-app.use((req, res, next) => {
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
-  res.setHeader("Content-Security-Policy", [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' data: https://fonts.gstatic.com",
-    "img-src 'self' data: blob: https:",
-    "connect-src 'self' https://*.supabase.co https://portale.fitet.org",
-    "frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com",
-    "media-src 'self' blob:",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'"
-  ].join("; "));
-  if (req.secure || req.headers["x-forwarded-proto"] === "https" || process.env.NODE_ENV === "production") {
-    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-  }
-  return next();
-});
 var AGGRESSIVE_BOT_REGEX = /AhrefsBot|SemrushBot|DotBot|PetalBot|Bytespider|MJ12bot|MegaIndex|BLEXBot|ZoominfoBot/i;
 app.use((req, res, next) => {
   const userAgent = req.headers["user-agent"] || "";
@@ -11179,17 +10722,17 @@ app.use((req, res, next) => {
   }
   if (req.path.startsWith("/api/push/") || req.path.startsWith("/api/videos/sync") || req.path === "/api/analytics" || req.path.startsWith("/admin") || isForceRefreshRequest(req)) {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Vercel-CDN-Cache-Control", "no-store");
     res.setHeader("CDN-Cache-Control", "no-store");
     return next();
   }
-  if (req.path.startsWith("/assets/") || req.path.startsWith("/fonts/")) {
-    return next();
-  }
+  res.setHeader("Vercel-CDN-Cache-Control", CDN_HEADER_DEFAULT);
   res.setHeader("CDN-Cache-Control", CDN_HEADER_DEFAULT);
   res.setHeader("Cache-Control", BROWSER_HEADER_DEFAULT);
   const originalJson = res.json.bind(res);
   res.json = ((body) => {
     if (res.statusCode >= 400) {
+      res.removeHeader("Vercel-CDN-Cache-Control");
       res.removeHeader("CDN-Cache-Control");
       res.setHeader("Cache-Control", "no-store");
     }
@@ -11212,7 +10755,7 @@ var trackRequestDailyVisitor = (req, mode) => {
     return visitorTask;
   }
   const parsedUa = parseUserAgent(userAgent);
-  const rawCountry = req.headers["cf-ipcountry"] || req.headers["x-geo-country"];
+  const rawCountry = req.headers["x-vercel-ip-country"] || req.headers["cf-ipcountry"] || req.headers["x-geo-country"];
   const countryCode = typeof rawCountry === "string" ? rawCountry.trim().toUpperCase() : "";
   const country = /^[A-Z]{2}$/.test(countryCode) ? countryCode : "";
   return Promise.all([
@@ -11286,28 +10829,6 @@ function computeTeamForm(classifica, calendario) {
       // Last 5 matches
     };
   });
-}
-function enrichPartiteRankingOpponentIds(partiteRanking) {
-  if (!partiteRanking) return;
-  const mapping = athleteResolver.getMapping();
-  const resolveFromMap = (name) => {
-    if (!name) return void 0;
-    const clean = name.trim().toUpperCase().replace(/\s+/g, " ");
-    if (!clean) return void 0;
-    if (mapping[clean]) return mapping[clean];
-    const parts = clean.split(" ");
-    if (parts.length === 2) {
-      const swapped = `${parts[1]} ${parts[0]}`;
-      if (mapping[swapped]) return mapping[swapped];
-    }
-    return void 0;
-  };
-  for (const m of partiteRanking.campionato || []) {
-    if (!m.avversarioId) m.avversarioId = resolveFromMap(m.avversario);
-  }
-  for (const m of partiteRanking.tornei || []) {
-    if (!m.avversarioId) m.avversarioId = resolveFromMap(m.avversario);
-  }
 }
 function resolveAthleteChampionshipsFromRanking(campRanking, regione) {
   const uniqueCampNames = [];
@@ -12172,9 +11693,11 @@ app.get("/api/atleta/:id", async (req, res) => {
             cacheService.set(cacheKey, cached, TTL_ATLETA);
           }
         }
-        if (cached.anagrafica?.societa) {
-          cached.anagrafica.societa = formatSocietyName(cached.anagrafica.societa);
-          cached.anagrafica.logoUrl = teamResolver.getLogo(cached.anagrafica.societa) || void 0;
+        if (cached.anagrafica?.societa && !cached.anagrafica.logoUrl) {
+          const resolvedLogo = teamResolver.getLogo(cached.anagrafica.societa);
+          if (resolvedLogo) {
+            cached.anagrafica.logoUrl = resolvedLogo;
+          }
         }
         return res.json(cached);
       }
@@ -12187,7 +11710,6 @@ app.get("/api/atleta/:id", async (req, res) => {
       try {
         const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);
         partiteRanking = parsePartiteRanking(iframeHtml, id);
-        enrichPartiteRankingOpponentIds(partiteRanking);
         const idClassMatch = iframeUrl.match(/\/html\/(\d+)\//i);
         if (idClassMatch) resolvedIdClass = parseInt(idClassMatch[1], 10);
       } catch (iframeErr) {
@@ -13166,14 +12688,17 @@ app.get(["/api/og/player/:id.png", "/api/og/player/:id", "/api/og-player"], asyn
     if (resolved) id = resolved;
   }
   const cachedEntry = ogCardCache.get(id);
-  if (cachedEntry && Date.now() < cachedEntry.expiresAt) {
+  if (cachedEntry) {
+    if (Date.now() < cachedEntry.expiresAt) {
+      ogCardCache.delete(id);
+      ogCardCache.set(id, cachedEntry);
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Vercel-CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+      res.setHeader("CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+      res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800");
+      return res.send(cachedEntry.buffer);
+    }
     ogCardCache.delete(id);
-    ogCardCache.set(id, cachedEntry);
-    res.setHeader("Content-Type", "image/png");
-    res.setHeader("CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
-    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800");
-    ogCardCache.delete(id);
-    return res.send(cachedEntry.buffer);
   }
   const athlete = await getOrFetchAthlete(id);
   if (!athlete) {
@@ -13183,6 +12708,7 @@ app.get(["/api/og/player/:id.png", "/api/og/player/:id", "/api/og-player"], asyn
     const pngBuffer = await generateAthleteOgCard(athlete);
     setOgCardCache(id, { buffer: pngBuffer, expiresAt: Date.now() + 24 * 60 * 60 * 1e3 });
     res.setHeader("Content-Type", "image/png");
+    res.setHeader("Vercel-CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
     res.setHeader("CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
     res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800");
     return res.send(pngBuffer);
@@ -13234,8 +12760,8 @@ app.get(["/api/story/player/:id.png", "/api/story/player/:id", "/api/story-playe
 var cachedBaseHtml = null;
 async function getCachedBaseHtml() {
   if (cachedBaseHtml) return cachedBaseHtml;
-  const distPath2 = path7.resolve(process.cwd(), "dist");
-  const indexFile = path7.join(distPath2, "index.html");
+  const distPath = path7.resolve(process.cwd(), "dist");
+  const indexFile = path7.join(distPath, "index.html");
   if (fs6.existsSync(indexFile)) {
     try {
       cachedBaseHtml = await fs6.promises.readFile(indexFile, "utf8");
@@ -13289,6 +12815,7 @@ app.get(["/player/:id", "/atleta/:id"], async (req, res, next) => {
     let html = baseHtml.replace(/<title>.*?<\/title>/gi, "").replace(/<meta\s+property=["']og:[^"']*["'][^>]*>/gi, "").replace(/<meta\s+name=["']twitter:[^"']*["'][^>]*>/gi, "").replace(/<meta\s+name=["']description["'][^>]*>/gi, "");
     html = html.replace(/<head>/i, `<head>${ogMeta}`);
     res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Vercel-CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
     res.setHeader("CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
     res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=604800");
     return res.send(html);
@@ -13471,6 +12998,7 @@ app.post("/api/click", express.text({ type: "text/plain" }), async (req, res) =>
 });
 app.get("/api/analytics", requireAnalyticsBasicAuth, async (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Vercel-CDN-Cache-Control", "no-store");
   res.setHeader("CDN-Cache-Control", "no-store");
   res.setHeader("X-Robots-Tag", "noindex, nofollow");
   try {
@@ -13485,78 +13013,19 @@ app.get("/api/analytics", requireAnalyticsBasicAuth, async (req, res) => {
 });
 app.get("/admin/analytics", requireAnalyticsBasicAuth, (_req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Vercel-CDN-Cache-Control", "no-store");
   res.setHeader("CDN-Cache-Control", "no-store");
   res.setHeader("X-Robots-Tag", "noindex, nofollow");
   return res.type("html").send(renderAnalyticsAdminHtml());
 });
-var distPath = path7.resolve(process.cwd(), "dist");
-var publicPath = path7.resolve(process.cwd(), "public");
-function sendPublicAsset(res, relativePath, contentType, cacheControl = "public, max-age=3600") {
-  const candidates = [
-    path7.join(publicPath, relativePath),
-    path7.join(distPath, relativePath)
-  ];
-  for (const file of candidates) {
-    if (!fs6.existsSync(file)) continue;
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", cacheControl);
-    res.sendFile(file);
-    return true;
-  }
-  return false;
-}
-app.get("/llms.txt", (_req, res) => {
-  if (!sendPublicAsset(res, "llms.txt", "text/plain; charset=utf-8")) {
-    res.status(404).type("text/plain").send("Not Found");
-  }
-});
-app.get(["/ai-catalog.json", "/.well-known/ard.json", "/.well-known/ai-catalog.json"], (req, res) => {
-  const relativePath = req.path.replace(/^\//, "");
-  if (!sendPublicAsset(res, relativePath, "application/json; charset=utf-8")) {
-    res.status(404).json({ error: "Not Found" });
-  }
-});
-{
-  app.use("/assets", express.static(path7.join(distPath, "assets"), {
-    maxAge: "1y",
-    immutable: true,
-    setHeaders: (res) => {
-      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-      res.setHeader("CDN-Cache-Control", "public, max-age=31536000, immutable");
-    }
-  }));
-  app.use("/fonts", express.static(path7.join(distPath, "fonts"), {
-    maxAge: "1y",
-    immutable: true,
-    setHeaders: (res) => {
-      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-      res.setHeader("CDN-Cache-Control", "public, max-age=31536000, immutable");
-    }
-  }));
-  app.use(express.static(distPath, {
-    maxAge: 0,
-    etag: true,
-    lastModified: true,
-    setHeaders: (res, filePath) => {
-      const normalized = filePath.replace(/\\/g, "/").toLowerCase();
-      if (normalized.endsWith(".html") || normalized.endsWith("/sw.js") || normalized.endsWith("/manifest.json")) {
-        res.setHeader("Cache-Control", "no-cache");
-        return;
-      }
-      const ext = path7.extname(normalized);
-      if ([".woff2", ".woff", ".ttf", ".otf", ".png", ".webp", ".avif", ".jpg", ".jpeg", ".svg", ".ico"].includes(ext)) {
-        res.setHeader("Cache-Control", "public, max-age=604800");
-        return;
-      }
-      res.setHeader("Cache-Control", "no-cache");
-    }
-  }));
+if (!process.env.VERCEL) {
+  const distPath = path7.resolve(process.cwd(), "dist");
+  app.use(express.static(distPath));
   app.get(["/regioni/:slug", "/regione/:slug"], async (req, res, next) => {
     const { slug } = req.params;
     const preRenderedFile = path7.join(distPath, "regioni", slug.toLowerCase(), "index.html");
     if (fs6.existsSync(preRenderedFile)) {
       res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.setHeader("Cache-Control", "no-cache");
       return res.sendFile(preRenderedFile);
     }
     return next();
@@ -13588,7 +13057,6 @@ app.get(["/ai-catalog.json", "/.well-known/ard.json", "/.well-known/ai-catalog.j
 `;
       html = html.replace(/<title>.*?<\/title>/i, ogMeta);
       res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.setHeader("Cache-Control", "no-cache");
       return res.send(html);
     } catch {
       return next();
@@ -13613,14 +13081,131 @@ app.get(["/ai-catalog.json", "/.well-known/ard.json", "/.well-known/ai-catalog.j
   app.get("*", (req, res, next) => {
     if (req.path.startsWith("/api")) return next();
     const indexFile = path7.join(distPath, "index.html");
-    res.setHeader("Cache-Control", "no-cache");
     res.sendFile(indexFile, (err) => {
       if (err) res.status(404).send("Not Found");
     });
   });
 }
 var app_default = app;
-export {
-  app,
-  app_default as default
-};
+
+// server/services/cronScheduler.ts
+import cron from "node-cron";
+var CRON_TIMEZONE = "Europe/Rome";
+var CRON_JOBS = [
+  {
+    name: "check-ranking",
+    schedule: "0 9 * * *",
+    description: "Rileva il nuovo ID_CLASS FITeT e controlla campionati/matchday",
+    isRunning: false,
+    run: () => runRankingCheck()
+  },
+  {
+    name: "check-tornei",
+    schedule: "0 9 * * *",
+    description: "Scansiona i tornei nazionali/regionali e notifica i nuovi",
+    isRunning: false,
+    run: () => runTorneiCheck()
+  },
+  {
+    name: "check-campionati",
+    schedule: "0 19 * * *",
+    description: "Controlla i campionati seguiti dagli iscritti alle push",
+    isRunning: false,
+    run: () => runChampionshipsCheck()
+  },
+  {
+    name: "check-matchday",
+    schedule: "0 8 * * *",
+    description: "Notifica gli utenti se oggi \xE8 giorno di campionato",
+    isRunning: false,
+    run: () => runMatchdayCheck()
+  },
+  {
+    name: "videos-sync",
+    schedule: "0 7 * * *",
+    description: "Sincronizza i video dei canali YouTube",
+    isRunning: false,
+    run: () => runVideoSync()
+  }
+];
+var scheduledTasks = /* @__PURE__ */ new Map();
+var GLOBAL_FLAG = "__fitetCronSchedulerStarted__";
+function isAlreadyStarted() {
+  return Boolean(globalThis[GLOBAL_FLAG]);
+}
+function markStarted(started) {
+  globalThis[GLOBAL_FLAG] = started;
+}
+function shouldStartScheduler() {
+  if (process.env.CRON_DISABLED === "true") return false;
+  if (process.env.FORCE_CRON_SCHEDULER === "true") return true;
+  if (process.env.NODE_ENV === "production") return true;
+  const isRailway = Boolean(
+    process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID || process.env.RAILWAY_SERVICE_ID
+  );
+  return isRailway && process.env.NODE_ENV !== "development";
+}
+function formatDuration(ms) {
+  return ms >= 1e3 ? `${(ms / 1e3).toFixed(1)}s` : `${ms}ms`;
+}
+async function runJob(job) {
+  if (job.isRunning) {
+    console.warn(`[Cron] "${job.name}" saltato: esecuzione precedente ancora in corso.`);
+    return;
+  }
+  job.isRunning = true;
+  const startedAt = Date.now();
+  console.log(`[Cron] \u25B6 "${job.name}" avviato (${job.description})`);
+  try {
+    await job.run();
+    console.log(`[Cron] \u2713 "${job.name}" completato in ${formatDuration(Date.now() - startedAt)}.`);
+  } catch (err) {
+    console.error(
+      `[Cron] \u2717 "${job.name}" fallito dopo ${formatDuration(Date.now() - startedAt)}:`,
+      err
+    );
+  } finally {
+    job.isRunning = false;
+  }
+}
+function startCronScheduler() {
+  if (isAlreadyStarted()) {
+    console.log("[Cron] Scheduler gi\xE0 inizializzato, nessuna nuova registrazione.");
+    return;
+  }
+  if (!shouldStartScheduler()) {
+    console.log(
+      `[Cron] Scheduler non avviato (NODE_ENV=${process.env.NODE_ENV ?? "undefined"}). Imposta NODE_ENV=production o FORCE_CRON_SCHEDULER=true per attivarlo.`
+    );
+    return;
+  }
+  markStarted(true);
+  for (const job of CRON_JOBS) {
+    if (!cron.validate(job.schedule)) {
+      console.error(`[Cron] Espressione non valida per "${job.name}": ${job.schedule}`);
+      continue;
+    }
+    const task = cron.schedule(
+      job.schedule,
+      () => {
+        void runJob(job);
+      },
+      {
+        timezone: CRON_TIMEZONE,
+        name: `fitet-${job.name}`
+      }
+    );
+    scheduledTasks.set(job.name, task);
+    const nextRun = task.getNextRun();
+    console.log(
+      `[Cron] Programmato "${job.name}" (${job.schedule} ${CRON_TIMEZONE})` + (nextRun ? ` \u2014 prossima esecuzione: ${nextRun.toISOString()}` : "")
+    );
+  }
+}
+
+// server/index.ts
+var PORT = process.env.PORT || 3001;
+app_default.listen(PORT, () => {
+  console.log(`\u{1F680} FITeT Backend Server running at http://localhost:${PORT}`);
+  startCronScheduler();
+});

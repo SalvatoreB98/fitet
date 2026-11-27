@@ -1,5 +1,6 @@
-import React, { useMemo, useEffect, useRef, useState, lazy, Suspense } from 'react';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
 import { ChampionshipItem, DashboardData, MatchVideoInfo, SocietaInfo } from '../types/fitet';
+import { MatchVideoModal } from './MatchVideoModal';
 import { LazyYouTubeThumb } from './LazyYouTubeThumb';
 import { TeamLogo } from './TeamLogo';
 import {
@@ -11,14 +12,12 @@ import {
 import { useRecentHistory } from '../utils/history';
 import { fetchAtleta } from '../services/api';
 import { AthleteAvatar } from './AthleteAvatar';
+import { SearchAtletaModal } from './SearchAtletaModal';
+import { HeadToHeadModal } from './HeadToHeadModal';
+import { HeadToHeadPickerModal } from './HeadToHeadPickerModal';
 import type { HeadToHeadPlayer } from './HeadToHeadPickerModal';
 import { MyProfileHero } from './MyProfileHero';
 import type { PlayerChampionshipStatus } from './MyProfileHero';
-
-const MatchVideoModal = lazy(() => import('./MatchVideoModal').then((m) => ({ default: m.MatchVideoModal })));
-const SearchAtletaModal = lazy(() => import('./SearchAtletaModal').then((m) => ({ default: m.SearchAtletaModal })));
-const HeadToHeadModal = lazy(() => import('./HeadToHeadModal').then((m) => ({ default: m.HeadToHeadModal })));
-const HeadToHeadPickerModal = lazy(() => import('./HeadToHeadPickerModal').then((m) => ({ default: m.HeadToHeadPickerModal })));
 import {
   getMyPlayerId,
   getMyProfileSnapshot,
@@ -1765,62 +1764,57 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         </section>
       )}
 
-      {/* Modali Lazy Loaded */}
-      <Suspense fallback={null}>
-        {/* Modale Video */}
-        {selectedHomeVideo && (
-          <MatchVideoModal
-            isOpen={Boolean(selectedHomeVideo)}
-            onClose={() => setSelectedHomeVideo(null)}
-            videos={[selectedHomeVideo]}
-            initialVideoId={selectedHomeVideo.videoId}
-            squadraCasa={selectedHomeVideo.teamHome || undefined}
-            squadraOspite={selectedHomeVideo.teamAway || undefined}
-            giornata={selectedHomeVideo.matchDay || undefined}
-          />
-        )}
+      {/* Modale Video */}
+      {selectedHomeVideo && (
+        <MatchVideoModal
+          isOpen={Boolean(selectedHomeVideo)}
+          onClose={() => setSelectedHomeVideo(null)}
+          videos={[selectedHomeVideo]}
+          initialVideoId={selectedHomeVideo.videoId}
+          squadraCasa={selectedHomeVideo.teamHome || undefined}
+          squadraOspite={selectedHomeVideo.teamAway || undefined}
+          giornata={selectedHomeVideo.matchDay || undefined}
+        />
+      )}
 
-        {/* Modale Ricerca Atleta */}
-        {isSearchAtletaModalOpen && (
-          <SearchAtletaModal
-            isOpen={isSearchAtletaModalOpen}
-            onClose={() => setIsSearchAtletaModalOpen(false)}
-            onSelectAthlete={(id, name) => {
-              setIsSearchAtletaModalOpen(false);
-              onOpenAtletaModal(id, name);
-            }}
-          />
-        )}
+      {/* Modale Ricerca Atleta */}
+      <SearchAtletaModal
+        isOpen={isSearchAtletaModalOpen}
+        onClose={() => setIsSearchAtletaModalOpen(false)}
+        onSelectAthlete={(id, name) => {
+          setIsSearchAtletaModalOpen(false);
+          onOpenAtletaModal(id, name);
+        }}
+      />
 
-        {/* Modale selezione due atleti per il Testa a Testa */}
-        {isH2hPickerOpen && (
-          <HeadToHeadPickerModal
-            isOpen={isH2hPickerOpen}
-            onClose={() => setIsH2hPickerOpen(false)}
-            onCompare={(player1, player2) => {
-              setIsH2hPickerOpen(false);
-              setH2hPlayers({ player1, player2 });
-            }}
-          />
-        )}
+      {/* Modale selezione due atleti per il Testa a Testa */}
+      {isH2hPickerOpen && (
+        <HeadToHeadPickerModal
+          isOpen={isH2hPickerOpen}
+          onClose={() => setIsH2hPickerOpen(false)}
+          onCompare={(player1, player2) => {
+            setIsH2hPickerOpen(false);
+            setH2hPlayers({ player1, player2 });
+          }}
+        />
+      )}
 
-        {/* Storico Testa a Testa tra i due atleti selezionati */}
-        {h2hPlayers && (
-          <HeadToHeadModal
-            isOpen={true}
-            atleta1Id={h2hPlayers.player1.id}
-            atleta1Nome={h2hPlayers.player1.name}
-            atleta2Id={h2hPlayers.player2.id}
-            atleta2Nome={h2hPlayers.player2.name}
-            onClose={() => setH2hPlayers(null)}
-            onSelectAthlete={onOpenAtletaModal}
-            onNewSearch={() => {
-              setH2hPlayers(null);
-              setIsH2hPickerOpen(true);
-            }}
-          />
-        )}
-      </Suspense>
+      {/* Storico Testa a Testa tra i due atleti selezionati */}
+      {h2hPlayers && (
+        <HeadToHeadModal
+          isOpen={true}
+          atleta1Id={h2hPlayers.player1.id}
+          atleta1Nome={h2hPlayers.player1.name}
+          atleta2Id={h2hPlayers.player2.id}
+          atleta2Nome={h2hPlayers.player2.name}
+          onClose={() => setH2hPlayers(null)}
+          onSelectAthlete={onOpenAtletaModal}
+          onNewSearch={() => {
+            setH2hPlayers(null);
+            setIsH2hPickerOpen(true);
+          }}
+        />
+      )}
     </div>
   );
 };

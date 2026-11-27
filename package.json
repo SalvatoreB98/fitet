@@ -10,8 +10,7 @@
     "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT\" -c \"cyan,magenta\" \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "tsx --max-old-space-size=384 watch --exclude \"server/data/**\" --exclude \"server/cache/**\" --exclude \"server/**/*.json\" server/index.ts",
     "dev:client": "vite",
-    "build": "node server/scripts/generateSitemap.js && vite build && node server/scripts/generateRegionalPages.js && npm run build:server",
-    "build:server": "esbuild server/app.ts --bundle --platform=node --format=esm --packages=external --outfile=api/server.js",
+    "build": "node server/scripts/generateSitemap.js && vite build && node server/scripts/generateRegionalPages.js",
     "generate:sitemap": "node server/scripts/generateSitemap.js",
     "update:catalog": "tsx server/scripts/buildCatalog.ts",
     "icons:subset": "python scripts/subset-bootstrap-icons.py",
@@ -57,7 +56,6 @@
     "@vitejs/plugin-react": "^4.3.4",
     "concurrently": "^9.1.2",
     "esbuild": "^0.28.2",
-    "sharp": "^0.35.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vite": "^6.0.7"

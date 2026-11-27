@@ -11,7 +11,7 @@ export interface TeamLogoProps {
   title?: string;
 }
 
-const GENERIC_FEDERALE_LOGO = '/generica.webp';
+const GENERIC_FEDERALE_LOGO = '/generica.png';
 
 export const TeamLogo: React.FC<TeamLogoProps> = ({
   teamName,

@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useFavoriteAthletes, FavoriteAthlete, saveFavoriteAthlete } from '../utils/favorites';
 import { fetchAtleta } from '../services/api';
 import { useBodyScrollLock } from '../utils/useBodyScrollLock';
 import { useModalTransition } from '../utils/useModalTransition';
-
-const SearchAtletaModal = lazy(() => import('./SearchAtletaModal').then((m) => ({ default: m.SearchAtletaModal })));
+import { SearchAtletaModal } from './SearchAtletaModal';
 
 interface FavoritesModalProps {
   isOpen: boolean;
@@ -402,18 +401,14 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         )}
 
         {/* Modale ricerca atleta */}
-        {isSearchOpen && (
-          <Suspense fallback={null}>
-            <SearchAtletaModal
-              isOpen={isSearchOpen}
-              onClose={() => setIsSearchOpen(false)}
-              onSelectAthlete={(id, name) => {
-                onClose();
-                onSelectAthlete(id, name);
-              }}
-            />
-          </Suspense>
-        )}
+        <SearchAtletaModal
+          isOpen={isSearchOpen}
+          onClose={() => setIsSearchOpen(false)}
+          onSelectAthlete={(id, name) => {
+            onClose();
+            onSelectAthlete(id, name);
+          }}
+        />
       </div>
     </div>,
     document.body

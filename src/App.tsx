@@ -1,32 +1,28 @@
-import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { flushSync } from 'react-dom';
 import { DashboardData, ChampionshipItem, SocietaInfo } from './types/fitet';
 import { fetchDashboard, fetchCampionati, detectMySociety, type SocietaLookupContext } from './services/api';
 import { Header, MainViewType, ChampionshipTabType, TorneiPortalView } from './components/Header';
 import { useSlideDirection } from './utils/useSlideDirection';
+import { ClassificaTab } from './components/ClassificaTab';
+import { CalendarioTab } from './components/CalendarioTab';
+import { StatisticheTab } from './components/StatisticheTab';
+import { AtletaModal } from './components/AtletaModal';
+import { ChampionshipModal } from './components/ChampionshipModal';
+import { RegioniModal } from './components/RegioniModal';
+import { EloCalculatorModal } from './components/EloCalculatorModal';
+import { SquadraModal } from './components/SquadraModal';
+import { SocietaModal } from './components/SocietaModal';
+import { IntroMotionGraphic } from './components/IntroMotionGraphic';
 import { HomeTab } from './components/HomeTab';
+import { ClassificheRankingTab } from './components/ClassificheRankingTab';
+import { TorneiTab } from './components/TorneiTab';
 import { BottomBar } from './components/BottomBar';
+import { SearchAtletaModal } from './components/SearchAtletaModal';
+import { FavoritesModal } from './components/FavoritesModal';
+import { InstallAppModal } from './components/InstallAppModal';
 import { PingPongLoader } from './components/PingPongLoader';
 import { CoffeeNudge } from './components/CoffeeNudge';
-
-// Lazy loaded tabs
-const ClassificaTab = lazy(() => import('./components/ClassificaTab').then((m) => ({ default: m.ClassificaTab })));
-const CalendarioTab = lazy(() => import('./components/CalendarioTab').then((m) => ({ default: m.CalendarioTab })));
-const StatisticheTab = lazy(() => import('./components/StatisticheTab').then((m) => ({ default: m.StatisticheTab })));
-const ClassificheRankingTab = lazy(() => import('./components/ClassificheRankingTab').then((m) => ({ default: m.ClassificheRankingTab })));
-const TorneiTab = lazy(() => import('./components/TorneiTab').then((m) => ({ default: m.TorneiTab })));
-
-// Lazy loaded modals
-const AtletaModal = lazy(() => import('./components/AtletaModal').then((m) => ({ default: m.AtletaModal })));
-const ChampionshipModal = lazy(() => import('./components/ChampionshipModal').then((m) => ({ default: m.ChampionshipModal })));
-const RegioniModal = lazy(() => import('./components/RegioniModal').then((m) => ({ default: m.RegioniModal })));
-const EloCalculatorModal = lazy(() => import('./components/EloCalculatorModal').then((m) => ({ default: m.EloCalculatorModal })));
-const SquadraModal = lazy(() => import('./components/SquadraModal').then((m) => ({ default: m.SquadraModal })));
-const SocietaModal = lazy(() => import('./components/SocietaModal').then((m) => ({ default: m.SocietaModal })));
-const SearchAtletaModal = lazy(() => import('./components/SearchAtletaModal').then((m) => ({ default: m.SearchAtletaModal })));
-const FavoritesModal = lazy(() => import('./components/FavoritesModal').then((m) => ({ default: m.FavoritesModal })));
-const InstallAppModal = lazy(() => import('./components/InstallAppModal').then((m) => ({ default: m.InstallAppModal })));
-const IntroMotionGraphic = lazy(() => import('./components/IntroMotionGraphic').then((m) => ({ default: m.IntroMotionGraphic })));
 import { registerTeamLogos, resolveCachedSocietyId } from './utils/teamLogos';
 import { addRecentAthlete, addRecentChampionship } from './utils/history';
 import { initAnalyticsStep, trackClick, trackDailyVisit, trackTrafficSource } from './utils/analyticsTracker';
@@ -1167,11 +1163,7 @@ export const App: React.FC = () => {
   return (
     <div className="portal-container">
       {/* Motion Graphic Intro (first access only) */}
-      {showIntro && (
-        <Suspense fallback={null}>
-          <IntroMotionGraphic onComplete={handleIntroComplete} />
-        </Suspense>
-      )}
+      {showIntro && <IntroMotionGraphic onComplete={handleIntroComplete} />}
 
       {/* Top Header */}
       <Header
@@ -1310,13 +1302,11 @@ export const App: React.FC = () => {
           aria-labelledby="tab-classifiche"
           hidden={mainView !== 'classifiche'}
         >
-          <Suspense fallback={<PingPongLoader />}>
-            <ClassificheRankingTab
-              onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-              onOpenSearchModal={() => setIsSearchModalOpen(true)}
-              isActive={mainView === 'classifiche'}
-            />
-          </Suspense>
+          <ClassificheRankingTab
+            onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+            onOpenSearchModal={() => setIsSearchModalOpen(true)}
+            isActive={mainView === 'classifiche'}
+          />
         </div>
 
         {/* VIEW 2b: Tornei & Manifestazioni FITeT */}
@@ -1327,15 +1317,13 @@ export const App: React.FC = () => {
           aria-labelledby="tab-tornei"
           hidden={mainView !== 'tornei'}
         >
-          <Suspense fallback={<PingPongLoader />}>
-            <TorneiTab
-              onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-              portalView={torneiTab}
-              onPortalViewChange={handleTorneiTabChange}
-              onUpdateCounts={setTorneiCounts}
-              isActive={mainView === 'tornei'}
-            />
-          </Suspense>
+          <TorneiTab
+            onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+            portalView={torneiTab}
+            onPortalViewChange={handleTorneiTabChange}
+            onUpdateCounts={setTorneiCounts}
+            isActive={mainView === 'tornei'}
+          />
         </div>
 
         {/* VIEW 3: Campionato (Classifica, Calendario, Statistiche) */}
@@ -1400,7 +1388,7 @@ export const App: React.FC = () => {
               </div>
             </div>
           ) : data ? (
-            <Suspense fallback={<PingPongLoader targetChampionship={activeChampionshipInfo} camId={camId ?? undefined} />}>
+            <>
               {/* SubTab: Classifica */}
               <div
                 className={`tab-panel ${championshipTab === 'classifica' ? tabSlide : ''}`}
@@ -1458,7 +1446,7 @@ export const App: React.FC = () => {
                   championshipName={headerChampionshipName}
                 />
               </div>
-            </Suspense>
+            </>
           ) : null}
         </div>
       </main>
@@ -1526,144 +1514,130 @@ export const App: React.FC = () => {
         mySocietyInfo={mySocietyInfo}
       />
 
-      <Suspense fallback={null}>
-        {/* Global Search Athlete Modal */}
-        {isSearchModalOpen && (
-          <SearchAtletaModal
-            isOpen={isSearchModalOpen}
-            onClose={() => setIsSearchModalOpen(false)}
-            onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-          />
-        )}
+      {/* Global Search Athlete Modal */}
+      <SearchAtletaModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+      />
 
-        {/* Championship Picker Modal */}
-        {isChampionshipModalOpen && (
-          <ChampionshipModal
-            isOpen={isChampionshipModalOpen}
-            currentCamId={camId || 0}
-            myCamId={myCamId}
-            campionati={campionati}
-            isLoadingCampionati={loadingCampionati}
-            onClose={() => setIsChampionshipModalOpen(false)}
-            onSelectChampionship={handleSelectChampionship}
-          />
-        )}
+      {/* Championship Picker Modal */}
+      <ChampionshipModal
+        isOpen={isChampionshipModalOpen}
+        currentCamId={camId || 0}
+        myCamId={myCamId}
+        campionati={campionati}
+        isLoadingCampionati={loadingCampionati}
+        onClose={() => setIsChampionshipModalOpen(false)}
+        onSelectChampionship={handleSelectChampionship}
+      />
 
-        {/* Comitati Regionali Modal */}
-        {isRegioniModalOpen && (
-          <RegioniModal
-            isOpen={isRegioniModalOpen}
-            activeRegion={activeRegionPage}
-            currentCamId={camId || 0}
-            myCamId={myCamId}
-            campionati={campionati}
-            isLoadingCampionati={loadingCampionati}
-            onSelectRegion={handleSelectRegionPage}
-            onSelectChampionship={handleSelectChampionship}
-            onClose={handleCloseRegioniModal}
-          />
-        )}
+      {/* Comitati Regionali Modal */}
+      <RegioniModal
+        isOpen={isRegioniModalOpen}
+        activeRegion={activeRegionPage}
+        currentCamId={camId || 0}
+        myCamId={myCamId}
+        campionati={campionati}
+        isLoadingCampionati={loadingCampionati}
+        onSelectRegion={handleSelectRegionPage}
+        onSelectChampionship={handleSelectChampionship}
+        onClose={handleCloseRegioniModal}
+      />
 
-        {/* Calcolatore Ranking / EloTT FITeT Modal */}
-        {isEloCalculatorOpen && (
-          <EloCalculatorModal
-            isOpen={isEloCalculatorOpen}
-            onClose={() => setIsEloCalculatorOpen(false)}
-          />
-        )}
+      {/* Calcolatore Ranking / EloTT FITeT Modal */}
+      <EloCalculatorModal
+        isOpen={isEloCalculatorOpen}
+        onClose={() => setIsEloCalculatorOpen(false)}
+      />
 
-        {/* Favorite Athletes Modal */}
-        {isFavoritesModalOpen && (
-          <FavoritesModal
-            isOpen={isFavoritesModalOpen}
-            onClose={() => setIsFavoritesModalOpen(false)}
-            onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-            onGoToSearch={() => setIsSearchModalOpen(true)}
-          />
-        )}
+      {/* Favorite Athletes Modal */}
+      <FavoritesModal
+        isOpen={isFavoritesModalOpen}
+        onClose={() => setIsFavoritesModalOpen(false)}
+        onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+        onGoToSearch={() => setIsSearchModalOpen(true)}
+      />
 
-        {/* Install PWA Modal */}
-        {isInstallModalOpen && (
-          <InstallAppModal
-            isOpen={isInstallModalOpen}
-            onClose={() => setIsInstallModalOpen(false)}
-          />
-        )}
+      {/* Install PWA Modal */}
+      <InstallAppModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+      />
 
-        {/* La mia società / Scheda società */}
-        {isSocietyModalOpen && (
-          <SocietaModal
-            societyId={societyModalTarget ? societyModalTarget.societyId : mySocietyId}
-            initialLookupQuery={societyModalTarget?.query || null}
-            initialInfo={societyModalTarget ? societyModalTarget.info : mySocietyInfo}
-            lookupContext={
-              societyModalTarget
-                ? societyModalTarget.context || null
-                : !mySocietyId && hasMyPlayer
-                  ? { atletaId: getMyPlayerId() }
-                  : null
+      {/* La mia società / Scheda società */}
+      {isSocietyModalOpen && (
+        <SocietaModal
+          societyId={societyModalTarget ? societyModalTarget.societyId : mySocietyId}
+          initialLookupQuery={societyModalTarget?.query || null}
+          initialInfo={societyModalTarget ? societyModalTarget.info : mySocietyInfo}
+          lookupContext={
+            societyModalTarget
+              ? societyModalTarget.context || null
+              : !mySocietyId && hasMyPlayer
+                ? { atletaId: getMyPlayerId() }
+                : null
+          }
+          isOwnSociety={societyModalTarget ? societyModalTarget.isOwnSociety : true}
+          annoId={SOCIETY_ANNO}
+          onClose={handleCloseMySociety}
+          onSocietySelected={
+            societyModalTarget && !societyModalTarget.isOwnSociety
+              ? () => {}
+              : handleSocietySelected
+          }
+          onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+          onSelectChampionship={handleSelectChampionshipFromSociety}
+        />
+      )}
+
+      {/* Athlete Detail Profile Modal Stack */}
+      {athleteStack.map((a, index) => (
+        <AtletaModal
+          key={a.key}
+          atletaId={a.id}
+          athleteName={a.name}
+          camId={camId !== null ? String(camId) : undefined}
+          campionatoNome={data?.championship?.nome}
+          returnLabel={a.fromReferto ? 'Torna al referto' : 'Indietro'}
+          isTopModal={index === athleteStack.length - 1}
+          initialMode={a.mode || 'full'}
+          zIndex={1200 + index * 20}
+          onClose={closeTopAthlete}
+          onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+          onPreviewAthlete={(id, name) => openPreviewAthlete(id, name)}
+          onPromoteToFull={(resolvedId, resolvedName) => promotePreviewAthlete(a.key, resolvedId, resolvedName)}
+          onResolveAthlete={handleResolveAthlete}
+          onOpenSociety={handleOpenSocietyByName}
+          onNavigateToGiornata={(targetCamId, giornata, tab) => {
+            setAthleteStack([]);
+            if (targetCamId && targetCamId !== camId) {
+              handleSelectChampionship(targetCamId, annoId);
             }
-            isOwnSociety={societyModalTarget ? societyModalTarget.isOwnSociety : true}
-            annoId={SOCIETY_ANNO}
-            onClose={handleCloseMySociety}
-            onSocietySelected={
-              societyModalTarget && !societyModalTarget.isOwnSociety
-                ? () => {}
-                : handleSocietySelected
-            }
-            onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-            onSelectChampionship={handleSelectChampionshipFromSociety}
-          />
-        )}
+            setSelectedGiornataFilter(typeof giornata === 'number' ? giornata : null);
+            setMainView('campionato');
+            setChampionshipTab(tab || (typeof giornata === 'number' ? 'calendario' : 'classifica'));
+          }}
+        />
+      ))}
 
-        {/* Athlete Detail Profile Modal Stack */}
-        {athleteStack.map((a, index) => (
-          <AtletaModal
-            key={a.key}
-            atletaId={a.id}
-            athleteName={a.name}
-            camId={camId !== null ? String(camId) : undefined}
-            campionatoNome={data?.championship?.nome}
-            returnLabel={a.fromReferto ? 'Torna al referto' : 'Indietro'}
-            isTopModal={index === athleteStack.length - 1}
-            initialMode={a.mode || 'full'}
-            zIndex={1200 + index * 20}
-            onClose={closeTopAthlete}
-            onSelectAthlete={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-            onPreviewAthlete={(id, name) => openPreviewAthlete(id, name)}
-            onPromoteToFull={(resolvedId, resolvedName) => promotePreviewAthlete(a.key, resolvedId, resolvedName)}
-            onResolveAthlete={handleResolveAthlete}
-            onOpenSociety={handleOpenSocietyByName}
-            onNavigateToGiornata={(targetCamId, giornata, tab) => {
-              setAthleteStack([]);
-              if (targetCamId && targetCamId !== camId) {
-                handleSelectChampionship(targetCamId, annoId);
-              }
-              setSelectedGiornataFilter(typeof giornata === 'number' ? giornata : null);
-              setMainView('campionato');
-              setChampionshipTab(tab || (typeof giornata === 'number' ? 'calendario' : 'classifica'));
-            }}
-          />
-        ))}
-
-        {/* Team Details & Athletes Modal */}
-        {selectedSquadra && (
-          <SquadraModal
-            squadraId={selectedSquadra.id}
-            squadraNome={selectedSquadra.name}
-            camId={camId ?? 0}
-            annoId={annoId}
-            onClose={() => setSelectedSquadra(null)}
-            onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
-            onOpenSociety={handleOpenSocietyByName}
-            onFilterCalendario={(teamName) => {
-              setSelectedTeamFilter(teamName);
-              setMainView('campionato');
-              setChampionshipTab('calendario');
-            }}
-          />
-        )}
-      </Suspense>
+      {/* Team Details & Athletes Modal */}
+      {selectedSquadra && (
+        <SquadraModal
+          squadraId={selectedSquadra.id}
+          squadraNome={selectedSquadra.name}
+          camId={camId ?? 0}
+          annoId={annoId}
+          onClose={() => setSelectedSquadra(null)}
+          onOpenAtletaModal={(id, name) => setSelectedAthlete({ id, name, fromReferto: false })}
+          onOpenSociety={handleOpenSocietyByName}
+          onFilterCalendario={(teamName) => {
+            setSelectedTeamFilter(teamName);
+            setMainView('campionato');
+            setChampionshipTab('calendario');
+          }}
+        />
+      )}
       {/* Toast progresso salvataggio per la palestra */}
       {precacheStatus && (
         <div className="atleta-share-toast" style={{ bottom: '85px', zIndex: 10050 }} role="status">
