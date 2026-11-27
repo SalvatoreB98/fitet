@@ -109,11 +109,26 @@ export interface CheckChampionshipsResult {
   durationMs: number;
 }
 
-// Cache in-memory per evitare letture ripetute su Supabase quando i dati osservati sono identici
+// Cache in-memory per evitare letture ripetute su Supabase quando i dati osservati sono identici (max 30 campionati via LRU)
+const MAX_CACHED_SNAPSHOTS = 30;
 const cachedSnapshots = new Map<
   number,
   { snapshot: ChampionshipMonitorSnapshot; timestamp: number }
 >();
+
+function setCachedSnapshot(
+  camId: number,
+  entry: { snapshot: ChampionshipMonitorSnapshot; timestamp: number }
+): void {
+  cachedSnapshots.delete(camId);
+  cachedSnapshots.set(camId, entry);
+  while (cachedSnapshots.size > MAX_CACHED_SNAPSHOTS) {
+    const oldest = cachedSnapshots.keys().next().value;
+    if (oldest !== undefined) cachedSnapshots.delete(oldest);
+    else break;
+  }
+}
+
 const SNAPSHOT_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minuti
 const inFlightChecks = new Set<number>();
 
@@ -438,7 +453,7 @@ async function evaluateSnapshotAndNotify(
   if (rawPrev === null || init) {
     if (!dryRun) {
       await pushService.setState(stateKey, JSON.stringify(currSnapshot));
-      cachedSnapshots.set(camId, {
+      setCachedSnapshot(camId, {
         snapshot: currSnapshot,
         timestamp: Date.now(),
       });
@@ -468,7 +483,7 @@ async function evaluateSnapshotAndNotify(
   if (!prevSnapshot || typeof prevSnapshot !== 'object') {
     if (!dryRun) {
       await pushService.setState(stateKey, JSON.stringify(currSnapshot));
-      cachedSnapshots.set(camId, {
+      setCachedSnapshot(camId, {
         snapshot: currSnapshot,
         timestamp: Date.now(),
       });
@@ -503,7 +518,7 @@ async function evaluateSnapshotAndNotify(
   const diff = diffChampionshipSnapshots(prevSnapshot, mergedCurrSnapshot);
 
   if (!diff.hasChanges) {
-    cachedSnapshots.set(camId, {
+    setCachedSnapshot(camId, {
       snapshot: mergedCurrSnapshot,
       timestamp: Date.now(),
     });
@@ -543,7 +558,7 @@ async function evaluateSnapshotAndNotify(
       };
     }
 
-    cachedSnapshots.set(camId, {
+    setCachedSnapshot(camId, {
       snapshot: mergedCurrSnapshot,
       timestamp: Date.now(),
     });
@@ -640,10 +655,17 @@ export async function notifyObservedChampionshipIfNeeded(
 
   // Fast-path in-memory: se abbiamo già verificato di recente lo stesso stato senza differenze, evita query a Supabase
   const cached = cachedSnapshots.get(camId);
-  if (cached && Date.now() - cached.timestamp < SNAPSHOT_CACHE_TTL_MS) {
-    const quickDiff = diffChampionshipSnapshots(cached.snapshot, currSnapshot);
-    if (!quickDiff.hasChanges) {
-      return null;
+  if (cached) {
+    if (Date.now() - cached.timestamp < SNAPSHOT_CACHE_TTL_MS) {
+      // Refresh LRU
+      cachedSnapshots.delete(camId);
+      cachedSnapshots.set(camId, cached);
+      const quickDiff = diffChampionshipSnapshots(cached.snapshot, currSnapshot);
+      if (!quickDiff.hasChanges) {
+        return null;
+      }
+    } else {
+      cachedSnapshots.delete(camId);
     }
   }
 
@@ -716,7 +738,7 @@ export async function ensureChampionshipBaseline(
     if (!snapshot) return;
 
     await pushService.setState(stateKey, JSON.stringify(snapshot));
-    cachedSnapshots.set(camId, {
+    setCachedSnapshot(camId, {
       snapshot,
       timestamp: Date.now(),
     });

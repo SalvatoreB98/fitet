@@ -278,6 +278,11 @@ class AnalyticsService {
     if (existing) {
       existing.count += 1;
     } else {
+      // Limite di sicurezza sulla mappa in-memory per prevenire memory leak in locale
+      if (this.memoryFallback.size >= 500) {
+        const oldest = this.memoryFallback.keys().next().value;
+        if (oldest !== undefined) this.memoryFallback.delete(oldest);
+      }
       this.memoryFallback.set(key, { date, type, target, count: 1 });
     }
   }
@@ -365,9 +370,13 @@ class AnalyticsService {
       return;
     }
 
-    // Pulizia chiavi dei giorni precedenti in memoria
-    for (const k of this.memoryVisitors) {
-      if (!k.startsWith(`${today}|`)) this.memoryVisitors.delete(k);
+    // Pulizia chiavi dei giorni precedenti in memoria o cap massimo
+    if (this.memoryVisitors.size >= 5000) {
+      this.memoryVisitors.clear();
+    } else {
+      for (const k of this.memoryVisitors) {
+        if (!k.startsWith(`${today}|`)) this.memoryVisitors.delete(k);
+      }
     }
 
     if (!this.supabase) {

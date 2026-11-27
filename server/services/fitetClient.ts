@@ -240,7 +240,8 @@ async function withUpstreamCache(
   const useSupabaseCache = shouldPersistInSupabase(url);
 
   if (!bypassed) {
-    const cached = cacheService.get<string>(cacheKey);
+    // Leggiamo la cache su disco senza intasare la RAM con stringhe HTML massive
+    const cached = cacheService.get<string>(cacheKey, { skipMemory: true });
     if (typeof cached === 'string') {
       return cached;
     }
@@ -258,7 +259,7 @@ async function withUpstreamCache(
       const remoteCached = await getSupabaseCachedHtml(cacheKey);
       if (remoteCached) {
         if (!bypassed && !remoteCached.isStale) {
-          cacheService.set(cacheKey, remoteCached.html, remoteCached.remainingTtlMs);
+          cacheService.set(cacheKey, remoteCached.html, remoteCached.remainingTtlMs, { skipMemory: true });
           return remoteCached.html;
         }
         staleHtml = remoteCached.html;
@@ -269,7 +270,7 @@ async function withUpstreamCache(
       const html = await loader();
       if (html) {
         const ttlMs = resolveUpstreamTtlMs(url);
-        cacheService.set(cacheKey, html, ttlMs);
+        cacheService.set(cacheKey, html, ttlMs, { skipMemory: true });
         if (useSupabaseCache) {
           void setSupabaseCachedHtml(cacheKey, html, ttlMs);
         }
@@ -278,7 +279,7 @@ async function withUpstreamCache(
     } catch (err) {
       if (staleHtml) {
         console.warn(`[FitetClient] Upstream fallito per ${url}, uso cache stale da Supabase`);
-        cacheService.set(cacheKey, staleHtml, STALE_FALLBACK_MEMORY_TTL_MS);
+        cacheService.set(cacheKey, staleHtml, STALE_FALLBACK_MEMORY_TTL_MS, { skipMemory: true });
         return staleHtml;
       }
       throw err;

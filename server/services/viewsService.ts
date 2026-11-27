@@ -14,9 +14,19 @@ dotenv.config();
 class ViewsService {
   private supabase: SupabaseClient | null = null;
   private memoryCache: Map<string, number> = new Map();
+  private readonly MAX_CACHE_ENTRIES = 300;
 
   constructor() {
     this.initClient();
+  }
+
+  private setMemoryCache(key: string, count: number): void {
+    this.memoryCache.delete(key);
+    this.memoryCache.set(key, count);
+    if (this.memoryCache.size > this.MAX_CACHE_ENTRIES) {
+      const oldest = this.memoryCache.keys().next().value;
+      if (oldest !== undefined) this.memoryCache.delete(oldest);
+    }
   }
 
   private initClient() {
@@ -73,7 +83,7 @@ class ViewsService {
         // Non usare `typeof rpcCount === "number"` perché i BIGINT possono arrivare come stringhe
         if (!rpcError && rpcCount !== null && rpcCount !== undefined) {
           const count = Number(rpcCount);
-          this.memoryCache.set(cacheKey, count);
+          this.setMemoryCache(cacheKey, count);
           return count;
         }
 
@@ -89,7 +99,7 @@ class ViewsService {
           .maybeSingle();
 
         const currentFromDb = Number(existing?.count || 0);
-        this.memoryCache.set(cacheKey, currentFromDb);
+        this.setMemoryCache(cacheKey, currentFromDb);
         return currentFromDb;
 
       } catch (err) {
@@ -118,7 +128,7 @@ class ViewsService {
           .maybeSingle();
 
         if (!error && data && typeof data.count === 'number') {
-          this.memoryCache.set(cacheKey, data.count);
+          this.setMemoryCache(cacheKey, data.count);
           return data.count;
         }
       } catch (err) {

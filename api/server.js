@@ -1,0 +1,13211 @@
+// server/app.ts
+import express from "express";
+import cors from "cors";
+import crypto2 from "crypto";
+import path7 from "path";
+import fs6 from "fs";
+
+// server/services/fitetClient.ts
+import { AsyncLocalStorage } from "async_hooks";
+import { createHash } from "crypto";
+import { Agent } from "undici";
+import { createClient } from "@supabase/supabase-js";
+
+// server/services/cacheService.ts
+import fs from "fs";
+import path2 from "path";
+
+// server/services/runtimeCacheDir.ts
+import path from "path";
+function getRuntimeCacheDir() {
+  const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+  return isServerless ? path.join("/tmp", "fitet_cache") : path.resolve(process.cwd(), "node_modules", ".cache", "fitet_cache");
+}
+
+// server/services/cacheService.ts
+var CacheService = class {
+  cacheDir;
+  legacyCacheDir;
+  memoryCache = /* @__PURE__ */ new Map();
+  maxMemoryEntries;
+  cleanupTimer;
+  constructor(maxMemoryEntries = 200) {
+    this.maxMemoryEntries = Number(process.env.CACHE_MAX_MEMORY_ENTRIES) || maxMemoryEntries;
+    this.cacheDir = getRuntimeCacheDir();
+    this.legacyCacheDir = path2.resolve(process.cwd(), "server", "cache");
+    try {
+      if (!fs.existsSync(this.cacheDir)) {
+        fs.mkdirSync(this.cacheDir, { recursive: true });
+      }
+    } catch (err) {
+      console.warn("Cache directory initialization fallback to memory-only:", err);
+    }
+    this.cleanupTimer = setInterval(() => {
+      this.purgeExpired();
+    }, 10 * 60 * 1e3);
+    if (this.cleanupTimer?.unref) {
+      this.cleanupTimer.unref();
+    }
+  }
+  /**
+   * Elimina le voci scadute sia dalla memoria RAM che dalla cartella cache temporanea.
+   */
+  purgeExpired() {
+    const now = Date.now();
+    for (const [key, entry] of this.memoryCache.entries()) {
+      if (now - entry.timestamp >= entry.ttlMs) {
+        this.memoryCache.delete(key);
+      }
+    }
+  }
+  /**
+   * Assicura che la dimensione della cache in memoria rispetti la capienza massima (LRU).
+   */
+  enforceMemoryLimit() {
+    while (this.memoryCache.size > this.maxMemoryEntries) {
+      const oldestKey = this.memoryCache.keys().next().value;
+      if (oldestKey !== void 0) {
+        this.memoryCache.delete(oldestKey);
+      } else {
+        break;
+      }
+    }
+  }
+  /**
+   * Retrieves an item from memory or disk if not expired.
+   */
+  get(key, options) {
+    const now = Date.now();
+    if (!options?.skipMemory) {
+      const memEntry = this.memoryCache.get(key);
+      if (memEntry) {
+        if (now - memEntry.timestamp < memEntry.ttlMs) {
+          this.memoryCache.delete(key);
+          this.memoryCache.set(key, memEntry);
+          return memEntry.data;
+        }
+        this.memoryCache.delete(key);
+      }
+    }
+    let filePath = path2.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
+    if (!fs.existsSync(filePath)) {
+      const legacyPath = path2.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
+      if (fs.existsSync(legacyPath)) {
+        filePath = legacyPath;
+      }
+    }
+    if (fs.existsSync(filePath)) {
+      try {
+        const fileContent = fs.readFileSync(filePath, "utf8");
+        const fileEntry = JSON.parse(fileContent);
+        if (now - fileEntry.timestamp < fileEntry.ttlMs) {
+          if (!options?.skipMemory) {
+            this.memoryCache.set(key, fileEntry);
+            this.enforceMemoryLimit();
+          }
+          return fileEntry.data;
+        } else {
+          try {
+            fs.unlinkSync(filePath);
+          } catch {
+          }
+        }
+      } catch (err) {
+        console.warn(`Error reading disk cache for key ${key}:`, err);
+      }
+    }
+    return null;
+  }
+  /**
+   * Stores an item with a given TTL in milliseconds in disk and conditionally in memory.
+   */
+  set(key, data, ttlMs, options) {
+    const entry = {
+      data,
+      timestamp: Date.now(),
+      ttlMs
+    };
+    if (!options?.skipMemory) {
+      this.memoryCache.delete(key);
+      this.memoryCache.set(key, entry);
+      this.enforceMemoryLimit();
+    }
+    const filePath = path2.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(entry, null, 2), "utf8");
+    } catch (err) {
+      console.warn(`Error saving disk cache for key ${key}:`, err);
+    }
+  }
+  /**
+   * Deletes a cache key or clears all cache
+   */
+  delete(key) {
+    this.memoryCache.delete(key);
+    const filePath = path2.join(this.cacheDir, `${encodeURIComponent(key)}.json`);
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch {
+      }
+    }
+    const legacyPath = path2.join(this.legacyCacheDir, `${encodeURIComponent(key)}.json`);
+    if (fs.existsSync(legacyPath)) {
+      try {
+        fs.unlinkSync(legacyPath);
+      } catch {
+      }
+    }
+  }
+  clear() {
+    this.memoryCache.clear();
+    if (fs.existsSync(this.cacheDir)) {
+      const files = fs.readdirSync(this.cacheDir);
+      for (const file of files) {
+        if (file.endsWith(".json")) {
+          try {
+            fs.unlinkSync(path2.join(this.cacheDir, file));
+          } catch {
+          }
+        }
+      }
+    }
+  }
+};
+var cacheService = new CacheService();
+
+// server/services/fitetClient.ts
+var BASE_URL = "https://portale.fitet.org";
+var CONNECT_TIMEOUT_MS = 25e3;
+var REQUEST_TIMEOUT_MS = 3e4;
+var MAX_CONCURRENT_UPSTREAM = 3;
+var MIN_DISPATCH_GAP_MS = 200;
+var STALE_FALLBACK_MEMORY_TTL_MS = 5 * 60 * 1e3;
+var SUPABASE_CACHE_PREFIX = "fitet_cache:";
+var fitetDispatcher = new Agent({
+  connections: MAX_CONCURRENT_UPSTREAM,
+  pipelining: 1,
+  keepAliveTimeout: 1e4,
+  keepAliveMaxTimeout: 3e4,
+  connect: {
+    timeout: CONNECT_TIMEOUT_MS
+  }
+});
+var activeUpstreamCount = 0;
+var lastDispatchAt = 0;
+var upstreamWaitQueue = [];
+async function runWithUpstreamSlot(fn) {
+  if (activeUpstreamCount >= MAX_CONCURRENT_UPSTREAM) {
+    await new Promise((resolve) => upstreamWaitQueue.push(resolve));
+  }
+  activeUpstreamCount++;
+  try {
+    const now = Date.now();
+    const waitMs = Math.max(0, lastDispatchAt + MIN_DISPATCH_GAP_MS - now);
+    lastDispatchAt = now + waitMs;
+    if (waitMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+    return await fn();
+  } finally {
+    activeUpstreamCount--;
+    const next = upstreamWaitQueue.shift();
+    if (next) next();
+  }
+}
+function isTransientUpstreamError(err) {
+  const code = err?.cause?.code || err?.code || "";
+  const name = err?.name || "";
+  const msg = String(err?.message || "");
+  return code === "UND_ERR_CONNECT_TIMEOUT" || code === "UND_ERR_SOCKET" || code === "ECONNRESET" || code === "ETIMEDOUT" || code === "EAI_AGAIN" || name === "AbortError" || msg.includes("Connect Timeout Error") || msg.includes("FITeT HTTP error: 502") || msg.includes("FITeT HTTP error: 503") || msg.includes("FITeT HTTP error: 504");
+}
+var supabaseClient;
+function getSupabaseClient() {
+  if (supabaseClient !== void 0) return supabaseClient;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    supabaseClient = null;
+    return null;
+  }
+  supabaseClient = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+  return supabaseClient;
+}
+var DEFAULT_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+  "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7"
+};
+var DEFAULT_UPSTREAM_TTL_MS = 20 * 60 * 1e3;
+var MINUTE_MS = 60 * 1e3;
+var HOUR_MS = 60 * MINUTE_MS;
+var cacheBypassContext = new AsyncLocalStorage();
+var inFlightFetches = /* @__PURE__ */ new Map();
+function withFitetCacheBypass(fn) {
+  return cacheBypassContext.run({ bypass: true }, fn);
+}
+function isCacheBypassed() {
+  return cacheBypassContext.getStore()?.bypass === true;
+}
+function resolveUpstreamTtlMs(url) {
+  const normalized = url.toLowerCase();
+  if (normalized.includes("dettaglioatleta_unica")) return 24 * HOUR_MS;
+  if (normalized.includes("menu.php")) return 4 * HOUR_MS;
+  if (normalized.includes("giornata.php") || normalized.includes("dettaglio_partita")) {
+    return 12 * HOUR_MS;
+  }
+  if (normalized.includes("classifica_squadre") || normalized.includes("calendario.asp")) {
+    return 30 * MINUTE_MS;
+  }
+  if (normalized.includes("statistiche_atleti") || normalized.includes("ranking_unica") || normalized.includes("percentuali.php")) {
+    return 60 * MINUTE_MS;
+  }
+  if (normalized.includes("ajax.php") || normalized.includes("scelta_atleta")) {
+    return 10 * MINUTE_MS;
+  }
+  if (normalized.includes("testa_tornei") || normalized.includes("elenco_tornei") || normalized.includes("elenco_gare") || normalized.includes("iscrizioni.php") || normalized.includes("iscrizioni_gara")) {
+    return 30 * MINUTE_MS;
+  }
+  if (normalized.includes("gestione_gare") || normalized.includes("risultati.php") || normalized.includes("risultati_tabellone")) {
+    return 15 * MINUTE_MS;
+  }
+  return DEFAULT_UPSTREAM_TTL_MS;
+}
+function buildUpstreamCacheKey(kind, url, extra = "") {
+  const hash = createHash("sha1").update(kind).update("\n").update(url).update("\n").update(extra).digest("hex");
+  return `upstream_${kind}_${hash}`;
+}
+function shouldPersistInSupabase(url) {
+  const normalized = url.toLowerCase();
+  return !normalized.includes("ajax.php") && !normalized.includes("scelta_atleta");
+}
+async function getSupabaseCachedHtml(cacheKey) {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from("push_state").select("value").eq("key", `${SUPABASE_CACHE_PREFIX}${cacheKey}`).maybeSingle();
+    if (error || !data?.value) return null;
+    const parsed = JSON.parse(data.value);
+    if (typeof parsed?.html !== "string" || typeof parsed?.expiresAt !== "number") {
+      return null;
+    }
+    const remainingTtlMs = parsed.expiresAt - Date.now();
+    return {
+      html: parsed.html,
+      remainingTtlMs: Math.max(0, remainingTtlMs),
+      isStale: remainingTtlMs <= 0
+    };
+  } catch {
+    return null;
+  }
+}
+async function setSupabaseCachedHtml(cacheKey, html, ttlMs) {
+  const supabase = getSupabaseClient();
+  if (!supabase || !html) return;
+  try {
+    const payload = JSON.stringify({
+      html,
+      expiresAt: Date.now() + ttlMs
+    });
+    await supabase.from("push_state").upsert(
+      {
+        key: `${SUPABASE_CACHE_PREFIX}${cacheKey}`,
+        value: payload,
+        updated_at: (/* @__PURE__ */ new Date()).toISOString()
+      },
+      { onConflict: "key" }
+    );
+  } catch {
+  }
+}
+async function withUpstreamCache(cacheKey, url, loader) {
+  const bypassed = isCacheBypassed();
+  const useSupabaseCache = shouldPersistInSupabase(url);
+  if (!bypassed) {
+    const cached = cacheService.get(cacheKey, { skipMemory: true });
+    if (typeof cached === "string") {
+      return cached;
+    }
+    const existing = inFlightFetches.get(cacheKey);
+    if (existing) {
+      return existing;
+    }
+  }
+  const task = (async () => {
+    let staleHtml = null;
+    if (useSupabaseCache) {
+      const remoteCached = await getSupabaseCachedHtml(cacheKey);
+      if (remoteCached) {
+        if (!bypassed && !remoteCached.isStale) {
+          cacheService.set(cacheKey, remoteCached.html, remoteCached.remainingTtlMs, { skipMemory: true });
+          return remoteCached.html;
+        }
+        staleHtml = remoteCached.html;
+      }
+    }
+    try {
+      const html = await loader();
+      if (html) {
+        const ttlMs = resolveUpstreamTtlMs(url);
+        cacheService.set(cacheKey, html, ttlMs, { skipMemory: true });
+        if (useSupabaseCache) {
+          void setSupabaseCachedHtml(cacheKey, html, ttlMs);
+        }
+      }
+      return html;
+    } catch (err) {
+      if (staleHtml) {
+        console.warn(`[FitetClient] Upstream fallito per ${url}, uso cache stale da Supabase`);
+        cacheService.set(cacheKey, staleHtml, STALE_FALLBACK_MEMORY_TTL_MS, { skipMemory: true });
+        return staleHtml;
+      }
+      throw err;
+    }
+  })().finally(() => {
+    if (inFlightFetches.get(cacheKey) === task) {
+      inFlightFetches.delete(cacheKey);
+    }
+  });
+  if (!bypassed) {
+    inFlightFetches.set(cacheKey, task);
+  }
+  return task;
+}
+var FitetClient = class {
+  /**
+   * Attende un ritardo casuale (jitter) tra minMs e maxMs (default 1.5s - 3s)
+   * per evitare picchi sequenziali verso il WAF di portale.fitet.org.
+   */
+  static async sleepWithJitter(minMs = 1500, maxMs = 3e3) {
+    const delay = Math.floor(minMs + Math.random() * Math.max(0, maxMs - minMs));
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  /**
+   * Fetches raw ISO-8859-1 HTML content from a FITeT endpoint and decodes it safely
+   */
+  static async fetchHtml(url, isAjax = false, customReferer) {
+    const cacheKey = buildUpstreamCacheKey(
+      "html",
+      url,
+      isAjax ? `ajax:${customReferer || "default"}` : "page"
+    );
+    return withUpstreamCache(cacheKey, url, () => this.requestHtml(url, isAjax, customReferer));
+  }
+  static async executeUpstreamRequest(url, init) {
+    const maxAttempts = 2;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await runWithUpstreamSlot(async () => {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+          try {
+            const fetchOptions = {
+              ...init,
+              signal: controller.signal,
+              dispatcher: fitetDispatcher
+            };
+            const response = await fetch(url, fetchOptions);
+            if (!response.ok) {
+              throw new Error(`FITeT HTTP error: ${response.status} ${response.statusText} on ${url}`);
+            }
+            const buffer = await response.arrayBuffer();
+            const decoder = new TextDecoder("iso-8859-1");
+            return decoder.decode(buffer);
+          } finally {
+            clearTimeout(timeout);
+          }
+        });
+      } catch (err) {
+        if (attempt < maxAttempts && isTransientUpstreamError(err)) {
+          await this.sleepWithJitter(1500, 2500);
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new Error(`FITeT upstream request failed on ${url}`);
+  }
+  static async requestHtml(url, isAjax = false, customReferer) {
+    const headers = {
+      ...DEFAULT_HEADERS
+    };
+    if (isAjax) {
+      headers["X-Requested-With"] = "XMLHttpRequest";
+      headers["Referer"] = customReferer || "https://portale.fitet.org/risultati/new_rank/testaclassifica_auto.php?ID_CLASS=248&ID=1&PASS=20";
+    }
+    return this.executeUpstreamRequest(url, { headers });
+  }
+  /**
+   * Fetches a FITeT page through a POST form and decodes the ISO-8859-1 response.
+   */
+  static async postForm(url, formData, customReferer) {
+    const serializedBody = new URLSearchParams(formData).toString();
+    const cacheKey = buildUpstreamCacheKey(
+      "post",
+      url,
+      `${serializedBody}
+${customReferer || "default"}`
+    );
+    return withUpstreamCache(
+      cacheKey,
+      url,
+      () => this.requestPostForm(url, serializedBody, customReferer)
+    );
+  }
+  static async requestPostForm(url, serializedBody, customReferer) {
+    const headers = {
+      ...DEFAULT_HEADERS,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Referer": customReferer || `${BASE_URL}/risultati/new_rank/scelta_atleta.php`
+    };
+    return this.executeUpstreamRequest(url, {
+      method: "POST",
+      headers,
+      body: serializedBody
+    });
+  }
+  /**
+   * Endpoint 1: Classifica Squadre
+   */
+  static async fetchClassifica(cam) {
+    const url = `${BASE_URL}/risultati/campionati/classifica_squadre.php?CAM=${cam}`;
+    return this.fetchHtml(url);
+  }
+  /**
+   * Endpoint 2: Calendario & Incontri
+   */
+  static async fetchCalendario(cam, anno = 41) {
+    const url = `${BASE_URL}/risultati/campionati/Calendario.asp?CAM=${cam}&ANNO=${anno}`;
+    return this.fetchHtml(url);
+  }
+  /**
+   * Endpoint 3: Statistiche Atleti Girone
+   */
+  static async fetchStatisticheAtleti(cam) {
+    const url = `${BASE_URL}/risultati/campionati/statistiche_atleti.php?CAM=${cam}`;
+    return this.fetchHtml(url);
+  }
+  /**
+   * Endpoint 4: Scheda Singolo Atleta (Ranking & Storico Punti)
+   */
+  static async fetchSchedaAtleta(atletaId, idClass = 248) {
+    const url = `${BASE_URL}/risultati/new_rank/dettaglioatleta_unica.php?ATLETA=${atletaId}&ID_CLASS=${idClass}&ZU=1&AVVERSARIO=0`;
+    return this.fetchHtml(url, true);
+  }
+  /**
+   * Autocomplete search for athletes
+   */
+  static async searchAtleta(query) {
+    const rawClean = query.trim();
+    if (!rawClean || rawClean.length < 2) return [];
+    const hasApostrophe = /['\u2018\u2019\u02BC`\u00B4]/.test(rawClean);
+    const variants = /* @__PURE__ */ new Set();
+    if (hasApostrophe) {
+      const spaced = rawClean.replace(/['\u2018\u2019\u02BC`\u00B4]/g, " ").replace(/\s+/g, " ").trim();
+      if (spaced.length >= 2) variants.add(spaced);
+      const attached = rawClean.replace(/['\u2018\u2019\u02BC`\u00B4\s]/g, "").trim();
+      if (attached.length >= 2) variants.add(attached);
+    } else {
+      variants.add(rawClean);
+      if (/^d[aeiou]/i.test(rawClean) && rawClean.length >= 4) {
+        variants.add(rawClean.replace(/^d([aeiou])/i, "d $1"));
+      } else if (/^dell[aeiou]/i.test(rawClean) && rawClean.length >= 6) {
+        variants.add(rawClean.replace(/^dell([aeiou])/i, "dell $1"));
+      }
+    }
+    const fetchVariant = async (term) => {
+      const url = `${BASE_URL}/risultati/new_rank/ajax.php?term=${encodeURIComponent(term)}`;
+      try {
+        const text = await this.fetchHtml(url, true);
+        const parsed = JSON.parse(text);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    };
+    const resultsLists = await Promise.all(Array.from(variants).map((v) => fetchVariant(v)));
+    const map = /* @__PURE__ */ new Map();
+    for (const list of resultsLists) {
+      for (const item of list) {
+        if (item && item.id && item.id !== "#" && !map.has(item.id)) {
+          map.set(item.id, item);
+        }
+      }
+    }
+    const allResults = Array.from(map.values());
+    if (allResults.length === 0) return [];
+    const normalizedUser = rawClean.toUpperCase().replace(/['\u2018\u2019\u02BC`\u00B4\s]/g, "");
+    const userWords = rawClean.toUpperCase().replace(/['\u2018\u2019\u02BC`\u00B4]/g, " ").split(/\s+/).filter(Boolean);
+    const scored = allResults.map((item) => {
+      const valUpper = (item.value || "").toUpperCase();
+      const valClean = valUpper.replace(/['\u2018\u2019\u02BC`\u00B4\s]/g, "");
+      let score = 0;
+      if (valClean.startsWith(normalizedUser)) {
+        score += 1e3;
+      } else if (valUpper.startsWith(rawClean.toUpperCase())) {
+        score += 800;
+      } else if (valClean.includes(normalizedUser)) {
+        score += 500;
+      }
+      const allWordsPresent = userWords.every((w) => valUpper.includes(w) || valClean.includes(w));
+      if (allWordsPresent) {
+        score += 200;
+      }
+      if (hasApostrophe && !valClean.includes(normalizedUser)) {
+        score -= 300;
+      }
+      return { item, score };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    if (hasApostrophe) {
+      const positive = scored.filter((s) => s.score > 0);
+      return positive.length > 0 ? positive.map((s) => s.item) : scored.map((s) => s.item);
+    }
+    return scored.map((s) => s.item);
+  }
+  /**
+   * Ricerca atleti tramite il form ufficiale "scelta_atleta.php".
+   * ATLETA viene usato da FITeT per escludere l'atleta già selezionato.
+   */
+  static async fetchSceltaAtleta(query, excludeId = "0", idClass = 248) {
+    const url = `${BASE_URL}/risultati/new_rank/scelta_atleta.php`;
+    return this.postForm(
+      url,
+      {
+        CERCA: query.trim(),
+        ATLETA: excludeId || "0",
+        ZU: "1",
+        ID_CLASS: String(idClass)
+      },
+      `${BASE_URL}/risultati/new_rank/scelta_atleta.php`
+    );
+  }
+  /**
+   * Endpoint 5: Referto Incontro Gara
+   */
+  static async fetchRefertoIncontro(incontroId, cam, formula = 19) {
+    const url = `${BASE_URL}/risultati/campionati/giornata.php?INCONTRO=${incontroId}&CAM=${cam}&FORMULA=${formula}`;
+    return this.fetchHtml(url);
+  }
+  /**
+   * Endpoint 6: Dettaglio Singola Partita Individuale
+   */
+  static async fetchDettaglioPartita(partitaId) {
+    const url = `${BASE_URL}/risultati/campionati/dettaglio_partita.php?ID=${partitaId}`;
+    return this.fetchHtml(url);
+  }
+};
+
+// server/services/viewsService.ts
+import { createClient as createClient2 } from "@supabase/supabase-js";
+import dotenv from "dotenv";
+dotenv.config();
+var ViewsService = class {
+  supabase = null;
+  memoryCache = /* @__PURE__ */ new Map();
+  MAX_CACHE_ENTRIES = 300;
+  constructor() {
+    this.initClient();
+  }
+  setMemoryCache(key, count) {
+    this.memoryCache.delete(key);
+    this.memoryCache.set(key, count);
+    if (this.memoryCache.size > this.MAX_CACHE_ENTRIES) {
+      const oldest = this.memoryCache.keys().next().value;
+      if (oldest !== void 0) this.memoryCache.delete(oldest);
+    }
+  }
+  initClient() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (url && key) {
+      try {
+        this.supabase = createClient2(url, key, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false
+          }
+        });
+        console.log("\u2705 [ViewsService] Supabase connesso con successo.");
+      } catch (err) {
+        console.error("\u274C [ViewsService] Errore inizializzazione client Supabase:", err);
+        this.supabase = null;
+      }
+    } else {
+      console.warn("\u26A0\uFE0F [ViewsService] Credenziali SUPABASE_URL / KEY non trovate: fallback in memoria locale.");
+    }
+  }
+  /**
+   * Converte l'id atleta in numero valido (es. "593082" -> 593082)
+   */
+  parsePlayerId(id) {
+    if (!id) return null;
+    const clean = id.replace(/\D/g, "");
+    if (!clean) return null;
+    const parsed = parseInt(clean, 10);
+    return isNaN(parsed) ? null : parsed;
+  }
+  /**
+   * Incrementa atomicamente il contatore delle visualizzazioni per un determinato atleta.
+   */
+  async incrementViews(id, ip = null) {
+    if (!id) return 0;
+    const playerId = this.parsePlayerId(String(id));
+    const cacheKey = String(playerId ?? id);
+    if (this.supabase && playerId !== null) {
+      try {
+        const { data: rpcCount, error: rpcError } = await this.supabase.rpc("increment_athlete_views", {
+          p_player_id: Number(playerId),
+          p_client_ip: ip,
+          p_cooldown_minutes: 60
+        });
+        console.log(`[ViewsService] RPC result:`, { rpcCount, rpcError });
+        if (!rpcError && rpcCount !== null && rpcCount !== void 0) {
+          const count = Number(rpcCount);
+          this.setMemoryCache(cacheKey, count);
+          return count;
+        }
+        if (rpcError) {
+          console.error(`[ViewsService] Errore RPC increment_athlete_views:`, rpcError);
+        }
+        const { data: existing } = await this.supabase.from("views").select("count").eq("playerId", playerId).maybeSingle();
+        const currentFromDb = Number(existing?.count || 0);
+        this.setMemoryCache(cacheKey, currentFromDb);
+        return currentFromDb;
+      } catch (err) {
+        console.error(`[ViewsService] Eccezione Supabase:`, err);
+      }
+    }
+    return this.memoryCache.get(cacheKey) || 0;
+  }
+  /**
+   * Recupera il contatore delle visualizzazioni per un determinato atleta.
+   */
+  async getViews(id) {
+    if (!id) return 0;
+    const playerId = this.parsePlayerId(id);
+    const cacheKey = String(playerId ?? id);
+    if (this.supabase && playerId !== null) {
+      try {
+        const { data, error } = await this.supabase.from("views").select("count").eq("playerId", playerId).maybeSingle();
+        if (!error && data && typeof data.count === "number") {
+          this.setMemoryCache(cacheKey, data.count);
+          return data.count;
+        }
+      } catch (err) {
+        console.error(`[ViewsService] Errore lettura Supabase getViews per ${playerId}:`, err);
+      }
+    }
+    return this.memoryCache.get(cacheKey) || 0;
+  }
+};
+var viewsService = new ViewsService();
+
+// server/services/analyticsService.ts
+import { createClient as createClient4 } from "@supabase/supabase-js";
+import crypto from "crypto";
+import dotenv3 from "dotenv";
+
+// server/services/trafficSourceService.ts
+import { createClient as createClient3 } from "@supabase/supabase-js";
+import dotenv2 from "dotenv";
+dotenv2.config();
+var MAX_SOURCE_LEN = 100;
+var MAX_MEDIUM_LEN = 64;
+var MAX_REFERRER_LEN = 300;
+var MAX_PATH_LEN = 200;
+function detectDeviceType(userAgent) {
+  return /Mobi|Android|iPhone|iPad|iPod|Windows Phone/i.test(userAgent || "") ? "mobile" : "desktop";
+}
+function sanitizeSource(raw) {
+  if (typeof raw !== "string") return "direct";
+  const clean = raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, MAX_SOURCE_LEN);
+  return clean || "direct";
+}
+function sanitizeUtmMedium(raw) {
+  if (typeof raw !== "string") return null;
+  const clean = raw.trim().toLowerCase().replace(/[^a-z0-9._-]/g, "").slice(0, MAX_MEDIUM_LEN);
+  return clean || null;
+}
+function sanitizeReferrer(raw) {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    const clean = `${parsed.origin}${parsed.pathname}`.slice(0, MAX_REFERRER_LEN);
+    return clean;
+  } catch {
+    return trimmed.slice(0, MAX_REFERRER_LEN);
+  }
+}
+function sanitizeLandingPath(raw) {
+  if (typeof raw !== "string") return "/";
+  const trimmed = raw.trim();
+  if (!trimmed) return "/";
+  const pathOnly = trimmed.split("?")[0].split("#")[0] || "/";
+  const normalized = pathOnly.startsWith("/") ? pathOnly : `/${pathOnly}`;
+  return normalized.slice(0, MAX_PATH_LEN) || "/";
+}
+var TrafficSourceService = class {
+  client = null;
+  dailyAggregation = /* @__PURE__ */ new Map();
+  constructor() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (url && key) {
+      this.client = createClient3(url, key, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+    }
+  }
+  logStructured(date, entry) {
+    const aggKey = `${date}:${entry.source}:${entry.deviceType}`;
+    const count = (this.dailyAggregation.get(aggKey) || 0) + 1;
+    this.dailyAggregation.set(aggKey, count);
+    console.log(
+      JSON.stringify({
+        event: "traffic_source",
+        date,
+        source: entry.source,
+        utmMedium: entry.utmMedium || null,
+        landingPath: entry.landingPath,
+        deviceType: entry.deviceType,
+        dailyCount: count
+      })
+    );
+  }
+  async recordTrafficSource(entry) {
+    const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+    if (!this.client) {
+      this.logStructured(today, entry);
+      return;
+    }
+    try {
+      const { error } = await this.client.from("traffic_sources").insert({
+        date: today,
+        source: entry.source,
+        utm_medium: entry.utmMedium || null,
+        referrer: entry.referrer || null,
+        landing_path: entry.landingPath,
+        device_type: entry.deviceType
+      });
+      if (error) {
+        console.warn("[TrafficSourceService] Errore inserimento Supabase, fallback su log:", error.message);
+        this.logStructured(today, entry);
+      }
+    } catch (err) {
+      console.warn("[TrafficSourceService] Eccezione Supabase, fallback su log:", err?.message || err);
+      this.logStructured(today, entry);
+    }
+  }
+  async getTrafficSources(startDate, endDate) {
+    if (!this.client) {
+      return {
+        total: 0,
+        sources: [],
+        mediums: [],
+        referrers: [],
+        landingPaths: [],
+        devices: []
+      };
+    }
+    try {
+      const pageSize = 1e3;
+      const maxPages = 50;
+      const allRows = [];
+      for (let page = 0; page < maxPages; page++) {
+        const from = page * pageSize;
+        const { data, error } = await this.client.from("traffic_sources").select("source, utm_medium, referrer, landing_path, device_type, date").gte("date", startDate).lte("date", endDate).order("date", { ascending: false }).range(from, from + pageSize - 1);
+        if (error) {
+          console.warn("[TrafficSourceService] Errore lettura traffic_sources:", error.message);
+          break;
+        }
+        const batch = data || [];
+        allRows.push(...batch);
+        if (batch.length < pageSize) break;
+      }
+      const sourceMap = /* @__PURE__ */ new Map();
+      const mediumMap = /* @__PURE__ */ new Map();
+      const referrerMap = /* @__PURE__ */ new Map();
+      const landingMap = /* @__PURE__ */ new Map();
+      const deviceMap = /* @__PURE__ */ new Map();
+      for (const row of allRows) {
+        const s = (row.source || "direct").trim().toLowerCase();
+        sourceMap.set(s, (sourceMap.get(s) || 0) + 1);
+        let m = (row.utm_medium || "").trim().toLowerCase();
+        if (!m) {
+          if (s === "direct") m = "direct";
+          else if (["google", "bing", "yahoo", "duckduckgo", "ecosia", "yandex"].includes(s)) m = "organic";
+          else if (["facebook", "instagram", "twitter", "t.co", "linkedin", "tiktok", "youtube"].includes(s)) m = "social";
+          else if (["whatsapp", "telegram"].includes(s)) m = "messaging";
+          else m = "referral";
+        }
+        mediumMap.set(m, (mediumMap.get(m) || 0) + 1);
+        const ref = (row.referrer || "").trim();
+        const refLabel = ref || "(diretto / nessuno)";
+        referrerMap.set(refLabel, (referrerMap.get(refLabel) || 0) + 1);
+        const lp = (row.landing_path || "/").trim();
+        landingMap.set(lp, (landingMap.get(lp) || 0) + 1);
+        const dev = (row.device_type || "desktop").trim().toLowerCase();
+        deviceMap.set(dev, (deviceMap.get(dev) || 0) + 1);
+      }
+      const toSorted = (map, limit = 20) => Array.from(map.entries()).map(([target, count]) => ({ target, count })).sort((a, b) => b.count - a.count).slice(0, limit);
+      return {
+        total: allRows.length,
+        sources: toSorted(sourceMap),
+        mediums: toSorted(mediumMap),
+        referrers: toSorted(referrerMap),
+        landingPaths: toSorted(landingMap),
+        devices: toSorted(deviceMap)
+      };
+    } catch (err) {
+      console.warn("[TrafficSourceService] Eccezione lettura traffic_sources:", err?.message || err);
+      return {
+        total: 0,
+        sources: [],
+        mediums: [],
+        referrers: [],
+        landingPaths: [],
+        devices: []
+      };
+    }
+  }
+};
+var trafficSourceService = new TrafficSourceService();
+
+// server/services/analyticsService.ts
+dotenv3.config();
+var MAX_TYPE_LEN = 32;
+var MAX_TARGET_LEN = 200;
+var ANALYTICS_START_DATE = "2026-11-04";
+var BASELINE_VISITORS_BY_DATE = {
+  "2026-11-04": 49,
+  "2026-11-05": 75,
+  "2026-11-06": 64,
+  "2026-11-07": 101,
+  "2026-11-08": 192,
+  "2026-11-09": 165,
+  "2026-11-10": 95
+};
+var BASELINE_PAGES_BY_DATE = {
+  "2026-11-04": 148,
+  "2026-11-05": 365,
+  "2026-11-06": 248,
+  "2026-11-07": 419,
+  "2026-11-08": 835,
+  "2026-11-09": 750,
+  "2026-11-10": 353
+};
+var BASELINE_NOV11_PAGES_OFFSET = 154;
+function getUtcDateString(offsetDays = 0) {
+  const d = /* @__PURE__ */ new Date();
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + offsetDays);
+  return d.toISOString().slice(0, 10);
+}
+function enumerateUtcDates(startDate, endDate) {
+  const dates = [];
+  const cursor = /* @__PURE__ */ new Date(`${startDate}T00:00:00Z`);
+  const end = /* @__PURE__ */ new Date(`${endDate}T00:00:00Z`);
+  if (Number.isNaN(cursor.getTime()) || Number.isNaN(end.getTime()) || cursor > end) {
+    return [endDate];
+  }
+  while (cursor <= end) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+function sanitizeMetricValue(value, maxLen) {
+  if (typeof value !== "string") return "";
+  return value.replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim().slice(0, maxLen);
+}
+function normalizeAnalyticsPagePath(rawPath) {
+  const clean = (rawPath || "/").split("?")[0].split("#")[0].trim();
+  if (!clean || clean === "/") return "/";
+  const collapsed = clean.replace(/\/{2,}/g, "/");
+  return (collapsed.length > 1 && collapsed.endsWith("/") ? collapsed.slice(0, -1) : collapsed).slice(
+    0,
+    MAX_TARGET_LEN
+  );
+}
+var AnalyticsService = class {
+  supabase = null;
+  // Fallback in-memory solo per ambiente locale privo di credenziali Supabase
+  memoryFallback = /* @__PURE__ */ new Map();
+  memoryVisitors = /* @__PURE__ */ new Set();
+  ephemeralVisitorSalt = crypto.randomBytes(32).toString("hex");
+  constructor() {
+    this.initClient();
+  }
+  initClient() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (url && key) {
+      try {
+        this.supabase = createClient4(url, key, {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false
+          }
+        });
+        console.log("\u2705 [AnalyticsService] Supabase connesso.");
+      } catch (err) {
+        console.error("\u274C [AnalyticsService] Errore inizializzazione Supabase:", err);
+        this.supabase = null;
+      }
+    } else {
+      console.warn("\u26A0\uFE0F [AnalyticsService] Credenziali Supabase mancanti: fallback in memoria locale.");
+    }
+  }
+  isConfigured() {
+    return this.supabase !== null;
+  }
+  incrementMemoryFallback(type, target) {
+    const date = getUtcDateString(0);
+    const key = `${date}|${type}|${target}`;
+    const existing = this.memoryFallback.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      if (this.memoryFallback.size >= 500) {
+        const oldest = this.memoryFallback.keys().next().value;
+        if (oldest !== void 0) this.memoryFallback.delete(oldest);
+      }
+      this.memoryFallback.set(key, { date, type, target, count: 1 });
+    }
+  }
+  /**
+   * Chiama la RPC Postgres `increment_metric(p_type, p_target)` senza mai lanciare eccezioni bloccanti.
+   */
+  async incrementMetric(type, target) {
+    const cleanType = sanitizeMetricValue(type, MAX_TYPE_LEN);
+    const cleanTarget = sanitizeMetricValue(target, MAX_TARGET_LEN);
+    if (!cleanType || !cleanTarget) return;
+    if (!this.supabase) {
+      this.incrementMemoryFallback(cleanType, cleanTarget);
+      return;
+    }
+    try {
+      const { error } = await this.supabase.rpc("increment_metric", {
+        p_type: cleanType,
+        p_target: cleanTarget
+      });
+      if (error) {
+        console.warn(`[AnalyticsService] Errore RPC increment_metric (${cleanType}, ${cleanTarget}):`, error.message);
+      }
+    } catch (err) {
+      console.warn("[AnalyticsService] Eccezione RPC increment_metric:", err?.message || err);
+    }
+  }
+  /**
+   * Calcola un hash HMAC giornaliero anonimo e irreversibile per contare i visitatori unici
+   * senza salvare IP né usare cookie (il salt ruota ogni giorno UTC).
+   */
+  computeDailyVisitorHash(ip, userAgent) {
+    const today = getUtcDateString(0);
+    const baseSalt = process.env.ANALYTICS_SALT || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.CRON_SECRET || this.ephemeralVisitorSalt;
+    return crypto.createHmac("sha256", `${baseSalt}:${today}`).update(`${ip}|${userAgent}`, "utf8").digest("hex").slice(0, 32);
+  }
+  /**
+   * Registra un visitatore unico giornaliero tramite RPC Postgres `track_daily_visitor`.
+   */
+  async trackDailyVisitor(visitorHash) {
+    const cleanHash = sanitizeMetricValue(visitorHash, 64);
+    if (!cleanHash) return;
+    const today = getUtcDateString(0);
+    const dedupKey = `${today}|${cleanHash}`;
+    if (this.memoryVisitors.has(dedupKey)) {
+      return;
+    }
+    if (this.memoryVisitors.size >= 5e3) {
+      this.memoryVisitors.clear();
+    } else {
+      for (const k of this.memoryVisitors) {
+        if (!k.startsWith(`${today}|`)) this.memoryVisitors.delete(k);
+      }
+    }
+    if (!this.supabase) {
+      this.memoryVisitors.add(dedupKey);
+      this.incrementMemoryFallback("visitor", "unique");
+      return;
+    }
+    try {
+      const { error } = await this.supabase.rpc("track_daily_visitor", {
+        p_visitor_hash: cleanHash
+      });
+      if (error) {
+        console.warn("[AnalyticsService] Errore RPC track_daily_visitor:", error.message);
+      } else {
+        this.memoryVisitors.add(dedupKey);
+      }
+    } catch (err) {
+      console.warn("[AnalyticsService] Eccezione RPC track_daily_visitor:", err?.message || err);
+    }
+  }
+  /**
+   * Registra le dimensioni del visitatore (paese, dispositivo, OS, browser, modalità PWA)
+   * tramite RPC Postgres `track_visitor_dimensions`.
+   *
+   * La RPC conta le dimensioni una sola volta per visitatore/giorno, così i totali
+   * restano coerenti con il KPI dei visitatori unici. Se la migrazione SQL non è
+   * ancora stata applicata la chiamata fallisce in modo silenzioso (best effort).
+   */
+  async trackVisitorDimensions(visitorHash, dimensions) {
+    const cleanHash = sanitizeMetricValue(visitorHash, 64);
+    if (!cleanHash) return;
+    const clean = {
+      country: sanitizeMetricValue(dimensions.country ?? "", 32),
+      device: sanitizeMetricValue(dimensions.device ?? "", 32),
+      os: sanitizeMetricValue(dimensions.os ?? "", 32),
+      browser: sanitizeMetricValue(dimensions.browser ?? "", 32),
+      mode: sanitizeMetricValue(dimensions.mode ?? "", 32)
+    };
+    if (!clean.country && !clean.device && !clean.os && !clean.browser && !clean.mode) {
+      return;
+    }
+    if (!this.supabase) {
+      if (clean.country) this.incrementMemoryFallback("country", clean.country);
+      if (clean.device) this.incrementMemoryFallback("device", clean.device);
+      if (clean.os) this.incrementMemoryFallback("os", clean.os);
+      if (clean.browser) this.incrementMemoryFallback("browser", clean.browser);
+      if (clean.mode) this.incrementMemoryFallback("mode", clean.mode);
+      return;
+    }
+    try {
+      const { error } = await this.supabase.rpc("track_visitor_dimensions", {
+        p_visitor_hash: cleanHash,
+        p_country: clean.country || null,
+        p_device: clean.device || null,
+        p_os: clean.os || null,
+        p_browser: clean.browser || null,
+        p_mode: clean.mode || null
+      });
+      if (error) {
+        if (error.code === "42883" || error.code === "PGRST202" || /does not exist|schema cache|find the function/i.test(error.message)) {
+          console.warn(
+            "[AnalyticsService] RPC track_visitor_dimensions non disponibile: esegui supabase/analytics_dimensions.sql per abilitare paese/dispositivo/OS/browser/PWA."
+          );
+        } else {
+          console.warn("[AnalyticsService] Errore RPC track_visitor_dimensions:", error.message);
+        }
+      }
+    } catch (err) {
+      console.warn("[AnalyticsService] Eccezione RPC track_visitor_dimensions:", err?.message || err);
+    }
+  }
+  /**
+   * Registra un click (o azione UI) e, se presente lo step di provenienza `from`,
+   * incrementa anche il relativo arco di flusso `from -> target`.
+   */
+  async recordClick(target, from, metricType = "click") {
+    const cleanTarget = sanitizeMetricValue(target, MAX_TARGET_LEN);
+    if (!cleanTarget) return;
+    const cleanFrom = sanitizeMetricValue(from ?? "", 90);
+    const tasks = [this.incrementMetric(metricType, cleanTarget)];
+    if (cleanFrom && cleanFrom !== cleanTarget) {
+      const flowTarget = `${cleanFrom} -> ${cleanTarget}`.slice(0, MAX_TARGET_LEN);
+      tasks.push(this.incrementMetric("flow", flowTarget));
+    }
+    await Promise.all(tasks);
+  }
+  /**
+   * Legge tutte le righe dell'intervallo paginando le risposte di Supabase.
+   * Senza paginazione PostgREST restituisce al massimo 1000 righe per richiesta,
+   * troncando i giorni più recenti dell'intervallo.
+   */
+  async fetchAllDailyRows(startDate, endDate) {
+    if (!this.supabase) return [];
+    const pageSize = 1e3;
+    const maxPages = 200;
+    const allRows = [];
+    for (let page = 0; page < maxPages; page += 1) {
+      const from = page * pageSize;
+      const { data, error } = await this.supabase.from("daily_analytics").select("date, type, target, count").gte("date", startDate).lte("date", endDate).order("date", { ascending: true }).order("type", { ascending: true }).order("target", { ascending: true }).range(from, from + pageSize - 1);
+      if (error) {
+        throw new Error(`Lettura daily_analytics fallita: ${error.message}`);
+      }
+      const batch = data || [];
+      allRows.push(...batch);
+      if (batch.length < pageSize) break;
+    }
+    return allRows;
+  }
+  /**
+   * Restituisce i dati aggregati degli ultimi N giorni (default 30, supporta 7 o 30)
+   * inclusi grafici giornalieri, top pagine, top click e flusso di navigazione utenti.
+   */
+  async getAnalytics(requestedDays = 30) {
+    const rangeDays = requestedDays <= 7 ? 7 : 30;
+    const endDate = getUtcDateString(0);
+    const rawStartDate = getUtcDateString(-(rangeDays - 1));
+    const clampedStartDate = rawStartDate < ANALYTICS_START_DATE ? ANALYTICS_START_DATE : rawStartDate;
+    const startDate = clampedStartDate > endDate ? endDate : clampedStartDate;
+    let rows = [];
+    const trafficSourcesPromise = trafficSourceService.getTrafficSources(startDate, endDate);
+    if (this.supabase) {
+      rows = await this.fetchAllDailyRows(startDate, endDate);
+    } else {
+      rows = Array.from(this.memoryFallback.values()).filter(
+        (r) => r.date >= startDate && r.date <= endDate
+      );
+    }
+    const trafficSources = await trafficSourcesPromise;
+    const dailyMap = /* @__PURE__ */ new Map();
+    for (const dateStr of enumerateUtcDates(startDate, endDate)) {
+      dailyMap.set(dateStr, { pages: 0, visitors: 0, clicks: 0 });
+    }
+    const pageCounts = /* @__PURE__ */ new Map();
+    const clickCounts = /* @__PURE__ */ new Map();
+    const flowCounts = /* @__PURE__ */ new Map();
+    const countryCounts = /* @__PURE__ */ new Map();
+    const deviceCounts = /* @__PURE__ */ new Map();
+    const osCounts = /* @__PURE__ */ new Map();
+    const browserCounts = /* @__PURE__ */ new Map();
+    const modeCounts = /* @__PURE__ */ new Map();
+    let totalPages = 0;
+    let totalVisitors = 0;
+    let totalClicks = 0;
+    let totalFlows = 0;
+    for (const row of rows) {
+      const count = Number(row.count) || 0;
+      if (count <= 0) continue;
+      const dayBucket = dailyMap.get(row.date);
+      if (row.type === "page") {
+        totalPages += count;
+        if (dayBucket) dayBucket.pages += count;
+        pageCounts.set(row.target, (pageCounts.get(row.target) || 0) + count);
+      } else if (row.type === "visitor") {
+        totalVisitors += count;
+        if (dayBucket) dayBucket.visitors += count;
+      } else if (row.type === "click") {
+        totalClicks += count;
+        if (dayBucket) dayBucket.clicks += count;
+        clickCounts.set(row.target, (clickCounts.get(row.target) || 0) + count);
+      } else if (row.type === "flow") {
+        totalFlows += count;
+        flowCounts.set(row.target, (flowCounts.get(row.target) || 0) + count);
+      } else if (row.type === "country") {
+        countryCounts.set(row.target, (countryCounts.get(row.target) || 0) + count);
+      } else if (row.type === "device") {
+        deviceCounts.set(row.target, (deviceCounts.get(row.target) || 0) + count);
+      } else if (row.type === "os") {
+        osCounts.set(row.target, (osCounts.get(row.target) || 0) + count);
+      } else if (row.type === "browser") {
+        browserCounts.set(row.target, (browserCounts.get(row.target) || 0) + count);
+      } else if (row.type === "mode") {
+        modeCounts.set(row.target, (modeCounts.get(row.target) || 0) + count);
+      }
+    }
+    for (const [dateStr, dayBucket] of dailyMap.entries()) {
+      const baselineVisitors = BASELINE_VISITORS_BY_DATE[dateStr];
+      if (baselineVisitors !== void 0 && dayBucket.visitors < baselineVisitors) {
+        totalVisitors += baselineVisitors - dayBucket.visitors;
+        dayBucket.visitors = baselineVisitors;
+      }
+      const baselinePages = BASELINE_PAGES_BY_DATE[dateStr];
+      if (baselinePages !== void 0 && dayBucket.pages < baselinePages) {
+        totalPages += baselinePages - dayBucket.pages;
+        dayBucket.pages = baselinePages;
+      } else if (dateStr === "2026-11-11") {
+        dayBucket.pages += BASELINE_NOV11_PAGES_OFFSET;
+        totalPages += BASELINE_NOV11_PAGES_OFFSET;
+      }
+    }
+    const dailySeries = Array.from(dailyMap.entries()).map(([date, val]) => ({
+      date,
+      pages: val.pages,
+      visitors: val.visitors,
+      clicks: val.clicks
+    }));
+    const actualDays = Math.max(dailySeries.length, 1);
+    let peakDay = null;
+    for (const pt of dailySeries) {
+      const total = pt.visitors + pt.pages + pt.clicks;
+      if (total > 0 && (!peakDay || total > peakDay.total)) {
+        peakDay = { date: pt.date, total };
+      }
+    }
+    const toSortedTop = (map, limit) => Array.from(map.entries()).map(([target, count]) => ({ target, count })).sort((a, b) => b.count - a.count).slice(0, limit);
+    const topPages = toSortedTop(pageCounts, 15);
+    const topClicks = toSortedTop(clickCounts, 15);
+    const toDimensionItems = (map, limit = 15) => {
+      const sorted = Array.from(map.entries()).map(([target, count]) => ({ target, count })).sort((a, b) => b.count - a.count);
+      if (sorted.length <= limit) return sorted;
+      const head = sorted.slice(0, limit - 1);
+      const rest = sorted.slice(limit - 1).reduce((sum, item) => sum + item.count, 0);
+      return [...head, { target: "Altro", count: rest }];
+    };
+    const dimensions = {
+      countries: toDimensionItems(countryCounts, 20),
+      devices: toDimensionItems(deviceCounts),
+      operatingSystems: toDimensionItems(osCounts),
+      browsers: toDimensionItems(browserCounts),
+      modes: toDimensionItems(modeCounts),
+      trackedVisitors: Array.from(modeCounts.values()).reduce((sum, value) => sum + value, 0)
+    };
+    const rawFlowPairs = [];
+    const outgoingBySource = /* @__PURE__ */ new Map();
+    for (const [label, count] of flowCounts.entries()) {
+      const sepIdx = label.indexOf(" -> ");
+      if (sepIdx === -1) continue;
+      const from = label.slice(0, sepIdx).trim();
+      const to = label.slice(sepIdx + 4).trim();
+      if (!from || !to) continue;
+      rawFlowPairs.push({ from, to, label, count });
+      outgoingBySource.set(from, (outgoingBySource.get(from) || 0) + count);
+    }
+    rawFlowPairs.sort((a, b) => b.count - a.count);
+    const clickFlows = rawFlowPairs.slice(0, 30).map((edge) => {
+      const sourceTotal = outgoingBySource.get(edge.from) || edge.count;
+      return {
+        ...edge,
+        shareFromSource: Math.round(edge.count / sourceTotal * 100)
+      };
+    });
+    const graphEdges = clickFlows.slice(0, 18);
+    const nodeMap = /* @__PURE__ */ new Map();
+    for (const edge of graphEdges) {
+      if (!nodeMap.has(edge.from)) {
+        nodeMap.set(edge.from, { id: edge.from, totalIn: 0, totalOut: 0 });
+      }
+      if (!nodeMap.has(edge.to)) {
+        nodeMap.set(edge.to, { id: edge.to, totalIn: 0, totalOut: 0 });
+      }
+      nodeMap.get(edge.from).totalOut += edge.count;
+      nodeMap.get(edge.to).totalIn += edge.count;
+    }
+    const nodes = Array.from(nodeMap.values()).sort(
+      (a, b) => b.totalOut + b.totalIn - (a.totalOut + a.totalIn)
+    );
+    const topPaths = buildTopMultiStepPaths(rawFlowPairs.slice(0, 40));
+    return {
+      configured: this.isConfigured(),
+      rangeDays: actualDays,
+      startDate,
+      endDate,
+      totals: {
+        pages: totalPages,
+        visitors: totalVisitors,
+        clicks: totalClicks,
+        flows: totalFlows,
+        avgPagesPerDay: Math.round(totalPages / actualDays * 10) / 10,
+        avgVisitorsPerDay: Math.round(totalVisitors / actualDays * 10) / 10,
+        avgClicksPerDay: Math.round(totalClicks / actualDays * 10) / 10,
+        peakDay
+      },
+      dailySeries,
+      topPages,
+      topClicks,
+      dimensions,
+      clickFlows,
+      flowGraph: {
+        nodes,
+        edges: graphEdges
+      },
+      topPaths,
+      trafficSources
+    };
+  }
+};
+function buildTopMultiStepPaths(edges) {
+  if (edges.length === 0) return [];
+  const adj = /* @__PURE__ */ new Map();
+  for (const e of edges) {
+    if (!adj.has(e.from)) adj.set(e.from, []);
+    adj.get(e.from).push({ to: e.to, count: e.count });
+  }
+  for (const list of adj.values()) {
+    list.sort((a, b) => b.count - a.count);
+  }
+  const seenLabels = /* @__PURE__ */ new Set();
+  const journeys = [];
+  for (const seed of edges.slice(0, 15)) {
+    const steps = [seed.from, seed.to];
+    let minCount = seed.count;
+    let current = seed.to;
+    for (let depth = 0; depth < 2; depth++) {
+      const nextCandidates = (adj.get(current) || []).filter((n) => !steps.includes(n.to));
+      if (nextCandidates.length === 0) break;
+      const bestNext = nextCandidates[0];
+      steps.push(bestNext.to);
+      minCount = Math.min(minCount, bestNext.count);
+      current = bestNext.to;
+    }
+    const label = steps.join(" \u2192 ");
+    if (steps.length >= 2 && !seenLabels.has(label)) {
+      seenLabels.add(label);
+      journeys.push({
+        steps,
+        label,
+        estimatedCount: minCount
+      });
+    }
+  }
+  return journeys.sort((a, b) => b.estimatedCount - a.estimatedCount).slice(0, 10);
+}
+var analyticsService = new AnalyticsService();
+
+// server/services/userAgentParser.ts
+function detectDeviceType2(userAgent) {
+  const ua = userAgent || "";
+  if (!ua) return "Altro";
+  if (/SmartTV|SMART-TV|Tizen|Web0S|WebOS|AppleTV|HbbTV|NetCast/i.test(ua)) {
+    return "TV";
+  }
+  if (/iPad|Tablet|PlayBook|Silk|Kindle/i.test(ua)) {
+    return "Tablet";
+  }
+  if (/Android/i.test(ua) && !/Mobile/i.test(ua)) {
+    return "Tablet";
+  }
+  if (/Mobi|iPhone|iPod|Android.*Mobile|Windows Phone|IEMobile|Opera Mini/i.test(ua)) {
+    return "Mobile";
+  }
+  if (/Windows NT|Macintosh|X11|CrOS|Linux/i.test(ua)) {
+    return "Desktop";
+  }
+  return "Altro";
+}
+function detectOperatingSystem(userAgent) {
+  const ua = userAgent || "";
+  if (!ua) return "Altro";
+  if (/iPad/i.test(ua)) return "iPadOS";
+  if (/iPhone|iPod/i.test(ua)) return "iOS";
+  if (/Android/i.test(ua)) return "Android";
+  if (/Windows Phone/i.test(ua)) return "Altro";
+  if (/Windows NT|Windows/i.test(ua)) return "Windows";
+  if (/CrOS/i.test(ua)) return "ChromeOS";
+  if (/Macintosh|Mac OS X/i.test(ua)) return "macOS";
+  if (/Linux|X11/i.test(ua)) return "Linux";
+  return "Altro";
+}
+function detectBrowser(userAgent) {
+  const ua = userAgent || "";
+  if (!ua) return "Altro";
+  if (/(iPhone|iPad|iPod).*AppleWebKit(?!.*Safari)/i.test(ua)) return "Altro";
+  if (/; wv\)/i.test(ua) || /Version\/[\d.]+.*Chrome\/[\d.]+ Mobile Safari/i.test(ua)) {
+    return "Android WebView";
+  }
+  if (/EdgA?\//i.test(ua) || /Edge\//i.test(ua)) return "Edge";
+  if (/OPR\/|Opera Mini|Opera Mobi|\bOpera\b/i.test(ua)) return "Opera";
+  if (/SamsungBrowser\//i.test(ua)) return "Samsung Internet";
+  if (/FxiOS\/|Firefox\//i.test(ua)) return "Firefox";
+  if (/CriOS\/|Chrome\/|Chromium\//i.test(ua)) return "Chrome";
+  if (/Safari\//i.test(ua)) return "Safari";
+  return "Altro";
+}
+function parseUserAgent(userAgent) {
+  const ua = userAgent || "";
+  if (!ua) {
+    return { device: "Altro", os: "Altro", browser: "Altro" };
+  }
+  return {
+    device: detectDeviceType2(ua),
+    os: detectOperatingSystem(ua),
+    browser: detectBrowser(ua)
+  };
+}
+
+// server/routes/analyticsAdminHtml.ts
+function renderAnalyticsAdminHtml() {
+  return `<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Analytics | Portale Risultati FITeT</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #000000;
+      --surface: #0a0a0a;
+      --surface-hover: #141414;
+      --border: #242424;
+      --border-strong: #333333;
+      --text: #ededed;
+      --muted: #888888;
+      --blue: #0070f3;
+      --blue-soft: rgba(0, 112, 243, 0.18);
+      --green-bg: rgba(16, 185, 129, 0.15);
+      --green-text: #34d399;
+      --bar-fill: rgba(255, 255, 255, 0.065);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px 48px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .title-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .title-row h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .gdpr-badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--green-bg);
+      color: var(--green-text);
+      border: 1px solid rgba(52, 211, 153, 0.25);
+    }
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .range-btn {
+      background: var(--surface);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+    }
+    .range-btn:hover {
+      border-color: var(--border-strong);
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+    .range-btn.active {
+      background: #171717;
+      border-color: #444444;
+      color: #ffffff;
+    }
+    .warn-banner {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #fcd34d;
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.82rem;
+      display: none;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .main-card {
+      margin-bottom: 16px;
+    }
+    .metric-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border-bottom: 1px solid var(--border);
+    }
+    @media (max-width: 640px) {
+      .metric-tabs {
+        grid-template-columns: 1fr;
+      }
+    }
+    .metric-tab {
+      appearance: none;
+      background: transparent;
+      border: 0;
+      border-right: 1px solid var(--border);
+      padding: 16px 20px;
+      text-align: left;
+      cursor: pointer;
+      color: var(--text);
+      position: relative;
+      transition: background 0.15s ease;
+    }
+    .metric-tab:last-child {
+      border-right: 0;
+    }
+    @media (max-width: 640px) {
+      .metric-tab {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .metric-tab:last-child {
+        border-bottom: 0;
+      }
+    }
+    .metric-tab:hover {
+      background: rgba(255, 255, 255, 0.025);
+    }
+    .metric-tab.active {
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .metric-tab.active::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -1px;
+      height: 2px;
+      background: var(--metric-color, #ededed);
+    }
+    .metric-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .metric-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .metric-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--metric-color, #ededed);
+      opacity: 0.35;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .metric-tab.active .metric-dot {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+    .metric-tab.active .metric-label {
+      color: var(--text);
+    }
+    .metric-toggle-chip {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.02);
+      transition: all 0.15s ease;
+    }
+    .metric-tab.active .metric-toggle-chip {
+      border-color: var(--metric-color, #ededed);
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .chart-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px 18px 0;
+    }
+    .chart-toolbar-hint {
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+    .chart-toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .chart-tool-btn {
+      appearance: none;
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .chart-tool-btn:hover {
+      border-color: var(--border-strong);
+      color: var(--text);
+      background: var(--surface-hover);
+    }
+    .chart-tool-btn.active {
+      background: #171717;
+      border-color: #444444;
+      color: #ffffff;
+    }
+    .metric-value-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .metric-value {
+      font-size: 1.85rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric-pill {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 7px;
+      border-radius: 5px;
+      background: var(--green-bg);
+      color: var(--green-text);
+      font-variant-numeric: tabular-nums;
+    }
+    .chart-wrap {
+      padding: 20px 18px 14px;
+      height: 320px;
+      position: relative;
+    }
+    .tables-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    @media (max-width: 1080px) {
+      .tables-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 720px) {
+      .tables-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+    }
+    .panel-tabs {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      white-space: nowrap;
+    }
+    .panel-tab {
+      appearance: none;
+      background: transparent;
+      border: 0;
+      padding: 4px 0;
+      font-size: 0.86rem;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      position: relative;
+    }
+    .panel-tab:hover {
+      color: var(--text);
+    }
+    .panel-tab.active {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .panel-tab.active::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -13px;
+      height: 2px;
+      background: var(--text);
+    }
+    .panel-col-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .list-rows {
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+    .list-row {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      overflow: hidden;
+      min-height: 34px;
+      background: rgba(255, 255, 255, 0.015);
+    }
+    .list-row:hover {
+      background: rgba(255, 255, 255, 0.035);
+    }
+    .list-row-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      background: var(--bar-fill);
+      border-radius: 6px;
+      pointer-events: none;
+    }
+    .list-row-label {
+      position: relative;
+      z-index: 1;
+      font-size: 0.84rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .list-row-count {
+      position: relative;
+      z-index: 1;
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 36px 16px;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+    .dim-section {
+      margin-top: 22px;
+    }
+    .section-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .section-heading h2 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .section-hint {
+      font-size: 0.74rem;
+      color: var(--muted);
+    }
+    .dim-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .dim-grid .list-rows {
+      max-height: 300px;
+    }
+    @media (max-width: 1000px) {
+      .dim-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 640px) {
+      .dim-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="title-wrap">
+        <div class="title-row">
+          <h1>Analytics Portale FITeT</h1>
+          <span class="gdpr-badge">GDPR \u2022 Zero Cookie / Zero IP</span>
+        </div>
+        <p class="subtitle" id="periodLabel">Caricamento statistiche...</p>
+      </div>
+      <div class="controls">
+        <button class="range-btn active" data-days="30" id="btn30">Dal 4 Nov</button>
+        <button class="range-btn" data-days="7" id="btn7">Ultimi 7 giorni</button>
+        <button class="range-btn" id="btnRefresh">Aggiorna</button>
+      </div>
+    </div>
+
+    <div class="warn-banner" id="configWarn"></div>
+
+    <div class="card main-card">
+      <div class="metric-tabs">
+        <button class="metric-tab active" data-metric="visitors" id="tabVisitors" style="--metric-color: #0070f3;">
+          <div class="metric-label-row">
+            <div class="metric-label"><span class="metric-dot"></span>Visitatori</div>
+            <span class="metric-toggle-chip" data-chip="visitors">Attivo</span>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-value" id="kpiVisitors">-</span>
+            <span class="metric-pill" id="kpiVisitorsAvg">-</span>
+          </div>
+        </button>
+        <button class="metric-tab" data-metric="pages" id="tabPages" style="--metric-color: #38bdf8;">
+          <div class="metric-label-row">
+            <div class="metric-label"><span class="metric-dot"></span>Pagine Viste</div>
+            <span class="metric-toggle-chip" data-chip="pages">+ Sovrapponi</span>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-value" id="kpiPages">-</span>
+            <span class="metric-pill" id="kpiPagesAvg">-</span>
+          </div>
+        </button>
+        <button class="metric-tab" data-metric="clicks" id="tabClicks" style="--metric-color: #10b981;">
+          <div class="metric-label-row">
+            <div class="metric-label"><span class="metric-dot"></span>Click</div>
+            <span class="metric-toggle-chip" data-chip="clicks">+ Sovrapponi</span>
+          </div>
+          <div class="metric-value-row">
+            <span class="metric-value" id="kpiClicks">-</span>
+            <span class="metric-pill" id="kpiClicksAvg">-</span>
+          </div>
+        </button>
+      </div>
+      <div class="chart-toolbar">
+        <span class="chart-toolbar-hint">Clicca pi\xF9 schede per sovrapporre i grafici</span>
+        <div class="chart-toolbar-actions">
+          <button type="button" class="chart-tool-btn" id="btnOverlayAll">Sovrapposti (Tutti)</button>
+          <button type="button" class="chart-tool-btn" id="btnScaleMode" title="Adatta le scale verticali per confrontare gli andamenti relativi">Scala unica</button>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+
+    <div class="tables-grid">
+      <div class="card">
+        <div class="panel-header">
+          <div class="panel-tabs">
+            <button class="panel-tab active" type="button">Pagine</button>
+          </div>
+          <span class="panel-col-label">Visite</span>
+        </div>
+        <div class="list-rows" id="pagesList">
+          <div class="empty-state">Caricamento...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="panel-header">
+          <div class="panel-tabs">
+            <button class="panel-tab active" type="button" id="tabTrafficSource">Sorgente</button>
+            <button class="panel-tab" type="button" id="tabTrafficMedium">Canale</button>
+            <button class="panel-tab" type="button" id="tabTrafficReferrer">Referrer</button>
+            <button class="panel-tab" type="button" id="tabTrafficLanding">Landing</button>
+          </div>
+          <span class="panel-col-label" id="trafficColLabel">Accessi</span>
+        </div>
+        <div class="list-rows" id="trafficList">
+          <div class="empty-state">Caricamento...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="panel-header">
+          <div class="panel-tabs">
+            <button class="panel-tab active" type="button" data-right-tab="clicks" id="tabRightClicks">Click</button>
+            <button class="panel-tab" type="button" data-right-tab="flows" id="tabRightFlows">Flussi</button>
+          </div>
+          <span class="panel-col-label" id="rightColLabel">Click</span>
+        </div>
+        <div class="list-rows" id="rightList">
+          <div class="empty-state">Caricamento...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dim-section">
+      <div class="section-heading">
+        <h2>Utenti</h2>
+        <span class="section-hint" id="dimHint"></span>
+      </div>
+      <div class="dim-grid">
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Paese</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="countriesList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Dispositivo</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="devicesList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Sistema operativo</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="osList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Browser</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="browsersList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="panel-header">
+            <div class="panel-tabs">
+              <button class="panel-tab active" type="button">Modalit\xE0</button>
+            </div>
+            <span class="panel-col-label">Visitatori</span>
+          </div>
+          <div class="list-rows" id="modesList">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentDays = 30;
+    const ALL_METRICS = ['visitors', 'pages', 'clicks'];
+    let activeMetrics = new Set(['visitors']);
+    let separateScales = false;
+    let activeRightTab = 'clicks';
+    let activeTrafficTab = 'source';
+    let lastData = null;
+    let trendChart = null;
+
+    const IT_MONTHS = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+
+    const METRIC_CONFIGS = {
+      visitors: { label: 'Visitatori Unici', color: '#0070f3', fillTop: 'rgba(0, 112, 243, 0.22)', fillMultiTop: 'rgba(0, 112, 243, 0.12)' },
+      pages: { label: 'Pagine Viste', color: '#38bdf8', fillTop: 'rgba(56, 189, 248, 0.18)', fillMultiTop: 'rgba(56, 189, 248, 0.10)' },
+      clicks: { label: 'Click Utenti', color: '#10b981', fillTop: 'rgba(16, 185, 129, 0.18)', fillMultiTop: 'rgba(16, 185, 129, 0.10)' },
+    };
+
+    function syncMetricTabsUI() {
+      document.querySelectorAll('.metric-tab').forEach((el) => {
+        const key = el.dataset.metric;
+        const isActive = activeMetrics.has(key);
+        el.classList.toggle('active', isActive);
+        const chip = el.querySelector('[data-chip]');
+        if (chip) {
+          chip.textContent = isActive ? 'Attivo' : '+ Sovrapponi';
+        }
+      });
+      const allActive = ALL_METRICS.every((m) => activeMetrics.has(m));
+      const btnOverlayAll = document.getElementById('btnOverlayAll');
+      if (btnOverlayAll) {
+        btnOverlayAll.classList.toggle('active', allActive);
+        btnOverlayAll.textContent = allActive ? 'Tutti attivi' : 'Sovrapposti (Tutti)';
+      }
+      const btnScaleMode = document.getElementById('btnScaleMode');
+      if (btnScaleMode) {
+        btnScaleMode.classList.toggle('active', separateScales);
+        btnScaleMode.textContent = separateScales ? 'Scala adattata' : 'Scala unica';
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function formatShortDate(iso) {
+      const parts = String(iso || '').split('-');
+      if (parts.length !== 3) return iso;
+      const day = parseInt(parts[2], 10);
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const monthLabel = IT_MONTHS[monthIdx] || parts[1];
+      return day + ' ' + monthLabel;
+    }
+
+    function renderTrendChart() {
+      if (!lastData) return;
+      const series = lastData.dailySeries || [];
+      const canvas = document.getElementById('trendChart');
+      const ctx2d = canvas.getContext('2d');
+      if (trendChart) trendChart.destroy();
+
+      const selectedKeys = ALL_METRICS.filter((k) => activeMetrics.has(k));
+      const isMulti = selectedKeys.length > 1;
+      const lastIdx = series.length - 1;
+
+      const datasets = selectedKeys.map((key) => {
+        const cfg = METRIC_CONFIGS[key];
+        const gradient = ctx2d.createLinearGradient(0, 0, 0, 290);
+        gradient.addColorStop(0, isMulti ? cfg.fillMultiTop : cfg.fillTop);
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        const values = series.map((d) => Number(d[key]) || 0);
+
+        return {
+          label: cfg.label,
+          data: values,
+          yAxisID: separateScales && isMulti ? 'y_' + key : 'y',
+          borderColor: cfg.color,
+          backgroundColor: gradient,
+          fill: true,
+          tension: 0.25,
+          borderWidth: 2,
+          pointRadius: values.map((_, idx) => (idx === lastIdx ? 3.5 : 0)),
+          pointHoverRadius: 5,
+          pointBackgroundColor: cfg.color,
+          segment: {
+            borderDash: (segCtx) => (segCtx.p1DataIndex === lastIdx ? [5, 5] : undefined),
+          },
+        };
+      });
+
+      const scales = {
+        x: {
+          border: { display: false },
+          grid: { display: false },
+          ticks: {
+            color: '#737373',
+            maxRotation: 0,
+            autoSkip: true,
+            font: { size: 11 },
+          },
+        },
+      };
+
+      if (separateScales && isMulti) {
+        selectedKeys.forEach((key, idx) => {
+          scales['y_' + key] = {
+            type: 'linear',
+            display: idx === 0 || idx === selectedKeys.length - 1,
+            position: idx === 0 ? 'left' : 'right',
+            beginAtZero: true,
+            border: { display: false },
+            grid: {
+              drawOnChartArea: idx === 0,
+              color: 'rgba(255, 255, 255, 0.07)',
+            },
+            ticks: {
+              color: METRIC_CONFIGS[key].color,
+              precision: 0,
+              maxTicksLimit: 5,
+              font: { size: 11 },
+            },
+          };
+        });
+      } else {
+        scales.y = {
+          beginAtZero: true,
+          border: { display: false },
+          grid: { color: 'rgba(255, 255, 255, 0.07)' },
+          ticks: {
+            color: '#737373',
+            precision: 0,
+            maxTicksLimit: 5,
+            font: { size: 11 },
+          },
+        };
+      }
+
+      trendChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: series.map((d) => formatShortDate(d.date)),
+          datasets,
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#111111',
+              borderColor: '#333333',
+              borderWidth: 1,
+              titleColor: '#ededed',
+              bodyColor: '#ededed',
+              padding: 10,
+              displayColors: true,
+              usePointStyle: true,
+              boxWidth: 8,
+              boxHeight: 8,
+              callbacks: {
+                title: (items) => {
+                  const idx = items[0] ? items[0].dataIndex : -1;
+                  const iso = idx >= 0 && series[idx] ? series[idx].date : '';
+                  const label = formatShortDate(iso);
+                  return idx === lastIdx ? label + ' (in corso)' : label;
+                },
+              },
+            },
+          },
+          scales,
+        },
+      });
+    }
+
+    function renderBarList(containerId, items, emptyMessage) {
+      const container = document.getElementById(containerId);
+      if (!items || items.length === 0) {
+        container.innerHTML = '<div class="empty-state">' + escapeHtml(emptyMessage) + '</div>';
+        return;
+      }
+
+      const top = items.slice(0, 12);
+      const maxCount = Math.max(...top.map((i) => i.count), 1);
+
+      container.innerHTML = top.map((item) => {
+        const pct = Math.max(3, Math.round((item.count / maxCount) * 100));
+        return (
+          '<div class="list-row" title="' + escapeHtml(item.label) + '">' +
+            '<div class="list-row-fill" style="width:' + pct + '%"></div>' +
+            '<span class="list-row-label">' + escapeHtml(item.label) + '</span>' +
+            '<span class="list-row-count">' + Number(item.count).toLocaleString('it-IT') + '</span>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    function countryLabel(code) {
+      const cc = String(code || '').toUpperCase();
+      if (!/^[A-Z]{2}$/.test(cc)) return code || 'Sconosciuto';
+      let flag = '';
+      try {
+        flag = String.fromCodePoint.apply(null, cc.split('').map(function (c) { return 127397 + c.charCodeAt(0); }));
+      } catch (_) {
+        flag = '';
+      }
+      let name = cc;
+      try {
+        name = new Intl.DisplayNames(['it'], { type: 'region' }).of(cc) || cc;
+      } catch (_) {}
+      return (flag ? flag + ' ' : '') + name;
+    }
+
+    function renderDimensions(data) {
+      const dims = data.dimensions || {};
+      const toItems = function (list, labelFn) {
+        return (list || []).map(function (item) {
+          return { label: labelFn ? labelFn(item.target) : item.target, count: item.count };
+        });
+      };
+
+      renderBarList('countriesList', toItems(dims.countries, countryLabel), 'Nessun dato geografico nel periodo.');
+      renderBarList('devicesList', toItems(dims.devices), 'Nessun dato sui dispositivi nel periodo.');
+      renderBarList('osList', toItems(dims.operatingSystems), 'Nessun dato sui sistemi operativi nel periodo.');
+      renderBarList('browsersList', toItems(dims.browsers), 'Nessun dato sui browser nel periodo.');
+      renderBarList('modesList', toItems(dims.modes), 'Nessun dato sulla modalit\xE0 di utilizzo nel periodo.');
+
+      const hint = document.getElementById('dimHint');
+      const tracked = Number(dims.trackedVisitors || 0);
+      if (tracked <= 0) {
+        hint.textContent = 'Nessun visitatore profilato: applica supabase/analytics_dimensions.sql su Supabase per attivare queste metriche.';
+        return;
+      }
+      const totalVisitors = Number((data.totals && data.totals.visitors) || 0);
+      const pct = totalVisitors > 0 ? Math.min(100, Math.round((tracked / totalVisitors) * 100)) : 100;
+      let text = 'Base: ' + tracked.toLocaleString('it-IT') + ' visitatori profilati (' + pct + '% dei visitatori unici)';
+      if (!(dims.countries || []).length) {
+        text += ' \u2022 paese non disponibile (header di geolocalizzazione assente, es. in locale)';
+      }
+      hint.textContent = text;
+    }
+
+    function formatSourceLabel(src) {
+      const s = String(src || '').toLowerCase();
+      if (s === 'direct') return 'Diretto / Segnalibri';
+      if (s === 'google') return 'Google Search';
+      if (s === 'bing') return 'Bing Search';
+      if (s === 'yahoo') return 'Yahoo Search';
+      if (s === 'duckduckgo') return 'DuckDuckGo';
+      if (s === 'facebook') return 'Facebook';
+      if (s === 'instagram') return 'Instagram';
+      if (s === 'whatsapp') return 'WhatsApp';
+      if (s === 'telegram') return 'Telegram';
+      if (s === 't.co' || s === 'twitter' || s === 'x') return 'X (Twitter)';
+      if (s === 'chatgpt.com') return 'ChatGPT';
+      return src;
+    }
+
+    function formatMediumLabel(med) {
+      const m = String(med || '').toLowerCase();
+      if (m === 'direct') return 'Diretto';
+      if (m === 'organic') return 'Ricerca organica';
+      if (m === 'social') return 'Social media';
+      if (m === 'referral') return 'Referral / Link esterno';
+      if (m === 'messaging') return 'Messaggistica';
+      if (m === 'cpc' || m === 'ads') return 'Campagna (ADV)';
+      if (m === 'email') return 'Email';
+      return med;
+    }
+
+    function renderTrafficPanel() {
+      if (!lastData) return;
+      const ts = lastData.trafficSources || {};
+
+      document.getElementById('tabTrafficSource').classList.toggle('active', activeTrafficTab === 'source');
+      document.getElementById('tabTrafficMedium').classList.toggle('active', activeTrafficTab === 'medium');
+      document.getElementById('tabTrafficReferrer').classList.toggle('active', activeTrafficTab === 'referrer');
+      document.getElementById('tabTrafficLanding').classList.toggle('active', activeTrafficTab === 'landing');
+
+      let items = [];
+      let emptyMsg = 'Nessun dato registrato nel periodo.';
+
+      if (activeTrafficTab === 'source') {
+        items = (ts.sources || []).map((s) => ({ label: formatSourceLabel(s.target), count: s.count }));
+        emptyMsg = 'Nessuna sorgente registrata nel periodo.';
+      } else if (activeTrafficTab === 'medium') {
+        items = (ts.mediums || []).map((m) => ({ label: formatMediumLabel(m.target), count: m.count }));
+        emptyMsg = 'Nessun canale registrato nel periodo.';
+      } else if (activeTrafficTab === 'referrer') {
+        items = (ts.referrers || []).map((r) => ({ label: r.target, count: r.count }));
+        emptyMsg = 'Nessun referrer registrato nel periodo.';
+      } else if (activeTrafficTab === 'landing') {
+        items = (ts.landingPaths || []).map((l) => ({ label: l.target, count: l.count }));
+        emptyMsg = 'Nessuna landing page registrata nel periodo.';
+      }
+
+      renderBarList('trafficList', items, emptyMsg);
+    }
+
+    function renderRightPanel() {
+      if (!lastData) return;
+      document.getElementById('tabRightClicks').classList.toggle('active', activeRightTab === 'clicks');
+      document.getElementById('tabRightFlows').classList.toggle('active', activeRightTab === 'flows');
+      document.getElementById('rightColLabel').textContent = activeRightTab === 'clicks' ? 'Click' : 'Passaggi';
+
+      if (activeRightTab === 'clicks') {
+        const clickItems = (lastData.topClicks || []).map((c) => ({ label: c.target, count: c.count }));
+        renderBarList('rightList', clickItems, 'Nessun click registrato nel periodo.');
+      } else {
+        const flowItems = (lastData.clickFlows || []).map((f) => ({
+          label: f.from + ' \u2192 ' + f.to,
+          count: f.count,
+        }));
+        renderBarList('rightList', flowItems, 'Nessun flusso registrato nel periodo.');
+      }
+    }
+
+    function renderAll() {
+      if (!lastData) return;
+      const data = lastData;
+
+      document.getElementById('periodLabel').textContent =
+        formatShortDate(data.startDate) + ' \u2192 ' + formatShortDate(data.endDate) + ' (in corso) \u2022 ' + data.rangeDays + ' giorni';
+
+      document.getElementById('kpiVisitors').textContent = (data.totals.visitors || 0).toLocaleString('it-IT');
+      document.getElementById('kpiVisitorsAvg').textContent = (data.totals.avgVisitorsPerDay || 0) + '/g';
+      document.getElementById('kpiPages').textContent = (data.totals.pages || 0).toLocaleString('it-IT');
+      document.getElementById('kpiPagesAvg').textContent = (data.totals.avgPagesPerDay || 0) + '/g';
+      document.getElementById('kpiClicks').textContent = (data.totals.clicks || 0).toLocaleString('it-IT');
+      document.getElementById('kpiClicksAvg').textContent = (data.totals.avgClicksPerDay || 0) + '/g';
+
+      renderTrendChart();
+
+      const pageItems = (data.topPages || []).map((p) => ({ label: p.target, count: p.count }));
+      renderBarList('pagesList', pageItems, 'Nessuna pagina registrata nel periodo.');
+      renderTrafficPanel();
+      renderRightPanel();
+      renderDimensions(data);
+    }
+
+    async function loadAnalytics(days) {
+      currentDays = days;
+      document.getElementById('btn7').classList.toggle('active', days === 7);
+      document.getElementById('btn30').classList.toggle('active', days === 30);
+
+      try {
+        const res = await fetch('/api/analytics?days=' + days, { cache: 'no-store' });
+        if (!res.ok) {
+          let detail = 'HTTP ' + res.status;
+          try {
+            const errJson = await res.json();
+            if (errJson && errJson.error) detail += ' - ' + errJson.error;
+          } catch (_) {}
+          throw new Error(detail);
+        }
+        lastData = await res.json();
+
+        const warnEl = document.getElementById('configWarn');
+        if (!lastData.configured) {
+          warnEl.style.display = 'block';
+          warnEl.textContent = 'Modalit\xE0 fallback in memoria: configura SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY e applica supabase/daily_analytics.sql per la persistenza su Postgres.';
+        } else {
+          warnEl.style.display = 'none';
+        }
+
+        renderAll();
+      } catch (err) {
+        document.getElementById('periodLabel').textContent = 'Errore nel caricamento dei dati: ' + err.message;
+      }
+    }
+
+    document.querySelectorAll('.metric-tab').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.metric || 'visitors';
+        if (activeMetrics.has(key)) {
+          if (activeMetrics.size > 1) {
+            activeMetrics.delete(key);
+          }
+        } else {
+          activeMetrics.add(key);
+        }
+        syncMetricTabsUI();
+        renderTrendChart();
+      });
+    });
+
+    document.getElementById('btnOverlayAll').addEventListener('click', () => {
+      const allActive = ALL_METRICS.every((m) => activeMetrics.has(m));
+      if (allActive) {
+        activeMetrics = new Set(['visitors']);
+      } else {
+        activeMetrics = new Set(ALL_METRICS);
+      }
+      syncMetricTabsUI();
+      renderTrendChart();
+    });
+
+    document.getElementById('btnScaleMode').addEventListener('click', () => {
+      separateScales = !separateScales;
+      syncMetricTabsUI();
+      renderTrendChart();
+    });
+
+    syncMetricTabsUI();
+
+    document.getElementById('tabRightClicks').addEventListener('click', () => {
+      activeRightTab = 'clicks';
+      renderRightPanel();
+    });
+    document.getElementById('tabRightFlows').addEventListener('click', () => {
+      activeRightTab = 'flows';
+      renderRightPanel();
+    });
+
+    document.getElementById('tabTrafficSource').addEventListener('click', () => {
+      activeTrafficTab = 'source';
+      renderTrafficPanel();
+    });
+    document.getElementById('tabTrafficMedium').addEventListener('click', () => {
+      activeTrafficTab = 'medium';
+      renderTrafficPanel();
+    });
+    document.getElementById('tabTrafficReferrer').addEventListener('click', () => {
+      activeTrafficTab = 'referrer';
+      renderTrafficPanel();
+    });
+    document.getElementById('tabTrafficLanding').addEventListener('click', () => {
+      activeTrafficTab = 'landing';
+      renderTrafficPanel();
+    });
+
+    document.getElementById('btn7').addEventListener('click', () => loadAnalytics(7));
+    document.getElementById('btn30').addEventListener('click', () => loadAnalytics(30));
+    document.getElementById('btnRefresh').addEventListener('click', () => loadAnalytics(currentDays));
+
+    loadAnalytics(30);
+  </script>
+</body>
+</html>`;
+}
+
+// server/services/athleteResolver.ts
+import fs2 from "fs";
+import path3 from "path";
+import * as cheerio from "cheerio";
+
+// server/data/athlete_mapping.json
+var athlete_mapping_default = {
+  "DURANTE SAMUELE": "777889",
+  "BASILE DANILO": "775851",
+  "FILOGRANA GIUSEPPE": "745378",
+  "KAWA TOMASZ STANISLAN": "751159",
+  "D'ACRI LORENZO PIO": "788809",
+  "MANFREDI MASSIMO": "794230",
+  "DE CARLO GIOVANNI": "824195",
+  "RITACCO LUIGI": "764314",
+  "BASILE GIORGIO": "778244",
+  "BELMONTE ALDO": "724301",
+  "DURANTE EMILIO": "781684",
+  "SIRIMARCO GIOVANNI": "749394",
+  "BRUSCO CESARE": "816917",
+  "PIRAINO FRANCESCO MARIA": "611964",
+  "BUTERA SALVATORE": "829250",
+  "PALERMO DOMENICO": "751507",
+  "BASILE SARA": "778245",
+  "FEDERICO MARIO": "774477",
+  "MONTESANTO MATTEO": "797039",
+  "TARTARO RAFFAELE": "837324",
+  "BELSITO DANIEL": "808429",
+  "FORTE LUIGI": "818642",
+  "FERRARO GIUSEPPE": "732567",
+  "ORIGLIA PIERLUIGI": "745200",
+  "TOMA FERDINANDO": "718926",
+  "RITACCO SIMONE": "824725",
+  "GRANATO BORIS": "835128",
+  "BELSITO MASSIMO": "830623",
+  "GACCIONE CLAUDIA MARIA": "800248",
+  "MILICCHIO ENEA": "818653",
+  "BRANCA FRANCESCO": "829065",
+  "FERRARO LUIGI ANGELO": "824196",
+  "MONTESANTO MARIO": "797038",
+  "D'ANDREA MARCO": "817090",
+  "RENDE FEDELE": "743857",
+  "FILOGRANA G": "745378",
+  "CARRO SANDRO": "799213",
+  "RUBINO CLAUDIO": "600410",
+  "PEPINO GIANCARLO": "766358",
+  "DE SIMONE DARIO": "613242",
+  "PAPACCIO LUIGI": "766660",
+  "RUBINO C - PAPACCIO L": "803850",
+  "CARBONE PASQUALE": "767384",
+  "SERRAPICA IMMACOLATA AURORA": "742040",
+  "NUNZIATA ROCCO": "767650",
+  "SERRAPICA IMMACOLATA A - NUNZIATA R": "848382",
+  "MARZUILLO GIUSEPPE": "698681",
+  "AVERSA ANTONINO": "591957",
+  "MARESCA ALBERTO": "764636",
+  "CAFIERO GIUSEPPE": "591950",
+  "CAFIERO G - AVERSA A": "848781",
+  "MARZUILLO G - AVERSA A": "849788",
+  "CANDELMO MAURIZIO": "714427",
+  "TROPEANO PAOLO": "709842",
+  "TROPEANO FLAVIO": "816181",
+  "TROPEANO F - TROPEANO P": "849496",
+  "DI MARZO ROSARIO": "772773",
+  "BRUNASSO GIOVANNI BATTISTA": "789732",
+  "MASSA LUIGI": "731346",
+  "SCOGNAMIGLIO PAOLO": "834763",
+  "BORRIELLO FRANCESCO": "731672",
+  "DI MARZO R - SCOGNAMIGLIO P": "848780",
+  "MASSA L - DI MARZO R": "849452",
+  "MARTONE GIOVANNI": "732904",
+  "SAGLIOCCO RICCARDO": "772261",
+  "CRISPINO ANGELO": "592291",
+  "MERCIAI DARIO": "747111",
+  "MARTONE G - CRISPINO A": "848133",
+  "SAGLIOCCO R - MARTONE G": "849787",
+  "D'ANIELLO GABRIELE": "723906",
+  "ESPOSITO MAURIZIO": "738529",
+  "VERNILLO NICOLA": "613244",
+  "GALIERO GIOVANNI": "723475",
+  "VITTORIOSO ANTONIO": "758502",
+  "D'ANIELLO G - VERNILLO N": "848380",
+  "FAMA' DANIELE AGAZIO": "766354",
+  "FERRARO NICOLA": "735053",
+  "CUCCI PAOLO": "705292",
+  "CUCCI P - FERRARO N": "819144",
+  "SILVESTRO SALVATORE": "591644",
+  "CAVALLARI ADOLFO": "610207",
+  "FERRARO FRANCESCO": "612185",
+  "CAVALLARI A - SILVESTRO S": "832289",
+  "CUSATO ANTONIO FRANCO": "594596",
+  "LACAVA FABIO": "721818",
+  "SORGIOVANNI ILARIO": "722762",
+  "CUSATO ANTONIO F - LACAVA F": "849833",
+  "CUSATO ANTONIO F - SORGIOVANNI I": "847985",
+  "MESSINA FELICE": "767966",
+  "CATANIA PAOLO": "789842",
+  "SCUTICCHIO NICOLA": "762505",
+  "CATANIA P - MESSINA F": "847969",
+  "D'ACRI GIOVANNI PAOLO": "789834",
+  "FIORE STEVEN": "670392",
+  "MARCHESE CESARE": "788878",
+  "MALIZIA ELIO": "788877",
+  "MARCHESE C - D'ACRI G": "837482",
+  "RUFFA FRANCESCO": "713362",
+  "CAERO IVAN MARCO": "716345",
+  "PIETROPAOLO CHIARA": "800472",
+  "RUFFA F - CAERO IVAN M": "848392",
+  "AMATO SALVATORE": "613410",
+  "FALSONE FRANCESCO": "587496",
+  "MAIO MAURIZIO": "587461",
+  "MITTIGA MASSIMO": "594601",
+  "FALSONE F - AMATO S": "776087",
+  "MASTROIANNI ANTONIO GIOVANNI": "591896",
+  "LONGO ANDREA": "596592",
+  "MASTROIANNI ANDREA": "720577",
+  "SCRIVANO ROBERTO": "599045",
+  "MASTROIANNI A - MASTROIANNI A": "837472",
+  "KULCZYCKI SAMUEL SZYMON": "846245",
+  "MUTTI MATTEO": "696674",
+  "PERSSON JON SEBASTIAN": "824481",
+  "TREVISAN FRANCESCO": "734684",
+  "ABUSEV ARTUR": "758735",
+  "KOZUL DENI": "737436",
+  "GKIONIS PANAGIOTIS": "811390",
+  "TURRINI RAFAEL VINICIUS": "825439",
+  "BOULOUSSA MEHDI": "830399",
+  "GIOVANNETTI TOMMASO MARIA": "712557",
+  "OUAICHE STEPHANE LAURENT JOHANN": "846717",
+  "SODERLUND HAMPUS AKE HANNES": "775313",
+  "GACINA ANDREJ": "767245",
+  "CAPPUCCIO MARCO ANTONIO": "718997",
+  "PUPPO ANDREA": "706240",
+  "ROSSI CARLO": "706227",
+  "BERGLUND SIMON ALEXANDER": "846601",
+  "CHANDRA JEET": "810802",
+  "MANHANI JUNIOR HUMBERTO": "793667",
+  "SPELBUS ALIN-MARIAN": "772219",
+  "BOBOCICA MIHAI RAZVAN": "594848",
+  "DE LAS HERAS PLAZA RAFAEL": "796478",
+  "ANDRADE SELGAS MONTEIRO JOAO PEDRO": "758319",
+  "DYJAS JAKUB WIKTOR": "774939",
+  "PUCAR TOMISLAV": "774979",
+  "URSU VLADISLAV": "810352",
+  "PISTEJ LUBOMIR": "767279",
+  "PINTO DANIELE": "703038",
+  "STOYANOV NIAGOL IVANOV": "598079",
+  "KAWA TOMASZ S - FILOGRANA G": "849723",
+  "BELMONTE A - RITACCO L": "849777",
+  "DURANTE S - RITACCO L": "804976",
+  "D'ACRI LORENZO P - DURANTE E": "849637",
+  "BRUSCO C - CRISPO M": "849663",
+  "BASILE D - BASILE S": "837476",
+  "BASILE G - BASILE D": "837478",
+  "D'ANDREA M - FEDERICO M": "849725",
+  "BRANCA F - FERRARO LUIGI A": "849773",
+  "RITACCO S - GACCIONE CLAUDIA M": "849776",
+  "FORTE L - BELSITO D": "849636",
+  "MILICCHIO E - BELSITO M": "849610",
+  "PIRAINO FRANCESCO M - FERRARO G": "849719",
+  "PALERMO D - TOMA F": "849664",
+  "PRADOS I LOPEZ ANTONI": "825100",
+  "CALARCO EZIO": "599504",
+  "PALUMMO MARCO": "608519",
+  "SCERMINO UMBERTO": "604602",
+  "PALUMMO M - CALARCO E": "847655",
+  "COLELLA GIAMPIERO": "714424",
+  "NAPOLITANO FRANCESCO": "709401",
+  "D'AGOSTINO GAETANO": "598216",
+  "DI PALMA GIUSEPPE": "764385",
+  "NAPOLITANO F - COLELLA G": "790045",
+  "DI VIZIO ALFREDO": "708427",
+  "GIORGIONE GIOVANNI": "696065",
+  "DE LUCA DOMENICO": "775280",
+  "DE LUCA D - GIORGIONE G": "847594",
+  "MASSINELLI ANDREA": "591205",
+  "MINUCCI FABIO": "702436",
+  "FERRARA FABIO": "762723",
+  "FERRARA F - IAQUINANDI G": "847798",
+  "FERRAIOLI FRANCESCO": "732094",
+  "RUSSO CARMINE": "717746",
+  "GAMBARDELLA FRANCESCO": "742546",
+  "FERRAIOLI F - RUSSO C": "805336",
+  "D'ORSO BENEDETTO": "813846",
+  "SAVINO ANTONINO": "727274",
+  "SOLARO GIUSEPPE": "774976",
+  "DI DONNA RAFFAELE": "600951",
+  "D'ORSO B - DI DONNA R": "849467",
+  "DI DONNA R - SAVINO A": "848764",
+  "IOVINE LORENZO": "771477",
+  "CASO GIUSEPPE": "771479",
+  "D'AVINO RAFFAELE": "710707",
+  "IOVINE L - CASO G": "847653",
+  "DE SIMONE MARCO": "705523",
+  "POLLIO EMMANUEL": "721348",
+  "ACANFORA ERMANNO": "758503",
+  "PANE GIOVANBATTISTA": "591964",
+  "DE SIMONE M - PANE G": "848765",
+  "PANE G - POLLIO E": "849793",
+  "TRIPPINI ENRICO": "752031",
+  "LI HAOYAN": "730199",
+  "MATTIOLI CRISPINO": "598032",
+  "MATTIOLI C - TRIPPINI E": "847927",
+  "PROIETTI CRISTIANO": "758476",
+  "ROSINI ALEXHS": "766207",
+  "ROSINI PARIS": "766208",
+  "ROSINI MASSIMO": "601750",
+  "ROSINI P - ROSINI A": "782970",
+  "CERQUIGLINI MATTIA": "670651",
+  "GIGLIONI ELIA": "728747",
+  "QUAGLIARINI ANDREA": "633790",
+  "BASTIANELLI VALTER": "717983",
+  "CERQUIGLINI M - GIGLIONI E": "847497",
+  "BASTIANELLI V - GIGLIONI E": "762313",
+  "FLAYEH NISARE": "733252",
+  "YAQOUB PETER BASEM ANWER": "811652",
+  "RICCA CARMINE": "606048",
+  "RICCA C - YAQOUB PETER B": "847823",
+  "FLAYEH N - YAQOUB P": "838640",
+  "PROIETTI MICHELE": "737772",
+  "COSTANTINI GIACOMO": "758341",
+  "MARIOTTI JULIEN": "750653",
+  "SIMONE NICOLA": "789911",
+  "MARIOTTI J - PROIETTI M": "847926",
+  "CORSINI DANIELE": "733643",
+  "CORSINI CHRISTIAN": "732894",
+  "PALONI PIETRO": "770007",
+  "TETTI CHRISTIAN": "774118",
+  "TETTI C - PALONI P": "847534",
+  "BRACCIONI LORENZO": "710333",
+  "SCOTTONI STEFANO": "595421",
+  "TOSI COSIMO": "732930",
+  "BRACCIONI L - TOSI C": "847535",
+  "MONOTTI FEDERICO": "727386",
+  "PATTOIA ERICA": "767821",
+  "PIRAINO MIRIAM": "724201",
+  "MONOTTI F - PIRAINO M": "849754",
+  "PIRAINO M - PATTOIA E": "778694",
+  "MOSCONI VERONICA": "696325",
+  "MAGNAGHI ARIANNA": "697909",
+  "BUZZONI MATILDE": "758459",
+  "CICUTTINI CECILIA": "735118",
+  "CICUTTINI AURORA": "715627",
+  "MARINELLI AZZURRA": "734973",
+  "MESCIERI SOFIA": "700933",
+  "COLANTONI CHIARA": "609947",
+  "PINNA LAURA ALBA": "738009",
+  "CARAGEA CLAUDIA STEFANIA": "774690",
+  "PETKOVA ANITA": "811270",
+  "WANG XUELAN": "595290",
+  "MOR SONIA": "610704",
+  "IVANOVA SOFIA": "764824",
+  "MORETTI IRENE": "737770",
+  "FILIPPI GIORGIA": "736310",
+  "ATOYAN GOHAR": "588887",
+  "LIBRETTI AMELIA": "740075",
+  "PROKOP ANNA BOZENA": "701960",
+  "MERENDA MICHELA": "595284",
+  "GUILLOT RUIZ JOSE CARLOS": "832034",
+  "PALMIERI FRANCESCO": "713761",
+  "DI MARINO ALESSANDRO": "588926",
+  "DI MARINO A - GUILLOT RUIZ J": "847770",
+  "CAPPUCCIO COSTANTINO": "719546",
+  "VALLINO COSTASSA FEDERICO": "718434",
+  "URSUT HORIA STEFAN": "831088",
+  "URSUT HORIA S - CAPPUCCIO C": "847790",
+  "SANCHI FRANCISCO": "772233",
+  "BASSI ANDREA": "749360",
+  "GUALDI MATTEO": "712400",
+  "INCARDONA PAOLO": "712112",
+  "NINIOLA ADESHINA ISIAKA": "745080",
+  "GUALDI M - SANCHI F": "847691",
+  "BASSI A - NINIOLA ADESHINA I": "849829",
+  "BHANJA RONIT": "827162",
+  "MARTINALLI LORENZO": "710247",
+  "AL-NUAIMI AMEER THAMER MOHAMMED": "816099",
+  "POMA MARCO": "709934",
+  "POMA M - BHANJA R": "849812",
+  "MARTINALLI L - POMA M": "847693",
+  "MARTIN SANCHO IVAN": "815169",
+  "SIMON DAVIDE LORENZO": "738068",
+  "CALARCO GIUSEPPE": "728478",
+  "PROVOST DAMIEN ROLAND GREGORY": "810542",
+  "CALARCO G - SIMON DAVIDE L": "849830",
+  "PROVOST DAMIEN R - SIMON DAVIDE L": "848512",
+  "LILLO BORDAJANDI ALBERTO": "776874",
+  "GIORDANO ANTONIO": "726934",
+  "CIPRIANO JACOPO": "729983",
+  "LILLO BORDAJANDI A - GIORDANO A": "848511",
+  "JOSIP HUZJAK": "846778",
+  "CAPRI' GIOVANNI": "592064",
+  "MARAGIOGLIO FRANCESCO": "810237",
+  "JOSIP H - MARAGIOGLIO F": "847771",
+  "RUIZ RODRIGUEZ FRANCISCO MIGUEL": "810541",
+  "TAULER ALSINA NORBERT": "810739",
+  "MELLINO CRISTIAN": "729156",
+  "PELLEGRINI ANTONIO": "723056",
+  "PELLEGRINI A - RUIZ RODRIGUEZ F": "847791",
+  "SOLOVYOV PAVLO": "732634",
+  "IACO' GIUSEPPE": "765786",
+  "SAVANELLI CARMINE": "601326",
+  "DI GILIO LUIGI": "727694",
+  "SAVANELLI C - DI GILIO L": "741551",
+  "RUOPPO VITALE": "765127",
+  "CICCARELLI PAOLO": "721977",
+  "DI BISCEGLIE ANTONIO": "703722",
+  "DI MARO PASQUALE": "715246",
+  "CICCARELLI P - RUOPPO V": "848728",
+  "BARCA LUIGI": "599066",
+  "GRECO LUCIO": "744484",
+  "TERZI FABRIZIO": "731861",
+  "CICALESE ANTONIO": "772505",
+  "CICALESE A - BARCA L": "849530",
+  "CICALESE A - GRECO L": "848388",
+  "CARRABBA MARCO": "600929",
+  "BUONO ANTONIO": "610309",
+  "CANITANO ALESSIO": "760359",
+  "DE SIMONE JACOPO": "761169",
+  "CANITANO A - DE SIMONE J": "848770",
+  "BRIGNOLA GIUSEPPE": "592187",
+  "RUSSO MARCO": "769203",
+  "LOTTI GUGLIELMO": "811835",
+  "BRIGNOLA G - RUSSO M": "818295",
+  "FABOZZI GIOVANNI": "588905",
+  "MALLARDO DOMENICO": "726428",
+  "PALMA DANIELE": "734676",
+  "MALLARDO D - PALMA D": "848769",
+  "FALANGA BRUNO": "605914",
+  "MANFREVOLA GENNARO": "721220",
+  "PAPA FRANCESCO": "720637",
+  "ZOTTI LUIGI": "612618",
+  "BIFULCO SALVATORE": "752437",
+  "ZOTTI CRESCENZO": "612617",
+  "MANFREVOLA G - PAPA F": "848578",
+  "ZOTTI L - FALANGA B": "849529",
+  "LENTO FRANCESCO": "592297",
+  "ZAZZARO ALFREDO": "592314",
+  "BRUNO STEFANO": "748392",
+  "MEDOLLA CARMINE": "592315",
+  "ZAZZARO A - LENTO F": "837340",
+  "BRUNO S - LENTO F": "849818",
+  "COLETTA FERDINANDO": "610913",
+  "SCHIATTARELLA PIERLUIGI": "610929",
+  "MICILLO CRESCENZO": "610889",
+  "FIORETTI FRANCESCO": "774454",
+  "ISAIA GIUSEPPE": "766367",
+  "FIORETTI F - COLETTA F": "849501",
+  "ISAIA G - SCHIATTARELLA P": "848729",
+  "GAMBACORTA LAURA": "606600",
+  "SHMIGELSKAYA ANNA": "741002",
+  "CANFORA MASSIMO": "738096",
+  "CANFORA M - SHMIGELSKAYA A": "848730",
+  "GAMBACORTA L - SHMIGELSKAYA A": "838773",
+  "BALDINO ALESSANDRO": "701732",
+  "MINGIONE NICOLA": "714460",
+  "D'AMICO GAETANO": "713430",
+  "MAZZARELLA GIOVANNI": "705299",
+  "D'AMICO G - MINGIONE N": "750803",
+  "CIAMBRIELLO SIMONE": "763513",
+  "DE MAIO ANTONIO": "722774",
+  "IACULO GIOVANNI": "716146",
+  "DE SIMONE MATTIA": "742636",
+  "DE MAIO ALESSANDRO": "767469",
+  "DE MAIO A - DE SIMONE M": "848391",
+  "DE MAIO A - IACULO G": "849803",
+  "DE ROSA MICHELE": "588950",
+  "ALBANO ANDREA": "745458",
+  "ZANNELLA ANTONIO": "758533",
+  "DE DOMINICIS FRANCESCO": "697661",
+  "DE DOMINICIS F - ZANNELLA A": "849406",
+  "ALBANO A - ZANNELLA A": "848579",
+  "DE MAIO MARIO": "670299",
+  "AGGRESSORE CLAUDIO": "701925",
+  "NEMOLATO MATTEO": "769200",
+  "NEMOLATO ROSARIO": "599072",
+  "AGGRESSORE C - NEMOLATO R": "849405",
+  "NEMOLATO M - ANIELLO V": "847721",
+  "DI LAURO GIANLUCA": "727695",
+  "ARCOPINTO LUIGI": "713782",
+  "CERQUA CIRO": "732607",
+  "CERQUA C - ARCOPINTO L": "803701",
+  "DI LAURO G - CERQUA C": "818301",
+  "DI MARINO SIGISMONDO": "588963",
+  "CALVANESE ELIO": "774409",
+  "CINELLI MICHELE": "743786",
+  "CALVANESE E - DI MARINO S": "847722",
+  "DE ROSA ANDREA": "738442",
+  "BARONE FERDINANDO": "795417",
+  "SANTORIELLO ARIANNA": "731646",
+  "AURIEMMA SIMONE": "770339",
+  "LA CORTE GIOVAMBATTISTA": "713032",
+  "AURIEMMA S - LA CORTE G": "848416",
+  "RAGO ANGELO": "760722",
+  "ABATE GIOSUE'": "697934",
+  "DE BARTOLOMEIS CLAUDIO": "736486",
+  "ABATE MASSIMILIANO": "697930",
+  "ABATE M - PONTECORVO C": "848027",
+  "RAGO A - ABATE M": "849494",
+  "TREROTOLA MAURO": "706386",
+  "VIETRI FRANCESCO": "767335",
+  "VITALE SARA": "794175",
+  "TREROTOLA M - VITALE M": "848026",
+  "TURNER FRANCESCO": "600924",
+  "PAGLIARULO GIANMARCO": "794047",
+  "BIGLIARDO ROSARIO": "611083",
+  "BIGLIARDO R - TURNER F": "731602",
+  "COZZOLINO LUIGI": "731342",
+  "IOZZINO GIUSEPPE": "772887",
+  "VULTERINI ALFREDO": "728143",
+  "BALZANO L - IOZZINO G": "849448",
+  "ACCARINO TIZIANO": "810467",
+  "MONTAGNANI ANTONIO": "604600",
+  "SABATINO ESPEDITO": "612633",
+  "SCATTARETICO CORRADO": "655072",
+  "ACCARINO T - CHIANCONE F": "849302",
+  "ACCARINO T - SABATINO E": "848046",
+  "CARBONE RAFFAELE": "777730",
+  "COMPIERCHIO SIMONE": "720457",
+  "LANDI ANTONIO": "732096",
+  "SARNO MARIO": "709400",
+  "CARBONE R - COMPIERCHIO S": "849450",
+  "CARBONE R - SARNO M": "848418",
+  "SANTARSIERE ANTONIO": "706681",
+  "GIELLA GAETANO": "794583",
+  "CALICCHIO ANTONIO": "773467",
+  "GIELLA G - SANTARSIERE A": "848735",
+  "DELLA GLORIA FILOMENA": "709195",
+  "GRADINETTI ALESSANDRO": "774414",
+  "GRADINETTI FRANCESCO": "774415",
+  "PIROZZI CIRO": "815834",
+  "DELLA GLORIA F - ASTARITA FRANCESCO P": "849421",
+  "DELLA GLORIA F - PIROZZI C": "848427",
+  "BERRITTO RAFFAELE": "709931",
+  "DI LAURO GIUSEPPE": "763846",
+  "D'AMBROSIO GIOVANNI": "611172",
+  "DI LAURO G - BERRITTO R": "848748",
+  "LOMBARDI GIUSEPPE": "758628",
+  "TORTORELLA ANDREA": "811122",
+  "RIZZUTI ANDREA": "772562",
+  "BOVIENZO MICHAEL": "824912",
+  "DELLA MORTE BRUNO": "721047",
+  "DELLA MORTE B - TORTORELLA A": "848426",
+  "CILLO GIANFELICE": "709402",
+  "NAPODANO FABIO": "707878",
+  "SANTANIELLO MARTINO": "730631",
+  "RICCIARDI RAFFAELE": "598208",
+  "MUSMARRA PAOLO": "764340",
+  "RICCIARDI R - NAPODANO F": "849500",
+  "RICCIARDI R - MUSMARRA P": "848749",
+  "FRANCONIERO DANILO": "810968",
+  "LEPORE MASSIMO": "810481",
+  "PAPPALARDO SEBASTIANO": "774044",
+  "SATERIALE MARIACHIARA": "775309",
+  "PAPPALARDO S - LEPORE M": "847614",
+  "SAUTTO DANIELE": "823132",
+  "GERMINO NICOLA": "834265",
+  "BISOGNO VINCENZO": "587638",
+  "D'ACUNTO GIUSEPPE": "793461",
+  "D'ACUNTO G - BISOGNO V": "847612",
+  "PELLECCHIA SIMONE": "765732",
+  "MANGANIELLO RAIMONDO": "598218",
+  "ESPOSITO LA ROSSA RENATO": "791294",
+  "PETRILLO FERNANDO": "727484",
+  "RUSSO FRANCESCO": "767280",
+  "TAURISANO SILVIO": "716075",
+  "MANGANIELLO R - ESPOSITO LA R": "849498",
+  "MANGANIELLO R - PELLECCHIA S": "848736",
+  "CAIAZZO FRANCESCO MARIA": "703302",
+  "CASCONE RAFFAELE": "772332",
+  "CAFIERO ANDREA": "811488",
+  "FABIANI EUGENIO": "769638",
+  "CAIAZZO FRANCESCO M - CASCONE R": "848772",
+  "RINALDI AGOSTINO": "588957",
+  "GIACOBELLI GINEVRA": "719369",
+  "ALBANO GABRIELE": "741262",
+  "MIGLIACCIO LUIGI": "588956",
+  "ZANNELLA LUIGI": "765413",
+  "GIACOBELLI G - RINALDI A": "848367",
+  "RINALDI A - MIGLIACCIO L": "849410",
+  "MURANO SALVATORE": "772333",
+  "SPIEZIO MARCELLO": "810780",
+  "LO MORIELLO LUIGI": "610318",
+  "LUBRANO EDUARDO": "810779",
+  "LUBRANO E - MURANO S": "848771",
+  "CASERTANO VINCENZO": "723465",
+  "RUSSO UMBERTO": "824592",
+  "AULICINO GIOVANNI": "814823",
+  "RAGOZZINO MASSIMO": "631099",
+  "AULICINO G - CASERTANO V": "848394",
+  "AULICINO G - RUSSO U": "849820",
+  "MARINO GIANLUCA": "736489",
+  "CAPURRO FABIO": "708887",
+  "CIPOLLETTA GASPARE": "768366",
+  "DI BIASE GIULIO": "765220",
+  "NETTO EUGENIO": "765119",
+  "CAPURRO F - MARINO G": "848732",
+  "DI BIASE G - CAPURRO F": "849516",
+  "FARINA BRUNO": "600752",
+  "ARIENZO CARMINE": "613241",
+  "D'ONOFRIO EMANUELE": "713764",
+  "ARIENZO C - FARINA B": "849517",
+  "FARINA B - DI MAURO G": "716310",
+  "DE FRANCISCIS PASQUALE FRANCESCO": "613075",
+  "COMUNE ELIANA": "613411",
+  "GALLINA GAETANO": "592292",
+  "GRECO CARLOTTA": "772231",
+  "TARTAGLIONE ERNESTO": "701488",
+  "DE FRANCISCIS P - PIERNO A": "849558",
+  "GRECO C - COMUNE E": "848396",
+  "DI NAPOLI ERRICO": "772900",
+  "MIRAGLIA MARCELLO": "719094",
+  "DI NAPOLI ANTONIO": "772899",
+  "GIROTTO GAETANO": "820702",
+  "DI NAPOLI E - GIROTTO G": "848731",
+  "BORGHETTO CLAUDIO": "600404",
+  "BORGHETTO GIANPAOLO": "736923",
+  "VESCIO GAIA": "729103",
+  "MILANO VALENTINA": "729098",
+  "BORGHETTO C - BORGHETTO G": "849488",
+  "BORGHETTO C - MILANO V": "848766",
+  "ALBANESE RAFFAELE": "727691",
+  "GUARNIERI LUIGI": "723904",
+  "DI MEO SIMONA": "747661",
+  "ALBANESE R - GUARNIERI L": "735104",
+  "ANIELLO FABIO": "749299",
+  "CIMMINO SIMONA": "716226",
+  "DEL SANTO LUDOVICO": "764252",
+  "ANIELLO F - CIMMINO S": "849826",
+  "SILVESTRI FILIPPO": "600421",
+  "BALESTRIERI CLAUDIO": "727928",
+  "IACONO AGOSTINO": "723848",
+  "SILVESTRI F - BALESTRIERI C": "849607",
+  "DE SIMONE CASTRESE": "762748",
+  "SACCHETTI GIUSEPPE": "592197",
+  "ESPOSITO GIANPAOLO": "600923",
+  "DE SIMONE C - SACCHETTI G": "849487",
+  "VOLPE GENNARO": "796421",
+  "FABIANI FRANCESCO DANIELE": "810347",
+  "CORNO CARMINE": "774014",
+  "DI RUSSO VITTORIO": "796391",
+  "FABIANI FRANCESCO D - CORNO C": "848768",
+  "BOCCANFUSO ANTONIO": "778535",
+  "CRISCUOLO ANTONIO MARIA": "786088",
+  "CRISCUOLO LUIGI MARIA": "786089",
+  "CRISCUOLO ANTONIO M - BOCCANFUSO A": "849690",
+  "BENFORTE ANTONIO": "610341",
+  "CARRIERI VINCENZO": "599067",
+  "RUSSO PAOLO": "795319",
+  "BENFORTE A - CARRIERI V": "849609",
+  "CRISPO M": "605901",
+  "CUBONI EMANUELE": "736529",
+  "AGNELLO IVAN": "706212",
+  "TACCINI ROBERTO": "704074",
+  "RUSSO GIOVANNI": "814909",
+  "AGNELLO I - TACCINI R": "848642",
+  "BUSALACCHI GUGLIELMO": "727814",
+  "RINI NICOLO' MARIO": "696072",
+  "SCARDAMAGLIA GIUSEPPE": "810494",
+  "BUSALACCHI G - RINI N": "848867",
+  "RESTIVO DOMENICO": "724519",
+  "SIMONTE ANDREA": "761831",
+  "DATTOLO DANIELE": "759653",
+  "ROSSELLI GIOVANNI BATTISTA": "758079",
+  "TRAPOLINO PASQUALE": "846076",
+  "SIMONTE A - ROSSELLI GIOVANNI B": "781503",
+  "CACIOLI MARCO": "728448",
+  "MIDOLO ERASMO": "774380",
+  "FIUMARELLI STEFANO": "710903",
+  "BUCCA SAMUELE": "610868",
+  "CACIOLI M - MIDOLO E": "849900",
+  "BUCCA S - MIDOLO E": "848706",
+  "GANDOLFO FRANCESCO": "612204",
+  "SALADINO MICHELE": "743501",
+  "ARRIGO GIULIA": "764279",
+  "CINA' ANTONIO": "825527",
+  "ARRIGO G - GANDOLFO F": "848422",
+  "LUCCHESE SALVATORE": "774767",
+  "CARROCCIO BENEDETTO": "774764",
+  "LIGAMMARI ROSARIO": "764255",
+  "CARROCCIO B - LIGAMMARI R": "816390",
+  "CARROCCIO B - LUCCHESE S": "798264",
+  "GIACALONE ANDREA": "803755",
+  "BONAFEDE GABRIELE": "767615",
+  "DI GIROLAMO VINCENZA": "729514",
+  "QUINCI GINO": "764637",
+  "DI GIROLAMO V - GIACALONE A": "849899",
+  "QUINCI G - GIACALONE A": "820699",
+  "BARONE VITA": "758101",
+  "SCALABRINO ANTONINA DEBORAH": "758083",
+  "MILAZZO BENEDETTO": "743634",
+  "ALTESI MARIKA": "768189",
+  "D'ANTONI GABRIELE": "846844",
+  "LA LUCE SALVATORE LUCIANO": "736314",
+  "ALTESI M - MILAZZO B": "848641",
+  "GENTILE FRANCESCO": "612399",
+  "CAFISO VINCENZO": "743031",
+  "GRIMALDI ALESSIO GAETANO": "704797",
+  "CAFISO V - GENTILE F": "832522",
+  "GIANNETTO FRANCESCO": "601665",
+  "MARINO GAETANO": "711234",
+  "GIANNINO ANDREA": "710826",
+  "SPANO' ANGELO": "697488",
+  "GIANNETTO F - MARINO G": "848063",
+  "GIUFFRIDA ANTONINO": "699763",
+  "RUSSO GABRIELE": "698255",
+  "D'AMICO DANIELE": "710763",
+  "D'AMICO PIETRO": "696604",
+  "SPAMPINATO GESSICA": "719162",
+  "D'AMICO D - RUSSO G": "848669",
+  "GIARDINA MICHELE": "599331",
+  "INGEGNERI DIEGO": "707909",
+  "CIRRITO DAMIANO": "698448",
+  "CAMARDA FRANCESCO": "734678",
+  "GIARDINA M - INGEGNERI D": "848668",
+  "GIARDINA M - CAMARDA F": "849705",
+  "D'AMICO LUCA": "601664",
+  "GIORDANO VALERIO": "765296",
+  "D'ANTONIO FABRIZIO": "599251",
+  "MACRI' GIOVANNI": "772376",
+  "GIORDANO V - MACRI' G": "849215",
+  "D'AMICO L - GIORDANO V": "847590",
+  "RAGUSA DIEGO": "593249",
+  "CAMPIONE CARMELO": "592742",
+  "VALENTI GIANROSARIO": "718652",
+  "RAGUSA D - VALENTI G": "847589",
+  "BIANCO GABRIELE": "846187",
+  "AMATO GIUSEPPE": "606326",
+  "GRILLO CHRISTIAN": "762211",
+  "LO FARO GIULIANO": "776231",
+  "VENUTO MATILDE": "738824",
+  "AMATO G - BIANCO G": "848496",
+  "LO FARO G - GRILLO C": "815056",
+  "DI PIETRO ENRICO": "764692",
+  "SABATINO DOMENICO": "599328",
+  "CALABRESE ADRIANO": "765478",
+  "CALABRESE A - DI PIETRO E": "770422",
+  "PAVEL MAYA ANDREEA": "768518",
+  "PARMIGIANI LUDOVICA": "768136",
+  "THAI KIM LAN ELENA": "716869",
+  "BUSNARDO MILENA": "726000",
+  "NIKOLIC MARINA": "741853",
+  "SERCER INES": "598693",
+  "MACCALLI MILENA": "728748",
+  "PERCHINENNA VALENTINA": "719075",
+  "DEMONTE STEFANIA": "713327",
+  "MURAWSKA SANDRA": "846218",
+  "CAIANI ISOTTA": "726199",
+  "ARMANINI ELISA": "709835",
+  "SARTORI GINEVRA": "735754",
+  "BERNARDINELLO SUSANNA": "789690",
+  "YAVORIVSKA EVELINA": "759637",
+  "OVELAR JARA LUCERO ARAMI": "767129",
+  "FRANZOI SARA": "743327",
+  "LAVORATTI CARLOTTA": "739574",
+  "CAPUANO NICOLE": "763065",
+  "AVESANI FRANCESCA": "595275",
+  "GINI BEATRICE": "696097",
+  "SILVESTRI FRANCA": "633845",
+  "ABBASI MONJEZI AMIREZZA": "846496",
+  "GALVANO NICOLAS DANIEL": "811124",
+  "FANTONI MATTEO": "728594",
+  "TOMASI STEFANO": "596611",
+  "ABBASI MONJEZI A - FANTONI M": "847627",
+  "DURAN GIRALT MARC": "827167",
+  "PICIULIN GABRIELE": "707200",
+  "RAGNI LORENZO": "587923",
+  "DURAN GIRALT M - PICIULIN G": "849712",
+  "DURAN GIRALT M - RAGNI L": "849180",
+  "BELIK SIMON": "828281",
+  "PAVAN FEDERICO": "591339",
+  "MORO GIACOMO": "597344",
+  "PAVAN F - BELIK S": "848809",
+  "FELKEL GRZEGORZ ADAM": "846467",
+  "BACIOCCHI ALESSANDRO": "601698",
+  "MIRO' I LLORENTE MARC": "826666",
+  "LUCESOLI FRANCESCO": "590354",
+  "BACIOCCHI A - FELKEL GRZEGORZ A": "848808",
+  "BACIOCCHI A - MIRO' I L": "849802",
+  "VOVK PETROVSKI BRIN": "823196",
+  "SANCHI TOMAS": "772105",
+  "PAULINA ERIK": "735744",
+  "SANCHI T - VOVK PETROVSKI B": "847745",
+  "FELIPPI LUCCA VINCENZO": "825520",
+  "SPINICCHIA SIMONE": "600387",
+  "LOMBARDI ANDREA": "748809",
+  "CAPELLETTI CARLO": "669956",
+  "FELIPPI LUCCA V - SPINICCHIA S": "849713",
+  "LOMBARDI A - SPINICCHIA S": "848375",
+  "ALLEGRANZA GIACOMO": "725893",
+  "CAMPAGNA GIULIO": "747105",
+  "MERZLIKIN TARAS": "767250",
+  "ALLEGRANZA G - CAMPAGNA G": "847744",
+  "ALLEGRANZA G - MERZLIKIN T": "849727",
+  "RINIOTIS ANASTASIOS": "765607",
+  "GARELLO SIMONE": "728034",
+  "SERETTI DAMIANO": "594736",
+  "RINIOTIS A - SERETTI D": "849179",
+  "COSIMI GABRIELE": "824599",
+  "DE BERNARDO LUIGI": "737670",
+  "DI SARRO ROBERTO": "707622",
+  "COSIMI G - DE BERNARDO L": "847753",
+  "DI LISIO GIOVANNI": "731084",
+  "AMOROSO TIZIANO": "761870",
+  "PRIGIONIERO MATTEO": "834335",
+  "RUSCITTO MARINELLI JOSE' RAFAEL": "612548",
+  "DI LISIO G - AMOROSO T": "848411",
+  "DI LISIO G - RUSCITTO MARINELLI J": "731271",
+  "IANNETTA ARTURO": "589402",
+  "MANNA LEONARDO": "589405",
+  "MAURIELLO MASSIMO": "589445",
+  "PETRELLA FRANCESCO": "611869",
+  "IANNETTA A - PETRELLA F": "848743",
+  "DI CESARE EUGENIO": "723877",
+  "COSIMI BERNARDO": "594962",
+  "MINERVINI MAURO PASQUALINO": "805574",
+  "DI CESARE E - MINERVINI MAURO P": "847751",
+  "GIANNINI FRANCESCO": "600524",
+  "LANDOLFI POMPEI MARIO": "595050",
+  "ROSA MICHELE": "718234",
+  "GIANNINI F - ROSA M": "738146",
+  "TAMBURRI RICCARDO": "846665",
+  "CICCHINO VINCENZO": "721263",
+  "CIFELLI AMBRA": "828899",
+  "IARUSSI NICOLA": "831579",
+  "CICCHINO V - IARUSSI N": "848744",
+  "IARUSSI N - TAMBURRI R": "849561",
+  "MASTROGIUSEPPE NICOLO'": "751292",
+  "PRIGIONIERO DANIELE": "613388",
+  "RUSCITTO MARINELLI ADRIANA": "701082",
+  "CAPOCEFALO GIOVANNI": "827295",
+  "RUSCITTO MARINELLI A - PRIGIONIERO D": "849560",
+  "LORETO DARIO": "697946",
+  "BALDERI LORENZO": "710834",
+  "CANTELLA FILIPPO": "711731",
+  "ZOCCATELLI TOMMASO": "736787",
+  "VENDRAMIN FABRIZIO": "772550",
+  "FLAMINIO MATTEO": "824622",
+  "SARONNI DANIELE LUIGI": "747134",
+  "COLLI LEONARDO": "590702",
+  "SEGATTA MICHELE": "777712",
+  "ARLIA NICOLE": "725242",
+  "DRAGOMAN ANDREEA": "767319",
+  "STEFANOVA NIKOLETA": "594841",
+  "SZOCS BERNADETTE CYNTHIA": "767065",
+  "KRZYSIEK PAULINA ALEKSANDRA": "831562",
+  "KOLISH ANASTASIIA": "810643",
+  "TOFANT ANA": "741711",
+  "JOARDAR OISHIKI": "846602",
+  "CERRITELLI MARGHERITA": "732943",
+  "CLAPA ANDREEA TEODORA": "758270",
+  "MONFARDINI GAIA": "701714",
+  "VIVARELLI DEBORA": "597808",
+  "OPRANDI MELISSA": "749220",
+  "CIOBANU IRINA": "825113",
+  "RONCALLO VALENTINA": "711608",
+  "SIMON TEODORA": "810679",
+  "CRISCIONE NICOLETTA": "730274",
+  "MINURRI SOFIA": "735898",
+  "SEU FRANCESCA": "731341",
+  "CHASSELIN PAULINE CARINNE OLIVIA": "827817",
+  "PLAIAN TANIA MARIA": "765375",
+  "CARNOVALE MIRIAM BENEDETTA": "721848",
+  "FONTANA ROBERTO": "593082",
+  "MELONI SIRIO": "742767",
+  "CEREA GIACOMO": "655182",
+  "SIMI TOMMASO": "773696",
+  "AUGUSTINE EMMANUEL DAMILARE": "816711",
+  "BISI PAOLO": "587915",
+  "MALPASSI RICCARDO": "607455",
+  "INDINO GIULIA": "725608",
+  "PUGNO LEONARDO NAOYA": "774557",
+  "AUSTRIA GIANLUCA": "718453",
+  "SCHINELLA NOEMI": "822267",
+  "GALLINGANI GABRIELE": "746856",
+  "CASTALDO MARCO": "758326",
+  "ZILIANI LUCA": "587881",
+  "PASSARO MATTEO": "743676",
+  "LAZZARATO FRANCESCO": "759029",
+  "PIERPAOLI NICOLO'": "734717",
+  "RETTIGHIERI LORENZO": "760897",
+  "NITA PETRICA": "606234",
+  "FOGLIA MATTIA": "750141",
+  "MARRA ANGELA": "808985",
+  "CHIRULLI JOSED": "723058",
+  "DI CARLO VINCENZO": "731988",
+  "ZOLLINO SIMONE": "796056",
+  "GIOVANNINI NICCOLO'": "801279",
+  "FERRAIUOLO VINCENZO": "707671",
+  "IASI LUCA": "775420",
+  "PANUNZIO GABRIELE": "799170",
+  "TRINCHERA RICCARDO": "782799",
+  "MASTROIANNI MARIA GRAZIA": "591887",
+  "GREPPI MASSIMO": "587498",
+  "LIBERTO PIERPAOLO": "597746",
+  "OLIVA FRANCO ANTONIO": "734165",
+  "ZINGONE GIANFRANCO": "768335",
+  "OLIVA PASQUALE FLAVIO MARIA": "714854",
+  "MIRANDA GENNARO": "599494",
+  "VUKELAJ KLEVIN": "824525",
+  "PIGNATARO PIERO SALVATORE": "611591",
+  "DORONZO MICHELE": "847458",
+  "DI GIOIA WALTER": "824207",
+  "DE BARI MICHELE": "814704",
+  "LATERZA PASQUALE": "825374",
+  "SALLUSTIO DANIELE": "811503",
+  "ZUCARO MARIO": "714084",
+  "CORVELLI ANGELO": "750110",
+  "ROSSI DANIELE": "838404",
+  "BARANI ARIANNA": "711597",
+  "ENCEA MIHAELA-SUZANA": "727102",
+  "SAIU FRANCESCA": "588400",
+  "CHUNG RHEANN JACINTA": "846391",
+  "FRISONE STELLA": "719621",
+  "SERENO REGIS EMMA": "729517",
+  "DANIELE MANUELA": "610610",
+  "HAN VUKELJA XUE": "822286",
+  "JAR ISABELLA MARIA": "762651",
+  "DONETTI GINEVRA": "769688",
+  "CAVALLI GIULIA": "599043",
+  "COATES ANNA": "703736",
+  "ALESSANDRINI ANGELA": "596861",
+  "BECCARIA VALERIA": "591684",
+  "RICUPITO ANDREA GIULIA": "714725",
+  "ORLANDO VALENTINA": "595203",
+  "XU YI YAN": "600037",
+  "ZAMPONI FABIO": "816796",
+  "MAZZUCCO GIORGIO": "769026",
+  "LENZONI ANDREA": "767503",
+  "PATERNOSTRO MATILDE": "794013"
+};
+
+// server/services/athleteResolver.ts
+var AthleteResolver = class {
+  staticMappingFile;
+  runtimeMappingFile;
+  mapping;
+  resolvedChampionships = /* @__PURE__ */ new Set();
+  constructor() {
+    this.mapping = { ...athlete_mapping_default };
+    this.staticMappingFile = path3.resolve(process.cwd(), "server", "data", "athlete_mapping.json");
+    this.runtimeMappingFile = path3.join(getRuntimeCacheDir(), "athlete_mapping.json");
+    this.loadMapping();
+  }
+  loadMapping() {
+    try {
+      if (fs2.existsSync(this.staticMappingFile)) {
+        const content = fs2.readFileSync(this.staticMappingFile, "utf8");
+        this.mapping = { ...this.mapping, ...JSON.parse(content) };
+      }
+      if (fs2.existsSync(this.runtimeMappingFile)) {
+        const content = fs2.readFileSync(this.runtimeMappingFile, "utf8");
+        this.mapping = { ...this.mapping, ...JSON.parse(content) };
+      }
+    } catch {
+      this.mapping = { ...athlete_mapping_default };
+    }
+  }
+  saveMapping() {
+    try {
+      const dir = path3.dirname(this.runtimeMappingFile);
+      if (!fs2.existsSync(dir)) fs2.mkdirSync(dir, { recursive: true });
+      fs2.writeFileSync(this.runtimeMappingFile, JSON.stringify(this.mapping, null, 2), "utf8");
+    } catch {
+    }
+  }
+  reloadMapping() {
+    this.loadMapping();
+  }
+  getMapping() {
+    this.loadMapping();
+    return { ...this.mapping };
+  }
+  /**
+   * Resolves athlete name to ID, falling back to dynamic search on FITeT autocomplete
+   */
+  async resolveAthleteId(name) {
+    const cleanName = name.trim().toUpperCase();
+    if (this.mapping[cleanName]) {
+      return this.mapping[cleanName];
+    }
+    try {
+      let results = await FitetClient.searchAtleta(cleanName);
+      const norm = (s) => s.replace(/[^a-zA-Z]/g, "").toUpperCase();
+      const target = norm(cleanName);
+      let exact = results.find(
+        (r) => norm(r.value) === target || norm(r.value).includes(target) || target.includes(norm(r.value))
+      );
+      if (!exact && cleanName.includes(" ")) {
+        const surname = cleanName.split(" ")[0];
+        results = await FitetClient.searchAtleta(surname);
+        exact = results.find(
+          (r) => norm(r.value) === target || norm(r.value).includes(target) || target.includes(norm(r.value))
+        );
+      }
+      if (exact) {
+        this.mapping[cleanName] = exact.id;
+        this.saveMapping();
+        return exact.id;
+      }
+    } catch (err) {
+      console.warn(`Dynamic athlete resolution failed for ${cleanName}:`, err);
+    }
+    return null;
+  }
+  /**
+   * Resolves all athlete IDs for a given championship by crawling percentuali.php of its teams
+   */
+  async resolveAthletesForChampionship(cam, squadraIds) {
+    if (!squadraIds || squadraIds.length === 0 || this.resolvedChampionships.has(cam)) {
+      return this.getMapping();
+    }
+    this.resolvedChampionships.add(cam);
+    let newFound = 0;
+    await Promise.all(
+      squadraIds.map(async (sqId) => {
+        try {
+          const text = await FitetClient.fetchHtml(
+            `https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${sqId}&CAM=${cam}`
+          );
+          const $p = cheerio.load(text);
+          $p('a[href*="IDA="]').each((_, a) => {
+            const href = $p(a).attr("href") || "";
+            const m = href.match(/IDA=(\d+)/i);
+            const name = $p(a).text().replace(/\s+/g, " ").trim().toUpperCase();
+            if (m && name) {
+              if (!this.mapping[name]) {
+                this.mapping[name] = m[1];
+                newFound++;
+              }
+            }
+          });
+        } catch (err) {
+          console.warn(`Error resolving athletes from team ${sqId} in CAM ${cam}:`, err);
+        }
+      })
+    );
+    if (newFound > 0) {
+      this.saveMapping();
+      console.log(`[AthleteResolver] Auto-indexed ${newFound} new athletes for CAM ${cam}. Total indexed: ${Object.keys(this.mapping).length}`);
+    }
+    return this.getMapping();
+  }
+};
+var athleteResolver = new AthleteResolver();
+
+// server/services/teamResolver.ts
+import fs3 from "fs";
+import path4 from "path";
+import * as cheerio2 from "cheerio";
+var SOCIETY_STOPWORDS = /* @__PURE__ */ new Set([
+  "ASD",
+  "APD",
+  "USD",
+  "ACSD",
+  "SSD",
+  "GSD",
+  "GS",
+  "US",
+  "AS",
+  "CSI",
+  "PGS",
+  "CUS",
+  "CRAL",
+  "CIRCOLO",
+  "POLISPORTIVA",
+  "POL",
+  "DILETTANTISTICA",
+  "SPORTIVA",
+  "ASSOCIAZIONE",
+  "TENNISTAVOLO",
+  "TENNIS",
+  "TAVOLO",
+  "TT",
+  "PING",
+  "PONG",
+  "CLUB",
+  "SRL",
+  "SPA",
+  "ONLUS"
+]);
+function normalizeCoreTeamName(raw) {
+  if (!raw) return "";
+  const cleaned = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/["'“”‘’]/g, " ").replace(/\b([A-Z])\.(?=[A-Z]\.|\s|$)/g, "$1").replace(/[^A-Z0-9]+/g, " ").trim();
+  if (!cleaned) return "";
+  const rawTokens = cleaned.split(/\s+/).filter(Boolean);
+  while (rawTokens.length > 1 && /^[A-F]$/.test(rawTokens[rawTokens.length - 1])) {
+    rawTokens.pop();
+  }
+  const coreTokens = rawTokens.filter((tok) => !SOCIETY_STOPWORDS.has(tok) && tok.length > 1);
+  if (coreTokens.length > 0) {
+    return coreTokens.join(" ");
+  }
+  return rawTokens.join(" ");
+}
+function extractCoreTokens(raw) {
+  const core = normalizeCoreTeamName(raw);
+  if (!core) return [];
+  return core.split(/\s+/).filter((tok) => tok.length >= 3);
+}
+var TeamResolver = class {
+  staticFilePath = path4.resolve(process.cwd(), "server", "data", "team_logos.json");
+  runtimeFilePath = path4.join(getRuntimeCacheDir(), "team_logos.json");
+  logos = {
+    "ASD TENNISTAVOLO NUOVA LUZZI": "https://portale.fitet.org/images/societa/3260.jpg",
+    "TENNISTAVOLO CASTROVILLARI": "https://portale.fitet.org/images/societa/3164.jpg",
+    "TT PETROLO COSENZA": "https://portale.fitet.org/images/societa/2904.jpg",
+    "PIROSSIGENO COSENZA": "https://portale.fitet.org/images/societa/2904.jpg"
+  };
+  constructor() {
+    this.loadFromDisk();
+  }
+  loadFromDisk() {
+    try {
+      if (fs3.existsSync(this.staticFilePath)) {
+        const raw = fs3.readFileSync(this.staticFilePath, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === "object") {
+          this.logos = { ...this.logos, ...parsed };
+        }
+      }
+      if (fs3.existsSync(this.runtimeFilePath)) {
+        const raw = fs3.readFileSync(this.runtimeFilePath, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === "object") {
+          this.logos = { ...this.logos, ...parsed };
+        }
+      }
+    } catch (e) {
+      console.error("Error loading team_logos.json:", e);
+    }
+  }
+  saveToDisk() {
+    try {
+      const dir = path4.dirname(this.runtimeFilePath);
+      if (!fs3.existsSync(dir)) fs3.mkdirSync(dir, { recursive: true });
+      fs3.writeFileSync(this.runtimeFilePath, JSON.stringify(this.logos, null, 2), "utf-8");
+    } catch (e) {
+      console.error("Error saving team_logos.json:", e);
+    }
+  }
+  registerSocietyLogo(name, societyId, logoUrl) {
+    const cleanName = (name || "").toUpperCase().trim();
+    const cleanId = String(societyId || "").trim();
+    if (!cleanName || !cleanId) return;
+    const url = logoUrl || `https://portale.fitet.org/images/societa/${cleanId}.jpg`;
+    if (this.logos[cleanName] !== url) {
+      this.logos[cleanName] = url;
+      this.saveToDisk();
+    }
+  }
+  getLogo(teamName) {
+    const norm = (teamName || "").toUpperCase().trim();
+    if (!norm) return void 0;
+    if (this.logos[norm]) return this.logos[norm];
+    for (const [k, url] of Object.entries(this.logos)) {
+      if (norm.includes(k) || k.includes(norm)) return url;
+    }
+    const coreQuery = normalizeCoreTeamName(norm);
+    if (!coreQuery || coreQuery.length < 3) return void 0;
+    let bestSubstringUrl;
+    let bestSubstringDiff = Infinity;
+    for (const [k, url] of Object.entries(this.logos)) {
+      const coreKey = normalizeCoreTeamName(k);
+      if (!coreKey || coreKey.length < 3) continue;
+      if (coreKey === coreQuery) {
+        return url;
+      }
+      if (coreKey.length >= 4 && coreQuery.length >= 4) {
+        if (coreKey.includes(coreQuery) || coreQuery.includes(coreKey)) {
+          const diff = Math.abs(coreKey.length - coreQuery.length);
+          if (diff < bestSubstringDiff) {
+            bestSubstringDiff = diff;
+            bestSubstringUrl = url;
+          }
+        }
+      }
+    }
+    if (bestSubstringUrl) return bestSubstringUrl;
+    const queryTokens = extractCoreTokens(norm).filter((t) => t.length >= 4);
+    if (queryTokens.length === 0) return void 0;
+    let bestTokenUrl;
+    let bestTokenScore = 0;
+    for (const [k, url] of Object.entries(this.logos)) {
+      const keyTokens = extractCoreTokens(k).filter((t) => t.length >= 4);
+      if (keyTokens.length === 0) continue;
+      const matchedCount = queryTokens.filter(
+        (qt) => keyTokens.some((kt) => kt === qt || kt.length >= 5 && qt.length >= 5 && (kt.includes(qt) || qt.includes(kt)))
+      ).length;
+      if (matchedCount === 0) continue;
+      const allQueryMatched = matchedCount === queryTokens.length;
+      const allKeyMatched = matchedCount === keyTokens.length;
+      const score = matchedCount * 10 + (allQueryMatched ? 5 : 0) + (allKeyMatched ? 5 : 0) - Math.abs(keyTokens.length - queryTokens.length);
+      if ((allQueryMatched || allKeyMatched || matchedCount >= 2) && score > bestTokenScore) {
+        bestTokenScore = score;
+        bestTokenUrl = url;
+      }
+    }
+    return bestTokenUrl;
+  }
+  findSocietyId(query) {
+    const logo = this.getLogo(query);
+    return logo?.match(/\/societa\/(\d+)\./i)?.[1];
+  }
+  /**
+   * Returns every known team name whose logo resolves to the given society
+   * (Albo Federale) ID. The team_logos index is keyed by society image, so it
+   * doubles as a lightweight team → society association table.
+   */
+  getTeamNamesForSociety(societyId) {
+    const id = String(societyId || "").trim();
+    if (!id) return [];
+    const matches = [];
+    for (const [teamName, url] of Object.entries(this.logos)) {
+      const match = url.match(/\/societa\/(\d+)\.(?:jpg|jpeg|png|gif|webp)(?:\?.*)?$/i);
+      if (match && match[1] === id) {
+        matches.push(teamName);
+      }
+    }
+    return matches;
+  }
+  /**
+   * Resolves logos for a list of teams from a championship by scraping DatiSquadra.asp
+   */
+  async resolveLogosForTeams(teams, cam, anno = 41) {
+    const toFetch = teams.filter((t) => !this.getLogo(t.nome) && t.squadraId);
+    if (toFetch.length === 0) return { ...this.logos };
+    await Promise.all(
+      toFetch.map(async (t) => {
+        try {
+          const url = `https://portale.fitet.org/risultati/campionati/DatiSquadra.asp?SQUADRA=${t.squadraId}&CAM=${cam}&ANNO=${anno}`;
+          const text = await FitetClient.fetchHtml(url);
+          const $ = cheerio2.load(text);
+          const img = $('img[src*="/societa/"]').first().attr("src");
+          if (img) {
+            const clean = img.replace(/^(\.\.\/)+/, "");
+            const fullUrl = clean.startsWith("http") ? clean : `https://portale.fitet.org/${clean}`;
+            this.logos[t.nome.toUpperCase().trim()] = fullUrl;
+          } else {
+            const tableText = $("table").text().replace(/\s+/g, " ");
+            const alboMatch = tableText.match(/Albo Federale Prima Affiliazione\s*([^\d]*)\s*(\d{2,6})/i);
+            if (alboMatch && alboMatch[2]) {
+              const fullUrl = `https://portale.fitet.org/images/societa/${alboMatch[2]}.jpg`;
+              this.logos[t.nome.toUpperCase().trim()] = fullUrl;
+            }
+          }
+        } catch (err) {
+          console.warn(`Failed to resolve logo for team ${t.nome}:`, err);
+        }
+      })
+    );
+    this.saveToDisk();
+    return { ...this.logos };
+  }
+};
+var teamResolver = new TeamResolver();
+
+// server/services/pushService.ts
+import webpush from "web-push";
+import { createClient as createClient5 } from "@supabase/supabase-js";
+import dotenv4 from "dotenv";
+dotenv4.config();
+var SUBSCRIPTION_CONTEXTS_STATE_KEY = "push_subscription_contexts";
+var PushService = class {
+  supabase = null;
+  vapidConfigured = false;
+  publicKey = null;
+  privateKey = null;
+  subject = "mailto:noreply@portale-risultati-tt.it";
+  constructor() {
+    this.initSupabase();
+    this.initVapid();
+  }
+  initSupabase() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      console.warn(
+        "\u26A0\uFE0F [PushService] SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY non configurate: le notifiche push non saranno salvate."
+      );
+      return;
+    }
+    try {
+      this.supabase = createClient5(url, key, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      });
+      console.log("\u2705 [PushService] Supabase connesso.");
+    } catch (err) {
+      console.error("\u274C [PushService] Errore inizializzazione Supabase:", err);
+      this.supabase = null;
+    }
+  }
+  initVapid() {
+    const publicKey = process.env.VAPID_PUBLIC_KEY;
+    const privateKey = process.env.VAPID_PRIVATE_KEY;
+    const subject = process.env.VAPID_SUBJECT || this.subject;
+    if (!publicKey || !privateKey) {
+      console.warn(
+        "\u26A0\uFE0F [PushService] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY non configurate: impossibile inviare push."
+      );
+      return;
+    }
+    try {
+      webpush.setVapidDetails(subject, publicKey, privateKey);
+      this.publicKey = publicKey;
+      this.privateKey = privateKey;
+      this.subject = subject;
+      this.vapidConfigured = true;
+      console.log("\u2705 [PushService] VAPID configurato.");
+    } catch (err) {
+      console.error("\u274C [PushService] Errore configurazione VAPID:", err);
+    }
+  }
+  isVapidConfigured() {
+    return this.vapidConfigured;
+  }
+  isSupabaseConfigured() {
+    return this.supabase !== null;
+  }
+  isReady() {
+    return this.vapidConfigured && this.supabase !== null;
+  }
+  getPublicKey() {
+    return this.publicKey;
+  }
+  isValidEndpoint(endpoint) {
+    try {
+      const parsed = new URL(endpoint);
+      return parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+  /**
+   * Salva (o aggiorna) una subscription. L'endpoint è la chiave naturale del dispositivo.
+   */
+  async saveSubscription(payload, userAgent) {
+    if (!this.supabase) {
+      throw new Error("Database push non configurato (SUPABASE_SERVICE_ROLE_KEY mancante).");
+    }
+    if (!payload?.endpoint || !this.isValidEndpoint(payload.endpoint)) {
+      throw new Error("Endpoint push non valido.");
+    }
+    if (!payload.keys?.p256dh || !payload.keys?.auth) {
+      throw new Error("Chiavi push (p256dh/auth) mancanti.");
+    }
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const { data, error } = await this.supabase.from("push_subscriptions").upsert(
+      {
+        endpoint: payload.endpoint,
+        p256dh: payload.keys.p256dh,
+        auth: payload.keys.auth,
+        user_agent: userAgent || null,
+        is_active: true,
+        last_seen_at: now,
+        updated_at: now
+      },
+      { onConflict: "endpoint" }
+    ).select("*").single();
+    if (error) {
+      throw new Error(`Salvataggio subscription fallito: ${error.message}`);
+    }
+    return data;
+  }
+  async removeSubscription(endpoint) {
+    if (!this.supabase) return;
+    if (!endpoint) return;
+    const { error } = await this.supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
+    if (error) {
+      console.error("[PushService] Errore rimozione subscription:", error.message);
+    }
+    await this.removeSubscriptionContext(endpoint).catch(() => void 0);
+  }
+  // ---------------------------------------------------------------------
+  // Contesto atleta / campionato associato alle singole subscription
+  // ---------------------------------------------------------------------
+  async getSubscriptionContexts() {
+    const raw = await this.getState(SUBSCRIPTION_CONTEXTS_STATE_KEY);
+    if (!raw) return {};
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch (err) {
+      console.warn("[PushService] Formato JSON push_subscription_contexts non valido:", err);
+    }
+    return {};
+  }
+  async saveSubscriptionContext(endpoint, context) {
+    if (!this.supabase || !endpoint) return;
+    const cleanCamIds = Array.from(
+      new Set(
+        [
+          ...Array.isArray(context.camIds) ? context.camIds : [],
+          ...typeof context.primaryCamId === "number" ? [context.primaryCamId] : []
+        ].filter((id) => typeof id === "number" && Number.isFinite(id) && id > 0)
+      )
+    );
+    const primaryCamId = typeof context.primaryCamId === "number" && context.primaryCamId > 0 ? context.primaryCamId : cleanCamIds[0] ?? null;
+    const currentMap = await this.getSubscriptionContexts();
+    const existing = currentMap[endpoint] || {};
+    const camIdsToSave = Array.isArray(context.camIds) ? cleanCamIds : cleanCamIds.length > 0 ? cleanCamIds : existing.camIds || [];
+    currentMap[endpoint] = {
+      playerId: context.playerId !== void 0 ? context.playerId : existing.playerId ?? null,
+      playerName: context.playerName !== void 0 ? context.playerName : existing.playerName ?? null,
+      primaryCamId: primaryCamId ?? existing.primaryCamId ?? null,
+      camIds: camIdsToSave,
+      annoId: context.annoId ?? existing.annoId ?? 41,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
+  }
+  /**
+   * Attiva o disattiva la ricezione delle notifiche per un singolo campionato
+   */
+  async toggleChampionshipSubscription(endpoint, camId, enabled) {
+    if (!this.supabase || !endpoint || !camId) {
+      throw new Error("Endpoint e camId validi sono obbligatori.");
+    }
+    const currentMap = await this.getSubscriptionContexts();
+    const existing = currentMap[endpoint] || {
+      playerId: null,
+      playerName: null,
+      primaryCamId: null,
+      camIds: [],
+      annoId: 41,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    const currentCamIds = Array.isArray(existing.camIds) ? existing.camIds.filter((id) => typeof id === "number" && Number.isFinite(id) && id > 0) : [];
+    let newCamIds;
+    if (enabled) {
+      newCamIds = Array.from(/* @__PURE__ */ new Set([...currentCamIds, camId]));
+    } else {
+      newCamIds = currentCamIds.filter((id) => id !== camId);
+    }
+    let newPrimaryCamId = existing.primaryCamId ?? null;
+    if (enabled && (!newPrimaryCamId || newPrimaryCamId <= 0)) {
+      newPrimaryCamId = camId;
+    } else if (!enabled && newPrimaryCamId === camId) {
+      newPrimaryCamId = newCamIds[0] ?? null;
+    }
+    currentMap[endpoint] = {
+      ...existing,
+      primaryCamId: newPrimaryCamId,
+      camIds: newCamIds,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
+    return {
+      enabled,
+      camIds: newCamIds,
+      primaryCamId: newPrimaryCamId
+    };
+  }
+  /**
+   * Restituisce i campionati sottoscritti per un singolo endpoint
+   */
+  async getSubscriptionChampionships(endpoint) {
+    if (!this.supabase || !endpoint) return { camIds: [], primaryCamId: null };
+    const currentMap = await this.getSubscriptionContexts();
+    const existing = currentMap[endpoint];
+    if (!existing) return { camIds: [], primaryCamId: null };
+    return {
+      camIds: Array.isArray(existing.camIds) ? existing.camIds : [],
+      primaryCamId: existing.primaryCamId ?? null
+    };
+  }
+  async removeSubscriptionContext(endpoint) {
+    if (!this.supabase || !endpoint) return;
+    const currentMap = await this.getSubscriptionContexts();
+    if (!(endpoint in currentMap)) return;
+    delete currentMap[endpoint];
+    await this.setState(SUBSCRIPTION_CONTEXTS_STATE_KEY, JSON.stringify(currentMap));
+  }
+  /**
+   * Restituisce l'elenco univoco dei campionati (camId) seguiti dai dispositivi attivi.
+   */
+  async getSubscribedChampionshipIds() {
+    if (!this.supabase) return [];
+    const [{ data, error }, contexts] = await Promise.all([
+      this.supabase.from("push_subscriptions").select("endpoint").eq("is_active", true),
+      this.getSubscriptionContexts()
+    ]);
+    if (error || !data) return [];
+    const activeEndpoints = new Set(data.map((row) => row.endpoint));
+    const camIds = /* @__PURE__ */ new Set();
+    for (const [endpoint, ctx] of Object.entries(contexts)) {
+      if (!activeEndpoints.has(endpoint) || !ctx) continue;
+      if (typeof ctx.primaryCamId === "number" && ctx.primaryCamId > 0) {
+        camIds.add(ctx.primaryCamId);
+      }
+      if (Array.isArray(ctx.camIds)) {
+        for (const id of ctx.camIds) {
+          if (typeof id === "number" && Number.isFinite(id) && id > 0) {
+            camIds.add(id);
+          }
+        }
+      }
+    }
+    return Array.from(camIds);
+  }
+  /**
+   * Invia la notifica a tutti i dispositivi attivi iscritti a uno specifico campionato (camId).
+   */
+  async sendToChampionshipSubscribers(camId, payload) {
+    if (!this.supabase || !this.vapidConfigured) {
+      return { total: 0, sent: 0, failed: 0, removed: 0 };
+    }
+    const [{ data, error }, contexts] = await Promise.all([
+      this.supabase.from("push_subscriptions").select("*").eq("is_active", true),
+      this.getSubscriptionContexts()
+    ]);
+    if (error) {
+      throw new Error(`Lettura subscription fallita: ${error.message}`);
+    }
+    const allSubscriptions = data || [];
+    if (allSubscriptions.length === 0) {
+      return { total: 0, sent: 0, failed: 0, removed: 0 };
+    }
+    const matchingSubscriptions = allSubscriptions.filter((sub) => {
+      const ctx = contexts[sub.endpoint];
+      if (!ctx) return false;
+      if (ctx.primaryCamId === camId) return true;
+      if (Array.isArray(ctx.camIds) && ctx.camIds.includes(camId)) return true;
+      return false;
+    });
+    if (matchingSubscriptions.length === 0) {
+      return { total: 0, sent: 0, failed: 0, removed: 0 };
+    }
+    const result = {
+      total: matchingSubscriptions.length,
+      sent: 0,
+      failed: 0,
+      removed: 0
+    };
+    const concurrency = 20;
+    for (let i = 0; i < matchingSubscriptions.length; i += concurrency) {
+      const batch = matchingSubscriptions.slice(i, i + concurrency);
+      const batchResults = await Promise.all(
+        batch.map((sub) => this.sendToSubscription(sub, payload))
+      );
+      for (const r of batchResults) {
+        if (r.sent) result.sent += 1;
+        else result.failed += 1;
+        if (r.removed) result.removed += 1;
+      }
+    }
+    return result;
+  }
+  /**
+   * Invia una notifica a una singola subscription.
+   * Se il push service risponde 404/410 la subscription viene rimossa dal database.
+   */
+  async sendToSubscription(subscription, payload) {
+    if (!this.vapidConfigured) {
+      return { sent: false, error: "VAPID non configurato." };
+    }
+    const pushSubscription = {
+      endpoint: subscription.endpoint,
+      keys: {
+        p256dh: subscription.p256dh,
+        auth: subscription.auth
+      }
+    };
+    try {
+      const result = await webpush.sendNotification(
+        pushSubscription,
+        JSON.stringify(payload),
+        {
+          TTL: 60 * 60 * 24,
+          // 24 ore
+          urgency: "normal",
+          timeout: 1e4
+        }
+      );
+      return { sent: true, statusCode: result.statusCode };
+    } catch (err) {
+      const statusCode = typeof err?.statusCode === "number" ? err.statusCode : void 0;
+      const message = err?.body || err?.message || "Errore sconosciuto durante l'invio push.";
+      if (statusCode === 404 || statusCode === 410) {
+        await this.removeSubscription(subscription.endpoint);
+        console.warn(
+          `[PushService] Subscription obsoleta/scaduta (${statusCode}) rimossa dal database:`,
+          message
+        );
+        return { sent: false, statusCode, error: message, removed: true };
+      }
+      const isVapidMismatch = statusCode === 403 && message.includes("VAPID credentials") || statusCode === 400 && message.includes("VapidPkHashMismatch");
+      if (isVapidMismatch) {
+        console.warn(
+          `[PushService] \u26A0\uFE0F VAPID key mismatch (${statusCode}): le chiavi VAPID di questo ambiente non coincidono con quelle usate dal browser per creare la subscription.`,
+          message
+        );
+        return { sent: false, statusCode, error: message, removed: false };
+      }
+      console.warn(
+        `[PushService] Invio push fallito (${statusCode ?? "no-status"}) per ${subscription.endpoint.slice(0, 60)}...:`,
+        message
+      );
+      return { sent: false, statusCode, error: message };
+    }
+  }
+  /**
+   * Invia la notifica a tutti i dispositivi attivi, con concorrenza limitata
+   * per non sovraccaricare il runtime serverless.
+   */
+  async sendToAll(payload) {
+    if (!this.supabase || !this.vapidConfigured) {
+      return { total: 0, sent: 0, failed: 0, removed: 0 };
+    }
+    const { data, error } = await this.supabase.from("push_subscriptions").select("*").eq("is_active", true);
+    if (error) {
+      throw new Error(`Lettura subscription fallita: ${error.message}`);
+    }
+    const subscriptions = data || [];
+    if (subscriptions.length === 0) {
+      return { total: 0, sent: 0, failed: 0, removed: 0 };
+    }
+    const result = {
+      total: subscriptions.length,
+      sent: 0,
+      failed: 0,
+      removed: 0
+    };
+    const concurrency = 20;
+    for (let i = 0; i < subscriptions.length; i += concurrency) {
+      const batch = subscriptions.slice(i, i + concurrency);
+      const batchResults = await Promise.all(
+        batch.map((sub) => this.sendToSubscription(sub, payload))
+      );
+      for (const r of batchResults) {
+        if (r.sent) result.sent += 1;
+        else result.failed += 1;
+        if (r.removed) result.removed += 1;
+      }
+    }
+    return result;
+  }
+  // ---------------------------------------------------------------------
+  // Stato persistente (ultimo ID_CLASS notificato)
+  // ---------------------------------------------------------------------
+  async getState(key) {
+    if (!this.supabase) return null;
+    const { data, error } = await this.supabase.from("push_state").select("value").eq("key", key).maybeSingle();
+    if (error) {
+      console.error(`[PushService] Lettura stato "${key}" fallita:`, error.message);
+      return null;
+    }
+    return data?.value ?? null;
+  }
+  async setState(key, value) {
+    if (!this.supabase) return;
+    const { error } = await this.supabase.from("push_state").upsert(
+      { key, value, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
+      { onConflict: "key" }
+    );
+    if (error) {
+      console.error(`[PushService] Scrittura stato "${key}" fallita:`, error.message);
+    }
+  }
+  async deleteState(key) {
+    if (!this.supabase) return;
+    const { error } = await this.supabase.from("push_state").delete().eq("key", key);
+    if (error) {
+      console.error(`[PushService] Eliminazione stato "${key}" fallita:`, error.message);
+    }
+  }
+  /**
+   * Aggiorna lo stato solo se il valore atteso è ancora quello salvato.
+   * Funge da lock distribuito: in caso di più istanze serverless solo una
+   * riesce ad aggiornare e quindi a inviare la notifica.
+   *
+   * Nota: per valori grandi (es. JSON `championship_state_*` di diversi KB),
+   * passare `.eq('value', expected)` mette l'intero JSON nella query string URL
+   * causando `400 Bad Request` (URI Too Long) su PostgREST/Cloudflare.
+   * Usiamo quindi `updated_at` come token di concorrenza ottimistica nella query.
+   */
+  async compareAndSetState(key, expected, next) {
+    if (!this.supabase) return false;
+    if (expected.length <= 256) {
+      const { data: data2, error: error2 } = await this.supabase.from("push_state").update({ value: next, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("key", key).eq("value", expected).select("key");
+      if (error2) {
+        console.error(`[PushService] Aggiornamento atomico stato "${key}" fallito:`, error2.message);
+        return false;
+      }
+      return Array.isArray(data2) && data2.length > 0;
+    }
+    const { data: current, error: readError } = await this.supabase.from("push_state").select("value, updated_at").eq("key", key).maybeSingle();
+    if (readError) {
+      console.error(`[PushService] Lettura pre-update stato "${key}" fallita:`, readError.message);
+      return false;
+    }
+    if (!current || current.value !== expected) {
+      return false;
+    }
+    const nextUpdatedAt = new Date(Date.now() + 1).toISOString();
+    let query = this.supabase.from("push_state").update({ value: next, updated_at: nextUpdatedAt }).eq("key", key);
+    if (current.updated_at) {
+      query = query.eq("updated_at", current.updated_at);
+    }
+    const { data, error } = await query.select("key");
+    if (error) {
+      console.error(`[PushService] Aggiornamento atomico stato "${key}" fallito:`, error.message);
+      return false;
+    }
+    return Array.isArray(data) && data.length > 0;
+  }
+};
+var pushService = new PushService();
+var RANKING_ID_CLASS_STATE_KEY = "latest_ranking_id_class";
+async function notifyRankingChangeIfNeeded(idClass) {
+  if (!Number.isFinite(idClass) || idClass <= 0) {
+    return { changed: false, idClass };
+  }
+  if (!pushService.isReady()) {
+    return { changed: false, idClass };
+  }
+  const previous = await pushService.getState(RANKING_ID_CLASS_STATE_KEY);
+  if (previous === null) {
+    await pushService.setState(RANKING_ID_CLASS_STATE_KEY, String(idClass));
+    return { changed: false, initialized: true, idClass };
+  }
+  const previousIdClass = parseInt(previous, 10);
+  if (!Number.isFinite(previousIdClass) || idClass <= previousIdClass) {
+    return { changed: false, idClass, previousIdClass };
+  }
+  const claimed = await pushService.compareAndSetState(
+    RANKING_ID_CLASS_STATE_KEY,
+    previous,
+    String(idClass)
+  );
+  if (!claimed) {
+    return { changed: false, idClass, previousIdClass };
+  }
+  console.log(
+    `[PushService] Nuovo ID_CLASS rilevato: ${previousIdClass} -> ${idClass}. Invio notifiche...`
+  );
+  const broadcast = await pushService.sendToAll({
+    title: "Nuova classifica FITeT disponibile",
+    body: "\xC8 stata pubblicata la classifica aggiornata. Scopri la tua nuova posizione!",
+    url: "/?view=classifiche",
+    icon: "/icon.png",
+    badge: "/icon.png",
+    tag: `ranking-id-class-${idClass}`
+  });
+  console.log(
+    `[PushService] Notifiche ranking inviate: ${broadcast.sent}/${broadcast.total} (rimosse: ${broadcast.removed}).`
+  );
+  return {
+    changed: true,
+    idClass,
+    previousIdClass,
+    ...broadcast
+  };
+}
+
+// server/services/rankingClassService.ts
+var DEFAULT_ID_CLASS = 248;
+async function getLatestIdClass(forceRefresh = false, notifyOnChange = true) {
+  const cacheKey = "latest_ranking_id_class";
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached && typeof cached === "number" && cached >= DEFAULT_ID_CLASS) {
+      return cached;
+    }
+  }
+  try {
+    const html = await FitetClient.fetchHtml("https://portale.fitet.org/menu.php");
+    const match = html.match(/testaclassifica_auto\.php\?ID_CLASS=(\d+)/i);
+    if (match && match[1]) {
+      const detected = parseInt(match[1], 10);
+      if (detected >= DEFAULT_ID_CLASS) {
+        cacheService.set(cacheKey, detected, 4 * 60 * 60 * 1e3);
+        if (notifyOnChange) {
+          notifyRankingChangeIfNeeded(detected).catch((pushErr) => {
+            console.warn("[PushService] Errore notifica cambio ID_CLASS:", pushErr);
+          });
+        }
+        return detected;
+      }
+    }
+  } catch (err) {
+    console.warn("[Ranking] Impossibile rilevare automaticamente ID_CLASS da menu.php, uso fallback:", err);
+  }
+  return DEFAULT_ID_CLASS;
+}
+
+// server/services/championshipCatalog.ts
+import fs4 from "fs";
+import path5 from "path";
+import * as cheerio4 from "cheerio";
+
+// server/parsers/statisticheParser.ts
+import * as cheerio3 from "cheerio";
+function parseStatisticheAtleti(html, athleteMapping = {}) {
+  const $ = cheerio3.load(html);
+  const atleti = [];
+  $("table tr").each((_, row) => {
+    const $row = $(row);
+    const cells = $row.find("td");
+    if (cells.length < 12) return;
+    const nomeText = $(cells[1]).text().trim().replace(/\s+/g, " ");
+    if (!nomeText || nomeText === "Atleta" || nomeText.includes("S t a t i s t i c h e")) return;
+    const flagImg = $(cells[0]).find("img").attr("src") || "";
+    const flagMatch = flagImg.match(/bandiere\/([A-Za-z0-9_]+)\.png/i);
+    const nazionalita = flagMatch ? flagMatch[1].toUpperCase() : "IT";
+    const bandieraUrl = flagImg.startsWith("http") ? flagImg : `https://portale.fitet.org/images/bandiere/${nazionalita}.png`;
+    const squadra = $(cells[2]).text().trim().replace(/\s+/g, " ");
+    const getCellInt = (idx) => {
+      const text = $(cells[idx]).text().trim().replace(/\D+/g, "");
+      return parseInt(text, 10) || 0;
+    };
+    const incontriDisputati = getCellInt(3);
+    const partiteDisputate = getCellInt(4);
+    const partiteVinte = getCellInt(5);
+    const partitePerse = getCellInt(6);
+    const setVinti = getCellInt(7);
+    const setPersi = getCellInt(8);
+    const puntiVinti = getCellInt(9);
+    const puntiPersi = getCellInt(10);
+    const percText = $(cells[11]).text().trim().replace("%", "");
+    const percentualeVittorie = parseFloat(percText) || 0;
+    const athleteId = athleteMapping[nomeText] || athleteMapping[nomeText.toUpperCase()] || null;
+    atleti.push({
+      posizione: atleti.length + 1,
+      nazionalita,
+      bandieraUrl,
+      atleta: nomeText,
+      atletaId: athleteId,
+      squadra,
+      incontriDisputati,
+      partiteDisputate,
+      partiteVinte,
+      partitePerse,
+      setVinti,
+      setPersi,
+      puntiVinti,
+      puntiPersi,
+      percentualeVittorie
+    });
+  });
+  return atleti;
+}
+
+// server/services/championshipCatalog.ts
+function normalizeChampionshipGender(value) {
+  if (!value) return void 0;
+  const v = String(value).trim().toUpperCase();
+  if (!v) return void 0;
+  if (v === "F" || v.startsWith("FEMM") || v === "DONNE" || v === "W") return "F";
+  if (v === "M" || v.startsWith("MASCH") || v === "UOMINI") return "M";
+  return void 0;
+}
+var REGIONI = [
+  { id: 19, nome: "Calabria" },
+  { id: 14, nome: "Abruzzo" },
+  { id: 7, nome: "Alto Adige" },
+  { id: 17, nome: "Basilicata" },
+  { id: 16, nome: "Campania" },
+  { id: 9, nome: "Emilia Romagna" },
+  { id: 8, nome: "Friuli Venezia Giulia" },
+  { id: 13, nome: "Lazio" },
+  { id: 3, nome: "Liguria" },
+  { id: 4, nome: "Lombardia" },
+  { id: 11, nome: "Marche" },
+  { id: 15, nome: "Molise" },
+  { id: 2, nome: "Piemonte" },
+  { id: 18, nome: "Puglia" },
+  { id: 21, nome: "Sardegna" },
+  { id: 20, nome: "Sicilia" },
+  { id: 10, nome: "Toscana" },
+  { id: 6, nome: "Trentino" },
+  { id: 12, nome: "Umbria" },
+  { id: 1, nome: "Valle d'Aosta" },
+  { id: 5, nome: "Veneto" }
+];
+var NAZIONALI = [
+  { cid: 2, nome: "Serie A" },
+  { cid: 3, nome: "Serie B" },
+  { cid: 4, nome: "Serie C1" },
+  { cid: 6, nome: "Master Naz." },
+  { cid: 7, nome: "Paralimpici Naz." }
+];
+var ChampionshipCatalog = class {
+  staticCacheFilePath = path5.resolve(process.cwd(), "server", "data", "campionati.json");
+  runtimeCacheFilePath = path5.join(getRuntimeCacheDir(), "campionati.json");
+  memoryCache = null;
+  lastFetched = 0;
+  TTL = 24 * 60 * 60 * 1e3;
+  // 24 hours
+  constructor() {
+    this.loadFromDisk();
+  }
+  loadFromDisk() {
+    try {
+      const targetPath = fs4.existsSync(this.runtimeCacheFilePath) ? this.runtimeCacheFilePath : this.staticCacheFilePath;
+      if (fs4.existsSync(targetPath)) {
+        const raw = fs4.readFileSync(targetPath, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.memoryCache = parsed;
+          const stat = fs4.statSync(targetPath);
+          this.lastFetched = stat.mtimeMs;
+        }
+      }
+    } catch (e) {
+      console.error("Error loading campionati.json from disk:", e);
+    }
+  }
+  saveToDisk(data) {
+    try {
+      const dir = path5.dirname(this.runtimeCacheFilePath);
+      if (!fs4.existsSync(dir)) fs4.mkdirSync(dir, { recursive: true });
+      fs4.writeFileSync(this.runtimeCacheFilePath, JSON.stringify(data, null, 2), "utf-8");
+    } catch (e) {
+      console.error("Error saving campionati.json to disk:", e);
+    }
+  }
+  async getAllCampionati(forceRefresh = false) {
+    if (!forceRefresh && this.memoryCache && Date.now() - this.lastFetched < this.TTL) {
+      return this.memoryCache;
+    }
+    try {
+      const items = await this.scrapeFromFitet();
+      if (items.length > 0) {
+        this.memoryCache = items;
+        this.lastFetched = Date.now();
+        this.saveToDisk(items);
+        return items;
+      }
+    } catch (e) {
+      console.error("Failed to scrape championships from FITeT:", e);
+    }
+    return this.memoryCache || [];
+  }
+  async getChampionship(id) {
+    const list = await this.getAllCampionati();
+    return list.find((c) => c.id === id);
+  }
+  /**
+   * Risolve istantaneamente in memoria (0ms) l'ID numerico del campionato
+   * a partire dalla stringa testuale estratta dalla scheda ranking dell'atleta e dalla regione.
+   *
+   * Il nome del campionato può essere identico tra la variante maschile e quella
+   * femminile (es. "A/1 Gir.U"): in quel caso il parametro `sesso` è indispensabile
+   * per non assegnare all'atleta il campionato sbagliato.
+   */
+  resolveChampionship(campName, regione, sesso) {
+    if (!campName) return void 0;
+    if (!this.memoryCache || this.memoryCache.length === 0) {
+      this.loadFromDisk();
+    }
+    const items = this.memoryCache || [];
+    if (items.length === 0) return void 0;
+    const clean = (s) => (s || "").toLowerCase().replace(/girone/g, "gir").replace(/serie/g, "").replace(/maschile/g, "").replace(/femminile/g, "").replace(/[^a-z0-9]/g, "");
+    const normReg = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cClean = clean(campName);
+    if (!cClean) return void 0;
+    const targetRegNorm = normReg(regione);
+    const targetSesso = normalizeChampionshipGender(sesso);
+    const findBest = (enforceGender) => {
+      let bestItem;
+      let highestScore = -1;
+      for (const item of items) {
+        const itemClean = clean(item.nome);
+        if (!itemClean) continue;
+        const itemSesso = normalizeChampionshipGender(item.sesso);
+        if (enforceGender && targetSesso && itemSesso && itemSesso !== targetSesso) {
+          continue;
+        }
+        const itemRegNorm = normReg(item.regione);
+        const isSameReg = Boolean(targetRegNorm && itemRegNorm === targetRegNorm);
+        const isNazionale = itemRegNorm === "nazionale";
+        let score = 0;
+        if (itemClean === cClean) {
+          score = isSameReg ? 100 : isNazionale ? 90 : 60;
+        } else if (itemClean.includes(cClean) || cClean.includes(itemClean)) {
+          score = isSameReg ? 80 : isNazionale ? 70 : 50;
+        }
+        if (score > 0 && targetSesso && itemSesso === targetSesso) {
+          score += 2;
+        }
+        if (score > highestScore) {
+          highestScore = score;
+          bestItem = item;
+        }
+      }
+      return { item: bestItem, score: highestScore };
+    };
+    const genderAware = findBest(true);
+    if (genderAware.item && genderAware.score >= 50) return genderAware.item;
+    const fallback = findBest(false);
+    return fallback.item && fallback.score >= 50 ? fallback.item : void 0;
+  }
+  /**
+   * Cerca attivamente il campionato attuale della stagione corrente per un atleta
+   * controllando le statistiche dei campionati regionali (e se necessario nazionali).
+   * Risultato memorizzato in cache per risposta istantanea.
+   */
+  async findAthleteChampionship(atletaId, atletaNome, regione, sesso, options) {
+    if (!atletaId && !atletaNome) return void 0;
+    const targetSesso = normalizeChampionshipGender(sesso);
+    const cacheKey = `athlete_champ_${atletaId || atletaNome}_${targetSesso || "any"}`;
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+    const negCacheKey = `athlete_champ_none_${atletaId || atletaNome}_${targetSesso || "any"}`;
+    if (cacheService.get(negCacheKey)) return void 0;
+    const allCamps = await this.getAllCampionati();
+    if (!allCamps || allCamps.length === 0) return void 0;
+    const cleanNorm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const targetRegNorm = cleanNorm(regione);
+    const targetNomeNorm = cleanNorm(atletaNome);
+    const targetIdStr = String(atletaId || "").trim();
+    const regionalCamps = targetRegNorm ? allCamps.filter((c) => cleanNorm(c.regione) === targetRegNorm) : [];
+    const nationalCamps = allCamps.filter((c) => cleanNorm(c.regione) === "nazionale");
+    const matchesGender = (camp) => {
+      if (!targetSesso) return true;
+      const campSesso = normalizeChampionshipGender(camp.sesso);
+      return !campSesso || campSesso === targetSesso;
+    };
+    const allRegionalAndNational = [...regionalCamps, ...nationalCamps];
+    const genderMatches = allRegionalAndNational.filter(matchesGender);
+    const otherGender = allRegionalAndNational.filter((c) => !matchesGender(c));
+    const searchPool = [...genderMatches, ...otherGender];
+    for (const camp of searchPool) {
+      const statsCached = cacheService.get(`statistiche_${camp.id}`);
+      if (statsCached && Array.isArray(statsCached)) {
+        const found = statsCached.find(
+          (s) => targetIdStr && String(s.atletaId || "").trim() === targetIdStr || targetNomeNorm && cleanNorm(s.atleta) === targetNomeNorm
+        );
+        if (found) {
+          const res = { ...camp, squadra: found.squadra };
+          cacheService.set(cacheKey, res, 24 * 60 * 60 * 1e3);
+          return res;
+        }
+      }
+    }
+    if (options?.cacheOnly) {
+      return void 0;
+    }
+    const startedAt = Date.now();
+    const maxDurationMs = options?.maxDurationMs ?? 8e3;
+    const basePool = targetSesso ? genderMatches : searchPool;
+    const fetchPool = targetRegNorm ? [
+      ...basePool.filter((c) => cleanNorm(c.regione) === targetRegNorm),
+      ...basePool.filter((c) => cleanNorm(c.regione) !== targetRegNorm)
+    ] : basePool;
+    const mapping = athleteResolver.getMapping();
+    const batchSize = 3;
+    let completedFullScan = true;
+    for (let i = 0; i < fetchPool.length; i += batchSize) {
+      if (Date.now() - startedAt >= maxDurationMs) {
+        completedFullScan = false;
+        break;
+      }
+      if (i > 0) {
+        await FitetClient.sleepWithJitter(120, 280);
+        if (Date.now() - startedAt >= maxDurationMs) {
+          completedFullScan = false;
+          break;
+        }
+      }
+      const batch = fetchPool.slice(i, i + batchSize);
+      const batchResults = await Promise.all(
+        batch.map(async (camp) => {
+          try {
+            const statKey = `statistiche_${camp.id}`;
+            let stats = cacheService.get(statKey);
+            if (!stats) {
+              const html = await FitetClient.fetchStatisticheAtleti(String(camp.id));
+              stats = parseStatisticheAtleti(html, mapping);
+              if (stats && stats.length > 0) {
+                cacheService.set(statKey, stats, 60 * 60 * 1e3);
+              }
+            }
+            if (stats && Array.isArray(stats)) {
+              const found = stats.find(
+                (s) => targetIdStr && String(s.atletaId || "").trim() === targetIdStr || targetNomeNorm && cleanNorm(s.atleta) === targetNomeNorm
+              );
+              if (found) {
+                return { camp, squadra: found.squadra };
+              }
+            }
+          } catch {
+          }
+          return null;
+        })
+      );
+      const foundMatch = batchResults.find(Boolean);
+      if (foundMatch) {
+        const res = { ...foundMatch.camp, squadra: foundMatch.squadra };
+        cacheService.set(cacheKey, res, 24 * 60 * 60 * 1e3);
+        return res;
+      }
+    }
+    if (completedFullScan) {
+      cacheService.set(negCacheKey, true, 60 * 60 * 1e3);
+    }
+    return void 0;
+  }
+  async scrapeFromFitet() {
+    const all = [];
+    for (let i = 0; i < NAZIONALI.length; i++) {
+      const nat = NAZIONALI[i];
+      if (i > 0) {
+        await FitetClient.sleepWithJitter(1500, 3e3);
+      }
+      try {
+        const text = await FitetClient.fetchHtml(
+          `https://portale.fitet.org/risultati/campionati/elenco_campionati.php?ID_CAMP=${nat.cid}`
+        );
+        const $ = cheerio4.load(text);
+        $("tr").each((_, tr) => {
+          const rowText = $(tr).find("td").first().text().trim().toLowerCase();
+          const isFem = rowText.includes("femminil");
+          $(tr).find('a[href*="CAM="]').each((_2, el) => {
+            const href = $(el).attr("href") || "";
+            const m = href.match(/CAM=(\d+)/i);
+            if (m) {
+              const id = parseInt(m[1], 10);
+              const name = $(el).text().replace(/\s+/g, " ").trim();
+              if (id && name) {
+                all.push({
+                  id,
+                  nome: `${nat.nome}${isFem ? " Femminile" : ""} - ${name}`,
+                  categoria: nat.nome,
+                  regione: "Nazionale",
+                  anno: 41,
+                  formula: 19,
+                  sesso: isFem ? "F" : "M"
+                });
+              }
+            }
+          });
+        });
+      } catch (e) {
+        console.error(`Error scraping national ${nat.nome}:`, e);
+      }
+    }
+    for (let i = 0; i < REGIONI.length; i++) {
+      const reg = REGIONI[i];
+      await FitetClient.sleepWithJitter(1500, 3e3);
+      try {
+        const text = await FitetClient.fetchHtml(
+          `https://portale.fitet.org/risultati/regioni/menu_reg.php?REG=${reg.id}`
+        );
+        const $ = cheerio4.load(text);
+        $('a[href*="CAM="]').each((_, el) => {
+          const href = $(el).attr("href") || "";
+          const m = href.match(/CAM=(\d+)/i);
+          if (m) {
+            const id = parseInt(m[1], 10);
+            const name = $(el).text().replace(/\s+/g, " ").trim();
+            if (id && name) {
+              let cat = "Regionale";
+              const firstPart = name.split(" ")[0];
+              if (firstPart.includes("/") || firstPart.length <= 4) {
+                cat = firstPart;
+              }
+              const isFem = /femm|femminil/i.test(name) || /femm|femminil/i.test(cat);
+              all.push({
+                id,
+                nome: name,
+                categoria: cat,
+                regione: reg.nome,
+                regioneId: reg.id,
+                anno: 41,
+                formula: 19,
+                sesso: isFem ? "F" : "M"
+              });
+            }
+          }
+        });
+      } catch (e) {
+        console.error(`Error scraping region ${reg.nome}:`, e);
+      }
+    }
+    return all;
+  }
+};
+var championshipCatalog = new ChampionshipCatalog();
+
+// server/parsers/atletaParser.ts
+import * as cheerio5 from "cheerio";
+function parseItalianNumber(val) {
+  if (!val) return 0;
+  const clean = val.trim();
+  if (!clean) return 0;
+  if (clean.includes(".") && clean.includes(",")) {
+    const parsed = parseFloat(clean.replace(/\./g, "").replace(",", ".")) || 0;
+    return parsed;
+  }
+  if (clean.includes(",")) {
+    const parsed = parseFloat(clean.replace(",", ".")) || 0;
+    return parsed;
+  }
+  if (/^\s*[+-]?\d{1,3}(?:\.\d{3})+\s*$/.test(clean)) {
+    const parsed = parseFloat(clean.replace(/\./g, "")) || 0;
+    return parsed;
+  }
+  return parseFloat(clean) || 0;
+}
+function extractRankingIframeUrl(html) {
+  console.log("[extractRankingIframeUrl] Inizio estrazione iframe URL");
+  const $ = cheerio5.load(html);
+  const rawSrc = $("#fragment-3 iframe").attr("src");
+  if (!rawSrc) {
+    console.warn("[extractRankingIframeUrl] Nessun iframe trovato in #fragment-3");
+    return null;
+  }
+  const cleanSrc = rawSrc.replace(/\s+/g, "");
+  if (!cleanSrc) {
+    console.warn("[extractRankingIframeUrl] src iframe vuoto o non valido");
+    return null;
+  }
+  try {
+    const resolvedUrl = new URL(cleanSrc, "https://portale.fitet.org/risultati/new_rank/dettaglioatleta_unica.php").href;
+    console.log("[extractRankingIframeUrl] URL iframe estratto con successo:", resolvedUrl);
+    return resolvedUrl;
+  } catch (err) {
+    console.error("[extractRankingIframeUrl] Errore risoluzione URL iframe:", cleanSrc, err);
+    return null;
+  }
+}
+function formatDateItalian(val) {
+  const clean = val.trim();
+  const m = clean.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+  return clean;
+}
+function isCurrentSeasonDate(dateStr) {
+  if (!dateStr) return true;
+  const m = dateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/) || dateStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m) {
+    const year = parseInt(m[3] && m[3].length === 4 ? m[3] : m[1], 10);
+    const month = parseInt(m[3] && m[3].length === 4 ? m[2] : m[2], 10);
+    if (year < 2026) return false;
+    if (year === 2026 && month < 7) return false;
+    if (year > 2027) return false;
+    if (year === 2027 && month > 6) return false;
+    return true;
+  }
+  return true;
+}
+function parsePartiteRanking(html, atletaId) {
+  console.log(`[parsePartiteRanking] Inizio parsing partite ranking per atletaId: ${atletaId}`);
+  const $ = cheerio5.load(html);
+  let $p = $(`#player_${atletaId}`);
+  if (!$p.length) {
+    console.warn(`[parsePartiteRanking] Selettore #player_${atletaId} non trovato, fallback su prima classe .player`);
+    $p = $(".player").first();
+  }
+  const result = {
+    campionato: [],
+    tornei: []
+  };
+  if (!$p.length) {
+    console.error(`[parsePartiteRanking] Nessun elemento atleta trovato nell'HTML per atletaId: ${atletaId}`);
+    return result;
+  }
+  const subtleText = $p.find(".subtle").text().trim();
+  result.rawSubtle = subtleText;
+  if (subtleText) {
+    console.debug("[parsePartiteRanking] Testo .subtle trovato:", subtleText);
+    const parseSubVal = (regex) => {
+      const m = subtleText.match(regex);
+      return m ? parseItalianNumber(m[1]) : void 0;
+    };
+    result.dettaglioPunti = {
+      puntiIniziali: parseSubVal(/iniziali\s*(?:<b>)?\s*([\d\.,]+)/i),
+      campionato: parseSubVal(/campionato\s*(?:<b>)?\s*([\d\.,]+)/i),
+      tornei: parseSubVal(/tornei\s*(?:<b>)?\s*([\d\.,]+)/i),
+      vittorieTornei: parseSubVal(/vittorie\s*tornei\s*(?:<b>)?\s*([\d\.,]+)/i),
+      protezione: parseSubVal(/protezione\s*(?:<b>)?\s*([\d\.,]+)/i),
+      finali: parseSubVal(/finali\s*(?:<b>)?\s*([\d\.,]+)/i)
+    };
+    console.log("[parsePartiteRanking] Dettaglio punti parsato:", result.dettaglioPunti);
+  }
+  $p.find("h3").each((_, h3) => {
+    const text = $(h3).text().replace(/\s+/g, " ").toLowerCase();
+    const table = $(h3).nextAll("table").first();
+    if (!table.length) return;
+    const headerText = table.find("th, tr:first-child td").text().toLowerCase();
+    if (!headerText.includes("avversario")) return;
+    if (text.includes("campionato") && !text.includes("punti") && !text.includes("posizionamento")) {
+      console.log("[parsePartiteRanking] Parsing tabella campionato");
+      table.find("tbody tr").each((_2, tr) => {
+        const cells = $(tr).find("td");
+        if (cells.length < 4) return;
+        const rowText = $(tr).text().trim();
+        if (rowText.toLowerCase().includes("totale")) return;
+        const rawData = $(cells[0]).text().trim();
+        if (!rawData || !rawData.includes("/") && !rawData.includes("-")) return;
+        const data = formatDateItalian(rawData);
+        if (!isCurrentSeasonDate(data)) {
+          console.debug(`[parsePartiteRanking] Partita campionato scartata fuori stagione: ${data}`);
+          return;
+        }
+        let campionato = "";
+        let punti = 0;
+        let ris = "";
+        let sesso = void 0;
+        let stato = void 0;
+        let avversario = "";
+        let avversarioId = void 0;
+        if (cells.length === 5) {
+          campionato = $(cells[1]).text().trim();
+          stato = $(cells[2]).text().trim();
+          const $avvCell = $(cells[3]);
+          avversario = $avvCell.text().trim();
+          const $link = $avvCell.find("a");
+          const href = $link.attr("href") || $link.attr("onclick") || "";
+          const idMatch = href.match(/AVVERSARIO=(\d+)/i) || href.match(/ATLETA=(\d+)/i) || href.match(/atleti\/(\d+)/i) || href.match(/(\d{4,})/);
+          avversarioId = idMatch ? idMatch[1] : void 0;
+          ris = $(cells[4]).text().trim();
+        } else {
+          campionato = $(cells[1]).text().trim();
+          punti = parseItalianNumber($(cells[2]).text().trim());
+          ris = $(cells[3]).text().trim();
+          sesso = cells.length >= 5 ? $(cells[4]).text().trim() : void 0;
+          stato = cells.length >= 6 ? $(cells[5]).text().trim() : void 0;
+          const $avvCell = cells.length >= 7 ? $(cells[6]) : $(cells[cells.length - 1]);
+          avversario = $avvCell.text().trim();
+          const $link = $avvCell.find("a");
+          const href = $link.attr("href") || $link.attr("onclick") || "";
+          const idMatch = href.match(/AVVERSARIO=(\d+)/i) || href.match(/ATLETA=(\d+)/i) || href.match(/atleti\/(\d+)/i) || href.match(/(\d{4,})/);
+          avversarioId = idMatch ? idMatch[1] : void 0;
+        }
+        const isVittoria = ris.toUpperCase() === "V" || ris.toLowerCase() === "win";
+        result.campionato.push({
+          data,
+          campionato,
+          punti,
+          risultato: ris,
+          isVittoria,
+          avversario,
+          avversarioId,
+          sesso,
+          stato
+        });
+      });
+      console.log(`[parsePartiteRanking] Partite campionato estratte: ${result.campionato.length}`);
+    } else if (text.includes("torne") && !text.includes("punti") && !text.includes("posizionamento") && !text.includes("vinti nei gironi")) {
+      console.log("[parsePartiteRanking] Parsing tabella tornei");
+      table.find("tbody tr").each((_2, tr) => {
+        const cells = $(tr).find("td");
+        if (cells.length < 5) return;
+        const rowText = $(tr).text().trim();
+        if (rowText.toLowerCase().includes("totale")) return;
+        const rawData = $(cells[0]).text().trim();
+        if (!rawData || !rawData.includes("/") && !rawData.includes("-")) return;
+        const data = formatDateItalian(rawData);
+        if (!isCurrentSeasonDate(data)) {
+          console.debug(`[parsePartiteRanking] Partita torneo scartata fuori stagione: ${data}`);
+          return;
+        }
+        const torneo = $(cells[1]).text().trim();
+        const gara = $(cells[2]).text().trim();
+        const stato = $(cells[3]).text().trim();
+        const $avvCell = $(cells[4]);
+        const avversario = $avvCell.text().trim();
+        const $link = $avvCell.find("a");
+        const href = $link.attr("href") || $link.attr("onclick") || "";
+        const idMatch = href.match(/AVVERSARIO=(\d+)/i) || href.match(/ATLETA=(\d+)/i) || href.match(/atleti\/(\d+)/i) || href.match(/(\d{4,})/);
+        const avversarioId = idMatch ? idMatch[1] : void 0;
+        const fase = cells.length >= 6 ? $(cells[5]).text().trim() : void 0;
+        const ris = cells.length >= 7 ? $(cells[6]).text().trim() : $(cells[cells.length - 1]).text().trim();
+        if (ris.toUpperCase() !== "V" && ris.toUpperCase() !== "S" && ris.toLowerCase() !== "win" && ris.toLowerCase() !== "loss") return;
+        const isVittoria = ris.toUpperCase() === "V" || ris.toLowerCase() === "win";
+        const isDiscarded = $(tr).hasClass("discarded") || ris.toUpperCase() === "S";
+        result.tornei.push({
+          data,
+          torneo,
+          gara,
+          stato,
+          avversario,
+          avversarioId,
+          fase,
+          risultato: ris,
+          isVittoria,
+          isDiscarded
+        });
+      });
+      console.log(`[parsePartiteRanking] Partite tornei estratte: ${result.tornei.length}`);
+    }
+  });
+  const ptsPerVitMap = /* @__PURE__ */ new Map();
+  $p.find("h3").each((_, h3) => {
+    const text = $(h3).text().replace(/\s+/g, " ").toLowerCase();
+    if (!text.includes("vinti nei gironi")) return;
+    const table = $(h3).nextAll("table").first();
+    if (!table.length) return;
+    table.find("tbody tr").each((__, tr) => {
+      const cells = $(tr).find("td");
+      if (cells.length < 4) return;
+      const rowText = $(tr).text().trim();
+      if (rowText.toLowerCase().includes("totale")) return;
+      const torneoName = $(cells[0]).text().trim();
+      const rawData = $(cells[1]).text().trim();
+      const data = formatDateItalian(rawData);
+      const garaName = $(cells[2]).text().trim();
+      const ptsPerWin = parseItalianNumber($(cells[3]).text().trim());
+      if (ptsPerWin > 0) {
+        ptsPerVitMap.set(`${data}|${torneoName}|${garaName}`, ptsPerWin);
+        ptsPerVitMap.set(`${data}|${torneoName}`, ptsPerWin);
+      }
+    });
+  });
+  if (result.tornei.length > 0) {
+    for (const tm of result.tornei) {
+      if (tm.fase?.toUpperCase() === "GIR") {
+        if (tm.isVittoria) {
+          const pts = ptsPerVitMap.get(`${tm.data}|${tm.torneo}|${tm.gara}`) ?? ptsPerVitMap.get(`${tm.data}|${tm.torneo}`);
+          if (pts !== void 0) {
+            tm.punti = pts;
+          }
+        } else {
+          tm.punti = 0;
+        }
+      } else if (!tm.isVittoria) {
+        tm.punti = 0;
+      }
+    }
+  }
+  return result;
+}
+function parseDettaglioAtleta(html, atletaId, partiteRanking) {
+  console.log(`[parseDettaglioAtleta] Inizio parsing scheda atleta ${atletaId}`);
+  const $ = cheerio5.load(html);
+  const $titolo = $("p.titolo").first();
+  const nomeRaw = $titolo.text().replace(/\s+/g, " ").trim();
+  console.debug(`[parseDettaglioAtleta] Nome rilevato: "${nomeRaw}"`);
+  const flagImg = $titolo.find("img.immagine").first();
+  const flagSrc = flagImg.attr("src") || "";
+  const flagMatch = flagSrc.match(/bandiere\/([A-Za-z0-9_]+)\.png/i);
+  const nazionalita = flagImg.attr("title") || (flagMatch ? flagMatch[1] : "IT");
+  const bandieraUrl = flagSrc.startsWith("http") ? flagSrc : `https://portale.fitet.org/images/bandiere/${flagMatch ? flagMatch[1] : "IT"}.png`;
+  const photoImg = $('img[src*="/atleti/"]').first();
+  const photoSrc = photoImg.attr("src") || "";
+  const photoMatch = photoSrc.match(/atleti\/(\d+)\.jpg/i);
+  const fotoId = photoMatch ? photoMatch[1] : atletaId || "";
+  const fotoUrl = fotoId && /^\d+$/.test(fotoId) ? `https://portale.fitet.org/images/atleti/${fotoId}.jpg` : "";
+  const getFieldValue = (label) => {
+    let result = "";
+    $("td").each((_, td) => {
+      const $td = $(td);
+      const text = $td.text().trim();
+      if (text.toLowerCase().includes(label.toLowerCase())) {
+        const nextTd = $td.next("td");
+        if (nextTd.length > 0) {
+          result = nextTd.text().replace(/\s+/g, " ").trim();
+          return false;
+        }
+      }
+    });
+    return result;
+  };
+  const dataNascitaRaw = getFieldValue("Dati di Nascita");
+  const dataNascitaMatch = dataNascitaRaw.match(/(\d{2}\/\d{2}\/\d{4})/);
+  const dataNascita = dataNascitaMatch ? dataNascitaMatch[1] : dataNascitaRaw;
+  const luogoNascita = dataNascitaRaw.replace(/.*?a\s*/i, "").trim();
+  const settore = getFieldValue("Settore Agonistico") || "Seniores";
+  const societa = getFieldValue("Societa' appartenenza") || getFieldValue("Societa") || "";
+  const regione = getFieldValue("Regione") || "";
+  const catRaw = getFieldValue("Categoria");
+  let categoria = catRaw;
+  let punti = 0;
+  const puntiMatch = catRaw.match(/punti\s*([\d\.,]+)/i);
+  if (puntiMatch) {
+    punti = parseItalianNumber(puntiMatch[1]);
+    categoria = catRaw.replace(/punti\s*[\d\.,]+/i, "").trim();
+  }
+  let stato = $(".style5").text().trim();
+  if (!stato) {
+    const classNum = $("p.classifica").text().trim();
+    stato = classNum ? `N. ${classNum}` : "Attivo";
+  }
+  const recordClassifica = getFieldValue("Record classifica");
+  const $riepilogoTable = $("#fragment-1 table").first();
+  let puntiIniziali = 0;
+  let puntiInizialiData = "";
+  let puntiTotali = 0;
+  let punteggioFinale = punti;
+  let partiteGiocate = 0;
+  let partiteVinte = 0;
+  let partitePerse = 0;
+  let percentualePositiva = 0;
+  if ($riepilogoTable.length > 0) {
+    const rows = $riepilogoTable.find("tr");
+    if (rows.length >= 2) {
+      const headerCells = $(rows[0]).find("td, th");
+      const dataCells = $(rows[1]).find("td");
+      const headers = headerCells.map((_, c) => $(c).text().replace(/\s+/g, " ").trim().toUpperCase()).get();
+      console.debug("[parseDettaglioAtleta] Intestazioni tabella riepilogo:", headers);
+      const findCol = (re, fallback) => {
+        const i = headers.findIndex((h) => re.test(h));
+        return i >= 0 ? i : fallback;
+      };
+      const hasProtezione = headers.some((h) => /PROTEZIONE/.test(h));
+      const offset = hasProtezione ? 1 : 0;
+      const colIniziali = findCol(/INIZIALI/, 0);
+      const colTotali = findCol(/PUNTI TOTALI/, 1);
+      const colFinale = findCol(/PUNTEGGIO FINALE/, 2 + offset);
+      const colGiocate = findCol(/GIOCATE/, 3 + offset);
+      const colVinte = findCol(/VINTE/, 4 + offset);
+      const colPerse = findCol(/PERSE/, 5 + offset);
+      const colPerc = findCol(/%/, 6 + offset);
+      if (dataCells.length >= 7) {
+        const initText = $(dataCells[colIniziali]).text().trim();
+        const initMatch = initText.match(/([\d\.,]+)\s*\[?\s*(\d{2}\/\d{2}\/\d{4})?/);
+        if (initMatch) {
+          puntiIniziali = parseItalianNumber(initMatch[1]);
+          puntiInizialiData = initMatch[2] || "";
+        }
+        puntiTotali = parseItalianNumber($(dataCells[colTotali]).text().trim());
+        punteggioFinale = parseItalianNumber($(dataCells[colFinale]).text().trim()) || punti;
+        partiteGiocate = parseInt($(dataCells[colGiocate]).text().trim(), 10) || 0;
+        partiteVinte = parseInt($(dataCells[colVinte]).text().trim(), 10) || 0;
+        partitePerse = parseInt($(dataCells[colPerse]).text().trim(), 10) || 0;
+        percentualePositiva = parseItalianNumber($(dataCells[colPerc]).text().trim().replace("%", ""));
+        console.log("[parseDettaglioAtleta] Riepilogo estratto:", {
+          puntiIniziali,
+          puntiTotali,
+          punteggioFinale,
+          giocate: partiteGiocate,
+          vinte: partiteVinte,
+          perse: partitePerse
+        });
+      } else {
+        console.warn(`[parseDettaglioAtleta] Celle insufficienti nel riepilogo (${dataCells.length})`);
+      }
+    }
+  } else {
+    console.warn("[parseDettaglioAtleta] Tabella #fragment-1 non trovata");
+  }
+  const storicoClassifica = [];
+  $("#fragment-4 table tr").each((idx, tr) => {
+    if (idx === 0) return;
+    const cells = $(tr).find("td");
+    if (cells.length < 4) return;
+    const data = $(cells[0]).text().trim();
+    if (!data.match(/\d{4}-\d{2}-\d{2}/) && !data.match(/\d{2}\/\d{2}\/\d{4}/)) return;
+    const posText = $(cells[1]).text().trim();
+    const posizione = posText ? parseInt(posText, 10) || null : null;
+    const pt = parseItalianNumber($(cells[2]).text().trim());
+    const cat = $(cells[3]).text().trim() || categoria;
+    storicoClassifica.push({
+      data,
+      punti: pt,
+      posizione,
+      categoria: cat
+    });
+  });
+  storicoClassifica.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+  console.log(`[parseDettaglioAtleta] Rilevazioni storico classifica trovate: ${storicoClassifica.length}`);
+  const ultimoSnapshot = storicoClassifica.length > 0 ? storicoClassifica[storicoClassifica.length - 1] : null;
+  const puntiEffettivi = punteggioFinale || punti || (ultimoSnapshot ? ultimoSnapshot.punti : 0);
+  console.log(`[parseDettaglioAtleta] Completato parsing per ${nomeRaw || atletaId}. Punti finali: ${puntiEffettivi}`);
+  return {
+    id: atletaId,
+    anagrafica: {
+      nome: nomeRaw || `Atleta ${atletaId}`,
+      nazionalita,
+      bandieraUrl,
+      fotoId,
+      fotoUrl,
+      dataNascita,
+      luogoNascita,
+      settore,
+      societa,
+      regione,
+      categoria,
+      punti: puntiEffettivi,
+      stato,
+      recordClassifica
+    },
+    riepilogo: {
+      puntiIniziali,
+      puntiInizialiData,
+      puntiTotali,
+      punteggioFinale: puntiEffettivi,
+      partiteGiocate,
+      partiteVinte,
+      partitePerse,
+      percentualePositiva
+    },
+    storicoClassifica,
+    partiteRanking
+  };
+}
+
+// server/parsers/squadraParser.ts
+import * as cheerio6 from "cheerio";
+function parseDettaglioSquadra(html, squadraId, camId, logoUrl) {
+  const $ = cheerio6.load(html);
+  const titleText = $("table tr:first-child").text().replace(/\s+/g, " ").trim();
+  const teamNameMatch = titleText.match(/Atleti della squadra:\s*(.+)$/i);
+  const nome = teamNameMatch ? teamNameMatch[1].trim() : "Squadra " + squadraId;
+  const atleti = [];
+  $("table tr").each((_, row) => {
+    const $row = $(row);
+    const cells = $row.find("td");
+    if (cells.length < 10) return;
+    const rowText = $row.text();
+    if (rowText.includes("Atleta") && rowText.includes("PaV")) return;
+    const athleteLink = $row.find('a[href*="dettaglio_percentuali.php"], a[href*="IDA="]');
+    if (athleteLink.length === 0) return;
+    const athleteName = athleteLink.text().replace(/\s+/g, " ").trim();
+    if (!athleteName) return;
+    const href = athleteLink.attr("href") || "";
+    const idaMatch = href.match(/IDA=(\d+)/i);
+    const atletaId = idaMatch ? idaMatch[1] : "";
+    const hasScheda = $row.find('a[onclick*="getScheda"]').length > 0;
+    const isDoppio = !hasScheda && athleteName.includes(" - ");
+    const rankText = $(cells[2]).text().replace(/\s+/g, " ").trim();
+    let rankPosizione = null;
+    let rankPunti = null;
+    const rankPosMatch = rankText.match(/rank\.\s*(\d+)/i);
+    if (rankPosMatch) {
+      rankPosizione = parseInt(rankPosMatch[1], 10);
+    }
+    const rankPuntiMatch = rankText.match(/\((\d+)\)/);
+    if (rankPuntiMatch) {
+      rankPunti = parseInt(rankPuntiMatch[1], 10);
+    }
+    const getInt = (cellIdx) => {
+      const val = $(cells[cellIdx]).text().trim().replace(/[^\d-]/g, "");
+      return parseInt(val, 10) || 0;
+    };
+    const getFloat = (cellIdx) => {
+      const val = $(cells[cellIdx]).text().trim().replace(/[^\d.,-]/g, "").replace(",", ".");
+      const num = parseFloat(val);
+      return Number.isFinite(num) ? num : 0;
+    };
+    const partiteDisputate = getInt(3);
+    const partiteVinte = getInt(4);
+    const partitePerse = getInt(5);
+    const setVinti = getInt(6);
+    const setPersi = getInt(7);
+    const puntiVinti = getInt(8);
+    const puntiPersi = getInt(9);
+    const percentualeVittorie = getFloat(10);
+    atleti.push({
+      atletaId,
+      nome: athleteName,
+      isDoppio,
+      rankText,
+      rankPosizione,
+      rankPunti,
+      partiteDisputate,
+      partiteVinte,
+      partitePerse,
+      setVinti,
+      setPersi,
+      puntiVinti,
+      puntiPersi,
+      percentualeVittorie,
+      fotoUrl: !isDoppio && atletaId ? `https://portale.fitet.org/images/atleti/${atletaId}.jpg` : null
+    });
+  });
+  return {
+    squadraId,
+    camId,
+    nome,
+    logoUrl,
+    atleti
+  };
+}
+
+// server/parsers/societyParser.ts
+import * as cheerio7 from "cheerio";
+var PORTAL_BASE = "https://portale.fitet.org";
+var cleanText = (value) => (value || "").replace(/\s+/g, " ").trim();
+var parseItalianNumber2 = (value) => {
+  const cleaned = cleanText(value).replace(/[^\d,.-]/g, "").replace(",", ".");
+  const num = parseFloat(cleaned);
+  return Number.isFinite(num) ? num : 0;
+};
+var parseIntSafe = (value) => {
+  const num = parseInt(cleanText(value).replace(/[^\d-]/g, ""), 10);
+  return Number.isFinite(num) ? num : 0;
+};
+var normalizeLogoUrl = (src) => {
+  if (!src) return "";
+  const clean = src.replace(/^(\.\.\/)+/, "").replace(/^\/+/, "");
+  if (/^https?:\/\//i.test(clean)) return clean;
+  return `${PORTAL_BASE}/${clean}`;
+};
+function parseDatiSquadra(html, fallbackSquadraId = "", fallbackSocietyId = "") {
+  const $ = cheerio7.load(html);
+  const logoImg = $('img[src*="images/societa/"]').first();
+  const logoUrl = normalizeLogoUrl(logoImg.attr("src"));
+  const headerText = cleanText($("table").first().text());
+  const teamNameMatch = headerText.match(
+    /Scheda della squadra\s+(.+?)\s+Dati anagrafici della Societa/i
+  );
+  const teamName = cleanText(teamNameMatch?.[1]) || cleanText($("table").first().find("p.stile").eq(1).text()) || `Squadra ${fallbackSquadraId}`;
+  let societyField = $('fieldset[name="societa"]').first();
+  if (societyField.length === 0) {
+    societyField = $("fieldset").filter((_, el) => cleanText($(el).find("legend").text()).includes("Dati anagrafici")).first();
+  }
+  const societyTables = societyField.find("table");
+  const registryCells = societyTables.eq(0).find("tr").eq(1).find("td, th");
+  const addressCells = societyTables.eq(1).find("tr").eq(1).find("td, th");
+  const contactCells = societyTables.eq(2).find("tr").eq(1).find("td, th");
+  const societyName = cleanText(registryCells.eq(0).text());
+  const alboFederale = cleanText(registryCells.eq(1).text()).match(/\d{2,6}/)?.[0] || fallbackSocietyId || logoUrl.match(/\/societa\/(\d+)\./i)?.[1] || "";
+  const primaAffiliazione = cleanText(registryCells.eq(2).text());
+  const info = {
+    societyId: alboFederale,
+    nome: societyName || `Societ\xE0 #${alboFederale || fallbackSquadraId}`,
+    logoUrl: logoUrl || (alboFederale ? `${PORTAL_BASE}/images/societa/${alboFederale}.jpg` : `${PORTAL_BASE}/images/societa/img_generica.jpg`),
+    alboFederale,
+    primaAffiliazione: primaAffiliazione || void 0,
+    indirizzo: cleanText(addressCells.eq(0).text()) || void 0,
+    cap: cleanText(addressCells.eq(1).text()) || void 0,
+    citta: cleanText(addressCells.eq(2).text()) || void 0,
+    provincia: cleanText(addressCells.eq(3).text()) || void 0,
+    regione: cleanText(addressCells.eq(4).text()) || void 0,
+    email: cleanText(contactCells.eq(2).text()) || void 0,
+    sito: cleanText(contactCells.eq(3).text()) || void 0
+  };
+  const formation = [];
+  const formationField = $('fieldset[name="squadra"]').last();
+  const formationTable = (formationField.length > 0 ? formationField : $("body")).find("table").last();
+  formationTable.find("td").each((_, cell) => {
+    const value = cleanText($(cell).text());
+    if (value && /\([A-Z]{2,3}\)\s*$/.test(value)) {
+      formation.push(value);
+    }
+  });
+  return { teamName, info, formation };
+}
+function parseSocietaArchive(html) {
+  const stagioni = [];
+  const championshipRegex = /<th\s+rowspan=["']?2["']?[^>]*>\s*<b>\s*(\d{4}\/\d{2})\s*<\/b>\s*<\/th>|Campionati\.asp\?CAMP=(\d+)&(?:amp;)?ANNATA=(\d+)[^>]*>([^<]+)<\/a>/gi;
+  let seasonMatch;
+  let currentSeason = null;
+  while ((seasonMatch = championshipRegex.exec(html)) !== null) {
+    if (seasonMatch[1]) {
+      currentSeason = {
+        anno: 0,
+        stagione: decodeHtmlEntities(seasonMatch[1]),
+        campionati: []
+      };
+      stagioni.push(currentSeason);
+    } else if (currentSeason && seasonMatch[2] && seasonMatch[3]) {
+      currentSeason.anno = parseInt(seasonMatch[3], 10) || currentSeason.anno;
+      const nome = decodeHtmlEntities(cleanText(seasonMatch[4]));
+      const campId = parseInt(seasonMatch[2], 10);
+      if (campId && nome) {
+        currentSeason.campionati.push({ campId, nome });
+      }
+    }
+  }
+  const atletiStorici = [];
+  const presenzeStart = html.search(/id=["']presenze["']/i);
+  const presenzeHtml = presenzeStart >= 0 ? html.slice(presenzeStart) : html;
+  const presenzeRegex = /<tr[^>]*>\s*<td[^>]*>\s*<p[^>]*>\s*(\d{3,})\s*<\/p>\s*<\/td>\s*<td[^>]*>\s*<p[^>]*>([\s\S]*?)<\/p>\s*<\/td>\s*<td[^>]*>\s*<p[^>]*>\s*(\d+)\s*<\/p>\s*<\/td>\s*<\/tr>/gi;
+  let presenzeMatch;
+  while ((presenzeMatch = presenzeRegex.exec(presenzeHtml)) !== null) {
+    const nome = decodeHtmlEntities(cleanText(presenzeMatch[2]));
+    if (!nome) continue;
+    atletiStorici.push({
+      tessera: presenzeMatch[1],
+      nome,
+      presenze: parseInt(presenzeMatch[3], 10) || 0,
+      atletaId: null
+    });
+  }
+  return {
+    stagioni,
+    atletiStorici,
+    titoliNazionali: parseTitles(html, "nazionali", "regionali"),
+    titoliRegionali: parseTitles(html, "regionali", "presenze")
+  };
+}
+function parseTitles(html, fromId, toId) {
+  const start = html.search(new RegExp(`id=["']${fromId}["']`, "i"));
+  if (start < 0) return [];
+  const end = html.search(new RegExp(`id=["']${toId}["']`, "i"));
+  const section = html.slice(start, end > start ? end : void 0);
+  const $ = cheerio7.load(`<div>${section}</div>`);
+  const titles = [];
+  $("tr").each((_, row) => {
+    const cells = $(row).find("td").map((__, cell) => cleanText($(cell).text())).get().filter(Boolean);
+    if (cells.length < 4) return;
+    if (/stagione/i.test(cells[0]) || /torneo/i.test(cells[0])) return;
+    titles.push({
+      stagione: cells[0],
+      torneo: cells[1],
+      gara: cells[2],
+      dettaglio: cells[3]
+    });
+  });
+  return titles;
+}
+function parseSocietaClassificaArchive(html) {
+  const $ = cheerio7.load(html);
+  const squadre = [];
+  $('a[href*="Percentuali.asp?SQUADRA="]').each((_, link) => {
+    const href = $(link).attr("href") || "";
+    const squadraId = href.match(/SQUADRA=(\d+)/i)?.[1] || "";
+    const nome = cleanText($(link).text());
+    if (!squadraId || !nome) return;
+    const row = $(link).closest("tr");
+    const cells = row.find("td");
+    if (cells.length < 14) return;
+    squadre.push({
+      squadraId,
+      nome,
+      posizione: squadre.length + 1,
+      punti: parseIntSafe($(cells[2]).text()),
+      incontriDisputati: parseIntSafe($(cells[3]).text()),
+      incontriVinti: parseIntSafe($(cells[4]).text()),
+      incontriPareggiati: parseIntSafe($(cells[5]).text()),
+      incontriPersi: parseIntSafe($(cells[6]).text()),
+      partiteVinte: parseIntSafe($(cells[7]).text()),
+      partitePerse: parseIntSafe($(cells[8]).text()),
+      setVinti: parseIntSafe($(cells[9]).text()),
+      setPersi: parseIntSafe($(cells[10]).text()),
+      puntiVinti: parseIntSafe($(cells[11]).text()),
+      puntiPersi: parseIntSafe($(cells[12]).text()),
+      penalizzazioni: parseIntSafe($(cells[13]).text()),
+      atleti: []
+    });
+  });
+  return squadre;
+}
+function parseSocietaRosterArchive(html, squadraId, squadraNome) {
+  const $ = cheerio7.load(html);
+  const atleti = [];
+  $('a[href*="DettaglioPercentuali.asp?IDA="]').each((_, link) => {
+    const href = $(link).attr("href") || "";
+    const atletaId = href.match(/IDA=(\d+)/i)?.[1] || null;
+    const nome = cleanText($(link).text());
+    if (!nome) return;
+    const row = $(link).closest("tr");
+    const cells = row.find("td");
+    if (cells.length < 9) return;
+    const isDoppio = nome.includes(" - ");
+    const partiteDisputate = parseIntSafe($(cells[1]).text());
+    const partiteVinte = parseIntSafe($(cells[2]).text());
+    const partitePerse = parseIntSafe($(cells[3]).text());
+    atleti.push({
+      atletaId: isDoppio ? null : atletaId,
+      nome,
+      isDoppio,
+      squadraId,
+      squadraNome,
+      rankPosizione: null,
+      rankPunti: null,
+      partiteDisputate,
+      partiteVinte,
+      partitePerse,
+      setVinti: parseIntSafe($(cells[4]).text()),
+      setPersi: parseIntSafe($(cells[5]).text()),
+      puntiVinti: parseIntSafe($(cells[6]).text()),
+      puntiPersi: parseIntSafe($(cells[7]).text()),
+      percentualeVittorie: parseItalianNumber2($(cells[8]).text())
+    });
+  });
+  return atleti;
+}
+function decodeHtmlEntities(value) {
+  return value.replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/&ograve;/gi, "\xF2").replace(/&agrave;/gi, "\xE0").replace(/&egrave;/gi, "\xE8").replace(/&igrave;/gi, "\xEC").replace(/&ugrave;/gi, "\xF9").replace(/&Ograve;/gi, "\xD2").replace(/&Agrave;/gi, "\xC0").replace(/&Egrave;/gi, "\xC8").replace(/&Igrave;/gi, "\xCC").replace(/&Ugrave;/gi, "\xD9");
+}
+
+// server/services/societyService.ts
+var PORTAL_BASE2 = "https://portale.fitet.org";
+var ARCHIVE_BASE = "http://archivio.fitet.org";
+var DEFAULT_ANNO = 41;
+var TTL_ARCHIVE = 12 * 60 * 60 * 1e3;
+var TTL_SOCIETY = 12 * 60 * 60 * 1e3;
+var TTL_SEASON = 24 * 60 * 60 * 1e3;
+var TTL_TEAM = 7 * 24 * 60 * 60 * 1e3;
+var TTL_CLASSIFICA = 30 * 60 * 1e3;
+var normalizeName = (value) => (value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").trim();
+var nameTokens = (value) => extractCoreTokens(value).filter((token) => token.length >= 4);
+async function mapLimit(items, limit, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+function getSeasonLabel(anno) {
+  const startYear = 1985 + anno;
+  return `${startYear}/${String(startYear + 1).slice(-2)}`;
+}
+async function loadArchiveSociety(societyId, forceRefresh = false) {
+  const cacheKey = `societa_archive_${societyId}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+  }
+  const html = await FitetClient.fetchHtml(
+    `${ARCHIVE_BASE}/scheda_dettaglio_soc.php?TEAM=${encodeURIComponent(societyId)}`
+  );
+  const parsed = parseSocietaArchive(html);
+  cacheService.set(cacheKey, parsed, TTL_ARCHIVE);
+  return parsed;
+}
+async function getArchiveClassifica(campId, anno, forceRefresh = false) {
+  const cacheKey = `societa_classifica_${campId}_${anno}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+  }
+  const html = await FitetClient.fetchHtml(
+    `${PORTAL_BASE2}/risultati/archivio/ClassificaSquadre.asp?ANNATA=${anno}&CAMP=${campId}`
+  );
+  const parsed = parseSocietaClassificaArchive(html);
+  if (parsed.length > 0) {
+    cacheService.set(cacheKey, parsed, TTL_CLASSIFICA);
+  }
+  return parsed;
+}
+async function getTeamRegistry(teamId, cam, anno, forceRefresh = false) {
+  const cacheKey = `societa_team_${teamId}_${cam}_${anno}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) {
+      if (cached.info?.societyId) {
+        cacheService.set(`societa_info_${cached.info.societyId}`, cached.info, TTL_TEAM);
+      }
+      return cached;
+    }
+  }
+  try {
+    const html = await FitetClient.fetchHtml(
+      `${PORTAL_BASE2}/risultati/campionati/DatiSquadra.asp?SQUADRA=${teamId}&CAM=${cam}&ANNO=${anno}`
+    );
+    const parsed = parseDatiSquadra(html, teamId);
+    if (!parsed.info.societyId) return null;
+    const payload = { teamName: parsed.teamName, info: parsed.info };
+    cacheService.set(cacheKey, payload, TTL_TEAM);
+    cacheService.set(`societa_info_${parsed.info.societyId}`, parsed.info, TTL_TEAM);
+    if (parsed.teamName) {
+      teamResolver.registerSocietyLogo(parsed.teamName, parsed.info.societyId, parsed.info.logoUrl);
+    }
+    if (parsed.info.nome) {
+      teamResolver.registerSocietyLogo(parsed.info.nome, parsed.info.societyId, parsed.info.logoUrl);
+    }
+    return payload;
+  } catch (err) {
+    console.warn(`[Societa] Impossibile leggere DatiSquadra per ${teamId}:`, err);
+    return null;
+  }
+}
+function isLikelySocietyTeam(teamName, societyId, knownNames, societyName) {
+  const normalizedTeam = normalizeName(teamName);
+  if (!normalizedTeam) return false;
+  const names = [...knownNames];
+  if (societyName) names.push(societyName);
+  for (const candidate of names) {
+    const normalizedCandidate = normalizeName(candidate);
+    if (!normalizedCandidate) continue;
+    if (normalizedTeam === normalizedCandidate || normalizedTeam.includes(normalizedCandidate) || normalizedCandidate.includes(normalizedTeam)) {
+      return true;
+    }
+  }
+  const teamTokens = new Set(nameTokens(teamName));
+  const candidateTokens = new Set(names.flatMap((name) => nameTokens(name)));
+  for (const token of teamTokens) {
+    if (candidateTokens.has(token)) return true;
+  }
+  const logo = teamResolver.getLogo(teamName);
+  if (logo && logo.includes(`/societa/${societyId}.`)) return true;
+  return false;
+}
+async function findSocietyTeams(squadre, societyId, campId, anno, knownNames = [], scanAllFallback = true) {
+  if (!squadre.length) return { matches: [] };
+  const cachedInfo = cacheService.get(`societa_info_${societyId}`);
+  const societyName = cachedInfo?.nome;
+  const prefiltered = squadre.filter(
+    (team) => isLikelySocietyTeam(team.nome, societyId, knownNames, societyName)
+  );
+  const candidates = prefiltered.length > 0 ? prefiltered : squadre.slice(0, 16);
+  const candidateIds = new Set(candidates.map((team) => team.squadraId));
+  const registry = await mapLimit(candidates, 4, async (team) => ({
+    team,
+    registry: await getTeamRegistry(team.squadraId, campId, anno)
+  }));
+  const matches = [];
+  let info;
+  for (const item of registry) {
+    if (!item.registry) continue;
+    if (String(item.registry.info.societyId) !== String(societyId)) continue;
+    matches.push({ squadra: item.team, info: item.registry.info });
+    info = info || item.registry.info;
+  }
+  if (matches.length === 0 && scanAllFallback) {
+    const remaining = squadre.filter((team) => !candidateIds.has(team.squadraId)).slice(0, 16);
+    const fallbackRegistry = await mapLimit(remaining, 4, async (team) => ({
+      team,
+      registry: await getTeamRegistry(team.squadraId, campId, anno)
+    }));
+    for (const item of fallbackRegistry) {
+      if (!item.registry) continue;
+      if (String(item.registry.info.societyId) !== String(societyId)) continue;
+      matches.push({ squadra: item.team, info: item.registry.info });
+      info = info || item.registry.info;
+    }
+  }
+  return { matches, info };
+}
+async function loadTeamRoster(teamId, campId, anno, isCurrent, teamName) {
+  try {
+    if (isCurrent) {
+      const html = await FitetClient.fetchHtml(
+        `${PORTAL_BASE2}/risultati/campionati/percentuali.php?SQUADRA=${teamId}&CAM=${campId}`
+      );
+      const parsed = parseDettaglioSquadra(html, teamId, campId);
+      if (parsed.atleti.length > 0) {
+        return parsed.atleti.map((athlete) => ({
+          atletaId: athlete.isDoppio ? null : athlete.atletaId || null,
+          nome: athlete.nome,
+          isDoppio: athlete.isDoppio,
+          squadraId: teamId,
+          squadraNome: teamName,
+          rankPosizione: athlete.rankPosizione,
+          rankPunti: athlete.rankPunti,
+          partiteDisputate: athlete.partiteDisputate,
+          partiteVinte: athlete.partiteVinte,
+          partitePerse: athlete.partitePerse,
+          setVinti: athlete.setVinti,
+          setPersi: athlete.setPersi,
+          puntiVinti: athlete.puntiVinti,
+          puntiPersi: athlete.puntiPersi,
+          percentualeVittorie: athlete.percentualeVittorie
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn(`[Societa] Roster live non disponibile per ${teamId}/${campId}:`, err);
+  }
+  try {
+    const html = await FitetClient.fetchHtml(
+      `${PORTAL_BASE2}/risultati/archivio/Percentuali.asp?SQUADRA=${teamId}&CAMP=${campId}&ANNATA=${anno}`
+    );
+    return parseSocietaRosterArchive(html, teamId, teamName);
+  } catch (err) {
+    console.warn(`[Societa] Roster archivio non disponibile per ${teamId}/${campId}/${anno}:`, err);
+    return [];
+  }
+}
+function uniqueAthletes(athletes) {
+  const seen = /* @__PURE__ */ new Set();
+  const result = [];
+  for (const athlete of athletes) {
+    const key = athlete.atletaId ? `id:${athlete.atletaId}` : `name:${normalizeName(athlete.nome)}`;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(athlete);
+  }
+  return result.sort((a, b) => b.partiteVinte - a.partiteVinte || b.percentualeVittorie - a.percentualeVittorie);
+}
+async function buildSocietySeason(societyId, season, isCurrent, knownNames = []) {
+  const campionati = [];
+  let info;
+  let activeKnownNames = [...knownNames];
+  const resolvedInfo = cacheService.get(`societa_info_${societyId}`);
+  if (resolvedInfo) info = resolvedInfo;
+  for (const camp of season.campionati.slice(0, 4)) {
+    try {
+      const classifica = await getArchiveClassifica(camp.campId, season.anno);
+      if (classifica.length === 0) continue;
+      const { matches, info: foundInfo } = await findSocietyTeams(
+        classifica,
+        societyId,
+        camp.campId,
+        season.anno,
+        activeKnownNames
+      );
+      if (foundInfo) info = info || foundInfo;
+      if (matches.length === 0) continue;
+      const squadre = [];
+      for (const match of matches) {
+        const roster = await loadTeamRoster(
+          match.squadra.squadraId,
+          camp.campId,
+          season.anno,
+          isCurrent,
+          match.squadra.nome
+        );
+        squadre.push({ ...match.squadra, atleti: roster });
+        activeKnownNames = Array.from(/* @__PURE__ */ new Set([...activeKnownNames, match.squadra.nome]));
+      }
+      campionati.push({
+        campId: camp.campId,
+        nome: camp.nome,
+        anno: season.anno,
+        stagione: season.stagione,
+        squadre
+      });
+    } catch (err) {
+      console.warn(`[Societa] Errore campionato ${camp.campId}/${season.anno}:`, err);
+    }
+  }
+  const allAthletes = uniqueAthletes(campionati.flatMap((camp) => camp.squadre.flatMap((team) => team.atleti)));
+  const puntiTotali = campionati.reduce(
+    (sum, camp) => sum + camp.squadre.reduce((teamSum, team) => teamSum + (team.punti || 0), 0),
+    0
+  );
+  const squadreCount = campionati.reduce((sum, camp) => sum + camp.squadre.length, 0);
+  return {
+    stagione: {
+      anno: season.anno,
+      stagione: season.stagione,
+      isCorrente: isCurrent,
+      campionati,
+      puntiTotali,
+      squadreCount,
+      atleti: allAthletes,
+      atletiCount: allAthletes.length
+    },
+    info
+  };
+}
+function buildFallbackInfo(societyId) {
+  const knownTeams = teamResolver.getTeamNamesForSociety(societyId);
+  const name = knownTeams[0] ? knownTeams[0].replace(/\s+"?[A-Z]"$/i, "").trim() : `Societ\xE0 #${societyId}`;
+  return {
+    societyId: String(societyId),
+    nome: name,
+    logoUrl: knownTeams[0] && teamResolver.getLogo(knownTeams[0]) ? teamResolver.getLogo(knownTeams[0]) : `${PORTAL_BASE2}/images/societa/${societyId}.jpg`,
+    alboFederale: String(societyId)
+  };
+}
+async function findSocietyInfoFromHistory(societyId, stagioni) {
+  const cached = cacheService.get(`societa_info_${societyId}`);
+  if (cached) return cached;
+  for (const season of stagioni.slice(0, 5)) {
+    if (!season.campionati.length) continue;
+    for (const camp of season.campionati.slice(0, 2)) {
+      try {
+        const classifica = await getArchiveClassifica(camp.campId, season.anno);
+        if (!classifica.length) continue;
+        const { info } = await findSocietyTeams(
+          classifica,
+          societyId,
+          camp.campId,
+          season.anno,
+          teamResolver.getTeamNamesForSociety(societyId)
+        );
+        if (info) return info;
+      } catch {
+      }
+    }
+  }
+  return null;
+}
+async function resolveAthleteTeamName(atletaId, atletaNome, camId, anno, classifica, societyName, knownTeamName) {
+  if (knownTeamName) return knownTeamName;
+  const targetName = normalizeName(atletaNome);
+  try {
+    const statsHtml = await FitetClient.fetchStatisticheAtleti(camId);
+    const stats = parseStatisticheAtleti(statsHtml);
+    const match = stats.find((item) => item.atletaId && String(item.atletaId) === String(atletaId)) || stats.find((item) => targetName && normalizeName(item.atleta) === targetName);
+    if (match?.squadra) return match.squadra;
+  } catch (err) {
+    console.warn(`[Societa] Statistiche non disponibili per CAM ${camId}:`, err);
+  }
+  const societyTokens = new Set(nameTokens(societyName));
+  const ranked = [...classifica].sort((a, b) => {
+    const aScore = nameTokens(a.nome).some((token) => societyTokens.has(token)) ? 0 : 1;
+    const bScore = nameTokens(b.nome).some((token) => societyTokens.has(token)) ? 0 : 1;
+    return aScore - bScore;
+  });
+  const results = await mapLimit(ranked.slice(0, 16), 4, async (team) => {
+    try {
+      const html = await FitetClient.fetchHtml(
+        `${PORTAL_BASE2}/risultati/campionati/percentuali.php?SQUADRA=${team.squadraId}&CAM=${camId}`
+      );
+      const parsed = parseDettaglioSquadra(html, team.squadraId, camId);
+      const hit = parsed.atleti.find(
+        (athlete) => athlete.atletaId && String(athlete.atletaId) === String(atletaId) || targetName && normalizeName(athlete.nome) === targetName
+      );
+      return hit ? team.nome : null;
+    } catch {
+      return null;
+    }
+  });
+  return results.find((name) => Boolean(name)) || "";
+}
+function attachHistoricalAthleteIds(atletiStorici, currentAthletes) {
+  const mapping = athleteResolver.getMapping();
+  const byName = /* @__PURE__ */ new Map();
+  for (const [name, id] of Object.entries(mapping)) {
+    byName.set(normalizeName(name), id);
+  }
+  for (const athlete of currentAthletes) {
+    if (athlete.atletaId) {
+      byName.set(normalizeName(athlete.nome), athlete.atletaId);
+    }
+  }
+  return atletiStorici.map((athlete) => ({
+    ...athlete,
+    atletaId: athlete.atletaId || byName.get(normalizeName(athlete.nome)) || null
+  }));
+}
+var societyService = {
+  async getSociety(societyId, anno = DEFAULT_ANNO, forceRefresh = false) {
+    const cacheKey = `societa_dettaglio_${societyId}_${anno}`;
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      if (cached) return cached;
+    }
+    const archive = await loadArchiveSociety(societyId, forceRefresh);
+    const knownNames = teamResolver.getTeamNamesForSociety(societyId);
+    const currentSeason = archive.stagioni.find((season) => season.anno === anno) || archive.stagioni.find((season) => season.campionati.length > 0) || null;
+    let stagioneCorrente = null;
+    let info = null;
+    if (currentSeason) {
+      const result = await buildSocietySeason(societyId, currentSeason, true, knownNames);
+      stagioneCorrente = result.stagione;
+      info = result.info || null;
+    }
+    if (!info) {
+      info = await findSocietyInfoFromHistory(societyId, archive.stagioni);
+    }
+    if (!info) {
+      info = buildFallbackInfo(societyId);
+    }
+    const atletiStorici = attachHistoricalAthleteIds(
+      archive.atletiStorici,
+      stagioneCorrente?.atleti || []
+    );
+    const payload = {
+      info,
+      stagioneCorrente,
+      stagioni: archive.stagioni,
+      atletiStorici,
+      titoliNazionali: archive.titoliNazionali,
+      titoliRegionali: archive.titoliRegionali,
+      lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    cacheService.set(cacheKey, payload, TTL_SOCIETY);
+    return payload;
+  },
+  async getSocietySeason(societyId, anno, forceRefresh = false) {
+    const cacheKey = `societa_stagione_${societyId}_${anno}`;
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      if (cached) return cached;
+    }
+    const archive = await loadArchiveSociety(societyId, forceRefresh);
+    const season = archive.stagioni.find((item) => item.anno === anno);
+    if (!season) {
+      return {
+        anno,
+        stagione: getSeasonLabel(anno),
+        isCorrente: anno === DEFAULT_ANNO,
+        campionati: [],
+        puntiTotali: 0,
+        squadreCount: 0,
+        atleti: [],
+        atletiCount: 0
+      };
+    }
+    const knownNames = teamResolver.getTeamNamesForSociety(societyId);
+    const result = await buildSocietySeason(societyId, season, anno === DEFAULT_ANNO, knownNames);
+    cacheService.set(cacheKey, result.stagione, TTL_SEASON);
+    return result.stagione;
+  },
+  async detectFromAthlete(atletaId, anno = DEFAULT_ANNO) {
+    let athlete = cacheService.get(`atleta_${atletaId}`);
+    if (!athlete) {
+      try {
+        const idClass = await getLatestIdClass(false, false);
+        const html = await FitetClient.fetchSchedaAtleta(atletaId, idClass);
+        athlete = parseDettaglioAtleta(html, atletaId);
+      } catch (err) {
+        console.warn(`[Societa] Impossibile leggere la scheda atleta ${atletaId}:`, err);
+        return { found: false, needsManual: true, reason: "athlete_not_available" };
+      }
+    }
+    const societyName = athlete.anagrafica?.societa || "";
+    const playedCamps = [
+      athlete.campionatoAttuale,
+      ...athlete.campionatiGiocati || []
+    ].filter(Boolean);
+    const uniqueCamps = /* @__PURE__ */ new Map();
+    for (const camp of playedCamps) {
+      if (camp?.camId && !uniqueCamps.has(camp.camId)) {
+        uniqueCamps.set(camp.camId, camp);
+      }
+    }
+    for (const [camId, camp] of uniqueCamps) {
+      try {
+        const classifica = await getArchiveClassifica(camId, anno);
+        if (!classifica.length) continue;
+        const teamName = await resolveAthleteTeamName(
+          atletaId,
+          athlete.anagrafica?.nome || "",
+          camId,
+          anno,
+          classifica,
+          societyName,
+          camp.squadra
+        );
+        if (!teamName) continue;
+        const normalizedTeam = normalizeName(teamName);
+        const normalizedSociety = normalizeName(societyName);
+        const team = classifica.find((item) => normalizeName(item.nome) === normalizedTeam) || classifica.find((item) => {
+          const candidate = normalizeName(item.nome);
+          return normalizedTeam && (candidate.includes(normalizedTeam) || normalizedTeam.includes(candidate)) || normalizedSociety && (candidate.includes(normalizedSociety) || normalizedSociety.includes(candidate));
+        }) || classifica.find((item) => {
+          const candidateTokens = new Set(nameTokens(item.nome));
+          return nameTokens(societyName).some((token) => candidateTokens.has(token));
+        });
+        if (!team) continue;
+        const registry = await getTeamRegistry(team.squadraId, camId, anno);
+        if (!registry || !registry.info.societyId) continue;
+        return {
+          found: true,
+          societyId: registry.info.societyId,
+          info: registry.info,
+          camId,
+          teamName: team.nome,
+          teamId: team.squadraId,
+          societyName
+        };
+      } catch (err) {
+        console.warn(`[Societa] Detection fallita per CAM ${camId}:`, err);
+      }
+    }
+    return {
+      found: false,
+      needsManual: true,
+      societyName,
+      reason: "team_not_found"
+    };
+  },
+  async lookupByTeamId(teamId, cam, anno = DEFAULT_ANNO) {
+    const registry = await getTeamRegistry(teamId, cam, anno);
+    if (!registry || !registry.info.societyId) {
+      return { found: false };
+    }
+    return {
+      found: true,
+      societyId: registry.info.societyId,
+      info: registry.info
+    };
+  },
+  /**
+   * Manual or click-based selection: accepts an Albo Federale ID, a team name,
+   * or an official society name (plus optional context like squadraId, camId,
+   * atletaId, regione) and resolves it to a society.
+   */
+  async lookupSociety(query, anno = DEFAULT_ANNO, options) {
+    const trimmed = (query || "").trim();
+    if (options?.squadraId && /^\d+$/.test(options.squadraId) && options?.camId) {
+      const byTeam = await this.lookupByTeamId(options.squadraId, options.camId, anno);
+      if (byTeam.found && byTeam.societyId) {
+        if (trimmed) {
+          teamResolver.registerSocietyLogo(trimmed, byTeam.societyId, byTeam.info?.logoUrl);
+        }
+        return {
+          found: true,
+          societyId: byTeam.societyId,
+          info: byTeam.info,
+          camId: options.camId,
+          teamId: options.squadraId
+        };
+      }
+    }
+    if (!trimmed && !options?.atletaId) return { found: false };
+    if (/^\d{2,6}$/.test(trimmed)) {
+      try {
+        const archive = await loadArchiveSociety(trimmed);
+        if (archive.stagioni.length > 0) {
+          const info = cacheService.get(`societa_info_${trimmed}`) || await findSocietyInfoFromHistory(trimmed, archive.stagioni) || buildFallbackInfo(trimmed);
+          return { found: true, societyId: String(trimmed), info };
+        }
+      } catch {
+      }
+    }
+    const indexedSociety = trimmed ? teamResolver.findSocietyId(trimmed) : void 0;
+    if (indexedSociety) {
+      const info = cacheService.get(`societa_info_${indexedSociety}`) || buildFallbackInfo(indexedSociety);
+      return { found: true, societyId: indexedSociety, info };
+    }
+    if (options?.atletaId && /^\d+$/.test(options.atletaId)) {
+      try {
+        const detected = await this.detectFromAthlete(options.atletaId, anno);
+        if (detected.found && detected.societyId) {
+          if (trimmed) {
+            teamResolver.registerSocietyLogo(trimmed, detected.societyId, detected.info?.logoUrl);
+          }
+          return {
+            found: true,
+            societyId: detected.societyId,
+            info: detected.info,
+            camId: detected.camId,
+            teamName: detected.teamName,
+            teamId: detected.teamId
+          };
+        }
+      } catch {
+      }
+    }
+    if (!trimmed) return { found: false };
+    const normalizedQuery = normalizeName(trimmed);
+    const coreQuery = normalizeCoreTeamName(trimmed);
+    const queryTokens = nameTokens(trimmed);
+    let campionati = [];
+    try {
+      campionati = await championshipCatalog.getAllCampionati();
+    } catch (err) {
+      console.warn("[Societa] Catalogo campionati non disponibile per la ricerca manuale:", err);
+      return { found: false };
+    }
+    const activeCampionati = campionati.filter((camp) => !camp.anno || camp.anno === anno);
+    const targetRegionNorm = (options?.regione || "").trim().toUpperCase();
+    const prioritized = [...activeCampionati].sort((a, b) => {
+      const score = (c) => {
+        if (options?.camId && c.id === options.camId) return 100;
+        let s = 0;
+        const cReg = (c.regione || "").toUpperCase();
+        if (targetRegionNorm && cReg.includes(targetRegionNorm)) s += 40;
+        if (queryTokens.some((tok) => cReg.includes(tok))) s += 25;
+        return s;
+      };
+      return score(b) - score(a);
+    });
+    const targets = prioritized.slice(0, 64);
+    const matchesQueryTeam = (teamName) => {
+      const candidate = normalizeName(teamName);
+      if (!candidate) return false;
+      if (candidate === normalizedQuery) return true;
+      if (normalizedQuery && candidate.includes(normalizedQuery) || candidate && normalizedQuery.includes(candidate)) {
+        return true;
+      }
+      const coreCandidate = normalizeCoreTeamName(teamName);
+      if (coreQuery && coreCandidate) {
+        if (coreCandidate === coreQuery) return true;
+        if (coreQuery.length >= 4 && coreCandidate.length >= 4 && (coreCandidate.includes(coreQuery) || coreQuery.includes(coreCandidate))) {
+          return true;
+        }
+      }
+      if (queryTokens.length > 0) {
+        const candidateTokens = nameTokens(teamName);
+        if (candidateTokens.length > 0) {
+          const hitCount = queryTokens.filter(
+            (qt) => candidateTokens.some((ct) => ct === qt || ct.length >= 5 && qt.length >= 5 && (ct.includes(qt) || qt.includes(ct)))
+          ).length;
+          if (hitCount === queryTokens.length || hitCount === candidateTokens.length || hitCount >= 2) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    const tryChampionship = async (camp) => {
+      try {
+        const classifica = await getArchiveClassifica(camp.id, anno);
+        if (!classifica.length) return null;
+        const team = classifica.find((item) => normalizeName(item.nome) === normalizedQuery) || classifica.find((item) => normalizeCoreTeamName(item.nome) === coreQuery && coreQuery.length >= 3) || classifica.find((item) => matchesQueryTeam(item.nome)) || null;
+        if (!team) return null;
+        const registry = await getTeamRegistry(team.squadraId, camp.id, anno);
+        if (!registry?.info?.societyId) return null;
+        teamResolver.registerSocietyLogo(trimmed, registry.info.societyId, registry.info.logoUrl);
+        return {
+          found: true,
+          societyId: String(registry.info.societyId),
+          info: registry.info,
+          camId: camp.id,
+          teamName: team.nome,
+          teamId: team.squadraId
+        };
+      } catch (err) {
+        console.warn(`[Societa] Ricerca manuale fallita nel campionato ${camp.id}:`, err);
+        return null;
+      }
+    };
+    const batchSize = 6;
+    for (let i = 0; i < targets.length; i += batchSize) {
+      const results = await Promise.all(targets.slice(i, i + batchSize).map(tryChampionship));
+      const hit = results.find((result) => result !== null);
+      if (hit) return hit;
+    }
+    return { found: false };
+  },
+  async resolveHistoricalAthlete(name, tessera) {
+    const cacheKey = `societa_hist_atleta_${tessera || normalizeName(name)}`;
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+    const target = normalizeName(name);
+    const mapping = athleteResolver.getMapping();
+    for (const [mappedName, id] of Object.entries(mapping)) {
+      if (normalizeName(mappedName) === target) {
+        cacheService.set(cacheKey, id, 30 * 24 * 60 * 60 * 1e3);
+        return id;
+      }
+    }
+    try {
+      const results = await FitetClient.searchAtleta(name);
+      const matched = tessera && results.find((item) => (item.label || "").includes(`[${tessera}]`)) || results.find((item) => normalizeName(item.value) === target) || null;
+      if (matched?.id) {
+        cacheService.set(cacheKey, matched.id, 30 * 24 * 60 * 60 * 1e3);
+        return matched.id;
+      }
+    } catch (err) {
+      console.warn(`[Societa] Impossibile risolvere atleta storico ${name}:`, err);
+    }
+    return null;
+  }
+};
+
+// server/parsers/classificaParser.ts
+import * as cheerio8 from "cheerio";
+function parseClassifica(html) {
+  const $ = cheerio8.load(html);
+  const squadre = [];
+  $("table tr").each((_, row) => {
+    const $row = $(row);
+    const teamLink = $row.find('a[href*="percentuali.php"]');
+    if (teamLink.length === 0) return;
+    const href = teamLink.attr("href") || "";
+    const squadraIdMatch = href.match(/SQUADRA=(\d+)/i);
+    const squadraId = squadraIdMatch ? squadraIdMatch[1] : "";
+    const nome = teamLink.text().replace(/\s+/g, " ").trim();
+    const cells = $row.find("td");
+    if (cells.length < 14) return;
+    const getCellInt = (idx) => {
+      const text = $(cells[idx]).text().trim().replace(/\D+/g, "");
+      return parseInt(text, 10) || 0;
+    };
+    const punti = getCellInt(2);
+    const incontriDisputati = getCellInt(3);
+    const incontriVinti = getCellInt(4);
+    const incontriPareggiati = getCellInt(5);
+    const incontriPersi = getCellInt(6);
+    const partiteVinte = getCellInt(7);
+    const partitePerse = getCellInt(8);
+    const setVinti = getCellInt(9);
+    const setPersi = getCellInt(10);
+    const puntiVinti = getCellInt(11);
+    const puntiPersi = getCellInt(12);
+    const penalizzazioni = getCellInt(13);
+    squadre.push({
+      posizione: 0,
+      // Calculated after sorting
+      squadraId,
+      nome,
+      punti,
+      incontriDisputati,
+      incontriVinti,
+      incontriPareggiati,
+      incontriPersi,
+      partiteVinte,
+      partitePerse,
+      diffPartite: partiteVinte - partitePerse,
+      setVinti,
+      setPersi,
+      diffSet: setVinti - setPersi,
+      puntiVinti,
+      puntiPersi,
+      diffPunti: puntiVinti - puntiPersi,
+      penalizzazioni,
+      isPromozione: false,
+      isPlayoff: false,
+      isRetrocessione: false,
+      forma: []
+    });
+  });
+  squadre.forEach((sq, idx) => {
+    sq.posizione = idx + 1;
+    if (idx === 0) {
+      sq.isPromozione = true;
+    } else if (idx === 1) {
+      sq.isPlayoff = true;
+    } else if (idx >= squadre.length - 2 && squadre.length > 4) {
+      sq.isRetrocessione = true;
+    }
+  });
+  return squadre;
+}
+
+// server/parsers/calendarioParser.ts
+import * as cheerio9 from "cheerio";
+function parseCalendario(html) {
+  const $ = cheerio9.load(html);
+  const giornate = [];
+  $("table").each((_, table) => {
+    const $table = $(table);
+    const tableText = $table.text();
+    const giornataMatch = tableText.match(/(\d+)\^\s*Giornata/i);
+    if (!giornataMatch) return;
+    const numGiornata = parseInt(giornataMatch[1], 10);
+    const titolo = `${numGiornata}^ Giornata`;
+    const partiteAndata = [];
+    const partiteRitorno = [];
+    $table.find("tr").each((rowIdx, row) => {
+      const $row = $(row);
+      const cells = $row.find("td");
+      if (cells.length !== 8) return;
+      const dataAndata = $(cells[0]).text().trim();
+      if (!dataAndata.match(/\d{1,2}\/\d{1,2}\/\d{4}/)) return;
+      const oraAndata = $(cells[1]).text().trim();
+      const $risAndataCell = $(cells[2]);
+      const risAndataText = $risAndataCell.text().trim();
+      const casaAndata = $(cells[3]).text().trim().replace(/\s+/g, " ");
+      const ospiteAndata = $(cells[4]).text().trim().replace(/\s+/g, " ");
+      const $risRitornoCell = $(cells[5]);
+      const risRitornoText = $risRitornoCell.text().trim();
+      const oraRitorno = $(cells[6]).text().trim();
+      const dataRitorno = $(cells[7]).text().trim();
+      const parseMatch = (tipo, data, ora, casa, ospite, $cell, rawRis, matchIdx) => {
+        const link = $cell.find("a[href]").attr("href") || null;
+        let incontroId = null;
+        let formula = void 0;
+        if (link) {
+          const m = link.match(/INCONTRO=(\d+)/i);
+          if (m) incontroId = m[1];
+          const f = link.match(/FORMULA=(\d+)/i);
+          if (f) formula = parseInt(f[1], 10);
+        }
+        const scoreMatch = rawRis.match(/(\d+)\s*[-:]\s*(\d+)/);
+        const disputato = Boolean(scoreMatch);
+        const puntiCasa = scoreMatch ? parseInt(scoreMatch[1], 10) : null;
+        const puntiOspite = scoreMatch ? parseInt(scoreMatch[2], 10) : null;
+        let vincitore = null;
+        if (disputato && puntiCasa !== null && puntiOspite !== null) {
+          if (puntiCasa > puntiOspite) vincitore = "casa";
+          else if (puntiOspite > puntiCasa) vincitore = "ospite";
+          else vincitore = "pareggio";
+        }
+        const fullRefertoUrl = link ? link.startsWith("http") ? link : `https://portale.fitet.org/risultati/campionati/${link}` : null;
+        return {
+          id: `g${numGiornata}_${tipo}_${matchIdx}_${incontroId || "nomatch"}`,
+          giornata: numGiornata,
+          tipo,
+          data,
+          ora,
+          squadraCasa: casa,
+          squadraOspite: ospite,
+          risultato: disputato ? `${puntiCasa} - ${puntiOspite}` : "-",
+          puntiCasa,
+          puntiOspite,
+          disputato,
+          refertoUrl: fullRefertoUrl,
+          incontroId,
+          vincitore,
+          formula
+        };
+      };
+      partiteAndata.push(
+        parseMatch("andata", dataAndata, oraAndata, casaAndata, ospiteAndata, $risAndataCell, risAndataText, rowIdx)
+      );
+      partiteRitorno.push(
+        parseMatch("ritorno", dataRitorno, oraRitorno, ospiteAndata, casaAndata, $risRitornoCell, risRitornoText, rowIdx)
+      );
+    });
+    if (partiteAndata.length > 0 || partiteRitorno.length > 0) {
+      giornate.push({
+        numero: numGiornata,
+        titolo,
+        partiteAndata,
+        partiteRitorno
+      });
+    }
+  });
+  return giornate.sort((a, b) => a.numero - b.numero);
+}
+
+// server/parsers/headToHeadParser.ts
+import * as cheerio10 from "cheerio";
+function parseHeadToHead(html, atleta1Id, atleta2Id, fallbackAtleta1Nome, fallbackAtleta2Nome) {
+  const $ = cheerio10.load(html);
+  const rows = $("table tr");
+  let atleta1Nome = fallbackAtleta1Nome || `Atleta ${atleta1Id}`;
+  let atleta2Nome = fallbackAtleta2Nome || `Atleta ${atleta2Id}`;
+  const nomi = $("p.nomi");
+  if (nomi.length >= 2) {
+    const n1 = $(nomi[0]).text().trim();
+    const n2 = $(nomi[1]).text().trim();
+    if (n1 && !n1.toLowerCase().includes("incontrati")) atleta1Nome = n1;
+    if (n2 && !n2.toLowerCase().includes("incontrati")) atleta2Nome = n2;
+  }
+  const norm = (s) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const target1 = norm(atleta1Nome);
+  const target2 = norm(atleta2Nome);
+  let v1 = 0;
+  let v2 = 0;
+  const incontri = [];
+  rows.slice(2).each((_, tr) => {
+    const tds = $(tr).find("td");
+    if (tds.length < 5) return;
+    const anno = $(tds[0]).text().trim();
+    const data = $(tds[1]).text().trim();
+    const gara = $(tds[2]).text().trim();
+    const vincente = $(tds[3]).text().trim();
+    if (!data || !data.includes("/")) return;
+    const sWin = parseInt($(tds[4]).text().trim(), 10) || 3;
+    const sLose = parseInt($(tds[6]).text().trim(), 10) || 0;
+    const vincenteNorm = norm(vincente);
+    const isV1 = vincenteNorm.includes(target1) || target1.includes(vincenteNorm) || !vincenteNorm.includes(target2) && !target2.includes(vincenteNorm) && vincenteNorm.length > 0;
+    if (isV1) {
+      v1++;
+    } else {
+      v2++;
+    }
+    const setAtleta1 = isV1 ? sWin : sLose;
+    const setAtleta2 = isV1 ? sLose : sWin;
+    incontri.push({
+      anno,
+      data,
+      gara,
+      vincente,
+      punteggio: `${setAtleta1} - ${setAtleta2}`,
+      setAtleta1,
+      setAtleta2,
+      isVittoriaAtleta1: isV1
+    });
+  });
+  return {
+    atleta1: {
+      id: atleta1Id,
+      nome: atleta1Nome,
+      vittorie: v1,
+      fotoUrl: `https://portale.fitet.org/images/atleti/${atleta1Id}.jpg`
+    },
+    atleta2: {
+      id: atleta2Id,
+      nome: atleta2Nome,
+      vittorie: v2,
+      fotoUrl: `https://portale.fitet.org/images/atleti/${atleta2Id}.jpg`
+    },
+    totaleIncontri: incontri.length,
+    incontri
+  };
+}
+
+// server/services/headToHeadService.ts
+var TTL_HEAD_TO_HEAD = 24 * 60 * 60 * 1e3;
+var DEFAULT_ID_CLASS2 = 248;
+var HeadToHeadService = class {
+  /**
+   * Recupera il confronto diretto (Testa a Testa) tra due atleti
+   * Supporta sia ID federali che nomi atleti (risolti automaticamente)
+   */
+  async getHeadToHead(atleta1, atleta2, idClass = DEFAULT_ID_CLASS2) {
+    let id1 = atleta1.trim();
+    let id2 = atleta2.trim();
+    let name1 = "";
+    let name2 = "";
+    if (!/^\d+$/.test(id1)) {
+      name1 = id1;
+      const resolved = await athleteResolver.resolveAthleteId(id1);
+      if (resolved) id1 = resolved;
+    }
+    if (!/^\d+$/.test(id2)) {
+      name2 = id2;
+      const resolved = await athleteResolver.resolveAthleteId(id2);
+      if (resolved) id2 = resolved;
+    }
+    const cacheKey = `h2h_${id1}_${id2}_${idClass}`;
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+    if (!/^\d+$/.test(id1) || !/^\d+$/.test(id2)) {
+      return {
+        atleta1: { id: id1, nome: name1 || id1, vittorie: 0 },
+        atleta2: { id: id2, nome: name2 || id2, vittorie: 0 },
+        totaleIncontri: 0,
+        incontri: []
+      };
+    }
+    try {
+      const url = `https://portale.fitet.org/risultati/new_rank/head_head.php?ATLETA=${id1}&AVVERSARIO=${id2}&ZU=1&ID_CLASS=${idClass}`;
+      const html = await FitetClient.fetchHtml(url, false);
+      const data = parseHeadToHead(html, id1, id2, name1, name2);
+      cacheService.set(cacheKey, data, TTL_HEAD_TO_HEAD);
+      return data;
+    } catch (err) {
+      console.warn(`[HeadToHeadService] Errore fetch testa a testa ${id1} vs ${id2}:`, err);
+      return {
+        atleta1: { id: id1, nome: name1 || id1, vittorie: 0 },
+        atleta2: { id: id2, nome: name2 || id2, vittorie: 0 },
+        totaleIncontri: 0,
+        incontri: []
+      };
+    }
+  }
+  /**
+   * Arricchisce gli incontri ranking (soprattutto gare di torneo)
+   * incrociando i risultati dei set dal Testa a Testa
+   */
+  async enrichRankingMatches(atletaId, partite, idClass = DEFAULT_ID_CLASS2) {
+    if (!partite) return partite;
+    const neededOpponents = /* @__PURE__ */ new Map();
+    if (Array.isArray(partite.tornei)) {
+      for (const t of partite.tornei) {
+        if (!t.risultatoSet && t.avversario) {
+          const key = t.avversario.toUpperCase().trim();
+          if (!neededOpponents.has(key)) {
+            neededOpponents.set(key, { id: t.avversarioId, name: t.avversario });
+          } else if (t.avversarioId && !neededOpponents.get(key).id) {
+            neededOpponents.get(key).id = t.avversarioId;
+          }
+        }
+      }
+    }
+    if (Array.isArray(partite.campionato)) {
+      for (const c of partite.campionato) {
+        if (!c.risultatoSet && c.avversario) {
+          const key = c.avversario.toUpperCase().trim();
+          if (!neededOpponents.has(key)) {
+            neededOpponents.set(key, { id: c.avversarioId, name: c.avversario });
+          } else if (c.avversarioId && !neededOpponents.get(key).id) {
+            neededOpponents.get(key).id = c.avversarioId;
+          }
+        }
+      }
+    }
+    if (neededOpponents.size === 0) return partite;
+    const opponentsList = Array.from(neededOpponents.entries()).slice(0, 15);
+    const batchSize = 5;
+    const h2hMap = /* @__PURE__ */ new Map();
+    const normDate = (d) => {
+      if (!d) return "";
+      const parts = d.trim().split(/[\/\-\.]/);
+      if (parts.length === 3) {
+        let [day, month, year] = parts;
+        day = String(parseInt(day, 10));
+        month = String(parseInt(month, 10));
+        if (year.length === 2) year = `20${year}`;
+        return `${day}/${month}/${year}`;
+      }
+      return d.trim();
+    };
+    for (let i = 0; i < opponentsList.length; i += batchSize) {
+      const chunk = opponentsList.slice(i, i + batchSize);
+      await Promise.all(
+        chunk.map(async ([key, opp]) => {
+          try {
+            const target = opp.id || opp.name;
+            const h2h = await this.getHeadToHead(atletaId, target, idClass);
+            if (h2h && h2h.incontri.length > 0) {
+              h2hMap.set(key, h2h);
+              if (opp.id) h2hMap.set(opp.id, h2h);
+              if (h2h.atleta2.id) h2hMap.set(h2h.atleta2.id, h2h);
+              if (h2h.atleta2.nome) h2hMap.set(h2h.atleta2.nome.toUpperCase().trim(), h2h);
+            }
+          } catch (err) {
+          }
+        })
+      );
+    }
+    if (Array.isArray(partite.tornei)) {
+      for (const t of partite.tornei) {
+        if (t.risultatoSet) continue;
+        const oppName = t.avversario.toUpperCase().trim();
+        const h2h = t.avversarioId && h2hMap.get(t.avversarioId) || h2hMap.get(oppName);
+        if (!h2h) continue;
+        if (h2h.atleta2.id) t.avversarioId = h2h.atleta2.id;
+        const targetDate = normDate(t.data);
+        const enc = h2h.incontri.find((e) => normDate(e.data) === targetDate) || (h2h.incontri.length === 1 ? h2h.incontri[0] : void 0);
+        if (enc) {
+          t.risultatoSet = enc.punteggio;
+        }
+      }
+    }
+    if (Array.isArray(partite.campionato)) {
+      for (const c of partite.campionato) {
+        if (c.risultatoSet) continue;
+        const oppName = c.avversario.toUpperCase().trim();
+        const h2h = c.avversarioId && h2hMap.get(c.avversarioId) || h2hMap.get(oppName);
+        if (!h2h) continue;
+        if (h2h.atleta2.id) c.avversarioId = h2h.atleta2.id;
+        const targetDate = normDate(c.data);
+        const enc = h2h.incontri.find((e) => normDate(e.data) === targetDate) || (h2h.incontri.length === 1 ? h2h.incontri[0] : void 0);
+        if (enc) {
+          c.risultatoSet = enc.punteggio;
+        }
+      }
+    }
+    return partite;
+  }
+};
+var headToHeadService = new HeadToHeadService();
+
+// api/predict-h2h.ts
+import { GoogleGenAI } from "@google/genai";
+async function handlePredictH2H(req, res) {
+  if (req.method && req.method.toUpperCase() !== "POST") {
+    return res.status(405).json({ error: "Metodo non consentito. Usa POST." });
+  }
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || !apiKey.trim()) {
+    return res.status(500).json({
+      error: "GEMINI_API_KEY non configurata sul server."
+    });
+  }
+  const { athleteA, athleteB } = req.body || {};
+  if (!athleteA || !athleteB) {
+    return res.status(400).json({
+      error: "Dati atleti mancanti nel corpo della richiesta (athleteA e athleteB richiesti)."
+    });
+  }
+  if (typeof athleteA.name !== "string" || !athleteA.name.trim() || typeof athleteB.name !== "string" || !athleteB.name.trim()) {
+    return res.status(400).json({ error: "Nomi atleti non validi." });
+  }
+  if (typeof athleteA.rank !== "number" || typeof athleteB.rank !== "number") {
+    return res.status(400).json({ error: "Ranking atleti non valido o mancante (fornire un valore numerico)." });
+  }
+  try {
+    const ai = new GoogleGenAI({
+      apiKey
+      // Se l'SDK supporta le apiClientOptions:
+      // apiClientOptions: { apiVersion: 'v1beta' }
+    });
+    const nameA = athleteA.name.trim();
+    const nameB = athleteB.name.trim();
+    const rankA = athleteA.rank > 0 ? `#${athleteA.rank}` : "Non classificato";
+    const rankB = athleteB.rank > 0 ? `#${athleteB.rank}` : "Non classificato";
+    const pointsA = athleteA.points != null ? `${athleteA.points}` : "N/D";
+    const pointsB = athleteB.points != null ? `${athleteB.points}` : "N/D";
+    const formA = athleteA.recentForm?.trim() || "N/D";
+    const formB = athleteB.recentForm?.trim() || "N/D";
+    const h2hWinsA = athleteA.h2hWins ?? 0;
+    const h2hWinsB = athleteB.h2hWins ?? 0;
+    const prompt = `Sei un analista esperto di tennistavolo/sportivo. Analizza questo matchup testa a testa:
+- Atleta A: 
+${nameA}, Ranking: ${rankA}, Punti: ${pointsA}, Forma recente: ${formA}.
+- Atleta B: 
+${nameB}, Ranking: ${rankB}, Punti: ${pointsB}, Forma recente: ${formB}.
+- Scontri diretti: 
+${h2hWinsA} vittorie A vs ${h2hWinsB} vittorie B.
+
+Restituisci ESCLUSIVAMENTE un JSON valido in questo formato:
+{
+  "probA": <intero da 1 a 99>,
+  "probB": <intero da 1 a 99, con probA + probB = 100>,
+  "analysis": "<massimo 2-3 frasi evidenziando il matchup tattico e il fattore decisivo>"
+}`;
+    const preferredModel = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+    const candidateModels = Array.from(
+      /* @__PURE__ */ new Set([
+        preferredModel,
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash",
+        "gemini-3.6-flash",
+        "gemini-3.8-flash"
+      ])
+    );
+    let response = null;
+    let lastError = null;
+    for (const model of candidateModels) {
+      try {
+        response = await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            temperature: 0.3
+          }
+        });
+        if (response && response.text && response.text.trim()) {
+          break;
+        }
+      } catch (err) {
+        lastError = err;
+        console.warn(`[predict-h2h] Modello ${model} non disponibile o errore:`, err?.message || err);
+      }
+    }
+    if (!response || !response.text || !response.text.trim()) {
+      throw lastError || new Error("Nessun modello Gemini ha restituito una risposta valida.");
+    }
+    const responseText = response.text;
+    const cleanedText = responseText.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
+    const raw = JSON.parse(cleanedText);
+    let probA = Math.round(Number(raw.probA));
+    let probB = Math.round(Number(raw.probB));
+    if (isNaN(probA) && isNaN(probB)) {
+      probA = 50;
+      probB = 50;
+    } else if (isNaN(probA)) {
+      probA = 100 - probB;
+    } else if (isNaN(probB)) {
+      probB = 100 - probA;
+    }
+    probA = Math.max(1, Math.min(99, probA));
+    probB = 100 - probA;
+    const analysis = typeof raw.analysis === "string" && raw.analysis.trim().length > 0 ? raw.analysis.trim() : "Matchup equilibrato analizzato sulla base dei parametri di ranking e stato di forma recente.";
+    return res.status(200).json({
+      probA,
+      probB,
+      analysis
+    });
+  } catch (err) {
+    console.error("[predict-h2h] Errore invocazione Gemini API:", err);
+    return res.status(500).json({
+      error: `Errore durante l'elaborazione del pronostico con IA: ${err.message || "Errore interno"}`
+    });
+  }
+}
+
+// api/predict-team-match.ts
+import { GoogleGenAI as GoogleGenAI2 } from "@google/genai";
+
+// src/utils/teamMatchPreview.ts
+function buildSwaythlingSchedule(formulaInfo, homeSingles, awaySingles, homeDoubles, awayDoubles) {
+  const [A, B, C] = homeSingles;
+  const [X, Y, Z] = awaySingles;
+  const homeD = `${homeDoubles[0]} / ${homeDoubles[1]}`;
+  const awayD = `${awayDoubles[0]} / ${awayDoubles[1]}`;
+  if (formulaInfo.expectedTotalMatches === 7 && formulaInfo.hasDoubles) {
+    return [
+      { numero: 1, slotLabel: "A vs X", isDoppio: false, atletaCasa: A, atletaOspite: X },
+      { numero: 2, slotLabel: "B vs Y", isDoppio: false, atletaCasa: B, atletaOspite: Y },
+      { numero: 3, slotLabel: "C vs Z", isDoppio: false, atletaCasa: C, atletaOspite: Z },
+      { numero: 4, slotLabel: "Doppio", isDoppio: true, atletaCasa: homeD, atletaOspite: awayD },
+      { numero: 5, slotLabel: "B vs X", isDoppio: false, atletaCasa: B, atletaOspite: X },
+      { numero: 6, slotLabel: "A vs Z", isDoppio: false, atletaCasa: A, atletaOspite: Z },
+      { numero: 7, slotLabel: "C vs Y", isDoppio: false, atletaCasa: C, atletaOspite: Y }
+    ];
+  }
+  if (formulaInfo.expectedTotalMatches === 6) {
+    return [
+      { numero: 1, slotLabel: "A vs Y", isDoppio: false, atletaCasa: A, atletaOspite: Y },
+      { numero: 2, slotLabel: "B vs X", isDoppio: false, atletaCasa: B, atletaOspite: X },
+      { numero: 3, slotLabel: "C vs Z", isDoppio: false, atletaCasa: C, atletaOspite: Z },
+      { numero: 4, slotLabel: "A vs X", isDoppio: false, atletaCasa: A, atletaOspite: X },
+      { numero: 5, slotLabel: "C vs Y", isDoppio: false, atletaCasa: C, atletaOspite: Y },
+      { numero: 6, slotLabel: "B vs Z", isDoppio: false, atletaCasa: B, atletaOspite: Z }
+    ];
+  }
+  if (formulaInfo.expectedTotalMatches === 5) {
+    return [
+      { numero: 1, slotLabel: "A vs X", isDoppio: false, atletaCasa: A, atletaOspite: X },
+      { numero: 2, slotLabel: "B vs Y", isDoppio: false, atletaCasa: B, atletaOspite: Y },
+      { numero: 3, slotLabel: "Doppio", isDoppio: true, atletaCasa: homeD, atletaOspite: awayD },
+      { numero: 4, slotLabel: "A vs Y", isDoppio: false, atletaCasa: A, atletaOspite: Y },
+      { numero: 5, slotLabel: "B vs X", isDoppio: false, atletaCasa: B, atletaOspite: X }
+    ];
+  }
+  return [
+    { numero: 1, slotLabel: "A vs X", isDoppio: false, atletaCasa: A, atletaOspite: X },
+    { numero: 2, slotLabel: "B vs Y", isDoppio: false, atletaCasa: B, atletaOspite: Y },
+    { numero: 3, slotLabel: "C vs Z", isDoppio: false, atletaCasa: C, atletaOspite: Z },
+    { numero: 4, slotLabel: "B vs X", isDoppio: false, atletaCasa: B, atletaOspite: X },
+    { numero: 5, slotLabel: "A vs Z", isDoppio: false, atletaCasa: A, atletaOspite: Z },
+    { numero: 6, slotLabel: "C vs Y", isDoppio: false, atletaCasa: C, atletaOspite: Y },
+    { numero: 7, slotLabel: "B vs Z", isDoppio: false, atletaCasa: B, atletaOspite: Z },
+    { numero: 8, slotLabel: "C vs X", isDoppio: false, atletaCasa: C, atletaOspite: X },
+    { numero: 9, slotLabel: "A vs Y", isDoppio: false, atletaCasa: A, atletaOspite: Y }
+  ];
+}
+
+// api/predict-team-match.ts
+function formatPlayersForPrompt(players) {
+  if (!players || players.length === 0) {
+    return "  (Nessun giocatore disponibile nel roster, usa nomi indicativi T1/T2/T3)";
+  }
+  return players.map((p, idx) => {
+    const rankStr = p.rankPosizione ? `#${p.rankPosizione}` : "N.C.";
+    const ptsStr = p.rankPunti !== null ? `${p.rankPunti} pt` : "N/D";
+    return `  ${idx + 1}. ${p.nome} | Rank: ${rankStr} (${ptsStr}) | Partite: ${p.partiteVinte}V-${p.partitePerse}P (${p.partiteDisputate} PD, ${p.percentualeVittorie}%) | Set: ${p.setVinti}:${p.setPersi} | Punti: ${p.puntiVinti}-${p.puntiPersi} | Indice valutazione: ${p.evaluationScore}/100`;
+  }).join("\n");
+}
+function resolvePlayerId(name, players) {
+  const norm = name.trim().toUpperCase();
+  if (!norm) return void 0;
+  const exact = players.find((p) => p.nome.trim().toUpperCase() === norm);
+  if (exact?.atletaId) return exact.atletaId;
+  const partial = players.find((p) => {
+    const pNorm = p.nome.trim().toUpperCase();
+    return pNorm.includes(norm) || norm.includes(pNorm);
+  });
+  return partial?.atletaId || void 0;
+}
+function sanitizeMatchSets(rawSetCasa, rawSetOspite, rawWinner, probCasa) {
+  const winnerIsHome = rawWinner === "casa" ? true : rawWinner === "ospite" ? false : Number(rawSetCasa) > Number(rawSetOspite) ? true : Number(rawSetOspite) > Number(rawSetCasa) ? false : probCasa >= 50;
+  let sc = Math.round(Number(rawSetCasa));
+  let so = Math.round(Number(rawSetOspite));
+  if (winnerIsHome) {
+    sc = 3;
+    so = Number.isFinite(so) ? Math.max(0, Math.min(2, so)) : 1;
+  } else {
+    so = 3;
+    sc = Number.isFinite(sc) ? Math.max(0, Math.min(2, sc)) : 1;
+  }
+  return {
+    vincitore: winnerIsHome ? "casa" : "ospite",
+    setCasa: sc,
+    setOspite: so
+  };
+}
+function sanitizeMatchPoints(rawPuntiCasa, rawPuntiOspite, setCasa, setOspite, vincitore) {
+  let pc = Math.round(Number(rawPuntiCasa));
+  let po = Math.round(Number(rawPuntiOspite));
+  const minWinnerPts = 33;
+  const loserSets = vincitore === "casa" ? setOspite : setCasa;
+  const expectedWinnerPts = minWinnerPts + loserSets * 8;
+  const expectedLoserPts = loserSets * 11 + (3 - loserSets) * 6;
+  if (!Number.isFinite(pc) || !Number.isFinite(po) || pc < 20 || po < 10) {
+    return vincitore === "casa" ? { puntiCasa: expectedWinnerPts, puntiOspite: expectedLoserPts } : { puntiCasa: expectedLoserPts, puntiOspite: expectedWinnerPts };
+  }
+  if (vincitore === "casa" && pc <= po) {
+    pc = Math.max(minWinnerPts, po + (3 - setOspite) * 3);
+  } else if (vincitore === "ospite" && po <= pc) {
+    po = Math.max(minWinnerPts, pc + (3 - setCasa) * 3);
+  }
+  return { puntiCasa: pc, puntiOspite: po };
+}
+async function handlePredictTeamMatch(req, res) {
+  if (req.method && req.method.toUpperCase() !== "POST") {
+    return res.status(405).json({ error: "Metodo non consentito. Usa POST." });
+  }
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || !apiKey.trim()) {
+    return res.status(500).json({
+      error: "GEMINI_API_KEY non configurata sul server."
+    });
+  }
+  const body = req.body || {};
+  const { homeTeam, awayTeam, formulaInfo, championshipName, giornata, fase, matchDate, reverseFixture } = body;
+  if (!homeTeam?.nome || !awayTeam?.nome) {
+    return res.status(400).json({
+      error: "Dati delle squadre mancanti (homeTeam e awayTeam richiesti)."
+    });
+  }
+  try {
+    const ai = new GoogleGenAI2({ apiKey });
+    const homeForma = homeTeam.forma?.length ? homeTeam.forma.join("-") : "N/D";
+    const awayForma = awayTeam.forma?.length ? awayTeam.forma.join("-") : "N/D";
+    const reverseNote = reverseFixture ? `Precedente nello stesso campionato (${reverseFixture.fase} Giornata ${reverseFixture.giornata}, ${reverseFixture.data}): ${reverseFixture.casaNome} vs ${reverseFixture.ospiteNome} finita ${reverseFixture.risultato}.` : "Nessun precedente gi\xE0 disputato in questo campionato.";
+    const effectiveFormula = {
+      formulaId: formulaInfo?.formulaId,
+      label: "Mini-Swaythling con Doppio (7 incontri completi: 6 singolari + 1 doppio)",
+      expectedTotalMatches: 7,
+      winningThreshold: 4,
+      drawsPossible: false,
+      hasDoubles: true,
+      sampleScores: formulaInfo?.sampleScores || []
+    };
+    const resolveSingles = (team, fallbackPrefix) => {
+      const s = team.lineup?.singles;
+      const p0 = (s?.[0] || team.players[0]?.nome || `${fallbackPrefix} A`).trim();
+      const p1 = (s?.[1] || team.players[1]?.nome || p0).trim();
+      const p2 = (s?.[2] || team.players[2]?.nome || p1).trim();
+      return [p0, p1, p2];
+    };
+    const resolveDoubles = (team, singles) => {
+      const d = team.lineup?.doubles;
+      const d0 = (d?.[0] || singles[0]).trim();
+      const d1 = (d?.[1] || singles[1]).trim();
+      return [d0, d1];
+    };
+    const homeSingles = resolveSingles(homeTeam, homeTeam.nome);
+    const awaySingles = resolveSingles(awayTeam, awayTeam.nome);
+    const homeDoubles = resolveDoubles(homeTeam, homeSingles);
+    const awayDoubles = resolveDoubles(awayTeam, awaySingles);
+    const schedule = buildSwaythlingSchedule(
+      effectiveFormula,
+      homeSingles,
+      awaySingles,
+      homeDoubles,
+      awayDoubles
+    );
+    const scheduleText = schedule.map(
+      (slot) => `  ${slot.numero}. [${slot.slotLabel}] ${slot.atletaCasa} vs ${slot.atletaOspite}`
+    ).join("\n");
+    const formulaDesc = `${effectiveFormula.label} (incontri massimi: ${effectiveFormula.expectedTotalMatches}, doppio previsto: ${effectiveFormula.hasDoubles ? "S\xCC" : "NO"}, pareggio possibile: ${effectiveFormula.drawsPossible ? "S\xCC" : "NO"}, soglia vittoria: ${effectiveFormula.winningThreshold ?? "maggioranza"}, punteggi osservati nel girone: ${effectiveFormula.sampleScores.length ? effectiveFormula.sampleScores.join(", ") : "N/D"})`;
+    const prompt = `Sei un analista esperto di tennistavolo italiano (FITeT). Devi produrre il pronostico tecnico completo per un incontro di campionato a squadre futuro.
+
+CONTESTO INCONTRO:
+- Campionato: ${championshipName || "Campionato FITeT"}
+- Giornata: ${giornata ?? "Prossima"} (${fase === "ritorno" ? "Ritorno" : "Andata"}) \u2014 Data: ${matchDate || "Da definire"}
+- Formula campionato: ${formulaDesc}
+- ${reverseNote}
+
+SQUADRA CASA: ${homeTeam.nome}
+- Classifica: ${homeTeam.posizione ? `#${homeTeam.posizione}` : "N/D"} | Punti: ${homeTeam.puntiClassifica ?? "N/D"} | Bilancio: ${homeTeam.incontriVinti ?? 0}V-${homeTeam.incontriPareggiati ?? 0}N-${homeTeam.incontriPersi ?? 0}P
+- Partite singole: ${homeTeam.partiteVinte ?? 0}V-${homeTeam.partitePerse ?? 0}P | Set: ${homeTeam.setVinti ?? 0}:${homeTeam.setPersi ?? 0} | Punti: ${homeTeam.puntiVinti ?? 0}-${homeTeam.puntiPersi ?? 0} | Forma recente: ${homeForma}
+- Formazione schierata: A=${homeSingles[0]}, B=${homeSingles[1]}, C=${homeSingles[2]}${effectiveFormula.hasDoubles ? `, Doppio=${homeDoubles[0]} / ${homeDoubles[1]}` : ""}
+- Giocatori selezionati (valutati):
+${formatPlayersForPrompt(homeTeam.players)}
+
+SQUADRA OSPITE: ${awayTeam.nome}
+- Classifica: ${awayTeam.posizione ? `#${awayTeam.posizione}` : "N/D"} | Punti: ${awayTeam.puntiClassifica ?? "N/D"} | Bilancio: ${awayTeam.incontriVinti ?? 0}V-${awayTeam.incontriPareggiati ?? 0}N-${awayTeam.incontriPersi ?? 0}P
+- Partite singole: ${awayTeam.partiteVinte ?? 0}V-${awayTeam.partitePerse ?? 0}P | Set: ${awayTeam.setVinti ?? 0}:${awayTeam.setPersi ?? 0} | Punti: ${awayTeam.puntiVinti ?? 0}-${awayTeam.puntiPersi ?? 0} | Forma recente: ${awayForma}
+- Formazione schierata: X=${awaySingles[0]}, Y=${awaySingles[1]}, Z=${awaySingles[2]}${effectiveFormula.hasDoubles ? `, Doppio=${awayDoubles[0]} / ${awayDoubles[1]}` : ""}
+- Giocatori selezionati (valutati):
+${formatPlayersForPrompt(awayTeam.players)}
+
+ISTRUZIONI:
+1. ORDINE UFFICIALE DEGLI INCONTRI (${effectiveFormula.label}):
+${scheduleText}
+   - Simula TUTTI E ${schedule.length} gli incontri ESATTAMENTE in questo ordine e con questi esatti abbinamenti/nomi di giocatori, SENZA fermarti al 4\xB0 punto.
+   - Si disputano sempre tutti i 7 incontri (6 singolari + 1 doppio): il risultato finale della squadra deve avere SEMPRE somma uguale a 7 (es. 7-0, 6-1, 5-2, 4-3, 3-4, 2-5, 1-6 o 0-7). Non \xE8 previsto il pareggio.
+2. Per ogni incontro individuale fornisci:
+   - setCasa e setOspite (al meglio dei 5 set: chi vince fa 3, chi perde 0, 1 o 2)
+   - puntiCasa e puntiOspite realistici (somma dei punti di tutti i set, es. in un 3-1 circa 40-31)
+   - probCasa (intero 5-95) e una nota tattica brevissima (max 10 parole).
+3. Calcola le probabilit\xE0 globali dell'incontro: probCasa, probPareggio (${effectiveFormula.drawsPossible ? "intero 0-95 se il pareggio \xE8 possibile" : "SEMPRE 0 perch\xE9 la formula non ammette pareggio"}), probOspite (somma esatta = 100).
+4. Fornisci "keyFactor" (1 frase incisiva sul fattore decisivo) e "analysis" (2-4 frasi tecniche in italiano che citino il doppio se presente, i giocatori chiave ABC/XYZ, gli incroci favorevoli e il fattore campo).
+
+Restituisci ESCLUSIVAMENTE un JSON valido con questo schema esatto:
+{
+  "probCasa": <intero>,
+  "probPareggio": <intero>,
+  "probOspite": <intero>,
+  "keyFactor": "<stringa breve>",
+  "analysis": "<stringa 2-4 frasi>",
+  "incontriSimulati": [
+    {
+      "numero": 1,
+      "atletaCasa": "<nome esatto giocatore casa>",
+      "atletaOspite": "<nome esatto giocatore ospite>",
+      "vincitore": "casa" | "ospite",
+      "probCasa": <intero 1..99>,
+      "setCasa": <0..3>,
+      "setOspite": <0..3>,
+      "puntiCasa": <intero>,
+      "puntiOspite": <intero>,
+      "nota": "<nota tattica breve>"
+    }
+  ]
+}`;
+    const preferredModel = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
+    const candidateModels = Array.from(
+      /* @__PURE__ */ new Set([
+        preferredModel,
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash",
+        "gemini-3.6-flash",
+        "gemini-3.8-flash"
+      ])
+    );
+    let response = null;
+    let lastError = null;
+    for (const model of candidateModels) {
+      try {
+        response = await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            temperature: 0.35
+          }
+        });
+        if (response && response.text && response.text.trim()) {
+          break;
+        }
+      } catch (err) {
+        lastError = err;
+        console.warn(`[predict-team-match] Modello ${model} non disponibile o errore:`, err?.message || err);
+      }
+    }
+    if (!response || !response.text || !response.text.trim()) {
+      throw lastError || new Error("Nessun modello Gemini ha restituito una risposta valida.");
+    }
+    const cleanedText = response.text.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim();
+    const raw = JSON.parse(cleanedText);
+    const rawMatches = Array.isArray(raw.incontriSimulati) ? raw.incontriSimulati : [];
+    const incontriSimulati = [];
+    let homeWins = 0;
+    let awayWins = 0;
+    for (let idx = 0; idx < schedule.length; idx++) {
+      const m = rawMatches[idx] || {};
+      const slot = schedule[idx];
+      const atletaCasa = slot.atletaCasa;
+      const atletaOspite = slot.atletaOspite;
+      const rawProbCasa = Math.round(Number(m?.probCasa));
+      const probCasa2 = Number.isFinite(rawProbCasa) ? Math.max(1, Math.min(99, rawProbCasa)) : 50;
+      const { vincitore, setCasa, setOspite } = sanitizeMatchSets(m?.setCasa, m?.setOspite, m?.vincitore, probCasa2);
+      const { puntiCasa, puntiOspite } = sanitizeMatchPoints(
+        m?.puntiCasa,
+        m?.puntiOspite,
+        setCasa,
+        setOspite,
+        vincitore
+      );
+      if (vincitore === "casa") homeWins++;
+      else awayWins++;
+      incontriSimulati.push({
+        numero: slot.numero,
+        slotLabel: slot.slotLabel,
+        isDoppio: slot.isDoppio,
+        atletaCasa,
+        atletaCasaId: slot.isDoppio ? void 0 : resolvePlayerId(atletaCasa, homeTeam.players),
+        atletaOspite,
+        atletaOspiteId: slot.isDoppio ? void 0 : resolvePlayerId(atletaOspite, awayTeam.players),
+        vincitore,
+        probCasa: probCasa2,
+        setCasa,
+        setOspite,
+        puntiCasa,
+        puntiOspite,
+        nota: typeof m?.nota === "string" ? m.nota.trim() : ""
+      });
+    }
+    let probCasa = Math.round(Number(raw.probCasa));
+    let probPareggio = effectiveFormula.drawsPossible ? Math.round(Number(raw.probPareggio)) : 0;
+    let probOspite = Math.round(Number(raw.probOspite));
+    if (!Number.isFinite(probCasa)) probCasa = 50;
+    if (!Number.isFinite(probPareggio) || !formulaInfo?.drawsPossible) probPareggio = 0;
+    if (!Number.isFinite(probOspite)) probOspite = Math.max(1, 100 - probCasa - probPareggio);
+    probCasa = Math.max(1, Math.min(98, probCasa));
+    probPareggio = formulaInfo?.drawsPossible ? Math.max(0, Math.min(45, probPareggio)) : 0;
+    probOspite = Math.max(1, 100 - probCasa - probPareggio);
+    const sumProb = probCasa + probPareggio + probOspite;
+    if (sumProb !== 100) {
+      const diff = 100 - sumProb;
+      if (probCasa >= probOspite) probCasa = Math.max(1, probCasa + diff);
+      else probOspite = Math.max(1, probOspite + diff);
+    }
+    const puntiIncontroCasa = incontriSimulati.length > 0 ? incontriSimulati.filter((m) => m.vincitore === "casa").length : Math.max(0, Math.round(Number(raw.puntiIncontroCasa) || 0));
+    const puntiIncontroOspite = incontriSimulati.length > 0 ? incontriSimulati.filter((m) => m.vincitore === "ospite").length : Math.max(0, Math.round(Number(raw.puntiIncontroOspite) || 0));
+    const setStimatiCasa = incontriSimulati.length > 0 ? incontriSimulati.reduce((acc, m) => acc + m.setCasa, 0) : Math.max(0, Math.round(Number(raw.setStimatiCasa) || 0));
+    const setStimatiOspite = incontriSimulati.length > 0 ? incontriSimulati.reduce((acc, m) => acc + m.setOspite, 0) : Math.max(0, Math.round(Number(raw.setStimatiOspite) || 0));
+    const puntiStimatiCasa = incontriSimulati.length > 0 ? incontriSimulati.reduce((acc, m) => acc + m.puntiCasa, 0) : Math.max(0, Math.round(Number(raw.puntiStimatiCasa) || 0));
+    const puntiStimatiOspite = incontriSimulati.length > 0 ? incontriSimulati.reduce((acc, m) => acc + m.puntiOspite, 0) : Math.max(0, Math.round(Number(raw.puntiStimatiOspite) || 0));
+    const payload = {
+      probCasa,
+      probPareggio,
+      probOspite,
+      puntiIncontroCasa,
+      puntiIncontroOspite,
+      setStimatiCasa,
+      setStimatiOspite,
+      puntiStimatiCasa,
+      puntiStimatiOspite,
+      keyFactor: typeof raw.keyFactor === "string" && raw.keyFactor.trim() ? raw.keyFactor.trim() : "Equilibrio tra i titolari e rendimento nei set decisivi.",
+      analysis: typeof raw.analysis === "string" && raw.analysis.trim() ? raw.analysis.trim() : "Pronostico calcolato sulla base di classifica, punti FITeT, rendimento individuale e stato di forma delle due squadre.",
+      incontriSimulati
+    };
+    return res.status(200).json(payload);
+  } catch (err) {
+    console.error("[predict-team-match] Errore invocazione Gemini API:", err);
+    return res.status(500).json({
+      error: `Errore durante l'elaborazione del pronostico incontro con IA: ${err.message || "Errore interno"}`
+    });
+  }
+}
+
+// server/services/socialCardService.ts
+import fs5 from "fs";
+import path6 from "path";
+import { fileURLToPath } from "url";
+import { Resvg } from "@resvg/resvg-js";
+
+// src/utils/aggregateAthleteStats.ts
+var normOpp = (s) => (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+var isSameOpponent = (aRaw, bRaw) => {
+  const a = normOpp(aRaw);
+  const b = normOpp(bRaw);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.length >= 4 && b.length >= 4 && (a.includes(b) || b.includes(a))) {
+    return true;
+  }
+  return false;
+};
+var parseMatchDateValue = (value) => {
+  if (!value) return 0;
+  const s = value.trim();
+  const dmyMatch = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    let year = parseInt(dmyMatch[3], 10);
+    if (year < 100) year += 2e3;
+    return new Date(year, month, day).getTime();
+  }
+  const ymdMatch = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    return new Date(year, month, day).getTime();
+  }
+  return 0;
+};
+function aggregateAthleteMatchStats(atleta, campionatoPartite, fallbackCampNome) {
+  const rankingCampionato = atleta?.partiteRanking?.campionato || [];
+  const rankingTornei = atleta?.partiteRanking?.tornei || [];
+  const gironeMatches = campionatoPartite || [];
+  const usedRankingIdx = /* @__PURE__ */ new Set();
+  const matchedRankingByGironeIndex = [];
+  const matchedGironeByRankingIndex = /* @__PURE__ */ new Map();
+  const extraGironeMatches = [];
+  for (let idx = 0; idx < gironeMatches.length; idx++) {
+    const m = gironeMatches[idx];
+    const targetOpp = normOpp(m.avversario);
+    let matchIdx = rankingCampionato.findIndex(
+      (rm, rIdx) => !usedRankingIdx.has(rIdx) && normOpp(rm.avversario) === targetOpp && rm.isVittoria === m.isVittoria
+    );
+    if (matchIdx === -1) {
+      matchIdx = rankingCampionato.findIndex(
+        (rm, rIdx) => !usedRankingIdx.has(rIdx) && isSameOpponent(rm.avversario, m.avversario) && rm.isVittoria === m.isVittoria
+      );
+    }
+    if (matchIdx === -1) {
+      matchIdx = rankingCampionato.findIndex(
+        (rm, rIdx) => !usedRankingIdx.has(rIdx) && normOpp(rm.avversario) === targetOpp
+      );
+    }
+    if (matchIdx !== -1) {
+      usedRankingIdx.add(matchIdx);
+      matchedRankingByGironeIndex[idx] = rankingCampionato[matchIdx];
+      matchedGironeByRankingIndex.set(matchIdx, m);
+    } else {
+      matchedRankingByGironeIndex[idx] = void 0;
+      extraGironeMatches.push(m);
+    }
+  }
+  const defaultCampLabel = fallbackCampNome || atleta?.campionatoAttuale?.nome || rankingCampionato[0]?.campionato || "Campionato";
+  const mergedCampionatoMatches = [
+    ...rankingCampionato.map((rm, rIdx) => {
+      const matchedGirone = matchedGironeByRankingIndex.get(rIdx);
+      return {
+        ...rm,
+        risultatoSet: rm.risultatoSet || matchedGirone?.risultatoSet,
+        giornata: matchedGirone?.giornata,
+        sets: matchedGirone?.sets,
+        isVittoria: matchedGirone ? matchedGirone.isVittoria : rm.isVittoria
+      };
+    }),
+    ...extraGironeMatches.map((m) => ({
+      data: m.data || `G${m.giornata}`,
+      campionato: defaultCampLabel,
+      punti: void 0,
+      risultato: m.isVittoria ? "V" : "S",
+      sesso: "",
+      stato: "G",
+      avversario: m.avversario,
+      risultatoSet: m.risultatoSet,
+      isVittoria: m.isVittoria,
+      giornata: m.giornata,
+      sets: m.sets,
+      isFromLiveGirone: true
+    }))
+  ];
+  const campionatoGiocate = mergedCampionatoMatches.length;
+  const campionatoVinte = mergedCampionatoMatches.filter((m) => m.isVittoria).length;
+  const campionatoPerse = campionatoGiocate - campionatoVinte;
+  const campionatoPercentuale = campionatoGiocate > 0 ? Math.round(campionatoVinte / campionatoGiocate * 100) : 0;
+  const torneiGiocate = rankingTornei.length;
+  const torneiVinte = rankingTornei.filter((m) => m.isVittoria).length;
+  const torneiPerse = torneiGiocate - torneiVinte;
+  const parsedRankingCount = rankingCampionato.length + rankingTornei.length;
+  const riepilogoGiocate = atleta?.riepilogo?.partiteGiocate ?? 0;
+  const riepilogoVinte = atleta?.riepilogo?.partiteVinte ?? 0;
+  const riepilogoPerse = atleta?.riepilogo?.partitePerse ?? 0;
+  let partiteGiocate = campionatoGiocate + torneiGiocate;
+  let partiteVinte = campionatoVinte + torneiVinte;
+  let partitePerse = campionatoPerse + torneiPerse;
+  if (parsedRankingCount === 0 && riepilogoGiocate > partiteGiocate) {
+    const extraWins = extraGironeMatches.filter((m) => m.isVittoria).length;
+    const extraLosses = extraGironeMatches.length - extraWins;
+    partiteGiocate = riepilogoGiocate + extraGironeMatches.length;
+    partiteVinte = riepilogoVinte + extraWins;
+    partitePerse = riepilogoPerse + extraLosses;
+  } else if (riepilogoGiocate > parsedRankingCount && parsedRankingCount > 0) {
+    const extraWins = extraGironeMatches.filter((m) => m.isVittoria).length;
+    const extraLosses = extraGironeMatches.length - extraWins;
+    partiteGiocate = riepilogoGiocate + extraGironeMatches.length;
+    partiteVinte = riepilogoVinte + extraWins;
+    partitePerse = riepilogoPerse + extraLosses;
+  }
+  const percentualePositiva = partiteGiocate > 0 ? Math.round(partiteVinte / partiteGiocate * 100) : atleta?.riepilogo?.percentualePositiva ?? 0;
+  let maxRankingDateTs = 0;
+  for (const rm of rankingCampionato) {
+    const ts = parseMatchDateValue(rm.data);
+    if (ts > maxRankingDateTs) maxRankingDateTs = ts;
+  }
+  for (const tm of rankingTornei) {
+    const ts = parseMatchDateValue(tm.data);
+    if (ts > maxRankingDateTs) maxRankingDateTs = ts;
+  }
+  const allMatchesWithScore = [];
+  let seqOrder = 0;
+  for (const m of mergedCampionatoMatches) {
+    let ts = parseMatchDateValue(m.data);
+    if (ts === 0 || m.isFromLiveGirone) {
+      const base = maxRankingDateTs > 0 ? maxRankingDateTs : Date.now() - 30 * 864e5;
+      ts = base + (m.giornata || 1) * 864e5 + seqOrder;
+    }
+    allMatchesWithScore.push({
+      esito: m.isVittoria ? "V" : "S",
+      data: m.data || (m.giornata ? `G${m.giornata}` : ""),
+      avversario: m.avversario,
+      evento: m.campionato,
+      isVittoria: Boolean(m.isVittoria),
+      risultatoSet: m.risultatoSet,
+      giornata: m.giornata,
+      sortScore: ts
+    });
+    seqOrder++;
+  }
+  for (const m of rankingTornei) {
+    const ts = parseMatchDateValue(m.data) || seqOrder;
+    allMatchesWithScore.push({
+      esito: m.isVittoria ? "V" : "S",
+      data: m.data,
+      avversario: m.avversario,
+      evento: m.torneo || m.gara || "Torneo",
+      isVittoria: Boolean(m.isVittoria),
+      risultatoSet: m.risultatoSet,
+      sortScore: ts
+    });
+    seqOrder++;
+  }
+  allMatchesWithScore.sort((a, b) => a.sortScore - b.sortScore);
+  const badges = allMatchesWithScore.slice(-5).map(({ sortScore, ...badge }) => badge);
+  return {
+    partiteGiocate,
+    partiteVinte,
+    partitePerse,
+    percentualePositiva,
+    campionatoGiocate,
+    campionatoVinte,
+    campionatoPerse,
+    campionatoPercentuale,
+    torneiGiocate,
+    torneiVinte,
+    torneiPerse,
+    matchedRankingByGironeIndex,
+    extraGironeMatches,
+    mergedCampionatoMatches,
+    badges
+  };
+}
+
+// server/services/socialCardService.ts
+function getBundledFontPath() {
+  const currentDir = typeof __dirname !== "undefined" ? __dirname : typeof import.meta?.url === "string" ? path6.dirname(fileURLToPath(import.meta.url)) : process.cwd();
+  const candidates = [
+    path6.resolve(process.cwd(), "server", "assets", "fonts", "Inter-Variable.ttf"),
+    path6.resolve(currentDir, "assets", "fonts", "Inter-Variable.ttf"),
+    path6.resolve(currentDir, "..", "assets", "fonts", "Inter-Variable.ttf"),
+    path6.resolve(currentDir, "..", "server", "assets", "fonts", "Inter-Variable.ttf"),
+    path6.resolve(process.cwd(), "api", "server", "assets", "fonts", "Inter-Variable.ttf")
+  ];
+  for (const p of candidates) {
+    if (fs5.existsSync(p)) return p;
+  }
+  return null;
+}
+function getResvgOptions(width) {
+  const fontPath = getBundledFontPath();
+  const fontFiles = fontPath ? [fontPath] : [];
+  return {
+    fitTo: { mode: "width", value: width },
+    font: {
+      loadSystemFonts: false,
+      fontFiles,
+      defaultFontFamily: "Inter",
+      sansSerifFamily: "Inter"
+    }
+  };
+}
+async function fetchImageAsBase64(url) {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+      signal: AbortSignal.timeout(3500)
+    });
+    if (!res.ok) return null;
+    const arrayBuffer = await res.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const contentType = res.headers.get("content-type") || "image/jpeg";
+    return `data:${contentType};base64,${buffer.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+function escapeXml(unsafe) {
+  if (unsafe === void 0 || unsafe === null) return "";
+  return String(unsafe).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+function extractAthleteMetrics(athlete) {
+  const name = athlete.anagrafica?.nome?.trim() || `Atleta #${athlete.id}`;
+  const club = athlete.anagrafica?.societa?.trim() || "Tesserato FITeT";
+  const category = athlete.anagrafica?.categoria?.trim() || "";
+  const sector = athlete.anagrafica?.settore?.trim() || "";
+  const points = athlete.anagrafica?.punti || athlete.riepilogo?.punteggioFinale || 0;
+  const initialPoints = athlete.riepilogo?.puntiIniziali || points;
+  const pointsDiff = Math.round((points - initialPoints) * 10) / 10;
+  let partiteVinte = athlete.riepilogo?.partiteVinte ?? 0;
+  let partiteGiocate = athlete.riepilogo?.partiteGiocate ?? 0;
+  if (partiteGiocate === 0 && athlete.partiteRanking) {
+    const allMatches = [
+      ...athlete.partiteRanking.campionato || [],
+      ...athlete.partiteRanking.tornei || []
+    ];
+    if (allMatches.length > 0) {
+      partiteGiocate = allMatches.length;
+      partiteVinte = allMatches.filter((m) => m.isVittoria).length;
+    }
+  }
+  const winRate = athlete.riepilogo?.percentualePositiva !== void 0 && partiteGiocate > 0 ? `${athlete.riepilogo.percentualePositiva}%` : partiteGiocate > 0 ? `${Math.round(partiteVinte / partiteGiocate * 100)}%` : "0%";
+  const storico = athlete.storicoClassifica || [];
+  const validPositions = storico.map((s) => s.posizione).filter((p) => typeof p === "number" && p > 0);
+  let currentRank = "N.D.";
+  if (validPositions.length > 0) {
+    const lastWithPos = [...storico].reverse().find((s) => typeof s.posizione === "number" && s.posizione > 0);
+    if (lastWithPos?.posizione) {
+      currentRank = `#${lastWithPos.posizione.toLocaleString("it-IT")}`;
+    }
+  }
+  if (currentRank === "N.D." && athlete.anagrafica?.stato) {
+    const statoMatch = athlete.anagrafica.stato.match(/(?:n\.?|posizione\s*:?\s*)(\d+)/i);
+    if (statoMatch) currentRank = `#${parseInt(statoMatch[1], 10).toLocaleString("it-IT")}`;
+  }
+  let bestRank = "N.D.";
+  if (athlete.anagrafica?.recordClassifica) {
+    const match = athlete.anagrafica.recordClassifica.match(/(\d+)/);
+    if (match) bestRank = `#${parseInt(match[1], 10).toLocaleString("it-IT")}`;
+  }
+  if (bestRank === "N.D." && validPositions.length > 0) {
+    bestRank = `#${Math.min(...validPositions).toLocaleString("it-IT")}`;
+  }
+  if (bestRank === "N.D." && currentRank !== "N.D.") {
+    bestRank = currentRank;
+  }
+  const tornei = athlete.partiteRanking?.tornei || [];
+  let lastTournamentSummary = null;
+  if (tornei.length > 0) {
+    const lastTorneoName = tornei[tornei.length - 1].torneo;
+    const matchesInLast = tornei.filter((t) => t.torneo === lastTorneoName);
+    const date = matchesInLast[0]?.data || "";
+    const vinte = matchesInLast.filter((t) => t.isVittoria).length;
+    const totali = matchesInLast.length;
+    const pts = matchesInLast.reduce((acc, t) => acc + (t.punti || 0), 0);
+    lastTournamentSummary = {
+      nome: lastTorneoName,
+      data: date,
+      partiteVinte: vinte,
+      partiteTotali: totali,
+      puntiGuadagnati: Math.round(pts * 10) / 10
+    };
+  }
+  const nameParts = name.split(/\s+/).filter(Boolean);
+  const initials = nameParts.length >= 2 ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase() : (name[0] || "A").toUpperCase();
+  return {
+    name,
+    club,
+    category,
+    sector,
+    points,
+    initialPoints,
+    pointsDiff,
+    partiteVinte,
+    partiteGiocate,
+    winRate,
+    currentRank,
+    bestRank,
+    lastTournamentSummary,
+    initials,
+    fotoUrl: athlete.anagrafica?.fotoUrl || `https://portale.fitet.org/images/atleti/${athlete.id}.jpg`
+  };
+}
+async function generateAthleteOgCard(athlete) {
+  const m = extractAthleteMetrics(athlete);
+  const photoBase64 = await fetchImageAsBase64(m.fotoUrl);
+  const diffLabel = m.pointsDiff > 0 ? `+${m.pointsDiff} pt` : m.pointsDiff < 0 ? `${m.pointsDiff} pt` : "= 0 pt";
+  const diffColor = m.pointsDiff > 0 ? "#10b981" : m.pointsDiff < 0 ? "#ef4444" : "#94a3b8";
+  const categoryBadge = [m.category, m.sector].filter(Boolean).join(" \u2022 ");
+  const svg = `
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#060d1a" />
+      <stop offset="50%" stop-color="#0b172d" />
+      <stop offset="100%" stop-color="#081324" />
+    </linearGradient>
+
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" stop-opacity="0.75" />
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.85" />
+    </linearGradient>
+
+    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+
+    <clipPath id="avatarClip">
+      <circle cx="180" cy="275" r="95" />
+    </clipPath>
+
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="1200" height="630" fill="url(#bgGrad)" />
+
+  <!-- Dynamic Sport Glow Orbs -->
+  <circle cx="150" cy="100" r="280" fill="#2563eb" opacity="0.12" filter="blur(60px)" />
+  <circle cx="1050" cy="500" r="320" fill="#10b981" opacity="0.10" filter="blur(80px)" />
+
+  <!-- Top Brand Navigation Bar -->
+  <g transform="translate(60, 48)">
+    <rect width="36" height="36" rx="8" fill="url(#primaryGrad)" />
+    <circle cx="18" cy="18" r="8" fill="#ffffff" opacity="0.9" />
+    <text x="48" y="25" fill="#ffffff" font-size="16" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="1">PORTALE RISULTATI FITeT</text>
+    <rect x="910" y="2" width="170" height="32" rx="16" fill="#1e293b" stroke="#334155" stroke-width="1" />
+    <text x="995" y="23" fill="#38bdf8" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="0.5">RANKING UFFICIALE</text>
+  </g>
+
+  <!-- Left Column: Athlete Profile Card -->
+  <!-- Avatar Ring & Photo -->
+  <circle cx="180" cy="275" r="101" fill="none" stroke="url(#primaryGrad)" stroke-width="5" filter="url(#shadow)" />
+  <circle cx="180" cy="275" r="95" fill="#1e293b" />
+  ${photoBase64 ? `<image href="${photoBase64}" x="85" y="180" width="190" height="190" clip-path="url(#avatarClip)" preserveAspectRatio="xMidYMid slice" />` : `<text x="180" y="295" fill="#38bdf8" font-size="64" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(m.initials)}</text>`}
+
+  <!-- Athlete Details -->
+  <g transform="translate(310, 220)">
+    <!-- Category Pill -->
+    ${categoryBadge ? `<rect x="0" y="0" width="${Math.min(320, categoryBadge.length * 10 + 24)}" height="26" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="1" stroke-opacity="0.4" />
+           <text x="12" y="17" fill="#38bdf8" font-size="11.5" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.5">${escapeXml(categoryBadge.toUpperCase())}</text>` : ""}
+
+    <!-- Athlete Name -->
+    <text x="0" y="58" fill="#ffffff" font-size="38" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900" letter-spacing="-0.5">${escapeXml(m.name.toUpperCase())}</text>
+
+    <!-- Club -->
+    <text x="0" y="92" fill="#94a3b8" font-size="19" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="600">${escapeXml(m.club)}</text>
+
+    <!-- Verified Badge -->
+    <g transform="translate(0, 114)">
+      <circle cx="8" cy="8" r="8" fill="#10b981" />
+      <path d="M5 8 L7 10 L11 6" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <text x="24" y="12" fill="#cbd5e1" font-size="13" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="600">Profilo Atleta FITeT Ufficiale</text>
+    </g>
+  </g>
+
+  <!-- Right Section: 4 High-Impact Metric Cards -->
+  <g transform="translate(680, 150)">
+    <!-- Card 1: Ranking Attuale -->
+    <g transform="translate(0, 0)">
+      <rect width="210" height="150" rx="16" fill="url(#cardGrad)" stroke="#334155" stroke-width="1" filter="url(#shadow)" />
+      <text x="20" y="36" fill="#94a3b8" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">RANKING ATTUALE</text>
+      <text x="20" y="88" fill="#38bdf8" font-size="38" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.currentRank)}</text>
+      <text x="20" y="122" fill="#64748b" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif">Classifica Italia</text>
+    </g>
+
+    <!-- Card 2: Punti Classifica -->
+    <g transform="translate(240, 0)">
+      <rect width="220" height="150" rx="16" fill="url(#cardGrad)" stroke="#334155" stroke-width="1" filter="url(#shadow)" />
+      <text x="20" y="36" fill="#94a3b8" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">PUNTI RANKING</text>
+      <text x="20" y="88" fill="#ffffff" font-size="36" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.points.toLocaleString("it-IT"))} <tspan font-size="18" fill="#64748b">pt</tspan></text>
+      <text x="20" y="122" fill="${diffColor}" font-size="13" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700">${escapeXml(diffLabel)} da inizio anno</text>
+    </g>
+
+    <!-- Card 3: Partite V / G -->
+    <g transform="translate(0, 180)">
+      <rect width="210" height="150" rx="16" fill="url(#cardGrad)" stroke="#334155" stroke-width="1" filter="url(#shadow)" />
+      <text x="20" y="36" fill="#94a3b8" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">PARTITE V / G</text>
+      <text x="20" y="88" fill="#ffffff" font-size="34" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.partiteVinte)} <tspan font-size="20" fill="#64748b">/</tspan> ${escapeXml(m.partiteGiocate)}</text>
+      <text x="20" y="122" fill="#10b981" font-size="13" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700">${escapeXml(m.winRate)} Vittorie</text>
+    </g>
+
+    <!-- Card 4: Best Rank -->
+    <g transform="translate(240, 180)">
+      <rect width="220" height="150" rx="16" fill="url(#cardGrad)" stroke="#334155" stroke-width="1" filter="url(#shadow)" />
+      <text x="20" y="36" fill="#94a3b8" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" letter-spacing="0.8">BEST RANKING</text>
+      <text x="20" y="88" fill="#f59e0b" font-size="36" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="900">${escapeXml(m.bestRank)}</text>
+      <text x="20" y="122" fill="#64748b" font-size="12" font-family="Inter, system-ui, -apple-system, sans-serif">Record Personale</text>
+    </g>
+  </g>
+
+  <!-- Bottom Brand Footer -->
+  <g transform="translate(60, 560)">
+    <line x1="0" y1="0" x2="1080" y2="0" stroke="#1e293b" stroke-width="1.5" />
+    <text x="0" y="32" fill="#64748b" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="600">portale-risultati-tt.it \u2022 Statistiche Ufficiali Campionati e Tornei FITeT</text>
+    <text x="1080" y="32" fill="#38bdf8" font-size="14" font-family="Inter, system-ui, -apple-system, sans-serif" font-weight="700" text-anchor="end">Condividi la tua passione per il Tennistavolo</text>
+  </g>
+</svg>
+`;
+  const resvg = new Resvg(svg, getResvgOptions(1200));
+  return resvg.render().asPng();
+}
+var cachedDarkPlaceholderBase64 = void 0;
+function getDarkPlaceholderBase64() {
+  if (cachedDarkPlaceholderBase64 !== void 0) return cachedDarkPlaceholderBase64;
+  const currentDir = typeof __dirname !== "undefined" ? __dirname : typeof import.meta?.url === "string" ? path6.dirname(fileURLToPath(import.meta.url)) : process.cwd();
+  const candidates = [
+    path6.resolve(process.cwd(), "public", "dark-big-placeholder.png"),
+    path6.resolve(process.cwd(), "dist", "dark-big-placeholder.png"),
+    path6.resolve(currentDir, "..", "..", "public", "dark-big-placeholder.png"),
+    path6.resolve(currentDir, "..", "public", "dark-big-placeholder.png")
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs5.existsSync(p)) {
+        const buf = fs5.readFileSync(p);
+        cachedDarkPlaceholderBase64 = `data:image/png;base64,${buf.toString("base64")}`;
+        return cachedDarkPlaceholderBase64;
+      }
+    } catch {
+    }
+  }
+  cachedDarkPlaceholderBase64 = null;
+  return null;
+}
+function formatCategoryPill(cat) {
+  if (!cat) return null;
+  const trimmed = cat.trim();
+  const match = trimmed.match(/^(\d+)/);
+  if (match) return `${match[1]}^`;
+  return trimmed;
+}
+function truncateText(text, maxLen) {
+  const clean = text.trim();
+  if (clean.length <= maxLen) return clean;
+  return `${clean.slice(0, Math.max(1, maxLen - 1)).trim()}\u2026`;
+}
+function buildRatingSparklineSvg(storico, x, y, width, height, title, accentColor = "#38bdf8") {
+  const valid = (storico || []).filter((s) => typeof s.punti === "number" && s.punti > 0);
+  if (valid.length < 2) {
+    return `
+      <g transform="translate(${x}, ${y})">
+        <rect width="${width}" height="${height}" rx="22" fill="#111a2e" stroke="rgba(255,255,255,0.08)" stroke-width="1.5" />
+        <text x="28" y="42" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" letter-spacing="1.2">${escapeXml(title)}</text>
+        <text x="${width / 2}" y="${height / 2 + 16}" fill="#64748b" font-size="18" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Storico rilevazioni in aggiornamento</text>
+      </g>
+    `;
+  }
+  const pts = valid.map((s) => s.punti);
+  const minPt = Math.min(...pts);
+  const maxPt = Math.max(...pts);
+  const span = Math.max(1, maxPt - minPt);
+  const padL = 32;
+  const padR = 32;
+  const padT = 76;
+  const padB = 46;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+  const coords = valid.map((s, idx) => {
+    const px = padL + idx / (valid.length - 1) * plotW;
+    const norm = (s.punti - minPt) / span;
+    const py = padT + plotH - norm * plotH;
+    return { x: Math.round(px * 10) / 10, y: Math.round(py * 10) / 10, punti: s.punti, data: s.data };
+  });
+  const linePath = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x} ${c.y}`).join(" ");
+  const areaPath = `${linePath} L ${coords[coords.length - 1].x} ${padT + plotH} L ${coords[0].x} ${padT + plotH} Z`;
+  const first = coords[0];
+  const last = coords[coords.length - 1];
+  const delta = Math.round((last.punti - first.punti) * 10) / 10;
+  const deltaStr = delta > 0 ? `+${delta} pt` : `${delta} pt`;
+  const deltaColor = delta >= 0 ? "#10b981" : "#ef4444";
+  const formatShortDate = (d) => {
+    if (!d) return "";
+    if (d.includes("-")) return d.split("-").reverse().join("/");
+    return d;
+  };
+  return `
+    <g transform="translate(${x}, ${y})">
+      <rect width="${width}" height="${height}" rx="22" fill="#111a2e" stroke="rgba(255,255,255,0.08)" stroke-width="1.5" />
+      <text x="28" y="42" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" letter-spacing="1.2">${escapeXml(title)}</text>
+      <text x="${width - 28}" y="42" fill="${deltaColor}" font-size="15" font-family="Inter, system-ui, sans-serif" font-weight="700" text-anchor="end">${escapeXml(deltaStr)} (${valid.length} rilevazioni)</text>
+
+      <!-- Subtle horizontal gridlines -->
+      <line x1="${padL}" y1="${padT}" x2="${width - padR}" y2="${padT}" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="4 6" />
+      <line x1="${padL}" y1="${padT + plotH / 2}" x2="${width - padR}" y2="${padT + plotH / 2}" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="4 6" />
+      <line x1="${padL}" y1="${padT + plotH}" x2="${width - padR}" y2="${padT + plotH}" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+
+      <path d="${areaPath}" fill="url(#storyChartArea)" />
+      <path d="${linePath}" fill="none" stroke="${accentColor}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+
+      <circle cx="${first.x}" cy="${first.y}" r="5.5" fill="#0b1426" stroke="${accentColor}" stroke-width="3" />
+      <circle cx="${last.x}" cy="${last.y}" r="7" fill="${accentColor}" stroke="#ffffff" stroke-width="2.5" />
+
+      <text x="${padL}" y="${height - 16}" fill="#64748b" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="600">${escapeXml(formatShortDate(first.data))} \u2022 ${escapeXml(first.punti.toLocaleString("it-IT"))} pt</text>
+      <text x="${width - padR}" y="${height - 16}" fill="#e2e8f0" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" text-anchor="end">${escapeXml(formatShortDate(last.data))} \u2022 ${escapeXml(last.punti.toLocaleString("it-IT"))} pt</text>
+    </g>
+  `;
+}
+function buildMatchesListSvg(rows, x, y, width, height, title) {
+  const maxRows = height >= 290 ? 4 : 3;
+  const visible = rows.slice(0, maxRows);
+  const rowStartY = 64;
+  const rowGap = 58;
+  const content = visible.length === 0 ? `<text x="${width / 2}" y="${height / 2 + 16}" fill="#64748b" font-size="18" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Nessun incontro recente registrato</text>` : visible.map((row, idx) => {
+    const ry = rowStartY + idx * rowGap;
+    const badgeFill = row.isWin ? "rgba(16, 185, 129, 0.16)" : "rgba(239, 68, 68, 0.16)";
+    const badgeStroke = row.isWin ? "rgba(16, 185, 129, 0.45)" : "rgba(239, 68, 68, 0.45)";
+    const badgeColor = row.isWin ? "#10b981" : "#f87171";
+    const badgeText = row.isWin ? "V" : "P";
+    const rightColor = row.rightColor || (row.isWin ? "#10b981" : "#f87171");
+    const divider = idx < visible.length - 1 ? `<line x1="28" y1="${ry + 48}" x2="${width - 28}" y2="${ry + 48}" stroke="rgba(255,255,255,0.06)" stroke-width="1" />` : "";
+    return `
+            <g transform="translate(0, ${ry})">
+              <rect x="28" y="4" width="34" height="34" rx="10" fill="${badgeFill}" stroke="${badgeStroke}" stroke-width="1.2" />
+              <text x="45" y="27" fill="${badgeColor}" font-size="16" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${badgeText}</text>
+              <text x="78" y="20" fill="#f8fafc" font-size="18" font-family="Inter, system-ui, sans-serif" font-weight="700">${escapeXml(truncateText(row.opponent, 34))}</text>
+              <text x="78" y="40" fill="#94a3b8" font-size="13.5" font-family="Inter, system-ui, sans-serif" font-weight="500">${escapeXml(truncateText(row.meta, 46))}</text>
+              <text x="${width - 28}" y="28" fill="${rightColor}" font-size="17" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="end">${escapeXml(row.rightText)}</text>
+            </g>
+            ${divider}
+          `;
+  }).join("");
+  return `
+    <g transform="translate(${x}, ${y})">
+      <rect width="${width}" height="${height}" rx="22" fill="#111a2e" stroke="rgba(255,255,255,0.08)" stroke-width="1.5" />
+      <text x="28" y="40" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" letter-spacing="1.2">${escapeXml(title)}</text>
+      ${content}
+    </g>
+  `;
+}
+async function generateAthleteStoryCard(athlete, theme = "panoramica", options) {
+  const m = extractAthleteMetrics(athlete);
+  const [fetchedPhoto, logoBase64] = await Promise.all([
+    fetchImageAsBase64(m.fotoUrl),
+    fetchImageAsBase64(athlete.anagrafica?.logoUrl || null)
+  ]);
+  const photoBase64 = fetchedPhoto || getDarkPlaceholderBase64();
+  const storico = athlete.storicoClassifica || [];
+  const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
+  let pts = athlete.anagrafica?.punti ?? 0;
+  if (pts < 10 && ultimoSnapshot && ultimoSnapshot.punti >= 100) {
+    pts = ultimoSnapshot.punti;
+  }
+  let initPts = athlete.riepilogo?.puntiIniziali ?? 0;
+  if (initPts < 10 && ultimoSnapshot && ultimoSnapshot.punti >= 100) {
+    initPts = Math.round(initPts * 1e3);
+  }
+  const pos = ultimoSnapshot?.posizione ?? null;
+  const stato = athlete.anagrafica?.stato;
+  const record = athlete.anagrafica?.recordClassifica;
+  const hasRecord = Boolean(record && !record.includes("n. il") && record.trim().length > 0);
+  const dataAgg = ultimoSnapshot?.data ? ultimoSnapshot.data.includes("-") ? ultimoSnapshot.data.split("-").reverse().join("/") : ultimoSnapshot.data : null;
+  const posText = pos ? `#${pos.toLocaleString("it-IT")}` : stato || "Fuori Quadro";
+  const posSub = hasRecord ? `Record: ${record}` : dataAgg ? `Al ${dataAgg}` : "Nazionale";
+  const aggregatedStats = aggregateAthleteMatchStats(
+    athlete,
+    options?.campionatoPartite ?? null,
+    options?.campionatoNome || athlete.campionatoAttuale?.nome
+  );
+  const partiteGiocate = aggregatedStats.partiteGiocate;
+  const partiteVinte = aggregatedStats.partiteVinte;
+  const partitePerse = aggregatedStats.partitePerse;
+  const percPositiva = aggregatedStats.percentualePositiva;
+  let puntiNetto = athlete.riepilogo?.puntiTotali ?? 0;
+  if (puntiNetto === 0 && athlete.partiteRanking?.dettaglioPunti) {
+    const diff = (athlete.partiteRanking.dettaglioPunti.campionato || 0) + (athlete.partiteRanking.dettaglioPunti.tornei || 0);
+    if (diff !== 0) puntiNetto = diff;
+  }
+  puntiNetto = Math.round(puntiNetto * 10) / 10;
+  let partiteSub = `Perse: ${partitePerse}`;
+  if (aggregatedStats.campionatoGiocate > 0 || aggregatedStats.torneiGiocate > 0) {
+    const parts = [];
+    if (aggregatedStats.torneiGiocate > 0) parts.push(`Tornei: ${aggregatedStats.torneiGiocate}`);
+    if (aggregatedStats.campionatoGiocate > 0) {
+      parts.push(`Camp: ${aggregatedStats.campionatoVinte}V-${aggregatedStats.campionatoPerse}P`);
+    }
+    partiteSub = parts.join(" - ");
+  }
+  const netLabel = puntiNetto > 0 ? `+${puntiNetto} pt netti` : `${puntiNetto} pt`;
+  const netColor = puntiNetto >= 0 ? "#10b981" : "#f87171";
+  const displayName = m.name.toUpperCase();
+  const nameFontSize = displayName.length > 24 ? 32 : displayName.length > 18 ? 38 : 44;
+  const clubText = truncateText(athlete.anagrafica?.societa?.trim() || "Tesserato FITeT", 38);
+  const regione = athlete.anagrafica?.regione?.trim() || "";
+  const estimatedClubWidth = Math.min(760, clubText.length * 13.2);
+  const clubGroupWidth = logoBase64 ? estimatedClubWidth + 44 : estimatedClubWidth;
+  const clubTextX = logoBase64 ? 540 - 22 : 540;
+  const logoX = 540 + clubGroupWidth / 2 - 34;
+  const catPill = formatCategoryPill(athlete.anagrafica?.categoria);
+  const sectorPill = athlete.anagrafica?.settore?.trim() || null;
+  const birthDate = athlete.anagrafica?.dataNascita?.trim() || null;
+  const views = options?.viewsCount && options.viewsCount > 0 ? options.viewsCount : 0;
+  const metaPieces = [];
+  if (catPill) metaPieces.push({ kind: "pill", text: catPill, width: Math.max(58, catPill.length * 12 + 34) });
+  if (sectorPill) metaPieces.push({ kind: "pill", text: sectorPill, width: Math.max(88, sectorPill.length * 10.5 + 34) });
+  if (metaPieces.length > 0 && (birthDate || views > 0)) {
+    metaPieces.push({ kind: "divider", width: 18 });
+  }
+  if (birthDate) {
+    const txt = `Nato/a il ${birthDate}`;
+    metaPieces.push({ kind: "text", text: txt, width: txt.length * 9.8 + 10 });
+  }
+  if (birthDate && views > 0) {
+    metaPieces.push({ kind: "text", text: "\u2022", width: 16 });
+  }
+  if (views > 0) {
+    const txt = `${views.toLocaleString("it-IT")} ${views === 1 ? "visita" : "visite"}`;
+    metaPieces.push({ kind: "text", text: txt, width: txt.length * 9.6 + 10 });
+  }
+  const metaGap = 10;
+  const totalMetaWidth = metaPieces.reduce((acc, p) => acc + p.width, 0) + Math.max(0, metaPieces.length - 1) * metaGap;
+  let cursorX = 540 - totalMetaWidth / 2;
+  const metaRowSvg = metaPieces.map((piece) => {
+    const xPos = Math.round(cursorX);
+    cursorX += piece.width + metaGap;
+    if (piece.kind === "pill") {
+      return `
+          <rect x="${xPos}" y="0" width="${Math.round(piece.width)}" height="36" rx="18" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.14)" stroke-width="1.2" />
+          <text x="${Math.round(xPos + piece.width / 2)}" y="24" fill="#e2e8f0" font-size="16.5" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">${escapeXml(piece.text)}</text>
+        `;
+    }
+    if (piece.kind === "divider") {
+      return `<line x1="${Math.round(xPos + piece.width / 2)}" y1="8" x2="${Math.round(xPos + piece.width / 2)}" y2="28" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" />`;
+    }
+    return `<text x="${Math.round(xPos + piece.width / 2)}" y="24" fill="#94a3b8" font-size="17" font-family="Inter, system-ui, sans-serif" font-weight="500" text-anchor="middle">${escapeXml(piece.text)}</text>`;
+  }).join("");
+  const buildRecentBadgesRows = (badges) => badges.map((b) => ({
+    isWin: b.isVittoria,
+    opponent: b.avversario,
+    meta: [b.data, b.evento].filter(Boolean).join(" \u2022 ") || "Incontro ufficiale",
+    rightText: b.risultatoSet || (b.isVittoria ? "Vinta" : "Persa")
+  }));
+  let lowerSectionSvg = "";
+  if (theme === "torneo" && m.lastTournamentSummary) {
+    const t = m.lastTournamentSummary;
+    const tPts = `${t.puntiGuadagnati > 0 ? "+" : ""}${t.puntiGuadagnati} pt`;
+    const tPtsColor = t.puntiGuadagnati >= 0 ? "#10b981" : "#f87171";
+    const torneiAll = athlete.partiteRanking?.tornei || [];
+    const lastTorneoMatches = torneiAll.filter((tm) => tm.torneo === t.nome).slice(-4).reverse().map((tm) => ({
+      isWin: tm.isVittoria,
+      opponent: tm.avversario,
+      meta: [tm.data, tm.gara].filter(Boolean).join(" \u2022 ") || t.nome,
+      rightText: tm.punti !== void 0 ? `${tm.punti > 0 ? "+" : ""}${tm.punti} pt` : tm.isVittoria ? "Vinta" : "Persa"
+    }));
+    lowerSectionSvg = `
+      <g transform="translate(96, 1046)">
+        <rect width="888" height="206" rx="22" fill="#111a2e" stroke="rgba(56,189,248,0.28)" stroke-width="1.5" />
+        <text x="28" y="40" fill="#38bdf8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" letter-spacing="1.2">ULTIMO TORNEO${t.data ? ` \u2022 ${escapeXml(t.data)}` : ""}</text>
+        <text x="28" y="76" fill="#ffffff" font-size="23" font-family="Inter, system-ui, sans-serif" font-weight="800">${escapeXml(truncateText(t.nome, 48))}</text>
+        <line x1="28" y1="96" x2="860" y2="96" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+        <text x="222" y="148" fill="#f8fafc" font-size="40" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${t.partiteVinte} <tspan fill="#64748b" font-size="26">/</tspan> ${t.partiteTotali}</text>
+        <text x="222" y="180" fill="#94a3b8" font-size="15" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Partite Vinte nel Torneo</text>
+        <line x1="444" y1="114" x2="444" y2="186" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" />
+        <text x="666" y="148" fill="${tPtsColor}" font-size="40" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(tPts)}</text>
+        <text x="666" y="180" fill="#94a3b8" font-size="15" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Bilancio Punti Torneo</text>
+      </g>
+      ${buildMatchesListSvg(lastTorneoMatches, 96, 1274, 888, 310, "INCONTRI DEL TORNEO")}
+    `;
+  } else if (theme === "best_rank") {
+    lowerSectionSvg = `
+      <g transform="translate(96, 1046)">
+        <rect width="888" height="206" rx="22" fill="#111a2e" stroke="rgba(245,158,11,0.32)" stroke-width="1.5" />
+        <text x="28" y="42" fill="#fbbf24" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" letter-spacing="1.2">BEST RANKING IN CARRIERA</text>
+        <line x1="28" y1="62" x2="860" y2="62" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+        <text x="222" y="136" fill="#fbbf24" font-size="48" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(m.bestRank)}</text>
+        <text x="222" y="174" fill="#94a3b8" font-size="15.5" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Record Personale Nazionale</text>
+        <line x1="444" y1="84" x2="444" y2="180" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" />
+        <text x="666" y="136" fill="#f8fafc" font-size="46" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(posText)}</text>
+        <text x="666" y="174" fill="#94a3b8" font-size="15.5" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Posizione Attuale</text>
+      </g>
+      ${buildRatingSparklineSvg(storico, 96, 1274, 888, 310, "ANDAMENTO STORICO CLASSIFICA", "#fbbf24")}
+    `;
+  } else if (theme === "punti") {
+    const seasonDiff = Math.round((pts - initPts) * 10) / 10;
+    const seasonDiffLabel = seasonDiff > 0 ? `+${seasonDiff} pt` : `${seasonDiff} pt`;
+    const seasonDiffColor = seasonDiff >= 0 ? "#10b981" : "#f87171";
+    lowerSectionSvg = `
+      <g transform="translate(96, 1046)">
+        <rect width="888" height="206" rx="22" fill="#111a2e" stroke="rgba(16,185,129,0.32)" stroke-width="1.5" />
+        <text x="28" y="42" fill="#10b981" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="700" letter-spacing="1.2">VARIAZIONE PUNTI STAGIONE</text>
+        <line x1="28" y1="62" x2="860" y2="62" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+        <text x="222" y="136" fill="${seasonDiffColor}" font-size="48" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(seasonDiffLabel)}</text>
+        <text x="222" y="174" fill="#94a3b8" font-size="15.5" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Variazione da Inizio Anno</text>
+        <line x1="444" y1="84" x2="444" y2="180" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" />
+        <text x="666" y="136" fill="#f8fafc" font-size="44" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(initPts.toLocaleString("it-IT"))} \u2192 ${escapeXml(pts.toLocaleString("it-IT"))}</text>
+        <text x="666" y="174" fill="#94a3b8" font-size="15.5" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Punti Iniziali \u2192 Attuali</text>
+      </g>
+      ${buildRatingSparklineSvg(storico, 96, 1274, 888, 310, "PROGRESSIONE PUNTI RANKING", "#10b981")}
+    `;
+  } else {
+    const recentRows = buildRecentBadgesRows(aggregatedStats.badges);
+    lowerSectionSvg = `
+      ${buildRatingSparklineSvg(storico, 96, 1046, 888, 250, "ANDAMENTO PUNTI RANKING", "#38bdf8")}
+      ${buildMatchesListSvg(recentRows, 96, 1318, 888, 266, "ULTIME PARTITE DISPUTATE")}
+    `;
+  }
+  const posFontSize = posText.length > 9 ? 25 : posText.length > 6 ? 31 : 36;
+  const svg = `
+<svg width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="storyBackdrop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#050b16" />
+      <stop offset="50%" stop-color="#081224" />
+      <stop offset="100%" stop-color="#050b16" />
+    </linearGradient>
+
+    <radialGradient id="topAmbient" cx="50%" cy="18%" r="55%">
+      <stop offset="0%" stop-color="#1d4ed8" stop-opacity="0.22" />
+      <stop offset="100%" stop-color="#081224" stop-opacity="0" />
+    </radialGradient>
+
+    <linearGradient id="storyChartArea" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.24" />
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.01" />
+    </linearGradient>
+
+    <linearGradient id="statDividerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.14" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+
+    <clipPath id="storyPhotoClip">
+      <rect x="408" y="256" width="264" height="304" rx="28" />
+    </clipPath>
+
+    <clipPath id="storyLogoClip">
+      <circle cx="${Math.round(logoX + 16)}" cy="669" r="16" />
+    </clipPath>
+
+    <filter id="modalShadow" x="-8%" y="-6%" width="116%" height="114%">
+      <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#000000" flood-opacity="0.55" />
+    </filter>
+
+    <filter id="photoShadow" x="-15%" y="-12%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.48" />
+    </filter>
+  </defs>
+
+  <!-- Dark Backdrop matching .modal-athlete-backdrop -->
+  <rect width="1080" height="1920" fill="url(#storyBackdrop)" />
+  <rect width="1080" height="1920" fill="url(#topAmbient)" />
+
+  <!-- Top Brand Pill (Instagram Safe Area) -->
+  <g transform="translate(0, 114)">
+    <rect x="355" y="0" width="370" height="44" rx="22" fill="#0b1426" stroke="#1a2d52" stroke-width="1.5" />
+    <circle cx="382" cy="22" r="6.5" fill="#10b981" />
+    <text x="548" y="28" fill="#e2e8f0" font-size="14.5" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="1.2">PORTALE RISULTATI FITeT</text>
+  </g>
+
+  <!-- Main Card matching .modal-card-simple.atleta-modal-card (dark theme) -->
+  <rect x="56" y="200" width="968" height="1426" rx="34" fill="#0b1426" stroke="#1a2d52" stroke-width="2" filter="url(#modalShadow)" />
+
+  <!-- 1. Rounded Portrait Photo matching .athlete-spotlight-photo-wrap -->
+  <rect x="408" y="256" width="264" height="304" rx="28" fill="#0f172a" stroke="rgba(255,255,255,0.14)" stroke-width="2" filter="url(#photoShadow)" />
+  ${photoBase64 ? `<image href="${photoBase64}" x="408" y="256" width="264" height="304" clip-path="url(#storyPhotoClip)" preserveAspectRatio="xMidYMid slice" />
+         <rect x="408" y="256" width="264" height="304" rx="28" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="2" />` : `<text x="540" y="432" fill="#94a3b8" font-size="78" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="2">${escapeXml(m.initials)}</text>`}
+
+  <!-- 2. Athlete Name matching .athlete-spotlight-name -->
+  <text x="540" y="624" fill="#ffffff" font-size="${nameFontSize}" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle" letter-spacing="0.8">${escapeXml(truncateText(displayName, 32))}</text>
+
+  <!-- 3. Society + Logo + Region matching .athlete-spotlight-club-wrap -->
+  <text x="${Math.round(clubTextX)}" y="676" fill="#e2e8f0" font-size="23" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle" text-decoration="underline">${escapeXml(clubText)}</text>
+  ${logoBase64 ? `<circle cx="${Math.round(logoX + 16)}" cy="669" r="17" fill="#ffffff" />
+         <image href="${logoBase64}" x="${Math.round(logoX)}" y="653" width="32" height="32" clip-path="url(#storyLogoClip)" preserveAspectRatio="xMidYMid meet" />` : ""}
+  ${regione ? `<text x="540" y="714" fill="#94a3b8" font-size="20" font-family="Inter, system-ui, sans-serif" font-weight="500" text-anchor="middle">(${escapeXml(regione)})</text>` : ""}
+
+  <!-- 4. Metadata Pills Row matching .athlete-spotlight-meta-row -->
+  <g transform="translate(0, ${regione ? 744 : 716})">
+    ${metaRowSvg}
+  </g>
+
+  <!-- 5. 4-Column Stats Card matching .overview-stats-card.athlete-spotlight-stats-card -->
+  <g transform="translate(96, 816)">
+    <rect width="888" height="196" rx="22" fill="#111a2e" stroke="rgba(255,255,255,0.08)" stroke-width="1.5" />
+
+    <!-- Col 1: POSIZIONE -->
+    <text x="111" y="50" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle" letter-spacing="1.2">POSIZIONE</text>
+    <text x="111" y="114" fill="#f8fafc" font-size="${posFontSize}" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(truncateText(posText, 13))}</text>
+    <text x="111" y="156" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="500" text-anchor="middle" opacity="0.88">${escapeXml(truncateText(posSub, 22))}</text>
+
+    <rect x="221.5" y="38" width="1.5" height="120" fill="url(#statDividerGrad)" />
+
+    <!-- Col 2: PUNTI RANK -->
+    <text x="333" y="50" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle" letter-spacing="1.2">PUNTI RANK</text>
+    <text x="333" y="114" fill="#f8fafc" font-size="36" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${escapeXml(pts.toLocaleString("it-IT"))}</text>
+    <text x="333" y="156" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="500" text-anchor="middle" opacity="0.88">Iniziali: ${escapeXml(initPts.toLocaleString("it-IT"))}</text>
+
+    <rect x="443.5" y="38" width="1.5" height="120" fill="url(#statDividerGrad)" />
+
+    <!-- Col 3: PARTITE V/G -->
+    <text x="555" y="50" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle" letter-spacing="1.2">PARTITE V/G</text>
+    <text x="555" y="114" fill="#f8fafc" font-size="36" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${partiteVinte} <tspan fill="#64748b" font-size="25" font-weight="500">/</tspan> ${partiteGiocate}</text>
+    <text x="555" y="156" fill="#94a3b8" font-size="13.5" font-family="Inter, system-ui, sans-serif" font-weight="500" text-anchor="middle" opacity="0.88">${escapeXml(truncateText(partiteSub, 24))}</text>
+
+    <rect x="665.5" y="38" width="1.5" height="120" fill="url(#statDividerGrad)" />
+
+    <!-- Col 4: % VITTORIE -->
+    <text x="777" y="50" fill="#94a3b8" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle" letter-spacing="1.2">% VITTORIE</text>
+    <text x="777" y="114" fill="#10b981" font-size="36" font-family="Inter, system-ui, sans-serif" font-weight="800" text-anchor="middle">${percPositiva}%</text>
+    <text x="777" y="156" fill="${netColor}" font-size="14" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">${escapeXml(netLabel)}</text>
+  </g>
+
+  <!-- 6. Simplified Lower Section (Chart + Matches / Focus Theme) -->
+  ${lowerSectionSvg}
+
+  <!-- Bottom Safe Area URL Pill -->
+  <g transform="translate(0, 1682)">
+    <rect x="230" y="0" width="620" height="58" rx="29" fill="#0b1426" stroke="#1a2d52" stroke-width="1.5" />
+    <text x="540" y="36" fill="#93c5fd" font-size="18" font-family="Inter, system-ui, sans-serif" font-weight="700" text-anchor="middle" letter-spacing="0.4">portale-risultati-tt.it/player/${escapeXml(athlete.id)}</text>
+    <text x="540" y="96" fill="#64748b" font-size="14.5" font-family="Inter, system-ui, sans-serif" font-weight="600" text-anchor="middle">Scheda Atleta FITeT \u2022 Aggiornata in tempo reale</text>
+  </g>
+</svg>
+`;
+  const resvg = new Resvg(svg, getResvgOptions(1080));
+  return resvg.render().asPng();
+}
+
+// server/services/youtubeSyncService.ts
+import { createClient as createClient6 } from "@supabase/supabase-js";
+import dotenv5 from "dotenv";
+dotenv5.config();
+var YOUTUBE_CHANNELS = [
+  {
+    name: "Giacomo Cerea",
+    handle: "@GiacomoCerea",
+    channelId: "UCcA-SldiAGIwc2ymdU0XZ0A",
+    channelUrl: "https://www.youtube.com/@GiacomoCerea"
+  },
+  {
+    name: "FITeT Official",
+    handle: "@Fitetofficial",
+    channelId: "UCEMruyCuhXSrAqkA-LkLUSg",
+    channelUrl: "https://www.youtube.com/@Fitetofficial"
+  },
+  {
+    name: "Filippo Cantella TT",
+    handle: "@FilippoCantellaTT",
+    channelId: "UC1rRzhu89B1x25cgAWdLOxw",
+    channelUrl: "https://www.youtube.com/@FilippoCantellaTT"
+  }
+];
+function normalizeTeamName(name) {
+  if (!name) return "";
+  return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\b(a\.?s\.?d\.?|asd|t\.?t\.?|tt|tennistavolo|polisportiva|pol\.?|u\.?s\.?|us|dilettantistica|1999)\b/gi, " ").replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
+}
+function parseMatchTitle(title) {
+  const clean = title.replace(/\s+/g, " ").trim();
+  let league = null;
+  const leagueMatch = clean.match(/\b(?:Serie\s+)?([ABCD][1-2])(?:\s*([FM]|Femminile|Maschile))?\b/i);
+  if (leagueMatch) {
+    league = leagueMatch[1].toUpperCase();
+    if (leagueMatch[2]) {
+      const g = leagueMatch[2].toUpperCase().startsWith("F") ? "F" : "M";
+      league += ` ${g}`;
+    }
+  }
+  let matchDay = null;
+  const dayMatch = clean.match(/(?:recupero\s+)?(\d+)\s*[ªa°\^e]?\s*giornata/i) || clean.match(/giornata\s*(\d+)/i);
+  if (dayMatch) {
+    matchDay = parseInt(dayMatch[1], 10);
+  }
+  let teamHome = null;
+  let teamAway = null;
+  const parenMatch = clean.match(/\(([^()]+?)\s*(?:-|–|vs\.?)\s*([^()]+?)\)/i);
+  if (parenMatch) {
+    teamHome = parenMatch[1].trim();
+    teamAway = parenMatch[2].trim();
+  } else {
+    const delimiterMatch = clean.match(/(?:[,|]\s*)([A-Za-z0-9À-ÿ\s.'’]+?)\s*(?:-|–|vs\.?)\s*([A-Za-z0-9À-ÿ\s.'’]+?)(?:\s+\d+\s*[-–:]\s*\d+.*)?$/i);
+    if (delimiterMatch) {
+      teamHome = delimiterMatch[1].trim();
+      teamAway = delimiterMatch[2].trim().replace(/\s+\d+\s*[-–:]\s*\d+.*$/, "").trim();
+    } else {
+      const vsMatch = clean.match(/([A-Za-z0-9À-ÿ\s.'’]+?)\s+(?:vs\.?)\s+([A-Za-z0-9À-ÿ\s.'’]+?)(?:\s*[|,]|$)/i);
+      if (vsMatch) {
+        teamHome = vsMatch[1].trim();
+        teamAway = vsMatch[2].trim();
+      }
+    }
+  }
+  return { league, matchDay, teamHome, teamAway };
+}
+var YouTubeSyncService = class {
+  supabase = null;
+  CACHE_KEY = "youtube_match_videos_all";
+  CACHE_TTL_MS = 60 * 60 * 1e3;
+  // 1 ora in cache RAM/disco
+  constructor() {
+    this.initSupabase();
+  }
+  initSupabase() {
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    if (!url || !key) {
+      console.warn("\u26A0\uFE0F [YouTubeSyncService] Supabase URL o KEY non configurate: operativit\xE0 solo in locale/cache.");
+      return;
+    }
+    try {
+      this.supabase = createClient6(url, key, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      });
+      console.log("\u2705 [YouTubeSyncService] Supabase connesso.");
+    } catch (err) {
+      console.error("\u274C [YouTubeSyncService] Errore inizializzazione Supabase:", err);
+    }
+  }
+  /**
+   * Effettua il fetch e parsing del feed RSS Atom di un canale YouTube
+   */
+  async fetchChannelFeed(channel) {
+    const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channel.channelId}`;
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; PingPongPortal/1.0; +https://portale-risultati-tt.it)"
+        }
+      });
+      if (!res.ok) {
+        console.warn(`[YouTubeSyncService] Risposta HTTP ${res.status} per canale ${channel.name}`);
+        return [];
+      }
+      const xml = await res.text();
+      const entries = [];
+      const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
+      let match;
+      while ((match = entryRegex.exec(xml)) !== null) {
+        const entryXml = match[1];
+        const videoIdMatch = entryXml.match(/<yt:videoId>(.*?)<\/yt:videoId>/);
+        const titleMatch = entryXml.match(/<title>(.*?)<\/title>/);
+        const publishedMatch = entryXml.match(/<published>(.*?)<\/published>/);
+        if (videoIdMatch && titleMatch) {
+          const rawTitle = titleMatch[1].replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+          const parsed = parseMatchTitle(rawTitle);
+          const videoId = videoIdMatch[1];
+          entries.push({
+            video_id: videoId,
+            channel_name: channel.name,
+            channel_id: channel.channelId,
+            channel_url: channel.channelUrl,
+            title: rawTitle,
+            published_at: publishedMatch ? publishedMatch[1] : (/* @__PURE__ */ new Date()).toISOString(),
+            league: parsed.league,
+            match_day: parsed.matchDay,
+            team_home: parsed.teamHome,
+            team_away: parsed.teamAway,
+            video_url: `https://www.youtube.com/watch?v=${videoId}`
+          });
+        }
+      }
+      return entries;
+    } catch (err) {
+      console.error(`[YouTubeSyncService] Errore durante il recupero del feed per ${channel.name}:`, err);
+      return [];
+    }
+  }
+  /**
+   * Sincronizza tutti i canali configurati in parallelo e aggiorna Supabase
+   */
+  async syncAllChannels() {
+    console.log("\u{1F504} [YouTubeSyncService] Avvio sincronizzazione feed YouTube...");
+    const fetchPromises = YOUTUBE_CHANNELS.map((ch) => this.fetchChannelFeed(ch));
+    const channelResults = await Promise.all(fetchPromises);
+    const allVideos = channelResults.flat();
+    console.log(`\u{1F4F9} [YouTubeSyncService] Recuperati ${allVideos.length} video totali dai feed.`);
+    cacheService.set(this.CACHE_KEY, allVideos, this.CACHE_TTL_MS);
+    let upsertedCount = 0;
+    if (this.supabase && allVideos.length > 0) {
+      try {
+        const rows = allVideos.map((v) => ({
+          video_id: v.video_id,
+          channel_name: v.channel_name,
+          channel_id: v.channel_id,
+          channel_url: v.channel_url,
+          title: v.title,
+          published_at: v.published_at,
+          league: v.league,
+          match_day: v.match_day,
+          team_home: v.team_home,
+          team_away: v.team_away,
+          video_url: v.video_url
+        }));
+        const { data, error } = await this.supabase.from("match_videos").upsert(rows, { onConflict: "video_id" }).select();
+        if (error) {
+          console.error("\u274C [YouTubeSyncService] Errore upsert su Supabase:", error);
+        } else {
+          upsertedCount = data ? data.length : rows.length;
+          console.log(`\u2705 [YouTubeSyncService] Upsert completato su Supabase: ${upsertedCount} record aggiornati.`);
+        }
+      } catch (err) {
+        console.error("\u274C [YouTubeSyncService] Eccezione durante upsert Supabase:", err);
+      }
+    }
+    return {
+      total: allVideos.length,
+      upserted: upsertedCount,
+      videos: allVideos
+    };
+  }
+  /**
+   * Restituisce tutti i video memorizzati (da Supabase con fallback su cache)
+   */
+  async getAllVideos(forceRefresh = false) {
+    if (!forceRefresh) {
+      const cached = cacheService.get(this.CACHE_KEY);
+      if (cached && cached.length > 0) {
+        return cached;
+      }
+    }
+    if (this.supabase) {
+      try {
+        const { data, error } = await this.supabase.from("match_videos").select("*").order("published_at", { ascending: false });
+        if (!error && data && data.length > 0) {
+          cacheService.set(this.CACHE_KEY, data, this.CACHE_TTL_MS);
+          return data;
+        }
+      } catch (err) {
+        console.warn("[YouTubeSyncService] Lettura da Supabase non riuscita, eseguo fallback su sync diretta:", err);
+      }
+    }
+    const syncRes = await this.syncAllChannels();
+    return syncRes.videos;
+  }
+  /**
+   * Cerca e associa uno o più video a una partita di calendario
+   */
+  matchVideosForMatch(videos, params) {
+    const { giornata, squadraCasa, squadraOspite, championshipName } = params;
+    const normCasa = normalizeTeamName(squadraCasa);
+    const normOspite = normalizeTeamName(squadraOspite);
+    let champLeague = null;
+    if (championshipName) {
+      const lm = championshipName.match(/\b([ABCD])\s*\/?\s*([1-3])\b/i);
+      if (lm) champLeague = `${lm[1].toUpperCase()}${lm[2]}`;
+    }
+    return videos.filter((v) => {
+      if (v.match_day !== null && v.match_day !== void 0 && v.match_day !== giornata) {
+        return false;
+      }
+      if (champLeague && v.league) {
+        const vLeagueBase = v.league.split(" ")[0].toUpperCase();
+        if (vLeagueBase !== champLeague) {
+          return false;
+        }
+      }
+      if (v.team_home && v.team_away) {
+        const vHome = normalizeTeamName(v.team_home);
+        const vAway = normalizeTeamName(v.team_away);
+        const directMatch = (normCasa.includes(vHome) || vHome.includes(normCasa) || vHome.length >= 4 && normCasa.includes(vHome.slice(0, 5))) && (normOspite.includes(vAway) || vAway.includes(normOspite) || vAway.length >= 4 && normOspite.includes(vAway.slice(0, 5)));
+        const invertedMatch = (normCasa.includes(vAway) || vAway.includes(normCasa) || vAway.length >= 4 && normCasa.includes(vAway.slice(0, 5))) && (normOspite.includes(vHome) || vHome.includes(normOspite) || vHome.length >= 4 && normOspite.includes(vHome.slice(0, 5)));
+        if (directMatch || invertedMatch) {
+          return true;
+        }
+      }
+      const normTitle = normalizeTeamName(v.title);
+      const casaTokens = normCasa.split(" ").filter((t) => t.length >= 4);
+      const ospiteTokens = normOspite.split(" ").filter((t) => t.length >= 4);
+      const hasCasaToken = casaTokens.some((token) => normTitle.includes(token));
+      const hasOspiteToken = ospiteTokens.some((token) => normTitle.includes(token));
+      if (hasCasaToken && hasOspiteToken && v.match_day === giornata) {
+        return true;
+      }
+      return false;
+    });
+  }
+};
+var youtubeSyncService = new YouTubeSyncService();
+
+// server/services/campionatoNotificationService.ts
+var CHAMPIONSHIP_STATE_KEY_PREFIX = "championship_state_";
+function getChampionshipStateKey(camId) {
+  return `${CHAMPIONSHIP_STATE_KEY_PREFIX}${camId}`;
+}
+var MAX_CACHED_SNAPSHOTS = 30;
+var cachedSnapshots = /* @__PURE__ */ new Map();
+function setCachedSnapshot(camId, entry) {
+  cachedSnapshots.delete(camId);
+  cachedSnapshots.set(camId, entry);
+  while (cachedSnapshots.size > MAX_CACHED_SNAPSHOTS) {
+    const oldest = cachedSnapshots.keys().next().value;
+    if (oldest !== void 0) cachedSnapshots.delete(oldest);
+    else break;
+  }
+}
+var SNAPSHOT_CACHE_TTL_MS = 30 * 60 * 1e3;
+var inFlightChecks = /* @__PURE__ */ new Set();
+function normKey(value) {
+  return (value || "").trim().toUpperCase().replace(/\s+/g, " ");
+}
+function buildChampionshipSnapshot(input) {
+  const {
+    camId,
+    annoId = 41,
+    championshipName = `Campionato #${camId}`,
+    classifica = [],
+    calendario = [],
+    statisticheAtleti = []
+  } = input;
+  if (!Number.isFinite(camId) || camId <= 0) {
+    return null;
+  }
+  if (classifica.length === 0 && calendario.length === 0) {
+    return null;
+  }
+  const playedMatchesMap = /* @__PURE__ */ new Map();
+  for (const g of calendario) {
+    const allMatches = [...g.partiteAndata || [], ...g.partiteRitorno || []];
+    for (const m of allMatches) {
+      const hasScore = m.puntiCasa !== null && m.puntiOspite !== null;
+      const isPlayed = Boolean(m.disputato || hasScore || m.incontroId);
+      if (!isPlayed) continue;
+      const key = `${m.giornata}_${m.tipo}_${normKey(m.squadraCasa)}_${normKey(m.squadraOspite)}`;
+      playedMatchesMap.set(key, {
+        key,
+        giornata: m.giornata,
+        tipo: m.tipo,
+        squadraCasa: m.squadraCasa.trim(),
+        squadraOspite: m.squadraOspite.trim(),
+        puntiCasa: m.puntiCasa,
+        puntiOspite: m.puntiOspite,
+        risultato: (m.risultato || "").trim(),
+        incontroId: m.incontroId || null
+      });
+    }
+  }
+  const snapshotClassifica = classifica.map((t, index) => ({
+    key: normKey(t.nome),
+    nome: t.nome.trim(),
+    posizione: t.posizione || index + 1,
+    punti: t.punti ?? 0,
+    incontriGiocati: t.incontriDisputati ?? 0,
+    vittorie: t.incontriVinti ?? 0,
+    pareggi: t.incontriPareggiati ?? 0,
+    sconfitte: t.incontriPersi ?? 0,
+    partiteVinte: t.partiteVinte ?? 0,
+    partitePerse: t.partitePerse ?? 0
+  }));
+  const snapshotStatistiche = (statisticheAtleti || []).filter((a) => Boolean(a.atleta)).map((a) => ({
+    key: `${normKey(a.atleta)}__${normKey(a.squadra)}`,
+    atleta: a.atleta.trim(),
+    squadra: (a.squadra || "").trim(),
+    incontriDisputati: a.incontriDisputati ?? 0,
+    partiteDisputate: a.partiteDisputate ?? 0,
+    partiteVinte: a.partiteVinte ?? 0,
+    partitePerse: a.partitePerse ?? 0,
+    setVinti: a.setVinti ?? 0,
+    setPersi: a.setPersi ?? 0
+  }));
+  return {
+    camId,
+    annoId,
+    championshipName: championshipName.trim() || `Campionato #${camId}`,
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    playedMatches: Array.from(playedMatchesMap.values()),
+    classifica: snapshotClassifica,
+    statistiche: snapshotStatistiche
+  };
+}
+function diffChampionshipSnapshots(prev, curr) {
+  const emptyDiff = {
+    hasChanges: false,
+    newPlayedMatches: [],
+    updatedMatches: [],
+    classificaChanged: false,
+    statisticheChanged: false
+  };
+  const prevMatches = prev.playedMatches || [];
+  const currMatches = curr.playedMatches || [];
+  if (prevMatches.length > 0 && currMatches.length < prevMatches.length) {
+    return emptyDiff;
+  }
+  const prevMatchMap = new Map(
+    prevMatches.map((m) => [m.key, m])
+  );
+  const newPlayedMatches = [];
+  const updatedMatches = [];
+  for (const m of currMatches) {
+    const old = prevMatchMap.get(m.key);
+    if (!old) {
+      newPlayedMatches.push(m);
+      continue;
+    }
+    const scoreChanged = old.puntiCasa !== m.puntiCasa || old.puntiOspite !== m.puntiOspite;
+    const refertoAdded = !old.incontroId && Boolean(m.incontroId);
+    if (scoreChanged || refertoAdded) {
+      updatedMatches.push(m);
+    }
+  }
+  let classificaChanged = false;
+  const prevClassifica = prev.classifica || [];
+  const currClassifica = curr.classifica || [];
+  const prevTotalTeamPlayed = prevClassifica.reduce(
+    (sum, t) => sum + (t.incontriGiocati || 0),
+    0
+  );
+  const currTotalTeamPlayed = currClassifica.reduce(
+    (sum, t) => sum + (t.incontriGiocati || 0),
+    0
+  );
+  if (currClassifica.length > 0 && currTotalTeamPlayed >= prevTotalTeamPlayed) {
+    if (prevClassifica.length === 0 && currTotalTeamPlayed > 0) {
+      classificaChanged = true;
+    } else if (prevClassifica.length > 0) {
+      const prevTeamMap = new Map(
+        prevClassifica.map((t) => [t.key, t])
+      );
+      for (const team of currClassifica) {
+        const oldTeam = prevTeamMap.get(team.key);
+        if (!oldTeam) continue;
+        if (oldTeam.punti !== team.punti || oldTeam.incontriGiocati !== team.incontriGiocati || oldTeam.vittorie !== team.vittorie || oldTeam.pareggi !== team.pareggi || oldTeam.sconfitte !== team.sconfitte || oldTeam.partiteVinte !== team.partiteVinte || oldTeam.partitePerse !== team.partitePerse || oldTeam.posizione !== team.posizione) {
+          classificaChanged = true;
+          break;
+        }
+      }
+    }
+  }
+  let statisticheChanged = false;
+  const prevStats = prev.statistiche || [];
+  const currStats = curr.statistiche || [];
+  const prevTotalIndPlayed = prevStats.reduce(
+    (sum, a) => sum + (a.partiteDisputate || 0),
+    0
+  );
+  const currTotalIndPlayed = currStats.reduce(
+    (sum, a) => sum + (a.partiteDisputate || 0),
+    0
+  );
+  if (currStats.length > 0 && currTotalIndPlayed >= prevTotalIndPlayed) {
+    if (currTotalIndPlayed > prevTotalIndPlayed) {
+      statisticheChanged = true;
+    } else if (prevStats.length > 0) {
+      const prevStatMap = new Map(
+        prevStats.map((a) => [a.key, a])
+      );
+      for (const stat of currStats) {
+        const oldStat = prevStatMap.get(stat.key);
+        if (!oldStat) {
+          if (stat.partiteDisputate > 0) {
+            statisticheChanged = true;
+            break;
+          }
+          continue;
+        }
+        if (oldStat.incontriDisputati !== stat.incontriDisputati || oldStat.partiteDisputate !== stat.partiteDisputate || oldStat.partiteVinte !== stat.partiteVinte || oldStat.partitePerse !== stat.partitePerse || oldStat.setVinti !== stat.setVinti || oldStat.setPersi !== stat.setPersi) {
+          statisticheChanged = true;
+          break;
+        }
+      }
+    }
+  }
+  const hasChanges = newPlayedMatches.length > 0 || updatedMatches.length > 0 || classificaChanged || statisticheChanged;
+  return {
+    hasChanges,
+    newPlayedMatches,
+    updatedMatches,
+    classificaChanged,
+    statisticheChanged
+  };
+}
+function formatMatchPreview(m) {
+  if (m.puntiCasa !== null && m.puntiOspite !== null) {
+    return `${m.squadraCasa} ${m.puntiCasa}-${m.puntiOspite} ${m.squadraOspite}`;
+  }
+  return `${m.squadraCasa} vs ${m.squadraOspite}`;
+}
+function buildChampionshipNotificationPayload(camId, championshipName, diff) {
+  const cleanTitleName = championshipName?.trim() || `Campionato #${camId}`;
+  const changedMatches = [...diff.newPlayedMatches, ...diff.updatedMatches];
+  const title = `\u{1F3D3} ${cleanTitleName}`;
+  let body;
+  if (changedMatches.length === 1) {
+    const matchStr = formatMatchPreview(changedMatches[0]);
+    body = `Nuovi match del tuo campionato disponibili (${matchStr}), vai a vedere le partite e statistiche!`;
+  } else if (changedMatches.length > 1) {
+    const previews = changedMatches.slice(0, 2).map(formatMatchPreview).join(", ");
+    const extra = changedMatches.length > 2 ? ` e altri ${changedMatches.length - 2}` : "";
+    body = `Nuovi match del tuo campionato disponibili (${previews}${extra}), vai a vedere le partite e statistiche!`;
+  } else if (diff.classificaChanged) {
+    body = "Nuovi match del tuo campionato disponibili: la classifica \xE8 aggiornata, vai a vedere le partite e statistiche!";
+  } else {
+    body = "Nuovi match del tuo campionato disponibili, vai a vedere le partite e statistiche!";
+  }
+  const targetTab = changedMatches.length > 0 ? "calendario" : diff.classificaChanged ? "classifica" : "statistiche";
+  return {
+    title,
+    body,
+    url: `/?view=campionato&cam=${camId}&tab=${targetTab}`,
+    icon: "/icon.png",
+    badge: "/icon.png",
+    tag: `campionato-${camId}-${Date.now()}`,
+    renotify: true,
+    data: {
+      type: "championship_update",
+      camId,
+      championshipName: cleanTitleName,
+      newPlayedMatchesCount: diff.newPlayedMatches.length,
+      updatedMatchesCount: diff.updatedMatches.length,
+      classificaChanged: diff.classificaChanged,
+      statisticheChanged: diff.statisticheChanged
+    }
+  };
+}
+async function evaluateSnapshotAndNotify(currSnapshot, options = {}) {
+  const { camId, championshipName } = currSnapshot;
+  const { dryRun = false, init = false } = options;
+  const stateKey = getChampionshipStateKey(camId);
+  const rawPrev = await pushService.getState(stateKey);
+  if (rawPrev === null || init) {
+    if (!dryRun) {
+      await pushService.setState(stateKey, JSON.stringify(currSnapshot));
+      setCachedSnapshot(camId, {
+        snapshot: currSnapshot,
+        timestamp: Date.now()
+      });
+    }
+    return {
+      camId,
+      championshipName,
+      changed: false,
+      initialized: true,
+      newPlayedMatchesCount: 0,
+      updatedMatchesCount: 0,
+      classificaChanged: false,
+      statisticheChanged: false,
+      notificationSent: false
+    };
+  }
+  let prevSnapshot = null;
+  try {
+    prevSnapshot = JSON.parse(rawPrev);
+  } catch (err) {
+    console.warn(
+      `[CampionatoNotifier] Stato JSON non valido per cam=${camId}, reinizializzazione baseline...`
+    );
+  }
+  if (!prevSnapshot || typeof prevSnapshot !== "object") {
+    if (!dryRun) {
+      await pushService.setState(stateKey, JSON.stringify(currSnapshot));
+      setCachedSnapshot(camId, {
+        snapshot: currSnapshot,
+        timestamp: Date.now()
+      });
+    }
+    return {
+      camId,
+      championshipName,
+      changed: false,
+      initialized: true,
+      newPlayedMatchesCount: 0,
+      updatedMatchesCount: 0,
+      classificaChanged: false,
+      statisticheChanged: false,
+      notificationSent: false
+    };
+  }
+  const mergedCurrSnapshot = {
+    ...currSnapshot,
+    statistiche: currSnapshot.statistiche.length > 0 ? currSnapshot.statistiche : prevSnapshot.statistiche || [],
+    classifica: currSnapshot.classifica.length > 0 ? currSnapshot.classifica : prevSnapshot.classifica || []
+  };
+  const diff = diffChampionshipSnapshots(prevSnapshot, mergedCurrSnapshot);
+  if (!diff.hasChanges) {
+    setCachedSnapshot(camId, {
+      snapshot: mergedCurrSnapshot,
+      timestamp: Date.now()
+    });
+    return {
+      camId,
+      championshipName,
+      changed: false,
+      newPlayedMatchesCount: 0,
+      updatedMatchesCount: 0,
+      classificaChanged: false,
+      statisticheChanged: false,
+      notificationSent: false
+    };
+  }
+  let broadcastResult;
+  let notificationSent = false;
+  if (!dryRun) {
+    const claimed = await pushService.compareAndSetState(
+      stateKey,
+      rawPrev,
+      JSON.stringify(mergedCurrSnapshot)
+    );
+    if (!claimed) {
+      return {
+        camId,
+        championshipName,
+        changed: false,
+        newPlayedMatchesCount: 0,
+        updatedMatchesCount: 0,
+        classificaChanged: false,
+        statisticheChanged: false,
+        notificationSent: false
+      };
+    }
+    setCachedSnapshot(camId, {
+      snapshot: mergedCurrSnapshot,
+      timestamp: Date.now()
+    });
+    cacheService.delete(`classifica_${camId}`);
+    cacheService.delete(`calendario_${camId}_${currSnapshot.annoId || 41}`);
+    cacheService.delete(`statistiche_${camId}`);
+    if (pushService.isReady()) {
+      const payload = buildChampionshipNotificationPayload(
+        camId,
+        championshipName,
+        diff
+      );
+      console.log(
+        `[CampionatoNotifier] Rilevato aggiornamento per ${championshipName} (cam=${camId}): nuoviMatch=${diff.newPlayedMatches.length}, matchAggiornati=${diff.updatedMatches.length}, classifica=${diff.classificaChanged}, statistiche=${diff.statisticheChanged}. Invio push...`
+      );
+      broadcastResult = await pushService.sendToChampionshipSubscribers(
+        camId,
+        payload
+      );
+      notificationSent = broadcastResult.sent > 0;
+      console.log(
+        `[CampionatoNotifier] Notifiche inviate per cam=${camId}: ${broadcastResult.sent}/${broadcastResult.total}.`
+      );
+    }
+  }
+  return {
+    camId,
+    championshipName,
+    changed: true,
+    newPlayedMatchesCount: diff.newPlayedMatches.length,
+    updatedMatchesCount: diff.updatedMatches.length,
+    classificaChanged: diff.classificaChanged,
+    statisticheChanged: diff.statisticheChanged,
+    notificationSent,
+    broadcastResult
+  };
+}
+var SUBSCRIBED_CAMS_TTL_MS = 30 * 60 * 1e3;
+var subscribedCamsCache = null;
+function invalidateSubscribedChampionshipsCache() {
+  subscribedCamsCache = null;
+}
+async function isChampionshipFollowed(camId) {
+  if (!subscribedCamsCache || Date.now() - subscribedCamsCache.timestamp > SUBSCRIBED_CAMS_TTL_MS) {
+    const ids = await pushService.getSubscribedChampionshipIds();
+    subscribedCamsCache = { ids: new Set(ids), timestamp: Date.now() };
+  }
+  return subscribedCamsCache.ids.has(camId);
+}
+async function notifyObservedChampionshipIfNeeded(input) {
+  if (!pushService.isSupabaseConfigured()) {
+    return null;
+  }
+  try {
+    if (!await isChampionshipFollowed(input.camId)) {
+      return null;
+    }
+  } catch (err) {
+    console.warn(`[CampionatoNotifier] Impossibile leggere le iscrizioni per cam=${input.camId}:`, err);
+    return null;
+  }
+  const currSnapshot = buildChampionshipSnapshot(input);
+  if (!currSnapshot) {
+    return null;
+  }
+  const { camId } = currSnapshot;
+  if (inFlightChecks.has(camId)) {
+    return null;
+  }
+  const cached = cachedSnapshots.get(camId);
+  if (cached) {
+    if (Date.now() - cached.timestamp < SNAPSHOT_CACHE_TTL_MS) {
+      cachedSnapshots.delete(camId);
+      cachedSnapshots.set(camId, cached);
+      const quickDiff = diffChampionshipSnapshots(cached.snapshot, currSnapshot);
+      if (!quickDiff.hasChanges) {
+        return null;
+      }
+    } else {
+      cachedSnapshots.delete(camId);
+    }
+  }
+  inFlightChecks.add(camId);
+  try {
+    return await evaluateSnapshotAndNotify(currSnapshot);
+  } catch (err) {
+    console.warn(
+      `[CampionatoNotifier] Errore controllo passivo campionato ${camId}:`,
+      err
+    );
+    return null;
+  } finally {
+    inFlightChecks.delete(camId);
+  }
+}
+async function fetchChampionshipSnapshotFromFitet(camId, annoId = 41) {
+  const [classificaHtml, calendarioHtml, statisticheHtml, champMeta] = await withFitetCacheBypass(
+    () => Promise.all([
+      FitetClient.fetchClassifica(camId).catch(() => ""),
+      FitetClient.fetchCalendario(camId, annoId).catch(() => ""),
+      FitetClient.fetchStatisticheAtleti(camId).catch(() => ""),
+      championshipCatalog.getChampionship(camId).catch(() => void 0)
+    ])
+  );
+  const classifica = classificaHtml ? parseClassifica(classificaHtml) : [];
+  const calendario = calendarioHtml ? parseCalendario(calendarioHtml) : [];
+  const statisticheAtleti = statisticheHtml ? parseStatisticheAtleti(statisticheHtml, {}) : [];
+  return buildChampionshipSnapshot({
+    camId,
+    annoId: champMeta?.anno || annoId,
+    championshipName: champMeta?.nome || `Campionato #${camId}`,
+    classifica,
+    calendario,
+    statisticheAtleti
+  });
+}
+async function ensureChampionshipBaseline(camId, annoId = 41) {
+  if (!Number.isFinite(camId) || camId <= 0 || !pushService.isSupabaseConfigured()) {
+    return;
+  }
+  try {
+    const stateKey = getChampionshipStateKey(camId);
+    const existing = await pushService.getState(stateKey);
+    if (existing !== null) return;
+    const snapshot = await fetchChampionshipSnapshotFromFitet(camId, annoId);
+    if (!snapshot) return;
+    await pushService.setState(stateKey, JSON.stringify(snapshot));
+    setCachedSnapshot(camId, {
+      snapshot,
+      timestamp: Date.now()
+    });
+    console.log(
+      `[CampionatoNotifier] Baseline inizializzato per ${snapshot.championshipName} (cam=${camId}).`
+    );
+  } catch (err) {
+    console.warn(
+      `[CampionatoNotifier] Impossibile inizializzare baseline per cam=${camId}:`,
+      err
+    );
+  }
+}
+async function checkChampionshipsAndNotify(options = {}) {
+  const startTime = Date.now();
+  const { annoId = 41, dryRun = false, init = false } = options;
+  let targetCamIds = [];
+  if (Array.isArray(options.camIds) && options.camIds.length > 0) {
+    targetCamIds = Array.from(
+      new Set(options.camIds.filter((id) => Number.isFinite(id) && id > 0))
+    );
+  } else {
+    targetCamIds = await pushService.getSubscribedChampionshipIds();
+  }
+  if (targetCamIds.length === 0) {
+    return {
+      checkedCount: 0,
+      changedCount: 0,
+      initializedCount: 0,
+      results: [],
+      durationMs: Date.now() - startTime
+    };
+  }
+  const results = [];
+  for (let i = 0; i < targetCamIds.length; i++) {
+    const camId = targetCamIds[i];
+    if (i > 0) {
+      await FitetClient.sleepWithJitter(1500, 3e3);
+    }
+    try {
+      const snapshot = await fetchChampionshipSnapshotFromFitet(camId, annoId);
+      if (!snapshot) {
+        continue;
+      }
+      const res = await evaluateSnapshotAndNotify(snapshot, { dryRun, init });
+      if (res) results.push(res);
+    } catch (err) {
+      console.warn(
+        `[CampionatoNotifier] Errore controllo campionato ${camId}:`,
+        err
+      );
+    }
+  }
+  const changedCount = results.filter((r) => r.changed).length;
+  const initializedCount = results.filter((r) => r.initialized).length;
+  return {
+    checkedCount: results.length,
+    changedCount,
+    initializedCount,
+    results,
+    durationMs: Date.now() - startTime
+  };
+}
+function getTodayDateRome() {
+  const now = /* @__PURE__ */ new Date();
+  const options = {
+    timeZone: "Europe/Rome",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  };
+  const parts = new Intl.DateTimeFormat("it-IT", options).formatToParts(now);
+  const day = parts.find((p) => p.type === "day")?.value || "01";
+  const month = parts.find((p) => p.type === "month")?.value || "01";
+  const year = parts.find((p) => p.type === "year")?.value || "2026";
+  return {
+    dateIT: `${day}/${month}/${year}`,
+    dateISO: `${year}-${month}-${day}`
+  };
+}
+function parseDateInput(raw) {
+  if (!raw) return getTodayDateRome();
+  const trimmed = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [y, m, d] = trimmed.split("-");
+    return {
+      dateISO: trimmed,
+      dateIT: `${d}/${m}/${y}`
+    };
+  }
+  const parts = trimmed.split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    const d = parts[0].padStart(2, "0");
+    const m = parts[1].padStart(2, "0");
+    let y = parts[2];
+    if (y.length === 2) y = `20${y}`;
+    return {
+      dateISO: `${y}-${m}-${d}`,
+      dateIT: `${d}/${m}/${y}`
+    };
+  }
+  return getTodayDateRome();
+}
+function normalizeDateMatch(dateStr) {
+  if (!dateStr) return "";
+  const parts = dateStr.trim().split(/[\/\-\.]/);
+  if (parts.length === 3) {
+    const d = String(parseInt(parts[0], 10)).padStart(2, "0");
+    const m = String(parseInt(parts[1], 10)).padStart(2, "0");
+    let y = parts[2];
+    if (y.length === 2) y = `20${y}`;
+    return `${d}/${m}/${y}`;
+  }
+  return dateStr.trim();
+}
+async function checkMatchdayAndNotify(options = {}) {
+  const startTime = Date.now();
+  const { annoId = 41, dryRun = false, force = false } = options;
+  const { dateIT, dateISO } = parseDateInput(options.date);
+  const targetTag = `matchday-${dateISO}`;
+  let targetCamIds = [];
+  if (Array.isArray(options.camIds) && options.camIds.length > 0) {
+    targetCamIds = Array.from(
+      new Set(options.camIds.filter((id) => Number.isFinite(id) && id > 0))
+    );
+  } else {
+    targetCamIds = await pushService.getSubscribedChampionshipIds();
+  }
+  if (targetCamIds.length === 0) {
+    return {
+      dateISO,
+      dateIT,
+      checkedCount: 0,
+      matchdayChampionshipsCount: 0,
+      notificationsSentCount: 0,
+      results: [],
+      durationMs: Date.now() - startTime
+    };
+  }
+  const results = [];
+  const normalizedTargetIT = normalizeDateMatch(dateIT);
+  for (let i = 0; i < targetCamIds.length; i++) {
+    const camId = targetCamIds[i];
+    if (i > 0) {
+      await FitetClient.sleepWithJitter(1500, 3e3);
+    }
+    try {
+      const [calendarioHtml, champMeta] = await Promise.all([
+        FitetClient.fetchCalendario(camId, annoId).catch(() => ""),
+        championshipCatalog.getChampionship(camId).catch(() => void 0)
+      ]);
+      const championshipName = champMeta?.nome?.trim() || `Campionato #${camId}`;
+      const calendario = calendarioHtml ? parseCalendario(calendarioHtml) : [];
+      let matchesTodayCount = 0;
+      for (const g of calendario) {
+        const allMatches = [...g.partiteAndata || [], ...g.partiteRitorno || []];
+        for (const m of allMatches) {
+          if (normalizeDateMatch(m.data) === normalizedTargetIT) {
+            matchesTodayCount++;
+          }
+        }
+      }
+      const isMatchday = matchesTodayCount > 0;
+      if (!isMatchday) {
+        results.push({
+          camId,
+          championshipName,
+          isMatchday: false,
+          matchesCount: 0,
+          alreadyNotified: false,
+          notificationSent: false,
+          tag: targetTag
+        });
+        continue;
+      }
+      const stateKey = `matchday_notified_${camId}_${dateISO}`;
+      const existing = await pushService.getState(stateKey);
+      const alreadyNotified = Boolean(existing && existing === "sent");
+      if (alreadyNotified && !force) {
+        results.push({
+          camId,
+          championshipName,
+          isMatchday: true,
+          matchesCount: matchesTodayCount,
+          alreadyNotified: true,
+          notificationSent: false,
+          tag: targetTag
+        });
+        continue;
+      }
+      const payload = {
+        title: "\u{1F3D3} Oggi \xE8 giorno di campionato!",
+        body: "Buona fortuna al tavolo! Stasera passa dal portale a controllare referti e variazione punti.",
+        url: `/?view=campionato&cam=${camId}&tab=calendario`,
+        icon: "/icon.png",
+        badge: "/icon.png",
+        tag: targetTag,
+        renotify: false,
+        data: {
+          type: "championship_matchday",
+          camId,
+          date: dateISO,
+          url: `/?view=campionato&cam=${camId}&tab=calendario`
+        }
+      };
+      let broadcastResult = void 0;
+      let notificationSent = false;
+      if (!dryRun && pushService.isReady()) {
+        console.log(
+          `[CampionatoNotifier] Oggi \xE8 giorno di campionato per ${championshipName} (${matchesTodayCount} match il ${dateIT}). Invio push (tag=${targetTag})...`
+        );
+        broadcastResult = await pushService.sendToChampionshipSubscribers(camId, payload);
+        notificationSent = (broadcastResult?.sent || 0) > 0;
+        await pushService.setState(stateKey, "sent");
+      }
+      results.push({
+        camId,
+        championshipName,
+        isMatchday: true,
+        matchesCount: matchesTodayCount,
+        alreadyNotified,
+        notificationSent,
+        tag: targetTag,
+        broadcastResult
+      });
+    } catch (err) {
+      console.warn(`[CampionatoNotifier] Errore verifica matchday per cam=${camId}:`, err);
+    }
+  }
+  const matchdayChampionshipsCount = results.filter((r) => r.isMatchday).length;
+  const notificationsSentCount = results.filter((r) => r.notificationSent).length;
+  return {
+    dateISO,
+    dateIT,
+    checkedCount: results.length,
+    matchdayChampionshipsCount,
+    notificationsSentCount,
+    results,
+    durationMs: Date.now() - startTime
+  };
+}
+
+// server/parsers/torneiParser.ts
+import * as cheerio11 from "cheerio";
+var COMIT_NAMES = {
+  1: "Valle d'Aosta",
+  2: "Piemonte",
+  3: "Liguria",
+  4: "Lombardia",
+  5: "Veneto",
+  6: "Trentino",
+  7: "Alto Adige",
+  8: "Friuli Venezia Giulia",
+  9: "Emilia Romagna",
+  10: "Toscana",
+  11: "Marche",
+  12: "Umbria",
+  13: "Lazio",
+  14: "Abruzzo",
+  15: "Molise",
+  16: "Campania",
+  17: "Basilicata",
+  18: "Puglia",
+  19: "Calabria",
+  20: "Sicilia",
+  21: "Sardegna",
+  30: "Nazionale"
+};
+function cleanText2(raw) {
+  return (raw || "").replace(/\u00a0/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim();
+}
+function lookupAthleteId(name, mapping) {
+  if (!name || !mapping) return null;
+  const upper = name.toUpperCase().replace(/\s+/g, " ").trim();
+  if (mapping[upper]) return mapping[upper];
+  const noSpecial = upper.replace(/[^A-Z0-9 ]/g, "");
+  if (mapping[noSpecial]) return mapping[noSpecial];
+  return null;
+}
+function parseTestaTornei(html, fallbackTitle = "TORNEI FITeT") {
+  if (!html || !html.trim()) return fallbackTitle;
+  const $ = cheerio11.load(html);
+  const stileText = cleanText2($("p.stile, p, h1, h2, td").first().text());
+  if (stileText && stileText.length > 2) {
+    return stileText;
+  }
+  const bodyText = cleanText2($("body").text());
+  return bodyText.length > 2 ? bodyText : fallbackTitle;
+}
+function parseElencoTornei(html, defaultComit = 30, defaultTor = 0, defaultReg, categoriaKey, categoriaLabel) {
+  const result = {
+    regions: [],
+    tornei: []
+  };
+  if (!html || !html.trim()) return result;
+  const $ = cheerio11.load(html);
+  $("a[href]").each((_, el) => {
+    const rawHref = ($(el).attr("href") || "").trim();
+    if (!rawHref) return;
+    const innerHtml = $(el).html() || "";
+    const rawText = cleanText2($(el).text());
+    const regMatch = rawHref.match(/[?&]REG=(\d+)/i);
+    if (/elenco_tornei\.php/i.test(rawHref) && regMatch) {
+      const regId = parseInt(regMatch[1], 10);
+      const torMatch = rawHref.match(/[?&]TOR=(\d+)/i);
+      const idMatch = rawHref.match(/[?&]ID=(\d+)/i);
+      const comitMatch = rawHref.match(/[?&]COMIT=(\d+)/i);
+      if (regId > 0 && !result.regions.some((r) => r.regId === regId)) {
+        result.regions.push({
+          regId,
+          name: COMIT_NAMES[regId] || rawText.replace(/-/g, " ") || `Regione ${regId}`,
+          tor: torMatch ? parseInt(torMatch[1], 10) : defaultTor,
+          id: idMatch ? parseInt(idMatch[1], 10) : 0,
+          comit: comitMatch ? parseInt(comitMatch[1], 10) : defaultComit,
+          href: rawHref
+        });
+      }
+      return;
+    }
+    const idtMatch = rawHref.match(/[?&]IDT=(\d+)/i);
+    if (!idtMatch) return;
+    const idt = parseInt(idtMatch[1], 10);
+    const annoMatch = rawHref.match(/[?&]ANNO=(\d+)/i);
+    const comMatch = rawHref.match(/[?&]COM(?:IT)?=(\d+)/i);
+    const tipoMatch = rawHref.match(/[?&]TIPO=(\d+)/i);
+    const anno = annoMatch ? parseInt(annoMatch[1], 10) : 41;
+    const com = comMatch ? parseInt(comMatch[1], 10) : defaultReg || defaultComit;
+    const tipo = tipoMatch ? parseInt(tipoMatch[1], 10) : defaultTor;
+    const isDisputato = /visualizza_risultati\.php/i.test(rawHref);
+    const status = isDisputato ? "disputato" : "in_programma";
+    let data = "";
+    let luogo = "";
+    const parts = innerHtml.split(/<br\s*\/?>/i).map((p) => cleanText2(cheerio11.load(p).text())).filter(Boolean);
+    if (parts.length >= 2) {
+      data = parts[0];
+      luogo = parts.slice(1).join(" - ");
+    } else {
+      const dateRegex = rawText.match(/^(\d{1,2}\/\d{1,2}\/\d{2,4})\s*(.*)$/);
+      if (dateRegex) {
+        data = dateRegex[1];
+        luogo = dateRegex[2].replace(/^[-–•\s]+/, "").trim() || "Sede da definire";
+      } else {
+        luogo = rawText || `Torneo #${idt}`;
+      }
+    }
+    const regIdResolved = defaultReg || (com >= 1 && com <= 21 ? com : void 0);
+    const regioneResolved = regIdResolved ? COMIT_NAMES[regIdResolved] : COMIT_NAMES[com] || void 0;
+    if (!result.tornei.some((t) => t.idt === idt && t.com === com)) {
+      result.tornei.push({
+        idt,
+        anno,
+        com,
+        tipo,
+        data,
+        luogo,
+        regione: regioneResolved,
+        regioneId: regIdResolved,
+        status,
+        href: rawHref.startsWith("http") ? rawHref : `https://portale.fitet.org/risultati/tornei/${rawHref.replace(/^\/+/, "")}`,
+        categoriaKey,
+        categoriaLabel
+      });
+    }
+  });
+  return result;
+}
+function parseMenuManifestazioni(html) {
+  const discovered = [];
+  if (!html) return discovered;
+  const $ = cheerio11.load(html);
+  $('a[href*="risultati_tornei.php"]').each((_, el) => {
+    const href = $(el).attr("href") || "";
+    const label = cleanText2($(el).text());
+    if (!label) return;
+    const torMatch = href.match(/[?&]TOR=(\d+)/i);
+    const comitMatch = href.match(/[?&]COMIT=(\d+)/i);
+    const idMatch = href.match(/[?&]ID=(\d+)/i);
+    const tor = torMatch ? parseInt(torMatch[1], 10) : 0;
+    const comit = comitMatch ? parseInt(comitMatch[1], 10) : 30;
+    const id = idMatch ? parseInt(idMatch[1], 10) : 0;
+    if (!discovered.some((d) => d.tor === tor && d.comit === comit && d.id === id)) {
+      discovered.push({ label, tor, comit, id });
+    }
+  });
+  return discovered;
+}
+function parseDettaglioTorneo(elencoGareHtml, iscrizioniHtml, idt, com, anno = 41) {
+  const gare = [];
+  let titolo = "";
+  let sottotitolo = "";
+  let pdfSinteticoUrl = null;
+  let tabelloniHomeUrl = null;
+  let status = "in_programma";
+  const extractFromHtml = (html, sourceMode) => {
+    if (!html || !html.trim()) return;
+    const $ = cheerio11.load(html);
+    const headerParagraphs = [];
+    $("body > p.dettagli, body > p").each((_, p) => {
+      const txt = cleanText2($(p).text());
+      if (txt && !/^risultati delle gare disputate$/i.test(txt) && !/^gare in programma al torneo$/i.test(txt)) {
+        headerParagraphs.push(txt);
+      }
+    });
+    if (!titolo && headerParagraphs.length >= 1) {
+      titolo = headerParagraphs[0];
+    }
+    if (!sottotitolo && headerParagraphs.length >= 2) {
+      sottotitolo = headerParagraphs[1];
+    }
+    $("a[href]").each((_, a) => {
+      const href = ($(a).attr("href") || "").trim();
+      const text = cleanText2($(a).text());
+      if (!href) return;
+      if (/\.pdf$/i.test(href) || /dati sintetici/i.test(text)) {
+        if (!pdfSinteticoUrl) {
+          pdfSinteticoUrl = href.startsWith("http") ? href : `https://portale.fitet.org/risultati/tornei/${href.replace(/^\/+/, "")}`;
+        }
+        return;
+      }
+      if (/_home\.html$/i.test(href) || /tabelloni finali/i.test(text)) {
+        if (!tabelloniHomeUrl) {
+          tabelloniHomeUrl = href.startsWith("http") ? href : `https://portale.fitet.org/risultati/tornei/${href.replace(/^\/+/, "")}`;
+        }
+        return;
+      }
+      const garaMatch = href.match(/[?&]GARA=([^&#\s]+)/i);
+      if (garaMatch && text) {
+        const garaId = garaMatch[1];
+        const annoMatch = href.match(/[?&]ANNO=(\d+)/i);
+        const isDoppio = /doppio/i.test(href) || /doppio/i.test(text);
+        const linkMode = /iscrizioni_gara\.php/i.test(href) ? "iscrizioni" : sourceMode;
+        if (linkMode === "risultati") {
+          status = "disputato";
+        }
+        const existingIdx = gare.findIndex((g) => g.garaId === garaId);
+        const item = {
+          garaId,
+          nome: text,
+          anno: annoMatch ? parseInt(annoMatch[1], 10) : anno,
+          idt,
+          com,
+          isDoppio,
+          mode: linkMode
+        };
+        if (existingIdx === -1) {
+          gare.push(item);
+        } else if (gare[existingIdx].mode === "iscrizioni" && linkMode === "risultati") {
+          gare[existingIdx] = item;
+        }
+      }
+    });
+  };
+  extractFromHtml(elencoGareHtml, "risultati");
+  extractFromHtml(iscrizioniHtml, "iscrizioni");
+  return {
+    idt,
+    com,
+    anno,
+    titolo: titolo || `Torneo FITeT #${idt}`,
+    sottotitolo: sottotitolo || COMIT_NAMES[com] || "",
+    status,
+    pdfSinteticoUrl,
+    tabelloniHomeUrl,
+    gare
+  };
+}
+var STATUS_LABELS = {
+  dettagli_diritto: "Ammesso di diritto",
+  dettagli_ammessi: "Ammesso",
+  dettagli_naz: "Ammesso (Naz.)",
+  dettagli_reg: "Ammesso (Reg.)",
+  dettagli_no_ammessi: "Riserva / Non ammesso",
+  dettagli_wd: "Cancellato (WD)",
+  dettagli_m: "Maschile",
+  dettagli_f: "Femminile",
+  dettagli: "Iscritto"
+};
+function parseIscrizioniGara(html, athleteMapping) {
+  if (!html || !html.trim()) {
+    return { titoloGara: "", maxIscritti: null, iscritti: [] };
+  }
+  const $ = cheerio11.load(html);
+  const rawHeader = cleanText2($("p.dettagli b").first().text());
+  const maxMatch = rawHeader.match(/\[max\.\s*(\d+)\]/i);
+  const maxIscritti = maxMatch ? maxMatch[1] : null;
+  const titoloGara = rawHeader.replace(/^Elenco atleti iscritti della gara\s*/i, "").replace(/\[max\.\s*\d+\]/i, "").trim();
+  const iscritti = [];
+  $("table tr").each((idx, tr) => {
+    const tds = $(tr).find("td");
+    if (tds.length < 5) return;
+    const posText = cleanText2($(tds[0]).text());
+    const nameP = $(tds[1]).find("p").first();
+    const nome = cleanText2(nameP.length ? nameP.text() : $(tds[1]).text());
+    if (!nome || /^nome atleta$/i.test(nome)) return;
+    const statusClass = (nameP.attr("class") || "dettagli").trim();
+    const punti = cleanText2($(tds[3]).text());
+    const puntiIscrizione = parseInt(punti.replace(/\./g, "").replace(/[^\d-]/g, ""), 10) || 0;
+    const societa = cleanText2($(tds[4]).text());
+    const posizione = parseInt(posText, 10) || iscritti.length + 1;
+    iscritti.push({
+      posizione,
+      nome,
+      atletaId: lookupAthleteId(nome, athleteMapping),
+      punti,
+      puntiIscrizione,
+      puntiClassificaAttuale: null,
+      societa,
+      statusClass,
+      statusLabel: STATUS_LABELS[statusClass] || "Iscritto"
+    });
+  });
+  return { titoloGara, maxIscritti, iscritti };
+}
+function parseGestioneGara(html, athleteMapping) {
+  if (!html || !html.trim()) {
+    return {
+      titoloGara: "",
+      vincitore: null,
+      vincitoreId: null,
+      vincitoreFotoUrl: null,
+      valoreRanking: null,
+      gironiRanges: [],
+      turniTabellone: []
+    };
+  }
+  const $ = cheerio11.load(html);
+  let titoloGara = cleanText2($("h5.card-title").first().text());
+  if (!titoloGara) {
+    titoloGara = cleanText2($('font[color="#0000FF"]').first().text());
+  }
+  let vincitore = null;
+  $("h5").each((_, h5) => {
+    const txt = cleanText2($(h5).text());
+    const winMatch = txt.match(/1\^\s*classificato:\s*(.+)$/i);
+    if (winMatch && winMatch[1].trim()) {
+      vincitore = winMatch[1].trim();
+    }
+  });
+  let vincitoreFotoUrl = null;
+  let vincitoreId = null;
+  const imgSrc = $('img[src*="images/atleti/"]').attr("src") || "";
+  if (imgSrc) {
+    const idMatch = imgSrc.match(/atleti\/(\d+)\.jpg/i);
+    if (idMatch) {
+      vincitoreId = idMatch[1];
+      vincitoreFotoUrl = `https://portale.fitet.org/images/atleti/${vincitoreId}.jpg`;
+    }
+  }
+  if (!vincitoreId && vincitore) {
+    vincitoreId = lookupAthleteId(vincitore, athleteMapping);
+  }
+  let valoreRanking = null;
+  const bodyText = cleanText2($("body").text());
+  const valMatch = bodyText.match(/valore della gara per ranking:\s*([^\)\s]+)/i);
+  if (valMatch) {
+    valoreRanking = valMatch[1].trim();
+  }
+  const gironiRanges = [];
+  $('a[href*="risultati.php"]').each((_, a) => {
+    const href = $(a).attr("href") || "";
+    const label = cleanText2($(a).text());
+    const c1 = href.match(/[?&]COD_1=(\d+)/i);
+    const c2 = href.match(/[?&]COD_2=(\d+)/i);
+    if (c1 && c2) {
+      const cod1 = parseInt(c1[1], 10);
+      const cod2 = parseInt(c2[1], 10);
+      if (!gironiRanges.some((g) => g.cod1 === cod1 && g.cod2 === cod2)) {
+        gironiRanges.push({ cod1, cod2, label: label || `${cod1} - ${cod2}` });
+      }
+    }
+  });
+  const turniTabellone = [];
+  const TURNO_NAMES = {
+    9: "Finale",
+    8: "Semifinali",
+    7: "Quarti di Finale",
+    6: "Ottavi di Finale",
+    5: "Sedicesimi",
+    4: "32esimi",
+    3: "64esimi",
+    2: "128esimi"
+  };
+  $('area[href*="risultati_tabellone"], a[href*="risultati_tabellone"]').each((_, area) => {
+    const href = $(area).attr("href") || "";
+    const alt = cleanText2($(area).attr("alt") || $(area).text() || "");
+    const tabMatch = href.match(/[?&]TAB=(\d+)/i);
+    const turnoMatch = href.match(/[?&]TURNO=(\d+)/i);
+    if (turnoMatch) {
+      const tab = tabMatch ? parseInt(tabMatch[1], 10) : 1;
+      const turno = parseInt(turnoMatch[1], 10);
+      const label = TURNO_NAMES[turno] || alt.replace(/\uFFFD/g, "\xB0") || `Turno ${turno}`;
+      if (!turniTabellone.some((t) => t.tab === tab && t.turno === turno)) {
+        turniTabellone.push({ tab, turno, label });
+      }
+    }
+  });
+  turniTabellone.sort((a, b) => b.turno - a.turno);
+  return {
+    titoloGara,
+    vincitore,
+    vincitoreId,
+    vincitoreFotoUrl,
+    valoreRanking,
+    gironiRanges,
+    turniTabellone
+  };
+}
+function parseMatchTable($, table, athleteMapping) {
+  const rows = $(table).find("tr");
+  if (rows.length < 2) return null;
+  const r1Tds = $(rows[0]).find("td");
+  const r2Tds = $(rows[1]).find("td");
+  if (r1Tds.length < 3 || r2Tds.length < 3) return null;
+  const atleta1 = cleanText2($(r1Tds[0]).find("p.dettagli").first().text());
+  const societa1 = cleanText2($(r1Tds[0]).find("p.soc").first().text());
+  const atleta2 = cleanText2($(r2Tds[0]).find("p.dettagli").first().text());
+  const societa2 = cleanText2($(r2Tds[0]).find("p.soc").first().text());
+  if (!atleta1 && !atleta2) return null;
+  const p1Points = [];
+  $(rows[0]).find("p.punti").each((_, p) => {
+    p1Points.push(parseInt(cleanText2($(p).text()), 10) || 0);
+  });
+  const p2Points = [];
+  $(rows[1]).find("p.punti").each((_, p) => {
+    p2Points.push(parseInt(cleanText2($(p).text()), 10) || 0);
+  });
+  const set1 = parseInt(cleanText2($(rows[0]).find("p.set").first().text()), 10) || 0;
+  const set2 = parseInt(cleanText2($(rows[1]).find("p.set").first().text()), 10) || 0;
+  const sets = [];
+  const maxLen = Math.min(p1Points.length, p2Points.length);
+  for (let i = 0; i < maxLen; i++) {
+    if (p1Points[i] > 0 || p2Points[i] > 0) {
+      sets.push({ p1: p1Points[i], p2: p2Points[i] });
+    }
+  }
+  let vincitore = null;
+  if (set1 > set2) vincitore = 1;
+  else if (set2 > set1) vincitore = 2;
+  else {
+    const rowspanCell = $(rows[0]).find('td[rowspan="2"]');
+    if (rowspanCell.length) {
+      const winText = cleanText2(rowspanCell.text()).toUpperCase();
+      if (winText && atleta1 && winText === atleta1.toUpperCase()) vincitore = 1;
+      else if (winText && atleta2 && winText === atleta2.toUpperCase()) vincitore = 2;
+    }
+  }
+  return {
+    atleta1,
+    atleta1Id: lookupAthleteId(atleta1, athleteMapping),
+    societa1,
+    atleta2,
+    atleta2Id: lookupAthleteId(atleta2, athleteMapping),
+    societa2,
+    set1,
+    set2,
+    sets,
+    vincitore
+  };
+}
+function parseRisultatiGironi(html, athleteMapping) {
+  if (!html || !html.trim()) return [];
+  const $ = cheerio11.load(html);
+  const gironiMap = /* @__PURE__ */ new Map();
+  let currentGirone = "1";
+  const container = $('div[align="left"]').first();
+  const root = container.length ? container : $("body");
+  root.children().each((_, el) => {
+    const tag = (el.tagName || "").toLowerCase();
+    if (tag === "p") {
+      const txt = cleanText2($(el).text());
+      const gMatch = txt.match(/Girone:\s*(\S+)/i);
+      if (gMatch) {
+        currentGirone = gMatch[1];
+        if (!gironiMap.has(currentGirone)) {
+          gironiMap.set(currentGirone, []);
+        }
+      }
+    } else if (tag === "table") {
+      const match = parseMatchTable($, el, athleteMapping);
+      if (match) {
+        if (!gironiMap.has(currentGirone)) {
+          gironiMap.set(currentGirone, []);
+        }
+        gironiMap.get(currentGirone).push(match);
+      }
+    }
+  });
+  const result = [];
+  for (const [numero, partite] of gironiMap.entries()) {
+    if (partite.length === 0) continue;
+    const statsMap = /* @__PURE__ */ new Map();
+    const ensurePlayer = (nome, societa, atletaId) => {
+      if (!nome) return null;
+      if (!statsMap.has(nome)) {
+        statsMap.set(nome, {
+          nome,
+          atletaId,
+          societa,
+          punti: 0,
+          giocate: 0,
+          vinte: 0,
+          perse: 0,
+          setVinti: 0,
+          setPersi: 0
+        });
+      }
+      return statsMap.get(nome);
+    };
+    for (const m of partite) {
+      const p1 = ensurePlayer(m.atleta1, m.societa1, m.atleta1Id);
+      const p2 = ensurePlayer(m.atleta2, m.societa2, m.atleta2Id);
+      if (p1 && p2 && (m.set1 > 0 || m.set2 > 0 || m.vincitore !== null)) {
+        p1.giocate += 1;
+        p2.giocate += 1;
+        p1.setVinti += m.set1;
+        p1.setPersi += m.set2;
+        p2.setVinti += m.set2;
+        p2.setPersi += m.set1;
+        if (m.vincitore === 1) {
+          p1.vinte += 1;
+          p1.punti += 2;
+          p2.perse += 1;
+          p2.punti += 1;
+        } else if (m.vincitore === 2) {
+          p2.vinte += 1;
+          p2.punti += 2;
+          p1.perse += 1;
+          p1.punti += 1;
+        }
+      }
+    }
+    const classifica = Array.from(statsMap.values()).sort((a, b) => {
+      if (b.punti !== a.punti) return b.punti - a.punti;
+      const diffA = a.setVinti - a.setPersi;
+      const diffB = b.setVinti - b.setPersi;
+      if (diffB !== diffA) return diffB - diffA;
+      return b.setVinti - a.setVinti;
+    }).map((item, idx) => ({
+      posizione: idx + 1,
+      ...item
+    }));
+    result.push({
+      numero,
+      partite,
+      classifica
+    });
+  }
+  return result;
+}
+function parseRisultatiTabellone(html, athleteMapping) {
+  if (!html || !html.trim()) return [];
+  const $ = cheerio11.load(html);
+  const matches = [];
+  $('table[bgcolor="#EFEBCF"]').each((_, table) => {
+    const m = parseMatchTable($, table, athleteMapping);
+    if (m) matches.push(m);
+  });
+  return matches;
+}
+
+// src/constants/regions.ts
+var REGIONS_COMIT = [
+  { id: 0, name: "Tutte le Regioni / Nazionale" },
+  { id: 14, name: "Abruzzo" },
+  { id: 7, name: "Alto Adige" },
+  { id: 17, name: "Basilicata" },
+  { id: 19, name: "Calabria" },
+  { id: 16, name: "Campania" },
+  { id: 9, name: "Emilia Romagna" },
+  { id: 8, name: "Friuli Venezia Giulia" },
+  { id: 13, name: "Lazio" },
+  { id: 3, name: "Liguria" },
+  { id: 4, name: "Lombardia" },
+  { id: 11, name: "Marche" },
+  { id: 15, name: "Molise" },
+  { id: 2, name: "Piemonte" },
+  { id: 18, name: "Puglia" },
+  { id: 21, name: "Sardegna" },
+  { id: 20, name: "Sicilia" },
+  { id: 10, name: "Toscana" },
+  { id: 6, name: "Trentino" },
+  { id: 12, name: "Umbria" },
+  { id: 1, name: "Valle d'Aosta" },
+  { id: 5, name: "Veneto" }
+];
+
+// src/data/italyGeo.ts
+var ITALY_PROVINCE_TO_REGION = {
+  "AG": "Sicilia",
+  "AL": "Piemonte",
+  "AN": "Marche",
+  "AO": "Valle d'Aosta",
+  "AP": "Marche",
+  "AQ": "Abruzzo",
+  "AR": "Toscana",
+  "AT": "Piemonte",
+  "AV": "Campania",
+  "BA": "Puglia",
+  "BG": "Lombardia",
+  "BI": "Piemonte",
+  "BL": "Veneto",
+  "BN": "Campania",
+  "BO": "Emilia Romagna",
+  "BR": "Puglia",
+  "BS": "Lombardia",
+  "BT": "Puglia",
+  "BZ": "Trentino-Alto Adige",
+  "CA": "Sardegna",
+  "CB": "Molise",
+  "CE": "Campania",
+  "CH": "Abruzzo",
+  "CI": "Sardegna",
+  "CL": "Sicilia",
+  "CN": "Piemonte",
+  "CO": "Lombardia",
+  "CR": "Lombardia",
+  "CS": "Calabria",
+  "CT": "Sicilia",
+  "CZ": "Calabria",
+  "EN": "Sicilia",
+  "FC": "Emilia Romagna",
+  "FE": "Emilia Romagna",
+  "FG": "Puglia",
+  "FI": "Toscana",
+  "FM": "Marche",
+  "FR": "Lazio",
+  "GE": "Liguria",
+  "GO": "Friuli Venezia Giulia",
+  "GR": "Toscana",
+  "IM": "Liguria",
+  "IS": "Molise",
+  "KR": "Calabria",
+  "LC": "Lombardia",
+  "LE": "Puglia",
+  "LI": "Toscana",
+  "LO": "Lombardia",
+  "LT": "Lazio",
+  "LU": "Toscana",
+  "MB": "Lombardia",
+  "MC": "Marche",
+  "ME": "Sicilia",
+  "MI": "Lombardia",
+  "MN": "Lombardia",
+  "MO": "Emilia Romagna",
+  "MS": "Toscana",
+  "MT": "Basilicata",
+  "NA": "Campania",
+  "NO": "Piemonte",
+  "NU": "Sardegna",
+  "OG": "Sardegna",
+  "OR": "Sardegna",
+  "OT": "Sardegna",
+  "PA": "Sicilia",
+  "PC": "Emilia Romagna",
+  "PD": "Veneto",
+  "PE": "Abruzzo",
+  "PG": "Umbria",
+  "PI": "Toscana",
+  "PN": "Friuli Venezia Giulia",
+  "PO": "Toscana",
+  "PR": "Emilia Romagna",
+  "PT": "Toscana",
+  "PU": "Marche",
+  "PV": "Lombardia",
+  "PZ": "Basilicata",
+  "RA": "Emilia Romagna",
+  "RC": "Calabria",
+  "RE": "Emilia Romagna",
+  "RG": "Sicilia",
+  "RI": "Lazio",
+  "RM": "Lazio",
+  "RN": "Emilia Romagna",
+  "RO": "Veneto",
+  "SA": "Campania",
+  "SI": "Toscana",
+  "SO": "Lombardia",
+  "SP": "Liguria",
+  "SR": "Sicilia",
+  "SS": "Sardegna",
+  "SU": "Sardegna",
+  "SV": "Liguria",
+  "TA": "Puglia",
+  "TE": "Abruzzo",
+  "TN": "Trentino-Alto Adige",
+  "TO": "Piemonte",
+  "TP": "Sicilia",
+  "TR": "Umbria",
+  "TS": "Friuli Venezia Giulia",
+  "TV": "Veneto",
+  "UD": "Friuli Venezia Giulia",
+  "VA": "Lombardia",
+  "VB": "Piemonte",
+  "VC": "Piemonte",
+  "VE": "Veneto",
+  "VI": "Veneto",
+  "VR": "Veneto",
+  "VS": "Sardegna",
+  "VT": "Lazio",
+  "VV": "Calabria"
+};
+var ITALY_CITY_TO_REGION = {
+  "agrigento": "Sicilia",
+  "alessandria": "Piemonte",
+  "ancona": "Marche",
+  "andria": "Puglia",
+  "aosta": "Valle d'Aosta",
+  "arezzo": "Toscana",
+  "ascoli piceno": "Marche",
+  "asti": "Piemonte",
+  "avellino": "Campania",
+  "bardonecchia": "Piemonte",
+  "bari": "Puglia",
+  "barletta": "Puglia",
+  "belluno": "Veneto",
+  "benevento": "Campania",
+  "bergamo": "Lombardia",
+  "biella": "Piemonte",
+  "bologna": "Emilia Romagna",
+  "bolzano": "Trentino-Alto Adige",
+  "bordighera": "Liguria",
+  "borgo san giacomo": "Lombardia",
+  "bra": "Piemonte",
+  "brescia": "Lombardia",
+  "brindisi": "Puglia",
+  "cagliari": "Sardegna",
+  "caltanissetta": "Sicilia",
+  "camerino": "Marche",
+  "campobasso": "Molise",
+  "carbonia": "Sardegna",
+  "cartura": "Veneto",
+  "casamassima": "Puglia",
+  "cascina": "Toscana",
+  "caserta": "Campania",
+  "catania": "Sicilia",
+  "catanzaro": "Calabria",
+  "chieti": "Abruzzo",
+  "ciampino": "Lazio",
+  "coccaglio": "Lombardia",
+  "como": "Lombardia",
+  "cortemaggiore": "Emilia Romagna",
+  "cosenza": "Calabria",
+  "cossato": "Piemonte",
+  "cremona": "Lombardia",
+  "crotone": "Calabria",
+  "cuneo": "Piemonte",
+  "enna": "Sicilia",
+  "ferentino": "Lazio",
+  "fermo": "Marche",
+  "ferrara": "Emilia Romagna",
+  "firenze": "Toscana",
+  "foggia": "Puglia",
+  "forli": "Emilia Romagna",
+  "forte dei marmi": "Toscana",
+  "fossano": "Piemonte",
+  "frosinone": "Lazio",
+  "genova": "Liguria",
+  "gorizia": "Friuli Venezia Giulia",
+  "grosseto": "Toscana",
+  "imperia": "Liguria",
+  "isernia": "Molise",
+  "l aquila": "Abruzzo",
+  "la spezia": "Liguria",
+  "latina": "Lazio",
+  "latisana": "Friuli Venezia Giulia",
+  "lecce": "Puglia",
+  "lecco": "Lombardia",
+  "livorno": "Toscana",
+  "lodi": "Lombardia",
+  "lucca": "Toscana",
+  "macerata": "Marche",
+  "mantova": "Lombardia",
+  "martina franca": "Puglia",
+  "massa": "Toscana",
+  "matera": "Basilicata",
+  "messina": "Sicilia",
+  "milano": "Lombardia",
+  "milazzo": "Sicilia",
+  "modena": "Emilia Romagna",
+  "molfetta": "Puglia",
+  "moncalieri": "Piemonte",
+  "montichiari": "Lombardia",
+  "monza": "Lombardia",
+  "napoli": "Campania",
+  "nerviano": "Lombardia",
+  "norbello": "Sardegna",
+  "novara": "Piemonte",
+  "nulvi": "Sardegna",
+  "nuoro": "Sardegna",
+  "oristano": "Sardegna",
+  "padova": "Veneto",
+  "palermo": "Sicilia",
+  "parma": "Emilia Romagna",
+  "parolise": "Campania",
+  "pavia": "Lombardia",
+  "perugia": "Umbria",
+  "pesaro": "Marche",
+  "pescara": "Abruzzo",
+  "piacenza": "Emilia Romagna",
+  "piossasco": "Piemonte",
+  "pisa": "Toscana",
+  "pistoia": "Toscana",
+  "pordenone": "Friuli Venezia Giulia",
+  "potenza": "Basilicata",
+  "prato": "Toscana",
+  "ragusa": "Sicilia",
+  "ravenna": "Emilia Romagna",
+  "reggio calabria": "Calabria",
+  "reggio di calabria": "Calabria",
+  "reggio nell emilia": "Emilia Romagna",
+  "rieti": "Lazio",
+  "rimini": "Emilia Romagna",
+  "roma": "Lazio",
+  "rovigo": "Veneto",
+  "s giovanni lupatoto": "Veneto",
+  "salerno": "Campania",
+  "salsomaggiore terme": "Emilia Romagna",
+  "san felice sul panaro": "Emilia Romagna",
+  "san nicola la strada": "Campania",
+  "sanremo": "Liguria",
+  "saronno": "Lombardia",
+  "sassari": "Sardegna",
+  "savona": "Liguria",
+  "senigallia": "Marche",
+  "sermide": "Lombardia",
+  "sesto fiorentino": "Toscana",
+  "siena": "Toscana",
+  "silvi": "Abruzzo",
+  "siracusa": "Sicilia",
+  "sondrio": "Lombardia",
+  "spadafora": "Sicilia",
+  "spezzano albanese": "Calabria",
+  "taranto": "Puglia",
+  "teramo": "Abruzzo",
+  "terni": "Umbria",
+  "torino": "Piemonte",
+  "trani": "Puglia",
+  "trapani": "Sicilia",
+  "trento": "Trentino-Alto Adige",
+  "treviso": "Veneto",
+  "trieste": "Friuli Venezia Giulia",
+  "udine": "Friuli Venezia Giulia",
+  "varazze": "Liguria",
+  "varese": "Lombardia",
+  "vedano olona": "Lombardia",
+  "venezia": "Veneto",
+  "verbania": "Piemonte",
+  "vercelli": "Piemonte",
+  "verona": "Veneto",
+  "verzuolo": "Piemonte",
+  "vibo valentia": "Calabria",
+  "vicenza": "Veneto",
+  "villa guardia": "Lombardia",
+  "viterbo": "Lazio"
+};
+
+// src/utils/torneoMap.ts
+var REGION_FILTER_KEYS = {
+  "trentino alto adige": "trentino-alto-adige",
+  trentino: "trentino-alto-adige",
+  "alto adige": "trentino-alto-adige",
+  "valle d aosta": "valle-d-aosta",
+  "friuli venezia giulia": "friuli-venezia-giulia",
+  "emilia romagna": "emilia-romagna"
+};
+var CITY_ALIASES = {
+  "reggio calabria": "reggio di calabria",
+  sermide: "sermide e felonica",
+  "s giovanni lupatoto": "san giovanni lupatoto",
+  "s. giovanni lupatoto": "san giovanni lupatoto"
+};
+var REGION_CANONICAL_NAMES = {
+  "trentino alto adige": "Trentino-Alto Adige",
+  trentino: "Trentino-Alto Adige",
+  "alto adige": "Trentino-Alto Adige",
+  "valle d aosta": "Valle d'Aosta",
+  "friuli venezia giulia": "Friuli Venezia Giulia",
+  "emilia romagna": "Emilia Romagna"
+};
+function normalizeText(value) {
+  return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+function normalizeCityName(value) {
+  const normalized = normalizeText(value);
+  return CITY_ALIASES[normalized] || normalized;
+}
+function getRegionFilterKey(region) {
+  const normalized = normalizeText(region || "");
+  if (!normalized) return "";
+  return REGION_FILTER_KEYS[normalized] || normalized.replace(/\s+/g, "-");
+}
+function regionMatches(regionA, regionB) {
+  const keyA = getRegionFilterKey(regionA);
+  const keyB = getRegionFilterKey(regionB);
+  return Boolean(keyA && keyB && keyA === keyB);
+}
+function getCanonicalRegionName(region) {
+  const normalized = normalizeText(region || "");
+  return REGION_CANONICAL_NAMES[normalized] || (region || "").trim();
+}
+function getTorneoHostRegion(torneo, fallbackRegion) {
+  let reg = torneo.regione?.trim();
+  if (!reg && torneo.com > 0 && torneo.com !== 30) {
+    reg = REGIONS_COMIT.find((item) => item.id === torneo.com)?.name;
+  }
+  if (reg && !reg.toLowerCase().includes("nazionale") && reg.toLowerCase() !== "italia") {
+    return getCanonicalRegionName(reg);
+  }
+  const { city, provinceCode } = parseLuogo(torneo.luogo);
+  if (provinceCode && ITALY_PROVINCE_TO_REGION[provinceCode]) {
+    return ITALY_PROVINCE_TO_REGION[provinceCode];
+  }
+  const cityKey = normalizeCityName(city);
+  if (cityKey && ITALY_CITY_TO_REGION[cityKey]) {
+    return ITALY_CITY_TO_REGION[cityKey];
+  }
+  if (fallbackRegion && !fallbackRegion.toLowerCase().includes("nazionale")) {
+    return getCanonicalRegionName(fallbackRegion);
+  }
+  return "Nazionale";
+}
+function torneoMatchesRegion(torneo, targetRegion, assignedRegion) {
+  if (!targetRegion) return true;
+  if (assignedRegion && regionMatches(assignedRegion, targetRegion)) return true;
+  if (torneo.regione && regionMatches(torneo.regione, targetRegion)) return true;
+  if (torneo.com > 0 && torneo.com !== 30) {
+    const comitName = REGIONS_COMIT.find((r) => r.id === torneo.com)?.name;
+    if (regionMatches(comitName, targetRegion)) return true;
+  }
+  const host = getTorneoHostRegion(torneo, assignedRegion);
+  return regionMatches(host, targetRegion);
+}
+function parseLuogo(luogo) {
+  const cleaned = String(luogo || "").replace(/^\d{1,2}\/\d{1,2}\/\d{4}\s*-\s*/, "").trim();
+  const match = cleaned.match(/^(.*?)\s*\(([A-Za-z]{2})\)\s*$/);
+  if (match) {
+    return {
+      city: match[1].trim(),
+      provinceCode: match[2].toUpperCase()
+    };
+  }
+  return { city: cleaned, provinceCode: null };
+}
+
+// server/services/torneiNotificationService.ts
+var TORNEI_KNOWN_KEYS_STATE_KEY = "known_tornei_keys";
+var cachedKnownKeys = null;
+var cachedKnownKeysTimestamp = 0;
+var KNOWN_KEYS_CACHE_TTL_MS = 60 * 60 * 1e3;
+var PASSIVE_CHECK_MIN_INTERVAL_MS = 15 * 60 * 1e3;
+function buildTorneiNotificationPayload(newTornei) {
+  let title;
+  let body;
+  let url;
+  let singleTorneoData;
+  if (newTornei.length === 1) {
+    const single = newTornei[0];
+    const isNat = single.com === 30 || single.com === 0;
+    const typeLabel = single.categoriaLabel || (isNat ? "Torneo Nazionale" : "Torneo Regionale");
+    title = `\u{1F3C6} Nuovo ${typeLabel}`;
+    body = `${single.luogo} \u2022 ${single.data}${single.regione ? ` (${single.regione})` : ""}`;
+    const tab = single.status === "disputato" ? "risultati" : "programma";
+    const params = new URLSearchParams({
+      view: "tornei",
+      tab,
+      torneoIdt: String(single.idt),
+      torneoCom: String(single.com),
+      torneoAnno: String(single.anno || 0)
+    });
+    if (single.luogo) params.set("torneoLuogo", single.luogo);
+    if (single.data) params.set("torneoData", single.data);
+    if (single.regione) params.set("torneoRegione", single.regione);
+    if (single.status) params.set("torneoStatus", single.status);
+    url = `/?${params.toString()}`;
+    singleTorneoData = {
+      idt: single.idt,
+      com: single.com,
+      anno: single.anno,
+      tipo: single.tipo,
+      luogo: single.luogo,
+      data: single.data,
+      regione: single.regione,
+      status: single.status,
+      href: single.href,
+      key: single.key
+    };
+  } else {
+    title = `\u{1F3C6} ${newTornei.length} nuovi tornei FITeT pubblicati!`;
+    const previews = newTornei.slice(0, 3).map((t) => `${t.luogo} (${t.data})`).join(", ");
+    const extra = newTornei.length > 3 ? ` e altri ${newTornei.length - 3}...` : "";
+    body = `Disponibili nuove gare a: ${previews}${extra}`;
+    const allDisputati = newTornei.every((t) => t.status === "disputato");
+    url = `/?view=tornei&tab=${allDisputati ? "risultati" : "programma"}`;
+  }
+  return {
+    title,
+    body,
+    url,
+    icon: "/icon.png",
+    badge: "/icon.png",
+    tag: `tornei-new-${Date.now()}`,
+    data: {
+      type: "new_tornei",
+      url,
+      count: newTornei.length,
+      keys: newTornei.map((t) => t.key),
+      ...singleTorneoData ? { torneo: singleTorneoData } : {}
+    }
+  };
+}
+function getTorneoUniqueKey(torneo) {
+  return `${torneo.com}-${torneo.idt}-${torneo.tipo ?? 0}`;
+}
+var NATIONAL_TARGETS = [
+  { key: "top1", label: "Torneo Nazionale Top 1", tor: 21, comit: 30, id: 0, isRegional: false },
+  { key: "top2", label: "Torneo Nazionale Top 2", tor: 22, comit: 30, id: 0, isRegional: false },
+  { key: "top3", label: "Torneo Nazionale Top 3", tor: 23, comit: 30, id: 0, isRegional: false },
+  { key: "top4", label: "Torneo Nazionale Top 4", tor: 24, comit: 30, id: 0, isRegional: false },
+  { key: "top5", label: "Torneo Nazionale Top 5", tor: 25, comit: 30, id: 0, isRegional: false },
+  { key: "top6", label: "Torneo Nazionale Top 6", tor: 26, comit: 30, id: 0, isRegional: false },
+  { key: "giovanili", label: "Torneo Nazionale Giovanile", tor: 2, comit: 30, id: 0, isRegional: false },
+  { key: "master", label: "Torneo Nazionale Master", tor: 5, comit: 30, id: 0, isRegional: false },
+  { key: "paralimpici", label: "Torneo Paralimpico", tor: 8, comit: 30, id: 0, isRegional: false },
+  { key: "open_cat", label: "Torneo Open di Categoria", tor: 0, comit: 30, id: 39, isRegional: false },
+  { key: "open", label: "Torneo Open", tor: 0, comit: 30, id: 36, isRegional: false },
+  { key: "giornate_rosa", label: "Giornata Rosa Nazionale", tor: 12, comit: 30, id: 0, isRegional: false },
+  { key: "transalpino", label: "Trofeo Transalpino", tor: 9, comit: 30, id: 0, isRegional: false },
+  { key: "campionati_ita", label: "Campionati Italiani", tor: 10, comit: 30, id: 0, isRegional: false },
+  { key: "coppa_ita", label: "Coppa Italia CC.RR.", tor: 14, comit: 30, id: 0, isRegional: false },
+  { key: "promozionali", label: "Torneo Promozionale", tor: 7, comit: 30, id: 0, isRegional: false }
+];
+var REGIONAL_TOR_TYPES = [
+  { tor: 100, label: "Torneo Open Regionale" },
+  { tor: 101, label: "Torneo Regionale di Categoria" },
+  { tor: 102, label: "Torneo Regionale Giovanile" },
+  { tor: 103, label: "Torneo Regionale Ordinario" },
+  { tor: 105, label: "Torneo Regionale Master" },
+  { tor: 107, label: "Torneo Regionale Promozionale" },
+  { tor: 108, label: "Torneo Regionale Paralimpico" },
+  { tor: 110, label: "Campionato Regionale" },
+  { tor: 111, label: "Torneo Provinciale" },
+  { tor: 112, label: "Giornata Rosa Regionale" }
+];
+function buildAllScanTargets() {
+  const targets = [...NATIONAL_TARGETS];
+  for (let com = 1; com <= 21; com++) {
+    const regionName = COMIT_NAMES[com] || `Regione ${com}`;
+    for (const r of REGIONAL_TOR_TYPES) {
+      targets.push({
+        key: `reg_${com}_${r.tor}`,
+        label: `${r.label} (${regionName})`,
+        tor: r.tor,
+        comit: com,
+        id: 0,
+        isRegional: true
+      });
+    }
+  }
+  return targets;
+}
+async function scanAllTornei(concurrency = 10) {
+  const targets = buildAllScanTargets();
+  const torneiMap = /* @__PURE__ */ new Map();
+  let targetIndex = 0;
+  async function worker() {
+    while (targetIndex < targets.length) {
+      const target = targets[targetIndex++];
+      const url = `https://portale.fitet.org/risultati/tornei/elenco_tornei.php?TOR=${target.tor}&COMIT=${target.comit}&ID=${target.id}`;
+      try {
+        const html = await FitetClient.fetchHtml(url).catch(() => "");
+        if (!html) continue;
+        const parsed = parseElencoTornei(
+          html,
+          target.comit,
+          target.tor,
+          target.isRegional ? target.comit : void 0,
+          target.key,
+          target.label
+        );
+        let itemsToAdd = parsed.tornei;
+        if (parsed.regions.length > 0 && parsed.tornei.length === 0) {
+          const regLists = await Promise.all(
+            parsed.regions.map(async (r) => {
+              const regUrl = `https://portale.fitet.org/risultati/tornei/elenco_tornei.php?REG=${r.regId}&TOR=${r.tor}&ID=${r.id}&COMIT=${r.comit}`;
+              const regHtml = await FitetClient.fetchHtml(regUrl).catch(() => "");
+              if (!regHtml) return [];
+              return parseElencoTornei(regHtml, r.comit, r.tor, r.regId, target.key, target.label).tornei;
+            })
+          );
+          itemsToAdd = regLists.flat();
+        }
+        for (const t of itemsToAdd) {
+          const key = getTorneoUniqueKey(t);
+          if (!torneiMap.has(key)) {
+            const resolvedRegion = target.isRegional ? COMIT_NAMES[t.com] || target.label : getTorneoHostRegion(t);
+            torneiMap.set(key, {
+              ...t,
+              key,
+              regione: resolvedRegion,
+              categoriaLabel: t.categoriaLabel || target.label
+            });
+          }
+        }
+      } catch (err) {
+        console.warn(`[TorneiScanner] Errore scansione ${target.label}:`, err);
+      }
+    }
+  }
+  const workers = Array.from({ length: Math.max(1, concurrency) }, () => worker());
+  await Promise.all(workers);
+  return Array.from(torneiMap.values());
+}
+async function checkNewTorneiAndNotify(options = {}) {
+  const startTime = Date.now();
+  const concurrency = options.concurrency ?? 10;
+  const dryRun = options.dryRun ?? false;
+  const init = options.init ?? false;
+  console.log(`[TorneiScanner] Avvio scansione tornei nazionali e regionali (concorrenza: ${concurrency})...`);
+  const scannedTornei = await scanAllTornei(concurrency);
+  const currentKeys = scannedTornei.map((t) => t.key);
+  console.log(`[TorneiScanner] Scansione completata: trovati ${scannedTornei.length} tornei unici.`);
+  const previousState = await pushService.getState(TORNEI_KNOWN_KEYS_STATE_KEY);
+  if (previousState === null || init) {
+    if (!dryRun) {
+      await pushService.setState(
+        TORNEI_KNOWN_KEYS_STATE_KEY,
+        JSON.stringify(currentKeys)
+      );
+      cachedKnownKeys = new Set(currentKeys);
+      cachedKnownKeysTimestamp = Date.now();
+      console.log(`[TorneiScanner] Baseline inizializzato con ${currentKeys.length} tornei.`);
+    }
+    return {
+      changed: false,
+      initialized: true,
+      totalFound: currentKeys.length,
+      newTorneiCount: 0,
+      newTornei: [],
+      notificationSent: false,
+      durationMs: Date.now() - startTime
+    };
+  }
+  let knownKeys;
+  try {
+    const parsed = JSON.parse(previousState);
+    knownKeys = new Set(Array.isArray(parsed) ? parsed : []);
+  } catch (err) {
+    console.error("[TorneiScanner] Formato JSON stato non valido, reinizializzazione necessaria:", err);
+    knownKeys = /* @__PURE__ */ new Set();
+  }
+  const newTornei = scannedTornei.filter((t) => !knownKeys.has(t.key));
+  if (newTornei.length === 0) {
+    cachedKnownKeys = knownKeys;
+    cachedKnownKeysTimestamp = Date.now();
+    console.log("[TorneiScanner] Nessun nuovo torneo rilevato.");
+    return {
+      changed: false,
+      totalFound: currentKeys.length,
+      newTorneiCount: 0,
+      newTornei: [],
+      notificationSent: false,
+      durationMs: Date.now() - startTime
+    };
+  }
+  console.log(
+    `[TorneiScanner] Trovati ${newTornei.length} nuovi tornei:`,
+    newTornei.map((t) => `${t.categoriaLabel || "Torneo"} a ${t.luogo} (${t.data})`)
+  );
+  let broadcastResult;
+  let notificationSent = false;
+  if (!dryRun && pushService.isReady()) {
+    try {
+      broadcastResult = await pushService.sendToAll(
+        buildTorneiNotificationPayload(newTornei)
+      );
+      notificationSent = broadcastResult.sent > 0;
+      console.log(
+        `[TorneiScanner] Notifiche inviate: ${broadcastResult.sent}/${broadcastResult.total} (fallite: ${broadcastResult.failed}).`
+      );
+    } catch (pushErr) {
+      console.error("[TorneiScanner] Invio notifiche push fallito:", pushErr);
+    }
+  }
+  if (!dryRun) {
+    const updatedKeys = Array.from(/* @__PURE__ */ new Set([...knownKeys, ...currentKeys]));
+    await pushService.setState(
+      TORNEI_KNOWN_KEYS_STATE_KEY,
+      JSON.stringify(updatedKeys)
+    );
+    cachedKnownKeys = new Set(updatedKeys);
+    cachedKnownKeysTimestamp = Date.now();
+  }
+  return {
+    changed: true,
+    totalFound: currentKeys.length,
+    newTorneiCount: newTornei.length,
+    newTornei,
+    notificationSent,
+    broadcastResult,
+    durationMs: Date.now() - startTime
+  };
+}
+
+// server/services/cronJobs.ts
+async function runRankingCheck() {
+  const idClass = await getLatestIdClass(true, false);
+  const [ranking, championshipsResult, matchdayResult] = await Promise.all([
+    notifyRankingChangeIfNeeded(idClass),
+    checkChampionshipsAndNotify().catch((err) => {
+      console.warn("[CronJobs] Errore controllo campionati durante check-ranking:", err);
+      return null;
+    }),
+    checkMatchdayAndNotify().catch((err) => {
+      console.warn("[CronJobs] Errore controllo matchday durante check-ranking:", err);
+      return null;
+    })
+  ]);
+  return {
+    idClass,
+    ranking,
+    championships: championshipsResult,
+    matchday: matchdayResult
+  };
+}
+async function runChampionshipsCheck(options = {}) {
+  return checkChampionshipsAndNotify(options);
+}
+async function runMatchdayCheck(options = {}) {
+  return checkMatchdayAndNotify(options);
+}
+async function runTorneiCheck(options = {}) {
+  return checkNewTorneiAndNotify(options);
+}
+async function runVideoSync() {
+  return youtubeSyncService.syncAllChannels();
+}
+
+// server/parsers/refertoParser.ts
+import * as cheerio12 from "cheerio";
+function resolveFitetUrl(src) {
+  if (!src) return void 0;
+  if (src.startsWith("http")) return src;
+  const clean = src.replace(/^(\.\.\/)+/, "");
+  return `https://portale.fitet.org/${clean}`;
+}
+function parseRefertoIncontro(html, incontroId, camId, formulaId) {
+  const $ = cheerio12.load(html);
+  const $incontri = $("p.incontro");
+  let casaNome = "";
+  let ospiteNome = "";
+  if ($incontri.length >= 2) {
+    casaNome = $($incontri[0]).text().replace(/\s+/g, " ").trim();
+    ospiteNome = $($incontri[1]).text().replace(/\s+/g, " ").trim();
+  }
+  if (!casaNome || !ospiteNome) {
+    const $schede = $("p.titolo_scheda");
+    if ($schede.length >= 2) {
+      if (!casaNome) casaNome = $($schede[0]).text().replace(/\s+/g, " ").trim();
+      if (!ospiteNome) ospiteNome = $($schede[1]).text().replace(/\s+/g, " ").trim();
+    }
+  }
+  const $immagini = $('img[src*="/societa/"], img.immagine');
+  const logoCasa = resolveFitetUrl($($immagini[0]).attr("src"));
+  const logoOspite = resolveFitetUrl($($immagini[1]).attr("src"));
+  let puntiCasa = 0;
+  let puntiOspite = 0;
+  let setTotaliCasa = 0;
+  let setTotaliOspite = 0;
+  let puntiTotaliCasa = 0;
+  let puntiTotaliOspite = 0;
+  const $scoreTable = $('table[bgcolor="#DCDCDC"], table[bgcolor="#dcdcdc"]').first();
+  if ($scoreTable.length > 0) {
+    $scoreTable.find("tr").each((_, tr) => {
+      const $tr = $(tr);
+      const text = $tr.text().toUpperCase();
+      const cells = $tr.find("td");
+      if (cells.length >= 3) {
+        if (text.includes(":") && (text.includes("0") || text.includes("1") || text.includes("2") || text.includes("3") || text.includes("4") || text.includes("5") || text.includes("6") || text.includes("7"))) {
+          const c = parseInt($(cells[0]).text().trim(), 10);
+          const o = parseInt($(cells[2]).text().trim(), 10);
+          if (!isNaN(c)) puntiCasa = c;
+          if (!isNaN(o)) puntiOspite = o;
+        } else if (text.includes("SET")) {
+          const c = parseInt($(cells[0]).text().trim(), 10);
+          const o = parseInt($(cells[2]).text().trim(), 10);
+          if (!isNaN(c)) setTotaliCasa = c;
+          if (!isNaN(o)) setTotaliOspite = o;
+        } else if (text.includes("PUNTI")) {
+          const c = parseInt($(cells[0]).text().trim(), 10);
+          const o = parseInt($(cells[2]).text().trim(), 10);
+          if (!isNaN(c)) puntiTotaliCasa = c;
+          if (!isNaN(o)) puntiTotaliOspite = o;
+        }
+      }
+    });
+  }
+  let giornata = "";
+  let arbitro;
+  let campoGara;
+  const bodyText = $("body").text().replace(/\u00a0/g, " ").replace(/\s+/g, " ");
+  const gMatch = bodyText.match(/(\d+\^\s*Giornata(?:\s*del\s*[\d\/]+)?)/i);
+  if (gMatch) giornata = gMatch[1].trim();
+  const arbMatch = bodyText.match(/Arbitro:\s*([A-Za-z\s'\.]+?)(?=\s*(?:Campo|Palestra|Societ|Contrada|$))/i);
+  if (arbMatch) {
+    arbitro = arbMatch[1].trim();
+  } else {
+    const fallbackArb = bodyText.match(/Arbitro:\s*([^\s]+(?:\s+[^\s]+){1,3})/i);
+    if (fallbackArb) arbitro = fallbackArb[1].trim();
+  }
+  const $campoGara = $("p.campo_gara");
+  if ($campoGara.length > 0) {
+    campoGara = $campoGara.html()?.replace(/<br\s*[\/]?>/gi, " - ")?.replace(/<[^>]+>/g, "")?.replace(/Campo gara principale:\s*/i, "")?.replace(/\u00a0/g, " ")?.replace(/\s+/g, " ")?.trim()?.replace(/^[\s\-]+/, "");
+  }
+  const partite = [];
+  $("tr").each((rowIdx, tr) => {
+    const $tr = $(tr);
+    const link = $tr.find('a[href*="dettaglio_partita.php"]');
+    if (link.length === 0) return;
+    const cells = $tr.find("td");
+    if (cells.length < 14) return;
+    const href = link.attr("href") || "";
+    const idMatch = href.match(/ID=(\d+)/i);
+    const partitaId = idMatch ? idMatch[1] : `match_${rowIdx}`;
+    const num = parseInt(link.text().trim(), 10) || partite.length + 1;
+    const $cellCasa = $(cells[1]);
+    const atletaCasa = $cellCasa.text().replace(/\s+/g, " ").trim();
+    const isCasaWinner = $cellCasa.find("b").length > 0;
+    const $cellOspite = $(cells[2]);
+    const atletaOspite = $cellOspite.text().replace(/\s+/g, " ").trim();
+    const isOspiteWinner = $cellOspite.find("b").length > 0;
+    const sets = [];
+    for (let s = 0; s < 5; s++) {
+      const idxCasa = 3 + s * 2;
+      const idxOspite = 4 + s * 2;
+      if (idxOspite < cells.length) {
+        const pCasa = parseInt($(cells[idxCasa]).text().trim(), 10);
+        const pOspite = parseInt($(cells[idxOspite]).text().trim(), 10);
+        if (!isNaN(pCasa) && !isNaN(pOspite) && (pCasa > 0 || pOspite > 0)) {
+          sets.push({
+            setNumero: s + 1,
+            puntiCasa: pCasa,
+            puntiOspite: pOspite
+          });
+        }
+      }
+    }
+    const sv = parseInt($(cells[13]).text().trim(), 10) || 0;
+    const sp = parseInt($(cells[14]).text().trim(), 10) || 0;
+    partite.push({
+      id: partitaId,
+      numero: num,
+      atletaCasa,
+      atletaOspite,
+      isCasaWinner,
+      isOspiteWinner,
+      sets,
+      setVintiCasa: sv,
+      setVintiOspite: sp
+    });
+  });
+  return {
+    incontroId,
+    camId,
+    formulaId,
+    giornata: giornata || "Referto di Gara",
+    arbitro,
+    campoGara,
+    squadraCasa: {
+      nome: casaNome || "Squadra Casa",
+      logoUrl: logoCasa,
+      punti: puntiCasa,
+      setTotali: setTotaliCasa,
+      puntiTotali: puntiTotaliCasa
+    },
+    squadraOspite: {
+      nome: ospiteNome || "Squadra Ospite",
+      logoUrl: logoOspite,
+      punti: puntiOspite,
+      setTotali: setTotaliOspite,
+      puntiTotali: puntiTotaliOspite
+    },
+    partite
+  };
+}
+function parseDettaglioPartita(html, partitaId) {
+  const $ = cheerio12.load(html);
+  const rows = $('table[width="716"] > tr, table[width="716"] > tbody > tr');
+  let headerRow = rows.eq(0);
+  let detailRow = rows.eq(1);
+  if (rows.length === 0) {
+    headerRow = $("tr").filter((_, tr) => $(tr).find("> td").length === 3 && $(tr).find("p.titolo").length > 0).first();
+    detailRow = headerRow.next("tr");
+  }
+  const headerTds = headerRow.find("> td");
+  let atletaCasaNome = "";
+  let atletaOspiteNome = "";
+  let risultatoSet = "";
+  if (headerTds.length >= 3) {
+    const casaTitoli = [];
+    headerTds.eq(0).find("p.titolo").each((_, p) => {
+      const t = $(p).text().replace(/\s+/g, " ").trim();
+      if (t) casaTitoli.push(t);
+    });
+    atletaCasaNome = casaTitoli.join(" - ");
+    risultatoSet = headerTds.eq(1).find("p.titolo").first().text().replace(/\s+/g, " ").trim();
+    const ospiteTitoli = [];
+    headerTds.eq(2).find("p.titolo").each((_, p) => {
+      const t = $(p).text().replace(/\s+/g, " ").trim();
+      if (t) ospiteTitoli.push(t);
+    });
+    atletaOspiteNome = ospiteTitoli.join(" - ");
+  } else {
+    const $titoli = $("p.titolo");
+    if ($titoli.length >= 3) {
+      atletaCasaNome = $($titoli[0]).text().replace(/\s+/g, " ").trim();
+      risultatoSet = $($titoli[1]).text().replace(/\s+/g, " ").trim();
+      atletaOspiteNome = $($titoli[2]).text().replace(/\s+/g, " ").trim();
+    }
+  }
+  const flagCasa = resolveFitetUrl(headerTds.eq(0).find('img[src*="/bandiere/"]').attr("src"));
+  const flagOspite = resolveFitetUrl(headerTds.eq(2).find('img[src*="/bandiere/"]').attr("src"));
+  const detailTds = detailRow.find("> td");
+  let fotoCasa;
+  let fotoOspite;
+  let atletaCasaId;
+  let atletaOspiteId;
+  if (detailTds.length >= 3) {
+    detailTds.eq(0).find("img").each((_, img) => {
+      const src = $(img).attr("src") || "";
+      const m = src.match(/atleti\/(\d+)\.jpg/i);
+      if (m && !atletaCasaId) {
+        atletaCasaId = m[1];
+        fotoCasa = resolveFitetUrl(src);
+      } else if (src.includes("atleti/") && !src.includes("-vuoto") && !fotoCasa) {
+        fotoCasa = resolveFitetUrl(src);
+      }
+    });
+    detailTds.eq(2).find("img").each((_, img) => {
+      const src = $(img).attr("src") || "";
+      const m = src.match(/atleti\/(\d+)\.jpg/i);
+      if (m && !atletaOspiteId) {
+        atletaOspiteId = m[1];
+        fotoOspite = resolveFitetUrl(src);
+      } else if (src.includes("atleti/") && !src.includes("-vuoto") && !fotoOspite) {
+        fotoOspite = resolveFitetUrl(src);
+      }
+    });
+  }
+  const sets = [];
+  let puntiTotali = "";
+  $("table table tr").each((_, tr) => {
+    const $tr = $(tr);
+    const tds = $tr.find("td");
+    if (tds.length === 3) {
+      const label = $(tds[1]).text().trim();
+      const pCasa = parseInt($(tds[0]).text().trim(), 10);
+      const pOspite = parseInt($(tds[2]).text().trim(), 10);
+      if (label.includes("set")) {
+        const setNum = parseInt(label.replace(/\D/g, ""), 10) || sets.length + 1;
+        if (!isNaN(pCasa) && !isNaN(pOspite) && (pCasa > 0 || pOspite > 0)) {
+          sets.push({
+            setNumero: setNum,
+            puntiCasa: pCasa,
+            puntiOspite: pOspite
+          });
+        }
+      }
+    } else if (tds.length === 1) {
+      const totText = $(tds[0]).text().replace(/\s+/g, " ").trim();
+      if (totText.includes(":")) {
+        puntiTotali = totText;
+      }
+    }
+  });
+  return {
+    id: partitaId,
+    atletaCasa: {
+      nome: atletaCasaNome,
+      bandieraUrl: flagCasa,
+      fotoUrl: fotoCasa,
+      atletaId: atletaCasaId
+    },
+    atletaOspite: {
+      nome: atletaOspiteNome,
+      bandieraUrl: flagOspite,
+      fotoUrl: fotoOspite,
+      atletaId: atletaOspiteId
+    },
+    risultatoSet,
+    puntiTotali,
+    sets
+  };
+}
+
+// server/parsers/rankingParser.ts
+import * as cheerio13 from "cheerio";
+function parseRankingHtml(html, sesso = "M", currentPage = 1, comitId, category) {
+  const $ = cheerio13.load(html);
+  const titleText = $("td.style2 p.titoli, p.titoli").first().text().replace(/\s+/g, " ").trim();
+  const titleClean = titleText.replace(/\(Atleti:.*?\)/i, "").trim();
+  let totalAthletes = 0;
+  const atletiMatch = titleText.match(/Atleti:\s*(\d+)/i);
+  if (atletiMatch) {
+    totalAthletes = parseInt(atletiMatch[1], 10);
+  }
+  let totalPages = 1;
+  const scriptContent = $("script").text();
+  const pagesMatch = scriptContent.match(/totalPages:\s*(\d+)/);
+  if (pagesMatch) {
+    totalPages = parseInt(pagesMatch[1], 10);
+  } else if (totalAthletes > 0) {
+    totalPages = Math.ceil(totalAthletes / 100);
+  }
+  const isRegionale = !!comitId && comitId > 0;
+  const athletes = [];
+  $("table tr").each((_, tr) => {
+    const $tr = $(tr);
+    if ($tr.find("td.style2, td.style1, th").length > 0) return;
+    const athleteLink = $tr.find('a[onclick*="getScheda"]');
+    if (athleteLink.length === 0) return;
+    const athleteName = athleteLink.text().replace(/\s+/g, " ").trim();
+    const onclickAttr = athleteLink.attr("onclick") || "";
+    const idMatch = onclickAttr.match(/getScheda\s*\(\s*(\d+)/);
+    const atletaId = idMatch ? idMatch[1] : "";
+    const cells = [];
+    $tr.find("td").each((_2, td) => {
+      cells.push($(td).text().replace(/\s+/g, " ").trim());
+    });
+    if (cells.length >= 7) {
+      const rawRank = cells[0].replace(/\D/g, "");
+      const parsedRank = rawRank ? parseInt(rawRank, 10) : void 0;
+      const fallbackRank = (currentPage - 1) * 100 + athletes.length + 1;
+      const rankNum = parsedRank !== void 0 ? parsedRank : fallbackRank;
+      const hasOfficialRank = parsedRank !== void 0;
+      const dataNascita = cells[2] || "";
+      const settore = cells[3] || "";
+      const punti = parseFloat(cells[4].replace(",", ".")) || 0;
+      const posNazOrVariazione = cells[5] || "";
+      const provinciaOrRegione = cells[6] || "";
+      const categoria = cells[7] || "";
+      athletes.push({
+        rank: rankNum,
+        hasOfficialRank,
+        atletaId,
+        nome: athleteName,
+        dataNascita,
+        settore,
+        punti,
+        posNazOrVariazione,
+        provinciaOrRegione,
+        categoria
+      });
+    }
+  });
+  if (totalAthletes === 0) {
+    totalAthletes = athletes.length;
+  }
+  return {
+    title: titleClean || "Classifica Ufficiale FITeT",
+    sesso,
+    isRegionale,
+    comitId,
+    totalAthletes,
+    totalPages: Math.max(totalPages, 1),
+    currentPage,
+    athletes,
+    category
+  };
+}
+
+// server/parsers/sceltaAtletaParser.ts
+import * as cheerio14 from "cheerio";
+function parseSceltaAtleta(html) {
+  if (!html) return [];
+  const $ = cheerio14.load(html);
+  const results = [];
+  const seen = /* @__PURE__ */ new Set();
+  $('a[href*="head_head.php"]').each((_, element) => {
+    const href = $(element).attr("href") || "";
+    const idMatch = href.match(/[?&]AVVERSARIO=(\d+)/i);
+    if (!idMatch) return;
+    const id = idMatch[1];
+    if (!id || seen.has(id)) return;
+    const nome = $(element).text().replace(/\s+/g, " ").trim();
+    if (!nome) return;
+    const dateText = $(element).closest("tr").find("td").last().text().trim();
+    const dateMatch = dateText.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    seen.add(id);
+    results.push({
+      id,
+      nome,
+      dataNascita: dateMatch ? `${dateMatch[3]}/${dateMatch[2]}/${dateMatch[1]}` : null
+    });
+  });
+  return results;
+}
+
+// src/constants/rankingCategories.ts
+var RANKING_CATEGORIES = [
+  // 1. Generale
+  {
+    key: "generale",
+    label: "Classifica Generale",
+    shortLabel: "Generale",
+    group: "generale",
+    tipo: 1,
+    sett: "0",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 0,
+    description: "Classifica unica atleti tesserati FITeT",
+    icon: "bi-trophy-fill"
+  },
+  // 2. Altre categorie (Speciali)
+  {
+    key: "stranieri",
+    label: "Stranieri",
+    shortLabel: "Stranieri",
+    group: "speciali",
+    tipo: 0,
+    sett: "0",
+    s: 1,
+    fq: 0,
+    g: 0,
+    v: 0,
+    description: "Classifica atleti con cittadinanza straniera tesserati in Italia",
+    icon: "bi-globe2"
+  },
+  {
+    key: "fuori_quadro",
+    label: "Fuori Quadro (FQ)",
+    shortLabel: "Fuori Quadro",
+    group: "speciali",
+    tipo: 0,
+    sett: "0",
+    s: 0,
+    fq: 1,
+    g: 0,
+    v: 0,
+    description: "Atleti momentaneamente fuori quadro per attivit\xE0 o punteggio",
+    icon: "bi-slash-circle"
+  },
+  {
+    key: "provvisori",
+    label: "Provvisori",
+    shortLabel: "Provvisori",
+    group: "speciali",
+    tipo: 9,
+    sett: "0",
+    s: 0,
+    fq: 1,
+    g: 0,
+    v: 0,
+    description: "Atleti con posizione o punteggio provvisorio FITeT",
+    icon: "bi-hourglass-split"
+  },
+  // 3. Giovanili (G=1)
+  {
+    key: "u11",
+    label: "Under 11 (Giovanissimi)",
+    shortLabel: "U11",
+    group: "giovanili",
+    tipo: 0,
+    sett: "G",
+    s: 0,
+    fq: 0,
+    g: 1,
+    v: 0,
+    description: "Settore giovanile Under 11",
+    icon: "bi-person-badge"
+  },
+  {
+    key: "u13",
+    label: "Under 13 (Ragazzi)",
+    shortLabel: "U13",
+    group: "giovanili",
+    tipo: 0,
+    sett: "R",
+    s: 0,
+    fq: 0,
+    g: 1,
+    v: 0,
+    description: "Settore giovanile Under 13",
+    icon: "bi-person-badge"
+  },
+  {
+    key: "u15",
+    label: "Under 15 (Allievi)",
+    shortLabel: "U15",
+    group: "giovanili",
+    tipo: 0,
+    sett: "D",
+    s: 0,
+    fq: 0,
+    g: 1,
+    v: 0,
+    description: "Settore giovanile Under 15",
+    icon: "bi-person-badge"
+  },
+  {
+    key: "u17",
+    label: "Under 17 (Cadetti)",
+    shortLabel: "U17",
+    group: "giovanili",
+    tipo: 0,
+    sett: "A",
+    s: 0,
+    fq: 0,
+    g: 1,
+    v: 0,
+    description: "Settore giovanile Under 17",
+    icon: "bi-person-badge"
+  },
+  {
+    key: "u19",
+    label: "Under 19 (Juniores)",
+    shortLabel: "U19",
+    group: "giovanili",
+    tipo: 0,
+    sett: "J",
+    s: 0,
+    fq: 0,
+    g: 1,
+    v: 0,
+    description: "Settore giovanile Under 19",
+    icon: "bi-person-badge"
+  },
+  {
+    key: "u21",
+    label: "Under 21",
+    shortLabel: "U21",
+    group: "giovanili",
+    tipo: 0,
+    sett: "U",
+    s: 0,
+    fq: 0,
+    g: 1,
+    v: 0,
+    description: "Settore giovanile Under 21",
+    icon: "bi-person-badge"
+  },
+  // 4. Master (V=1)
+  {
+    key: "master_1",
+    label: "Master Categoria 1 (40-49 anni)",
+    shortLabel: "Cat. 1 (40-49)",
+    group: "master",
+    tipo: 0,
+    sett: "1",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master 40-49 anni",
+    icon: "bi-award"
+  },
+  {
+    key: "master_2",
+    label: "Master Categoria 2 (50-59 anni)",
+    shortLabel: "Cat. 2 (50-59)",
+    group: "master",
+    tipo: 0,
+    sett: "2",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master 50-59 anni",
+    icon: "bi-award"
+  },
+  {
+    key: "master_3",
+    label: "Master Categoria 3 (60-64 anni)",
+    shortLabel: "Cat. 3 (60-64)",
+    group: "master",
+    tipo: 0,
+    sett: "3",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master 60-64 anni",
+    icon: "bi-award"
+  },
+  {
+    key: "master_4",
+    label: "Master Categoria 4 (65-69 anni)",
+    shortLabel: "Cat. 4 (65-69)",
+    group: "master",
+    tipo: 0,
+    sett: "4",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master 65-69 anni",
+    icon: "bi-award"
+  },
+  {
+    key: "master_5",
+    label: "Master Categoria 5 (70-74 anni)",
+    shortLabel: "Cat. 5 (70-74)",
+    group: "master",
+    tipo: 0,
+    sett: "5",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master 70-74 anni",
+    icon: "bi-award"
+  },
+  {
+    key: "master_6",
+    label: "Master Categoria 6 (75-79 anni)",
+    shortLabel: "Cat. 6 (75-79)",
+    group: "master",
+    tipo: 0,
+    sett: "6",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master 75-79 anni",
+    icon: "bi-award"
+  },
+  {
+    key: "master_7",
+    label: "Master Categoria 7 (80+ anni)",
+    shortLabel: "Cat. 7 (80+)",
+    group: "master",
+    tipo: 0,
+    sett: "7",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 1,
+    description: "Veterani Master oltre 80 anni",
+    icon: "bi-award"
+  },
+  // 5. Paralimpici (TIPO=2)
+  {
+    key: "para_1_5",
+    label: "Paralimpica Classe 1-5 (Carrozzina)",
+    shortLabel: "Classe 1-5 (Carrozzina)",
+    group: "paralimpici",
+    tipo: 2,
+    p: 1,
+    sett: "0",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 0,
+    description: "Atleti paralimpici in carrozzina (Classi 1-5)",
+    icon: "bi-universal-access"
+  },
+  {
+    key: "para_6_10",
+    label: "Paralimpica Classe 6-10 (In piedi)",
+    shortLabel: "Classe 6-10 (In piedi)",
+    group: "paralimpici",
+    tipo: 2,
+    p: 6,
+    sett: "0",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 0,
+    description: "Atleti paralimpici deambulanti (Classi 6-10)",
+    icon: "bi-universal-access"
+  },
+  {
+    key: "para_11",
+    label: "Paralimpica Classe 11 (DIR)",
+    shortLabel: "Classe 11 (DIR)",
+    group: "paralimpici",
+    tipo: 2,
+    p: 11,
+    sett: "0",
+    s: 0,
+    fq: 0,
+    g: 0,
+    v: 0,
+    description: "Atleti con disabilit\xE0 intellettivo-relazionale (Classe 11)",
+    icon: "bi-universal-access"
+  }
+];
+function getRankingCategoryByKey(key) {
+  if (!key) return RANKING_CATEGORIES[0];
+  const found = RANKING_CATEGORIES.find((c) => c.key === key);
+  return found || RANKING_CATEGORIES[0];
+}
+
+// src/constants/torneiCategories.ts
+var TORNEI_CATEGORIES = [
+  // 1. TOP (TOR=21..26, COMIT=30, ID=0)
+  {
+    key: "top1",
+    label: "Tornei Nazionali Top 1",
+    shortLabel: "Top 1",
+    group: "top",
+    tor: 21,
+    comit: 30,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Tornei Nazionali Top 1 Assoluti"
+  },
+  {
+    key: "top2",
+    label: "Tornei Nazionali Top 2",
+    shortLabel: "Top 2",
+    group: "top",
+    tor: 22,
+    comit: 30,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Tornei Nazionali Top 2"
+  },
+  {
+    key: "top3",
+    label: "Tornei Nazionali Top 3",
+    shortLabel: "Top 3",
+    group: "top",
+    tor: 23,
+    comit: 30,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Tornei Nazionali Top 3"
+  },
+  {
+    key: "top4",
+    label: "Tornei Nazionali Top 4",
+    shortLabel: "Top 4",
+    group: "top",
+    tor: 24,
+    comit: 30,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Tornei Nazionali Top 4"
+  },
+  {
+    key: "top5",
+    label: "Tornei Nazionali Top 5",
+    shortLabel: "Top 5",
+    group: "top",
+    tor: 25,
+    comit: 30,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Tornei Nazionali Top 5"
+  },
+  {
+    key: "top6",
+    label: "Tornei Nazionali Top 6",
+    shortLabel: "Top 6",
+    group: "top",
+    tor: 26,
+    comit: 30,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Tornei Nazionali Top 6"
+  },
+  // 2. OPEN (TOR=0, COMIT=30, ID=36 + fallback regionale TOR=100)
+  {
+    key: "open",
+    label: "Tornei Open (Over)",
+    shortLabel: "Tornei Open",
+    group: "open",
+    tor: 0,
+    comit: 30,
+    id: 36,
+    icon: "bi-globe-europe-africa",
+    description: "Tornei Open / Over interregionali su tutto il territorio"
+  },
+  // 3. NAZIONALI (Giovanili, Master, Paralimpici, Giornate Rosa, ecc.)
+  {
+    key: "giovanili",
+    label: "Tornei Nazionali Giovanili",
+    shortLabel: "Giovanili",
+    group: "nazionali",
+    tor: 2,
+    comit: 30,
+    id: 0,
+    icon: "bi-backpack-fill",
+    description: "Tornei Nazionali Giovanili Under 11 - Under 21"
+  },
+  {
+    key: "master",
+    label: "Tornei Nazionali Master",
+    shortLabel: "Master",
+    group: "nazionali",
+    tor: 5,
+    comit: 30,
+    id: 0,
+    icon: "bi-award-fill",
+    description: "Tornei Nazionali Master Over 40 - Over 80"
+  },
+  {
+    key: "paralimpici",
+    label: "Tornei Nazionali Paralimpici",
+    shortLabel: "Paralimpici",
+    group: "nazionali",
+    tor: 8,
+    comit: 30,
+    id: 0,
+    icon: "bi-universal-access-circle",
+    description: "Tornei Nazionali Paralimpici Classi 1-11"
+  },
+  {
+    key: "giornate_rosa",
+    label: "Giornate Rosa Nazionali",
+    shortLabel: "Giornate Rosa",
+    group: "nazionali",
+    tor: 12,
+    comit: 30,
+    id: 0,
+    icon: "bi-heart-fill",
+    description: "Manifestazioni Nazionali Giornate Rosa Femminili"
+  },
+  {
+    key: "trofeo_transalpino",
+    label: "Trofeo Transalpino",
+    shortLabel: "Transalpino",
+    group: "nazionali",
+    tor: 9,
+    comit: 30,
+    id: 0,
+    icon: "bi-compass-fill",
+    description: "Trofeo Transalpino giovanile e internazionale"
+  },
+  {
+    key: "campionati_italiani",
+    label: "Campionati Italiani",
+    shortLabel: "Camp. Italiani",
+    group: "nazionali",
+    tor: 10,
+    comit: 30,
+    id: 0,
+    icon: "bi-patch-check-fill",
+    description: "Campionati Italiani Individuali e di Categoria"
+  },
+  {
+    key: "coppa_italia",
+    label: "Coppa Italia CC.RR.",
+    shortLabel: "Coppa Italia",
+    group: "nazionali",
+    tor: 14,
+    comit: 30,
+    id: 0,
+    icon: "bi-shield-check",
+    description: "Coppa Italia Comitati Regionali"
+  },
+  {
+    key: "promozionali_naz",
+    label: "Tornei Promozionali",
+    shortLabel: "Promozionali",
+    group: "nazionali",
+    tor: 7,
+    comit: 30,
+    id: 0,
+    icon: "bi-lightning-charge-fill",
+    description: "Tornei Promozionali Nazionali"
+  },
+  // 4. REGIONALI (TOR=100..112, COMIT=1..21, ID=0)
+  {
+    key: "reg_categoria",
+    label: "Tornei Regionali di Categoria",
+    shortLabel: "Categoria Reg.",
+    group: "regionali",
+    tor: 101,
+    comit: 4,
+    id: 0,
+    icon: "bi-layers-fill",
+    description: "Tornei Regionali di Categoria (3\xAA, 4\xAA, 5\xAA, 6\xAA cat.)"
+  },
+  {
+    key: "reg_open",
+    label: "Tornei Open Regionali",
+    shortLabel: "Open Reg.",
+    group: "regionali",
+    tor: 100,
+    comit: 4,
+    id: 0,
+    icon: "bi-globe2",
+    description: "Tornei Open organizzati dal Comitato Regionale"
+  },
+  {
+    key: "reg_giovanili",
+    label: "Tornei Regionali Giovanili",
+    shortLabel: "Giovanili Reg.",
+    group: "regionali",
+    tor: 102,
+    comit: 4,
+    id: 0,
+    icon: "bi-backpack-fill",
+    description: "Tornei Regionali di qualificazione Giovanili"
+  },
+  {
+    key: "reg_ordinari",
+    label: "Tornei Regionali Ordinari",
+    shortLabel: "Ordinari Reg.",
+    group: "regionali",
+    tor: 103,
+    comit: 4,
+    id: 0,
+    icon: "bi-calendar2-check-fill",
+    description: "Tornei Regionali Ordinari e Predeterminati"
+  },
+  {
+    key: "reg_master",
+    label: "Tornei Regionali Master",
+    shortLabel: "Master Reg.",
+    group: "regionali",
+    tor: 105,
+    comit: 4,
+    id: 0,
+    icon: "bi-award-fill",
+    description: "Tornei Regionali Master / Veterani"
+  },
+  {
+    key: "reg_paralimpici",
+    label: "Tornei Regionali Paralimpici",
+    shortLabel: "Paralimpici Reg.",
+    group: "regionali",
+    tor: 108,
+    comit: 4,
+    id: 0,
+    icon: "bi-universal-access-circle",
+    description: "Tornei Regionali Paralimpici"
+  },
+  {
+    key: "reg_campionati",
+    label: "Campionati Regionali",
+    shortLabel: "Camp. Regionali",
+    group: "regionali",
+    tor: 110,
+    comit: 4,
+    id: 0,
+    icon: "bi-trophy-fill",
+    description: "Campionati Regionali Individuali Assoluti e di Categoria"
+  },
+  {
+    key: "reg_provinciali",
+    label: "Tornei Provinciali",
+    shortLabel: "Provinciali",
+    group: "regionali",
+    tor: 111,
+    comit: 4,
+    id: 0,
+    icon: "bi-pin-map-fill",
+    description: "Tornei e Campionati Provinciali"
+  },
+  {
+    key: "reg_promozionali",
+    label: "Tornei Regionali Promozionali",
+    shortLabel: "Promozionali Reg.",
+    group: "regionali",
+    tor: 107,
+    comit: 4,
+    id: 0,
+    icon: "bi-lightning-charge-fill",
+    description: "Tornei Promozionali Regionali"
+  },
+  {
+    key: "reg_giornata_rosa",
+    label: "Giornata Rosa Regionale",
+    shortLabel: "Giornata Rosa Reg.",
+    group: "regionali",
+    tor: 112,
+    comit: 4,
+    id: 0,
+    icon: "bi-heart-fill",
+    description: "Giornate Rosa Regionali"
+  }
+];
+function getTorneoCategoryByKey(key) {
+  return TORNEI_CATEGORIES.find((c) => c.key === key);
+}
+
+// server/app.ts
+import * as cheerio15 from "cheerio";
+var app = express();
+app.use(cors());
+app.use(express.json());
+var AGGRESSIVE_BOT_REGEX = /AhrefsBot|SemrushBot|DotBot|PetalBot|Bytespider|MJ12bot|MegaIndex|BLEXBot|ZoominfoBot/i;
+app.use((req, res, next) => {
+  const userAgent = req.headers["user-agent"] || "";
+  if (AGGRESSIVE_BOT_REGEX.test(userAgent) && (req.path.startsWith("/api") || req.path.startsWith("/player/"))) {
+    return res.status(403).send("Forbidden");
+  }
+  return next();
+});
+var BOT_USER_AGENT_REGEX = /bot|crawler|spider|slurp|bingpreview|facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|embedly|quora|pinterest|slackbot|vkshare|w3c_validator|AhrefsBot|SemrushBot|DotBot|PetalBot|Bytespider|MJ12bot|MegaIndex|BLEXBot|ZoominfoBot/i;
+function isForceRefreshRequest(req) {
+  const userAgent = req.headers["user-agent"] || "";
+  if (BOT_USER_AGENT_REGEX.test(userAgent)) {
+    return false;
+  }
+  if (req.query.refresh === "true" || req.query.force === "true") {
+    return true;
+  }
+  return req.method === "POST" && req.path === "/api/refresh";
+}
+app.use((req, _res, next) => {
+  if (isForceRefreshRequest(req)) {
+    return withFitetCacheBypass(next);
+  }
+  return next();
+});
+var CDN_HEADER_DEFAULT = "public, s-maxage=900, stale-while-revalidate=86400";
+var BROWSER_HEADER_DEFAULT = "public, max-age=120, stale-while-revalidate=3600";
+app.use((req, res, next) => {
+  if (req.method !== "GET") return next();
+  if (req.path.startsWith("/api/") || req.path.startsWith("/admin")) {
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  }
+  if (req.path.startsWith("/api/push/") || req.path.startsWith("/api/videos/sync") || req.path === "/api/analytics" || req.path.startsWith("/admin") || isForceRefreshRequest(req)) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    res.setHeader("Vercel-CDN-Cache-Control", "no-store");
+    res.setHeader("CDN-Cache-Control", "no-store");
+    return next();
+  }
+  res.setHeader("Vercel-CDN-Cache-Control", CDN_HEADER_DEFAULT);
+  res.setHeader("CDN-Cache-Control", CDN_HEADER_DEFAULT);
+  res.setHeader("Cache-Control", BROWSER_HEADER_DEFAULT);
+  const originalJson = res.json.bind(res);
+  res.json = ((body) => {
+    if (res.statusCode >= 400) {
+      res.removeHeader("Vercel-CDN-Cache-Control");
+      res.removeHeader("CDN-Cache-Control");
+      res.setHeader("Cache-Control", "no-store");
+    }
+    return originalJson(body);
+  });
+  return next();
+});
+var ANALYTICS_STATIC_ASSET_REGEX = /\.(js|mjs|css|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|eot|otf|map|json|xml|txt|webmanifest|pdf|mp4|webm|mp3)$/i;
+var trackRequestDailyVisitor = (req, mode) => {
+  const userAgent = req.headers["user-agent"] || "";
+  const purpose = String(req.headers["purpose"] || req.headers["sec-purpose"] || "").toLowerCase();
+  if (BOT_USER_AGENT_REGEX.test(userAgent) || purpose.includes("prefetch")) {
+    return Promise.resolve();
+  }
+  const forwarded = typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"].split(",")[0].trim() : "";
+  const ip = forwarded || req.socket?.remoteAddress || "";
+  const visitorHash = analyticsService.computeDailyVisitorHash(ip, userAgent);
+  const visitorTask = analyticsService.trackDailyVisitor(visitorHash);
+  if (!mode) {
+    return visitorTask;
+  }
+  const parsedUa = parseUserAgent(userAgent);
+  const rawCountry = req.headers["x-vercel-ip-country"] || req.headers["cf-ipcountry"] || req.headers["x-geo-country"];
+  const countryCode = typeof rawCountry === "string" ? rawCountry.trim().toUpperCase() : "";
+  const country = /^[A-Z]{2}$/.test(countryCode) ? countryCode : "";
+  return Promise.all([
+    visitorTask,
+    analyticsService.trackVisitorDimensions(visitorHash, {
+      country: country || null,
+      device: parsedUa.device,
+      os: parsedUa.os,
+      browser: parsedUa.browser,
+      mode
+    })
+  ]).then(() => void 0);
+};
+app.use((req, _res, next) => {
+  if (req.method !== "GET") return next();
+  const reqPath = req.path || "/";
+  if (reqPath.startsWith("/api") || reqPath.startsWith("/admin") || reqPath.startsWith("/assets") || ANALYTICS_STATIC_ASSET_REGEX.test(reqPath)) {
+    return next();
+  }
+  const userAgent = req.headers["user-agent"] || "";
+  const purpose = String(req.headers["purpose"] || req.headers["sec-purpose"] || "").toLowerCase();
+  if (BOT_USER_AGENT_REGEX.test(userAgent) || purpose.includes("prefetch")) {
+    return next();
+  }
+  void trackRequestDailyVisitor(req);
+  return next();
+});
+var DEFAULT_CAM_ID = 794;
+var DEFAULT_ANNO_ID = 41;
+var TTL_CLASSIFICA2 = 4 * 60 * 60 * 1e3;
+var TTL_CALENDARIO = 4 * 60 * 60 * 1e3;
+var TTL_STATISTICHE = 6 * 60 * 60 * 1e3;
+var TTL_ATLETA = 7 * 24 * 60 * 60 * 1e3;
+var TTL_REFERTO = 7 * 24 * 60 * 60 * 1e3;
+var TTL_RICERCA_ATLETA = 24 * 60 * 60 * 1e3;
+function computeTeamForm(classifica, calendario) {
+  const playedMatches = [];
+  for (const g of calendario) {
+    for (const m of [...g.partiteAndata, ...g.partiteRitorno]) {
+      if (m.disputato && m.puntiCasa !== null && m.puntiOspite !== null) {
+        playedMatches.push({
+          casa: m.squadraCasa,
+          ospite: m.squadraOspite,
+          puntiCasa: m.puntiCasa,
+          puntiOspite: m.puntiOspite,
+          giornata: m.giornata
+        });
+      }
+    }
+  }
+  playedMatches.sort((a, b) => a.giornata - b.giornata);
+  return classifica.map((team) => {
+    const teamNorm = team.nome.toUpperCase().replace(/\s+/g, " ");
+    const teamForm = [];
+    for (const m of playedMatches) {
+      const casaNorm = m.casa.toUpperCase().replace(/\s+/g, " ");
+      const ospiteNorm = m.ospite.toUpperCase().replace(/\s+/g, " ");
+      if (casaNorm === teamNorm || teamNorm.includes(casaNorm) || casaNorm.includes(teamNorm)) {
+        if (m.puntiCasa > m.puntiOspite) teamForm.push("V");
+        else if (m.puntiCasa < m.puntiOspite) teamForm.push("P");
+        else teamForm.push("N");
+      } else if (ospiteNorm === teamNorm || teamNorm.includes(ospiteNorm) || ospiteNorm.includes(teamNorm)) {
+        if (m.puntiOspite > m.puntiCasa) teamForm.push("V");
+        else if (m.puntiOspite < m.puntiCasa) teamForm.push("P");
+        else teamForm.push("N");
+      }
+    }
+    return {
+      ...team,
+      forma: teamForm.slice(-5)
+      // Last 5 matches
+    };
+  });
+}
+function resolveAthleteChampionshipsFromRanking(campRanking, regione) {
+  const uniqueCampNames = [];
+  for (const m of campRanking) {
+    const trimmed = m.campionato?.trim();
+    if (trimmed && !uniqueCampNames.includes(trimmed)) {
+      uniqueCampNames.push(trimmed);
+    }
+  }
+  const campSessoByName = /* @__PURE__ */ new Map();
+  const sessoCounts = { M: 0, F: 0 };
+  for (const m of campRanking) {
+    const name = m.campionato?.trim();
+    if (!name) continue;
+    const campSesso = normalizeChampionshipGender(m.sesso);
+    if (!campSesso) continue;
+    if (!campSessoByName.has(name)) campSessoByName.set(name, campSesso);
+    sessoCounts[campSesso] += 1;
+  }
+  const athleteSesso = sessoCounts.M > sessoCounts.F ? "M" : sessoCounts.F > sessoCounts.M ? "F" : void 0;
+  const playedCamps = [];
+  for (const cName of uniqueCampNames) {
+    const resolved = championshipCatalog.resolveChampionship(
+      cName,
+      regione,
+      campSessoByName.get(cName) || athleteSesso
+    );
+    if (resolved && !playedCamps.some((pc) => pc.camId === resolved.id)) {
+      playedCamps.push({
+        camId: resolved.id,
+        nome: resolved.nome,
+        categoria: resolved.categoria,
+        regione: resolved.regione
+      });
+    }
+  }
+  return { playedCamps, athleteSesso };
+}
+async function getClassifica(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, forceRefresh = false) {
+  const cacheKey = `classifica_${camId}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+  }
+  const html = await FitetClient.fetchClassifica(camId);
+  const data = parseClassifica(html);
+  try {
+    const teamsToResolve = data.map((t) => ({ nome: t.nome, squadraId: t.squadraId }));
+    await teamResolver.resolveLogosForTeams(teamsToResolve, camId, annoId);
+  } catch (err) {
+    console.warn(`[TeamResolver] Warning resolving team logos for CAM ${camId}:`, err);
+  }
+  const withLogos = data.map((t) => ({
+    ...t,
+    logoUrl: teamResolver.getLogo(t.nome)
+  }));
+  cacheService.set(cacheKey, withLogos, TTL_CLASSIFICA2);
+  return withLogos;
+}
+async function getCalendario(camId = DEFAULT_CAM_ID, annoId = DEFAULT_ANNO_ID, forceRefresh = false) {
+  const cacheKey = `calendario_${camId}_${annoId}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+  }
+  const html = await FitetClient.fetchCalendario(camId, annoId);
+  const data = parseCalendario(html);
+  cacheService.set(cacheKey, data, TTL_CALENDARIO);
+  return data;
+}
+async function enrichCalendarioWithVideos(calendario, camId, championshipName, forceRefresh = false) {
+  try {
+    if (!Array.isArray(calendario) || calendario.length === 0) return calendario;
+    const videos = await youtubeSyncService.getAllVideos(forceRefresh);
+    if (!videos || videos.length === 0) return calendario;
+    const enrichPartita = (partita) => {
+      const matched = youtubeSyncService.matchVideosForMatch(videos, {
+        giornata: partita.giornata,
+        squadraCasa: partita.squadraCasa,
+        squadraOspite: partita.squadraOspite,
+        camId,
+        championshipName
+      });
+      if (matched.length > 0) {
+        const primary = matched[0];
+        return {
+          ...partita,
+          youtubeVideoId: primary.video_id,
+          video: {
+            videoId: primary.video_id,
+            channelName: primary.channel_name,
+            channelUrl: primary.channel_url,
+            title: primary.title,
+            publishedAt: primary.published_at,
+            league: primary.league,
+            matchDay: primary.match_day,
+            teamHome: primary.team_home,
+            teamAway: primary.team_away
+          },
+          videos: matched.map((v) => ({
+            videoId: v.video_id,
+            channelName: v.channel_name,
+            channelUrl: v.channel_url,
+            title: v.title,
+            publishedAt: v.published_at,
+            league: v.league,
+            matchDay: v.match_day,
+            teamHome: v.team_home,
+            teamAway: v.team_away
+          }))
+        };
+      }
+      return partita;
+    };
+    return calendario.map((giornata) => ({
+      ...giornata,
+      partiteAndata: Array.isArray(giornata.partiteAndata) ? giornata.partiteAndata.map(enrichPartita) : [],
+      partiteRitorno: Array.isArray(giornata.partiteRitorno) ? giornata.partiteRitorno.map(enrichPartita) : []
+    }));
+  } catch (err) {
+    console.warn("[EnrichCalendario] Errore associazione video YouTube:", err);
+    return calendario;
+  }
+}
+async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squadraIds = []) {
+  const cacheKey = `statistiche_${camId}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+  }
+  try {
+    if (squadraIds.length > 0) {
+      await athleteResolver.resolveAthletesForChampionship(camId, squadraIds);
+    }
+  } catch (err) {
+    console.warn(`[AthleteResolver] Warning resolving athletes for CAM ${camId}:`, err);
+  }
+  const html = await FitetClient.fetchStatisticheAtleti(camId);
+  const mapping = athleteResolver.getMapping();
+  const data = parseStatisticheAtleti(html, mapping);
+  cacheService.set(cacheKey, data, TTL_STATISTICHE);
+  return data;
+}
+app.get("/api/campionati", async (req, res) => {
+  const forceRefresh = isForceRefreshRequest(req);
+  try {
+    const campionati = await championshipCatalog.getAllCampionati(forceRefresh);
+    res.json(campionati);
+  } catch (error) {
+    console.error("Error fetching championship catalog:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+app.get("/api/dashboard", async (req, res) => {
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  const forceRefresh = isForceRefreshRequest(req);
+  try {
+    const [rawClassifica, calendario, champMeta] = await Promise.all([
+      getClassifica(cam, anno, forceRefresh),
+      getCalendario(cam, anno, forceRefresh),
+      championshipCatalog.getChampionship(cam)
+    ]);
+    const squadraIds = rawClassifica.map((s) => s.squadraId).filter(Boolean);
+    const statisticheAtleti = await getStatistiche(cam, forceRefresh, squadraIds);
+    const classifica = computeTeamForm(rawClassifica, calendario);
+    const enrichedCalendario = await enrichCalendarioWithVideos(calendario, cam, champMeta?.nome, forceRefresh);
+    const payload = {
+      classifica,
+      calendario: enrichedCalendario,
+      statisticheAtleti,
+      lastUpdated: (/* @__PURE__ */ new Date()).toISOString(),
+      championship: {
+        id: cam,
+        anno,
+        nome: champMeta?.nome || `Campionato ${cam}`,
+        girone: champMeta?.nome || "",
+        regione: champMeta?.regione || "Nazionale"
+      }
+    };
+    res.json(payload);
+  } catch (error) {
+    console.error(`Error fetching dashboard data for CAM=${cam}:`, error);
+    res.status(500).json({ error: "Errore durante il recupero dei dati FITeT", details: error.message });
+  }
+});
+app.get("/api/classifica", async (req, res) => {
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  const forceRefresh = isForceRefreshRequest(req);
+  try {
+    const data = await getClassifica(cam, anno, forceRefresh);
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+app.get("/api/calendario", async (req, res) => {
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  const forceRefresh = isForceRefreshRequest(req);
+  try {
+    const data = await getCalendario(cam, anno, forceRefresh);
+    const champMeta = await championshipCatalog.getChampionship(cam);
+    const enriched = await enrichCalendarioWithVideos(data, cam, champMeta?.nome, forceRefresh);
+    res.json(enriched);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+app.get("/api/statistiche", async (req, res) => {
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
+  const forceRefresh = isForceRefreshRequest(req);
+  try {
+    const classifica = await getClassifica(cam, DEFAULT_ANNO_ID, forceRefresh);
+    const squadraIds = classifica.map((s) => s.squadraId).filter(Boolean);
+    const data = await getStatistiche(cam, forceRefresh, squadraIds);
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+app.get("/api/ranking", async (req, res) => {
+  const sesso = req.query.sesso === "F" ? "F" : "M";
+  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const comit = req.query.comit ? String(req.query.comit).trim() : "";
+  const forceRefresh = isForceRefreshRequest(req);
+  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) : await getLatestIdClass(forceRefresh);
+  const categoryKey = req.query.category || "";
+  const catDef = categoryKey ? getRankingCategoryByKey(categoryKey) : void 0;
+  const tipo = req.query.tipo !== void 0 ? String(req.query.tipo) : catDef ? String(catDef.tipo) : "1";
+  const sett = req.query.sett !== void 0 ? String(req.query.sett) : catDef ? catDef.sett : "0";
+  const s = req.query.s !== void 0 ? String(req.query.s) : catDef ? String(catDef.s) : "0";
+  const fq = req.query.fq !== void 0 ? String(req.query.fq) : catDef ? String(catDef.fq) : "0";
+  const g = req.query.g !== void 0 ? String(req.query.g) : catDef ? String(catDef.g) : "0";
+  const v = req.query.v !== void 0 ? String(req.query.v) : catDef ? String(catDef.v) : "0";
+  const p = req.query.p !== void 0 ? String(req.query.p) : catDef?.p !== void 0 ? String(catDef.p) : void 0;
+  const isRegionale = !!comit && comit !== "0" && comit !== "all";
+  const comitId = isRegionale ? parseInt(comit, 10) : void 0;
+  const cacheKey = `ranking_${idClass}_${sesso}_${isRegionale ? `comit_${comitId}` : "naz"}_t${tipo}_s${sett}_S${s}_FQ${fq}_G${g}_V${v}${p ? `_P${p}` : ""}_p${page}`;
+  try {
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      if (cached) return res.json(cached);
+    }
+    const pParam = p !== void 0 && p !== null && p !== "" ? `&P=${p}` : "";
+    let url = "";
+    if (isRegionale) {
+      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica_comit.php?COMIT=${comitId}&SESSO=${sesso}&ID_CLASS=${idClass}&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
+    } else {
+      url = `https://portale.fitet.org/risultati/new_rank/ranking_unica.php?SESSO=${sesso}&ID_CLASS=${idClass}&ZU=1&TIPO=${tipo}&SETT=${sett}&page=${page}&S=${s}&FQ=${fq}&G=${g}&V=${v}${pParam}`;
+    }
+    const html = await FitetClient.fetchHtml(url, true);
+    const result = parseRankingHtml(html, sesso, page, comitId, catDef?.key || categoryKey || "generale");
+    cacheService.set(cacheKey, result, 60 * 60 * 1e3);
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching ranking:", error);
+    res.status(500).json({ error: "Errore nel recupero della classifica", details: error.message });
+  }
+});
+async function getDynamicMenuManifestazioni(forceRefresh = false) {
+  const cacheKey = "tornei_menu_manifestazioni";
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+  }
+  try {
+    const html = await FitetClient.fetchHtml("https://portale.fitet.org/menu.php");
+    const parsed = parseMenuManifestazioni(html);
+    if (parsed.length > 0) {
+      cacheService.set(cacheKey, parsed, 6 * 60 * 60 * 1e3);
+    }
+    return parsed;
+  } catch {
+    return [];
+  }
+}
+async function fetchSingleTorneoSection(key, shortLabel, fallbackTitle, tor, comit, id, regFilter, forceRefresh = false) {
+  const cacheKey = `tornei_sec_${key}_t${tor}_c${comit}_id${id}_r${regFilter || 0}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return cached;
+  }
+  const baseUrl = "https://portale.fitet.org/risultati/tornei";
+  const testaUrl = `${baseUrl}/testa_tornei.php?TOR=${tor}&COMIT=${comit}&ID=${id}`;
+  const elencoUrl = regFilter && tor === 0 ? `${baseUrl}/elenco_tornei.php?REG=${regFilter}&TOR=${tor}&ID=${id}&COMIT=${comit}` : `${baseUrl}/elenco_tornei.php?TOR=${tor}&COMIT=${comit}&ID=${id}`;
+  const [testaHtml, elencoHtml] = await Promise.all([
+    FitetClient.fetchHtml(testaUrl).catch(() => ""),
+    FitetClient.fetchHtml(elencoUrl).catch(() => "")
+  ]);
+  const title = parseTestaTornei(testaHtml, fallbackTitle);
+  const parsed = parseElencoTornei(elencoHtml, comit, tor, regFilter, key, shortLabel);
+  if (parsed.regions.length > 0 && parsed.tornei.length === 0) {
+    const targetRegions = regFilter ? parsed.regions.filter((r) => r.regId === regFilter) : parsed.regions;
+    const regResults = await Promise.all(
+      targetRegions.map(async (r) => {
+        const regUrl = `${baseUrl}/elenco_tornei.php?REG=${r.regId}&TOR=${r.tor}&ID=${r.id}&COMIT=${r.comit}`;
+        const regHtml = await FitetClient.fetchHtml(regUrl).catch(() => "");
+        const subParsed = parseElencoTornei(regHtml, r.comit, r.tor, r.regId, key, shortLabel);
+        if (subParsed.tornei.length === 0) {
+          const fallbackHtml = await FitetClient.fetchHtml(
+            `${baseUrl}/elenco_tornei.php?TOR=100&COMIT=${r.regId}&ID=0`
+          ).catch(() => "");
+          return parseElencoTornei(fallbackHtml, r.regId, 100, r.regId, key, shortLabel).tornei;
+        }
+        return subParsed.tornei;
+      })
+    );
+    const mergedTornei = regResults.flat();
+    const sectionResult2 = {
+      key,
+      title,
+      shortLabel,
+      tor,
+      comit,
+      id,
+      reg: regFilter,
+      regioneNome: regFilter ? COMIT_NAMES[regFilter] : void 0,
+      tornei: mergedTornei,
+      availableRegions: parsed.regions.map((r) => ({
+        regId: r.regId,
+        name: r.name,
+        tor: r.tor,
+        id: r.id,
+        comit: r.comit
+      }))
+    };
+    cacheService.set(cacheKey, sectionResult2, 2 * 60 * 60 * 1e3);
+    return sectionResult2;
+  }
+  if (tor === 0 && parsed.tornei.length === 0 && parsed.regions.length === 0) {
+    const dynamicMenu = await getDynamicMenuManifestazioni(forceRefresh);
+    const dynamicOpen = dynamicMenu.find((m) => m.tor === 0 && m.id > 0 && /open/i.test(m.label));
+    if (dynamicOpen && dynamicOpen.id !== id) {
+      return fetchSingleTorneoSection(
+        key,
+        shortLabel,
+        fallbackTitle,
+        dynamicOpen.tor,
+        dynamicOpen.comit,
+        dynamicOpen.id,
+        regFilter,
+        forceRefresh
+      );
+    }
+    if (regFilter && regFilter >= 1 && regFilter <= 21) {
+      const fbHtml = await FitetClient.fetchHtml(
+        `${baseUrl}/elenco_tornei.php?TOR=100&COMIT=${regFilter}&ID=0`
+      ).catch(() => "");
+      const fbParsed = parseElencoTornei(fbHtml, regFilter, 100, regFilter, key, shortLabel);
+      parsed.tornei = fbParsed.tornei;
+    }
+  }
+  const sectionResult = {
+    key,
+    title,
+    shortLabel,
+    tor,
+    comit,
+    id,
+    reg: regFilter,
+    regioneNome: regFilter ? COMIT_NAMES[regFilter] : comit <= 21 ? COMIT_NAMES[comit] : void 0,
+    tornei: parsed.tornei
+  };
+  cacheService.set(cacheKey, sectionResult, 2 * 60 * 60 * 1e3);
+  return sectionResult;
+}
+app.get("/api/tornei", async (req, res) => {
+  const categoryKey = (req.query.category || "all").trim();
+  const comitParam = req.query.comit ? parseInt(req.query.comit, 10) : 0;
+  const regParam = req.query.reg ? parseInt(req.query.reg, 10) : 0;
+  const customTor = req.query.tor !== void 0 ? parseInt(req.query.tor, 10) : void 0;
+  const customId = req.query.id !== void 0 ? parseInt(req.query.id, 10) : void 0;
+  const forceRefresh = isForceRefreshRequest(req);
+  try {
+    if (categoryKey === "all" || categoryKey === "reg_all") {
+      const isRegionSelected = comitParam >= 1 && comitParam <= 21;
+      if (isRegionSelected || categoryKey === "reg_all") {
+        const targetRegion = isRegionSelected ? comitParam : regParam >= 1 && regParam <= 21 ? regParam : 4;
+        const targetRegionName = COMIT_NAMES[targetRegion] || "";
+        const regCategories = TORNEI_CATEGORIES.filter((c) => c.group === "regionali");
+        const regSections = await Promise.all(
+          regCategories.map(
+            (c) => fetchSingleTorneoSection(
+              c.key,
+              c.shortLabel,
+              c.label,
+              c.tor,
+              targetRegion,
+              c.id,
+              targetRegion,
+              forceRefresh
+            )
+          )
+        );
+        const nationalCats = TORNEI_CATEGORIES.filter((c) => c.group !== "regionali");
+        const natSections = await Promise.all(
+          nationalCats.map(
+            (c) => fetchSingleTorneoSection(
+              c.key,
+              c.shortLabel,
+              c.label,
+              c.tor,
+              c.comit,
+              c.id,
+              void 0,
+              forceRefresh
+            )
+          )
+        );
+        const filteredNatSections = natSections.map((sec) => {
+          const matchingTornei = sec.tornei.filter(
+            (t) => torneoMatchesRegion(t, targetRegionName)
+          );
+          return { ...sec, tornei: matchingTornei };
+        }).filter((sec) => sec.tornei.length > 0);
+        const populatedReg = regSections.filter((s) => s.tornei.length > 0);
+        const combinedSections = [...populatedReg, ...filteredNatSections];
+        const payload3 = {
+          title: `MANIFESTAZIONI E TORNEI IN ${targetRegionName.toUpperCase()} - STAGIONE 2026/27`,
+          categoryKey,
+          comitId: targetRegion,
+          regId: targetRegion,
+          sections: combinedSections.length > 0 ? combinedSections : regSections.slice(0, 1),
+          totalTornei: combinedSections.reduce((acc, s) => acc + s.tornei.length, 0),
+          lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+        };
+        return res.json(payload3);
+      }
+      const nationalAndOpenCats = TORNEI_CATEGORIES.filter((c) => c.group !== "regionali");
+      const sections = await Promise.all(
+        nationalAndOpenCats.map(
+          (c) => fetchSingleTorneoSection(
+            c.key,
+            c.shortLabel,
+            c.label,
+            c.tor,
+            c.comit,
+            c.id,
+            regParam > 0 ? regParam : void 0,
+            forceRefresh
+          )
+        )
+      );
+      const populated = sections.filter((s) => s.tornei.length > 0);
+      const payload2 = {
+        title: "MANIFESTAZIONI E TORNEI UFFICIALI FITeT - STAGIONE 2026/27",
+        categoryKey: "all",
+        comitId: 30,
+        regId: regParam > 0 ? regParam : void 0,
+        sections: populated,
+        totalTornei: populated.reduce((acc, s) => acc + s.tornei.length, 0),
+        lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      return res.json(payload2);
+    }
+    const catDef = getTorneoCategoryByKey(categoryKey);
+    const tor = customTor !== void 0 ? customTor : catDef ? catDef.tor : 21;
+    const id = customId !== void 0 ? customId : catDef ? catDef.id : 0;
+    const isRegCat = catDef?.group === "regionali" || tor >= 100;
+    const comit = isRegCat ? comitParam >= 1 && comitParam <= 21 ? comitParam : regParam >= 1 && regParam <= 21 ? regParam : 4 : comitParam > 0 && customTor !== void 0 ? comitParam : catDef?.comit || 30;
+    const activeRegFilter = tor === 0 ? regParam >= 1 && regParam <= 21 ? regParam : comitParam >= 1 && comitParam <= 21 ? comitParam : void 0 : isRegCat ? comit : void 0;
+    const section = await fetchSingleTorneoSection(
+      catDef?.key || categoryKey,
+      catDef?.shortLabel || "Tornei",
+      catDef?.label || "TORNEI FITeT",
+      tor,
+      comit,
+      id,
+      activeRegFilter,
+      forceRefresh
+    );
+    if (!isRegCat && comitParam >= 1 && comitParam <= 21) {
+      const targetRegionName = COMIT_NAMES[comitParam] || "";
+      section.tornei = section.tornei.filter(
+        (t) => torneoMatchesRegion(t, targetRegionName)
+      );
+    }
+    const payload = {
+      title: section.title,
+      categoryKey: catDef?.key || categoryKey,
+      comitId: comit,
+      regId: activeRegFilter,
+      sections: [section],
+      totalTornei: section.tornei.length,
+      lastUpdated: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    return res.json(payload);
+  } catch (error) {
+    console.error("Error fetching tornei:", error);
+    res.status(500).json({ error: "Errore nel recupero dei tornei FITeT", details: error.message });
+  }
+});
+app.get("/api/tornei/dettaglio", async (req, res) => {
+  const idt = parseInt(req.query.idt, 10);
+  const com = parseInt(req.query.com, 10) || 30;
+  const anno = parseInt(req.query.anno, 10) || 41;
+  const forceRefresh = isForceRefreshRequest(req);
+  if (!idt || isNaN(idt)) {
+    return res.status(400).json({ error: "Parametro IDT mancante o non valido" });
+  }
+  const cacheKey = `torneo_dettaglio_${idt}_${com}_${anno}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return res.json(cached);
+  }
+  try {
+    const baseUrl = "https://portale.fitet.org/risultati/tornei";
+    const [elencoGareHtml, iscrizioniHtml] = await Promise.all([
+      FitetClient.fetchHtml(`${baseUrl}/elenco_gare.php?IDT=${idt}&COM=${com}`).catch(() => ""),
+      FitetClient.fetchHtml(`${baseUrl}/iscrizioni.php?IDT=${idt}&COM=${com}`).catch(() => "")
+    ]);
+    const parsed = parseDettaglioTorneo(elencoGareHtml, iscrizioniHtml, idt, com, anno);
+    cacheService.set(cacheKey, parsed, 2 * 60 * 60 * 1e3);
+    res.json(parsed);
+  } catch (error) {
+    console.error(`Error fetching torneo dettaglio IDT=${idt}:`, error);
+    res.status(500).json({ error: "Errore nel recupero dei dettagli del torneo", details: error.message });
+  }
+});
+async function resolveSingleIscrittoCurrentPoints(item) {
+  const rawName = (item.nome || "").trim();
+  if (!rawName) return { atletaId: null, puntiClassificaAttuale: null };
+  const primaryName = rawName.includes("/") ? rawName.split("/")[0].trim() : rawName;
+  let atletaId = item.atletaId || null;
+  if (!atletaId || !/^\d+$/.test(atletaId)) {
+    atletaId = await athleteResolver.resolveAthleteId(primaryName);
+  }
+  if (!atletaId) {
+    return { atletaId: null, puntiClassificaAttuale: null };
+  }
+  const ptsCacheKey = `atleta_pts_${atletaId}`;
+  const cachedPts = cacheService.get(ptsCacheKey);
+  if (typeof cachedPts === "number" && cachedPts > 0) {
+    return { atletaId, puntiClassificaAttuale: cachedPts };
+  }
+  const cachedAtleta = cacheService.get(`atleta_${atletaId}`);
+  if (cachedAtleta) {
+    const storico = cachedAtleta.storicoClassifica || [];
+    const lastSnap = storico.length > 0 ? storico[storico.length - 1] : null;
+    const pts = lastSnap?.punti ? Math.round(lastSnap.punti) : cachedAtleta.anagrafica?.punti ? Math.round(cachedAtleta.anagrafica.punti) : null;
+    if (pts && pts > 0) {
+      cacheService.set(ptsCacheKey, pts, TTL_ATLETA);
+      return { atletaId, puntiClassificaAttuale: pts };
+    }
+  }
+  try {
+    const html = await FitetClient.fetchSchedaAtleta(atletaId);
+    const parsed = parseDettaglioAtleta(html, atletaId);
+    const storico = parsed.storicoClassifica || [];
+    const lastSnap = storico.length > 0 ? storico[storico.length - 1] : null;
+    const pts = lastSnap?.punti ? Math.round(lastSnap.punti) : parsed.anagrafica?.punti ? Math.round(parsed.anagrafica.punti) : null;
+    if (pts && pts > 0) {
+      cacheService.set(ptsCacheKey, pts, TTL_ATLETA);
+      return { atletaId, puntiClassificaAttuale: pts };
+    }
+  } catch (err) {
+    console.warn(`[TorneiIscritti] Impossibile recuperare punti attuali per ${primaryName} (${atletaId}):`, err);
+  }
+  return { atletaId, puntiClassificaAttuale: null };
+}
+async function enrichIscrittiWithCurrentRankingPoints(iscritti, timeBudgetMs = 2800, concurrency = 12) {
+  if (!iscritti || iscritti.length === 0) return;
+  const pendingIndices = [];
+  for (let i = 0; i < iscritti.length; i++) {
+    const item = iscritti[i];
+    if (item.puntiClassificaAttuale && item.puntiClassificaAttuale > 0) continue;
+    if (item.atletaId) {
+      const cachedPts = cacheService.get(`atleta_pts_${item.atletaId}`);
+      if (typeof cachedPts === "number" && cachedPts > 0) {
+        item.puntiClassificaAttuale = cachedPts;
+        continue;
+      }
+    }
+    pendingIndices.push(i);
+  }
+  if (pendingIndices.length === 0) return;
+  let cursor = 0;
+  const workerPool = Promise.all(
+    Array.from({ length: Math.min(concurrency, pendingIndices.length) }, async () => {
+      while (cursor < pendingIndices.length) {
+        const idx = pendingIndices[cursor++];
+        const target = iscritti[idx];
+        const resolved = await resolveSingleIscrittoCurrentPoints(target);
+        if (resolved.atletaId) target.atletaId = resolved.atletaId;
+        if (resolved.puntiClassificaAttuale !== null) {
+          target.puntiClassificaAttuale = resolved.puntiClassificaAttuale;
+        }
+      }
+    })
+  );
+  if (timeBudgetMs > 0) {
+    await Promise.race([
+      workerPool,
+      new Promise((resolve) => setTimeout(resolve, timeBudgetMs))
+    ]);
+  } else {
+    await workerPool;
+  }
+}
+app.post("/api/tornei/iscritti-punti", async (req, res) => {
+  const items = Array.isArray(req.body?.iscritti) ? req.body.iscritti.slice(0, 60) : [];
+  if (items.length === 0) {
+    return res.json({ results: {} });
+  }
+  try {
+    const results = {};
+    let cursor = 0;
+    const concurrency = 12;
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+        while (cursor < items.length) {
+          const item = items[cursor++];
+          if (!item?.nome) continue;
+          const resolved = await resolveSingleIscrittoCurrentPoints(item);
+          results[item.nome] = resolved;
+        }
+      })
+    );
+    return res.json({ results });
+  } catch (error) {
+    console.error("Error in /api/tornei/iscritti-punti:", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+app.get("/api/tornei/gara", async (req, res) => {
+  const idt = parseInt(req.query.idt, 10);
+  const com = parseInt(req.query.com, 10) || 30;
+  const garaId = (req.query.gara || "").trim();
+  const anno = parseInt(req.query.anno, 10) || 41;
+  const isDoppio = req.query.isDoppio === "true";
+  const mode = req.query.mode === "iscrizioni" ? "iscrizioni" : "risultati";
+  const reqCod1 = req.query.cod1 ? parseInt(req.query.cod1, 10) : void 0;
+  const reqCod2 = req.query.cod2 ? parseInt(req.query.cod2, 10) : void 0;
+  const reqTab = req.query.tab ? parseInt(req.query.tab, 10) : void 0;
+  const reqTurno = req.query.turno ? parseInt(req.query.turno, 10) : void 0;
+  const forceRefresh = isForceRefreshRequest(req);
+  if (!idt || !garaId) {
+    return res.status(400).json({ error: "Parametri idt e gara obbligatori" });
+  }
+  const cacheKey = `torneo_gara_${idt}_${com}_${garaId}_${mode}_c${reqCod1 || 0}_${reqCod2 || 0}_t${reqTab || 0}_${reqTurno || 0}`;
+  if (!forceRefresh) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return res.json(cached);
+  }
+  try {
+    const baseUrl = "https://portale.fitet.org/risultati/tornei";
+    const mapping = athleteResolver.getMapping();
+    if (mode === "iscrizioni") {
+      const iscrHtml = await FitetClient.fetchHtml(
+        `${baseUrl}/iscrizioni_gara.php?GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}`
+      ).catch(() => "");
+      const parsedIscr = parseIscrizioniGara(iscrHtml, mapping);
+      await enrichIscrittiWithCurrentRankingPoints(parsedIscr.iscritti, 2800);
+      const payload2 = {
+        idt,
+        com,
+        garaId,
+        anno,
+        titoloGara: parsedIscr.titoloGara || `Gara ${garaId}`,
+        mode: "iscrizioni",
+        isDoppio,
+        maxIscritti: parsedIscr.maxIscritti,
+        iscritti: parsedIscr.iscritti,
+        gironiRanges: [],
+        gironi: [],
+        turniTabellone: [],
+        partiteTabellone: []
+      };
+      cacheService.set(cacheKey, payload2, 15 * 60 * 1e3);
+      return res.json(payload2);
+    }
+    const gestioneUrl = isDoppio ? `${baseUrl}/gestione_gare_doppio.php?ANNO=${anno}&GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}` : `${baseUrl}/gestione_gare_n.php?ANNO=${anno}&GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}&TAB=0`;
+    const gestioneHtml = await FitetClient.fetchHtml(gestioneUrl).catch(() => "");
+    const meta = parseGestioneGara(gestioneHtml, mapping);
+    if (meta.gironiRanges.length === 0 && meta.turniTabellone.length === 0) {
+      const iscrHtml = await FitetClient.fetchHtml(
+        `${baseUrl}/iscrizioni_gara.php?GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}`
+      ).catch(() => "");
+      const parsedIscr = parseIscrizioniGara(iscrHtml, mapping);
+      if (parsedIscr.iscritti.length > 0) {
+        await enrichIscrittiWithCurrentRankingPoints(parsedIscr.iscritti, 2800);
+        const fallbackPayload = {
+          idt,
+          com,
+          garaId,
+          anno,
+          titoloGara: parsedIscr.titoloGara || meta.titoloGara || `Gara ${garaId}`,
+          mode: "iscrizioni",
+          isDoppio,
+          maxIscritti: parsedIscr.maxIscritti,
+          iscritti: parsedIscr.iscritti,
+          gironiRanges: [],
+          gironi: [],
+          turniTabellone: [],
+          partiteTabellone: []
+        };
+        cacheService.set(cacheKey, fallbackPayload, 15 * 60 * 1e3);
+        return res.json(fallbackPayload);
+      }
+    }
+    const activeGironiRange = reqCod1 !== void 0 && reqCod2 !== void 0 ? { cod1: reqCod1, cod2: reqCod2 } : meta.gironiRanges.length > 0 ? { cod1: meta.gironiRanges[0].cod1, cod2: meta.gironiRanges[0].cod2 } : null;
+    let activeTurno = reqTurno !== void 0 ? meta.turniTabellone.find((t) => t.turno === reqTurno && (!reqTab || t.tab === reqTab)) || {
+      tab: reqTab || 1,
+      turno: reqTurno,
+      label: `Turno ${reqTurno}`
+    } : meta.turniTabellone.length > 0 ? meta.turniTabellone[0] : null;
+    const [gironiHtml, tabelloneHtml] = await Promise.all([
+      activeGironiRange ? FitetClient.fetchHtml(
+        `${baseUrl}/risultati.php?COD_1=${activeGironiRange.cod1}&COD_2=${activeGironiRange.cod2}&IDT=${idt}&ANNO=${anno}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+      ).catch(() => "") : Promise.resolve(""),
+      activeTurno ? FitetClient.fetchHtml(
+        isDoppio ? `${baseUrl}/risultati_tabellone_doppio.php?ANNO=${anno}&TURNO=${activeTurno.turno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}` : `${baseUrl}/risultati_tabellone.php?TAB=${activeTurno.tab}&TURNO=${activeTurno.turno}&ANNO=${anno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+      ).catch(() => "") : Promise.resolve("")
+    ]);
+    const gironi = parseRisultatiGironi(gironiHtml, mapping);
+    let partiteTabellone = parseRisultatiTabellone(tabelloneHtml, mapping);
+    if (partiteTabellone.length === 0 && reqTurno === void 0 && meta.turniTabellone.length > 1) {
+      const candidateTurni = meta.turniTabellone.slice(1);
+      const fallbackTurniResults = await Promise.all(
+        candidateTurni.map(async (t) => {
+          const html = await FitetClient.fetchHtml(
+            isDoppio ? `${baseUrl}/risultati_tabellone_doppio.php?ANNO=${anno}&TURNO=${t.turno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}` : `${baseUrl}/risultati_tabellone.php?TAB=${t.tab}&TURNO=${t.turno}&ANNO=${anno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+          ).catch(() => "");
+          return { turnoObj: t, matches: parseRisultatiTabellone(html, mapping) };
+        })
+      );
+      const firstPopulated = fallbackTurniResults.find((r) => r.matches.length > 0);
+      if (firstPopulated) {
+        activeTurno = firstPopulated.turnoObj;
+        partiteTabellone = firstPopulated.matches;
+      }
+    }
+    let allTurniTabellone = [];
+    if (meta.turniTabellone.length > 0) {
+      const allTurniRaw = await Promise.all(
+        meta.turniTabellone.map(async (t) => {
+          if (activeTurno && activeTurno.turno === t.turno && (!activeTurno.tab || activeTurno.tab === t.tab) && partiteTabellone.length > 0) {
+            return { tab: t.tab, turno: t.turno, label: t.label, matches: partiteTabellone };
+          }
+          const html = await FitetClient.fetchHtml(
+            isDoppio ? `${baseUrl}/risultati_tabellone_doppio.php?ANNO=${anno}&TURNO=${t.turno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}` : `${baseUrl}/risultati_tabellone.php?TAB=${t.tab}&TURNO=${t.turno}&ANNO=${anno}&IDT=${idt}&GARA=${encodeURIComponent(garaId)}&COM=${com}`
+          ).catch(() => "");
+          return { tab: t.tab, turno: t.turno, label: t.label, matches: parseRisultatiTabellone(html, mapping) };
+        })
+      );
+      allTurniTabellone = allTurniRaw.filter((tr) => tr.matches.length > 0);
+    }
+    const hasPlayedGironi = gironi.some(
+      (g) => g.partite.length > 0 || g.classifica.length > 0
+    );
+    const hasPlayedBracket = allTurniTabellone.length > 0 || partiteTabellone.length > 0;
+    if (!hasPlayedGironi && !hasPlayedBracket && reqCod1 === void 0 && reqCod2 === void 0 && reqTab === void 0 && reqTurno === void 0) {
+      const iscrHtml = await FitetClient.fetchHtml(
+        `${baseUrl}/iscrizioni_gara.php?GARA=${encodeURIComponent(garaId)}&IDT=${idt}&COM=${com}`
+      ).catch(() => "");
+      const parsedIscr = parseIscrizioniGara(iscrHtml, mapping);
+      if (parsedIscr.iscritti.length > 0) {
+        await enrichIscrittiWithCurrentRankingPoints(parsedIscr.iscritti, 2800);
+        const fallbackPayload = {
+          idt,
+          com,
+          garaId,
+          anno,
+          titoloGara: parsedIscr.titoloGara || meta.titoloGara || `Gara ${garaId}`,
+          mode: "iscrizioni",
+          isDoppio,
+          maxIscritti: parsedIscr.maxIscritti,
+          iscritti: parsedIscr.iscritti,
+          gironiRanges: [],
+          gironi: [],
+          turniTabellone: [],
+          partiteTabellone: []
+        };
+        cacheService.set(cacheKey, fallbackPayload, 15 * 60 * 1e3);
+        return res.json(fallbackPayload);
+      }
+    }
+    const payload = {
+      idt,
+      com,
+      garaId,
+      anno,
+      titoloGara: meta.titoloGara || `Gara ${garaId}`,
+      mode: "risultati",
+      isDoppio,
+      vincitore: meta.vincitore,
+      vincitoreId: meta.vincitoreId,
+      vincitoreFotoUrl: meta.vincitoreFotoUrl,
+      valoreRanking: meta.valoreRanking,
+      iscritti: [],
+      gironiRanges: meta.gironiRanges,
+      activeGironiRange,
+      gironi,
+      turniTabellone: meta.turniTabellone,
+      activeTurno,
+      partiteTabellone,
+      allTurniTabellone
+    };
+    cacheService.set(cacheKey, payload, 30 * 60 * 1e3);
+    return res.json(payload);
+  } catch (error) {
+    console.error(`Error fetching gara ${garaId} for IDT=${idt}:`, error);
+    res.status(500).json({ error: "Errore nel recupero dei risultati della gara", details: error.message });
+  }
+});
+app.get("/api/atleta/:id", async (req, res) => {
+  let { id } = req.params;
+  const forceRefresh = isForceRefreshRequest(req);
+  if (!id || id === "null" || id === "undefined") {
+    return res.status(400).json({ error: "ID atleta non valido" });
+  }
+  if (!/^\d+$/.test(id)) {
+    let cleanName = id;
+    try {
+      cleanName = decodeURIComponent(id);
+    } catch {
+    }
+    cleanName = cleanName.trim();
+    const resolvedId = await athleteResolver.resolveAthleteId(cleanName);
+    if (resolvedId) {
+      id = resolvedId;
+    } else {
+      return res.status(404).json({ error: `Impossibile risolvere ID federale per "${cleanName}"` });
+    }
+  }
+  const cacheKey = `atleta_${id}`;
+  try {
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      const isHollow2 = !cached || !cached.anagrafica || cached.anagrafica.nome?.startsWith("Atleta ") || cached.anagrafica.punti === 0 && (!cached.storicoClassifica || cached.storicoClassifica.length === 0);
+      if (cached && !isHollow2 && cached.partiteRanking) {
+        const corrected = resolveAthleteChampionshipsFromRanking(
+          cached.partiteRanking?.campionato || [],
+          cached.anagrafica?.regione
+        );
+        const currentIds = (cached.campionatiGiocati || []).map((c) => c.camId).join(",");
+        const correctedIds = corrected.playedCamps.map((c) => c.camId).join(",");
+        if (corrected.playedCamps.length > 0 && currentIds !== correctedIds) {
+          cached.campionatoAttuale = corrected.playedCamps[0];
+          cached.campionatiGiocati = corrected.playedCamps;
+          cacheService.set(cacheKey, cached, TTL_ATLETA);
+        } else if (!cached.campionatiGiocati || cached.campionatiGiocati.length === 0) {
+          const fallback = await championshipCatalog.findAthleteChampionship(
+            id,
+            cached.anagrafica?.nome,
+            cached.anagrafica?.regione,
+            corrected.athleteSesso || null,
+            { maxDurationMs: 4500 }
+          );
+          if (fallback) {
+            const campEntry = {
+              camId: fallback.id,
+              nome: fallback.nome,
+              categoria: fallback.categoria,
+              regione: fallback.regione,
+              squadra: fallback.squadra
+            };
+            cached.campionatoAttuale = campEntry;
+            cached.campionatiGiocati = [campEntry];
+            cacheService.set(cacheKey, cached, TTL_ATLETA);
+          }
+        }
+        if (cached.anagrafica?.societa && !cached.anagrafica.logoUrl) {
+          const resolvedLogo = teamResolver.getLogo(cached.anagrafica.societa);
+          if (resolvedLogo) {
+            cached.anagrafica.logoUrl = resolvedLogo;
+          }
+        }
+        return res.json(cached);
+      }
+    }
+    let resolvedIdClass = await getLatestIdClass();
+    const html = await FitetClient.fetchSchedaAtleta(id, resolvedIdClass);
+    let partiteRanking = void 0;
+    let iframeUrl = extractRankingIframeUrl(html);
+    if (iframeUrl) {
+      try {
+        const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);
+        partiteRanking = parsePartiteRanking(iframeHtml, id);
+        const idClassMatch = iframeUrl.match(/\/html\/(\d+)\//i);
+        if (idClassMatch) resolvedIdClass = parseInt(idClassMatch[1], 10);
+      } catch (iframeErr) {
+        console.warn(`Could not fetch ranking matches iframe for athlete ${id}:`, iframeErr);
+      }
+    }
+    const atleta = parseDettaglioAtleta(html, id, partiteRanking);
+    const hasRealName = Boolean(
+      atleta?.anagrafica?.nome && !/^Atleta\s+\d+$/i.test(atleta.anagrafica.nome.trim())
+    );
+    if (!hasRealName) {
+      return res.status(404).json({
+        error: "Atleta non trovato sul portale FITeT",
+        notFound: true,
+        id
+      });
+    }
+    const campRanking = partiteRanking?.campionato || [];
+    const { playedCamps, athleteSesso } = resolveAthleteChampionshipsFromRanking(
+      campRanking,
+      atleta.anagrafica?.regione
+    );
+    const inferredSesso = athleteSesso || (iframeUrl?.includes("/Femminile/") ? "F" : iframeUrl?.includes("/Maschile/") ? "M" : null);
+    if (playedCamps.length === 0) {
+      const fallback = await championshipCatalog.findAthleteChampionship(
+        id,
+        atleta.anagrafica?.nome,
+        atleta.anagrafica?.regione,
+        inferredSesso,
+        { maxDurationMs: 4500 }
+      );
+      if (fallback && !playedCamps.some((pc) => pc.camId === fallback.id)) {
+        playedCamps.push({
+          camId: fallback.id,
+          nome: fallback.nome,
+          categoria: fallback.categoria,
+          regione: fallback.regione,
+          squadra: fallback.squadra
+        });
+      }
+    }
+    if (playedCamps.length > 0) {
+      atleta.campionatoAttuale = playedCamps[0];
+      atleta.campionatiGiocati = playedCamps;
+    }
+    if (atleta.anagrafica?.societa && !atleta.anagrafica.logoUrl) {
+      const resolvedLogo = teamResolver.getLogo(atleta.anagrafica.societa);
+      if (resolvedLogo) {
+        atleta.anagrafica.logoUrl = resolvedLogo;
+      }
+    }
+    const isHollow = !atleta || !atleta.anagrafica || atleta.anagrafica.nome?.startsWith("Atleta ") || atleta.anagrafica.punti === 0 && (!atleta.storicoClassifica || atleta.storicoClassifica.length === 0);
+    if (!isHollow) {
+      cacheService.set(cacheKey, atleta, TTL_ATLETA);
+    }
+    res.json(atleta);
+  } catch (error) {
+    console.error(`Error fetching athlete ${id}:`, error);
+    res.status(500).json({ error: "Errore nel recupero della scheda atleta", details: error.message });
+  }
+});
+app.get("/api/head-to-head", async (req, res) => {
+  const atleta1 = req.query.atleta1;
+  const atleta2 = req.query.atleta2;
+  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) : await getLatestIdClass();
+  if (!atleta1 || !atleta2) {
+    return res.status(400).json({ error: "Parametri atleta1 e atleta2 obbligatori" });
+  }
+  try {
+    const data = await headToHeadService.getHeadToHead(atleta1, atleta2, idClass);
+    res.json(data);
+  } catch (error) {
+    console.error(`Error in head-to-head ${atleta1} vs ${atleta2}:`, error);
+    res.status(500).json({ error: "Errore nel recupero del testa a testa", details: error.message });
+  }
+});
+app.post("/api/predict-h2h", handlePredictH2H);
+app.post("/api/predict-team-match", handlePredictTeamMatch);
+app.post("/api/atleta/:id/view", async (req, res) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: "ID atleta mancante" });
+  const clientIp = req.headers["x-forwarded-for"]?.split(",")[0].trim() || req.socket.remoteAddress || "127.0.0.1";
+  console.log(`[VIEW HIT] ID Atleta: ${id} | Client IP: ${clientIp}`);
+  const count = await viewsService.incrementViews(id, clientIp);
+  res.json({ id, views: count });
+});
+app.get("/api/atleta/:id/views", async (req, res) => {
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: "ID atleta mancante" });
+  const count = await viewsService.getViews(id);
+  res.json({ id, views: count });
+});
+app.get("/api/search-atleta", async (req, res) => {
+  const query = req.query.q || "";
+  if (!query || query.length < 2) {
+    return res.json([]);
+  }
+  try {
+    const results = await FitetClient.searchAtleta(query);
+    const enriched = results.map((r) => {
+      const dateMatch = r.label ? r.label.match(/\((\d{2}\/\d{2}\/\d{4})\)/) : null;
+      const tesseraMatch = r.label ? r.label.match(/\[(\d+)\]/) : null;
+      return {
+        id: r.id,
+        value: r.value,
+        label: r.label,
+        dataNascita: dateMatch ? dateMatch[1] : null,
+        tessera: tesseraMatch ? tesseraMatch[1] : null,
+        fotoUrl: `https://portale.fitet.org/images/atleti/${r.id}.jpg`
+      };
+    });
+    res.json(enriched);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+app.get("/api/search-atleta-scelta", async (req, res) => {
+  const query = (req.query.q || "").trim();
+  const excludeId = (req.query.excludeId || "0").trim() || "0";
+  const idClass = req.query.idClass ? parseInt(req.query.idClass, 10) || await getLatestIdClass() : await getLatestIdClass();
+  if (query.length < 2) {
+    return res.json([]);
+  }
+  const cacheKey = `scelta_atleta_${query.toUpperCase()}_${excludeId}_${idClass}`;
+  const cached = cacheService.get(cacheKey);
+  if (cached) return res.json(cached);
+  try {
+    const html = await FitetClient.fetchSceltaAtleta(query, excludeId, idClass);
+    const parsed = parseSceltaAtleta(html);
+    const enriched = parsed.map((atleta) => ({
+      id: atleta.id,
+      value: atleta.nome,
+      label: atleta.nome,
+      dataNascita: atleta.dataNascita,
+      tessera: null,
+      fotoUrl: `https://portale.fitet.org/images/atleti/${atleta.id}.jpg`
+    }));
+    cacheService.set(cacheKey, enriched, TTL_RICERCA_ATLETA);
+    res.json(enriched);
+  } catch (error) {
+    console.warn(`[search-atleta-scelta] Fallback autocomplete per "${query}":`, error?.message || error);
+    try {
+      const fallback = await FitetClient.searchAtleta(query);
+      const enriched = fallback.filter((atleta) => atleta.id !== excludeId).map((atleta) => {
+        const dateMatch = atleta.label ? atleta.label.match(/\((\d{2}\/\d{2}\/\d{4})\)/) : null;
+        const tesseraMatch = atleta.label ? atleta.label.match(/\[(\d+)\]/) : null;
+        return {
+          id: atleta.id,
+          value: atleta.value,
+          label: atleta.label,
+          dataNascita: dateMatch ? dateMatch[1] : null,
+          tessera: tesseraMatch ? tesseraMatch[1] : null,
+          fotoUrl: `https://portale.fitet.org/images/atleti/${atleta.id}.jpg`
+        };
+      });
+      res.json(enriched);
+    } catch (fallbackError) {
+      res.status(500).json({
+        error: "Errore nella ricerca atleti",
+        details: fallbackError?.message
+      });
+    }
+  }
+});
+app.get("/api/referto/:incontroId", async (req, res) => {
+  const { incontroId } = req.params;
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : 0;
+  const formula = req.query.formula ? parseInt(req.query.formula, 10) : 19;
+  const forceRefresh = isForceRefreshRequest(req);
+  const cacheKey = `referto_${incontroId}_${cam}_${formula}`;
+  if (!incontroId || incontroId === "null" || incontroId === "undefined") {
+    return res.status(400).json({ error: "ID incontro non valido" });
+  }
+  try {
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      if (cached) return res.json(cached);
+    }
+    const html = await FitetClient.fetchRefertoIncontro(incontroId, cam, formula);
+    const referto = parseRefertoIncontro(html, incontroId, String(cam), String(formula));
+    cacheService.set(cacheKey, referto, TTL_REFERTO);
+    res.json(referto);
+  } catch (error) {
+    console.error(`Error fetching referto ${incontroId}:`, error);
+    res.status(500).json({ error: "Errore nel recupero del referto di gara", details: error.message });
+  }
+});
+app.get("/api/partita/:partitaId", async (req, res) => {
+  const { partitaId } = req.params;
+  const forceRefresh = isForceRefreshRequest(req);
+  const cacheKey = `partita_${partitaId}`;
+  if (!partitaId || partitaId === "null" || partitaId === "undefined") {
+    return res.status(400).json({ error: "ID partita non valido" });
+  }
+  try {
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      if (cached) return res.json(cached);
+    }
+    const html = await FitetClient.fetchDettaglioPartita(partitaId);
+    const dettaglio = parseDettaglioPartita(html, partitaId);
+    if (!dettaglio.atletaCasa.atletaId && dettaglio.atletaCasa.nome) {
+      const primaryName = dettaglio.atletaCasa.nome.split("-")[0].trim();
+      const resolved = await athleteResolver.resolveAthleteId(primaryName);
+      if (resolved) dettaglio.atletaCasa.atletaId = resolved;
+    }
+    if (!dettaglio.atletaOspite.atletaId && dettaglio.atletaOspite.nome) {
+      const primaryName = dettaglio.atletaOspite.nome.split("-")[0].trim();
+      const resolved = await athleteResolver.resolveAthleteId(primaryName);
+      if (resolved) dettaglio.atletaOspite.atletaId = resolved;
+    }
+    cacheService.set(cacheKey, dettaglio, TTL_ATLETA);
+    res.json(dettaglio);
+  } catch (error) {
+    console.error(`Error fetching dettaglio partita ${partitaId}:`, error);
+    res.status(500).json({ error: "Errore nel recupero del dettaglio partita", details: error.message });
+  }
+});
+app.get("/api/squadra/:squadraId", async (req, res) => {
+  const { squadraId } = req.params;
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  const forceRefresh = isForceRefreshRequest(req);
+  if (!squadraId || squadraId === "null" || squadraId === "undefined") {
+    return res.status(400).json({ error: "ID squadra non valido" });
+  }
+  try {
+    let targetSquadraId = squadraId;
+    if (!/^\d+$/.test(targetSquadraId)) {
+      const decodedName = decodeURIComponent(targetSquadraId).trim().toUpperCase();
+      let rawClassifica = cacheService.get(`classifica_${cam}`);
+      if (!rawClassifica) {
+        rawClassifica = await getClassifica(cam, anno);
+      }
+      if (Array.isArray(rawClassifica)) {
+        const found = rawClassifica.find(
+          (sq) => sq.nome.toUpperCase().trim() === decodedName || sq.nome.toUpperCase().includes(decodedName) || decodedName.includes(sq.nome.toUpperCase())
+        );
+        if (found && found.squadraId) {
+          targetSquadraId = found.squadraId;
+        }
+      }
+    }
+    const cacheKey = `squadra_${targetSquadraId}_${cam}_${anno}`;
+    if (!forceRefresh) {
+      const cached = cacheService.get(cacheKey);
+      const hasCorruptedPct = cached?.atleti?.some((a) => Number(a?.percentualeVittorie) > 100);
+      if (cached && !hasCorruptedPct) return res.json(cached);
+    }
+    const url = `https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${targetSquadraId}&CAM=${cam}`;
+    const html = await FitetClient.fetchHtml(url);
+    const parsed = parseDettaglioSquadra(html, targetSquadraId, cam);
+    let logoUrl = teamResolver.getLogo(parsed.nome);
+    if (!logoUrl && targetSquadraId) {
+      const resolved = await teamResolver.resolveLogosForTeams([{ nome: parsed.nome, squadraId: targetSquadraId }], cam, anno);
+      logoUrl = resolved[parsed.nome.toUpperCase().trim()] || teamResolver.getLogo(parsed.nome);
+    }
+    parsed.logoUrl = logoUrl;
+    cacheService.set(cacheKey, parsed, 60 * 60 * 1e3);
+    res.json(parsed);
+  } catch (error) {
+    console.error(`Error fetching team ${squadraId} in CAM ${cam}:`, error);
+    res.status(500).json({ error: "Errore nel recupero della scheda squadra", details: error.message });
+  }
+});
+app.get("/api/societa/detect", async (req, res) => {
+  const atletaId = req.query.atletaId || "";
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  if (!atletaId || atletaId === "null" || atletaId === "undefined") {
+    return res.status(400).json({ found: false, needsManual: true, reason: "missing_athlete" });
+  }
+  const cacheKey = `societa_detect_${atletaId}_${anno}`;
+  if (!isForceRefreshRequest(req)) {
+    const cached = cacheService.get(cacheKey);
+    if (cached) return res.json(cached);
+  }
+  try {
+    const result = await societyService.detectFromAthlete(atletaId, anno);
+    if (result.found) {
+      cacheService.set(cacheKey, result, 6 * 60 * 60 * 1e3);
+    }
+    res.json(result);
+  } catch (error) {
+    console.error(`Error detecting society for athlete ${atletaId}:`, error);
+    res.json({ found: false, needsManual: true, reason: "error" });
+  }
+});
+app.get("/api/societa/lookup", async (req, res) => {
+  const query = (req.query.q || req.query.query || "").trim();
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  const camId = req.query.cam ? parseInt(req.query.cam, 10) : void 0;
+  const atletaId = (req.query.atletaId || "").trim() || void 0;
+  const squadraId = (req.query.squadraId || "").trim() || void 0;
+  const regione = (req.query.regione || "").trim() || void 0;
+  if (!query && !atletaId && !squadraId) {
+    return res.status(400).json({ found: false, error: "Specifica un nome squadra o un ID Albo Federale" });
+  }
+  try {
+    const result = await societyService.lookupSociety(query, anno, {
+      camId: Number.isFinite(camId) ? camId : void 0,
+      atletaId,
+      squadraId,
+      regione
+    });
+    res.json(result);
+  } catch (error) {
+    console.error(`Error looking up society "${query}":`, error);
+    res.status(500).json({ found: false, error: "Errore nella ricerca della societ\xE0" });
+  }
+});
+app.get("/api/societa/atleta-storico", async (req, res) => {
+  const nome = (req.query.nome || "").trim();
+  const tessera = (req.query.tessera || "").trim() || void 0;
+  if (!nome) {
+    return res.status(400).json({ atletaId: null });
+  }
+  try {
+    const atletaId = await societyService.resolveHistoricalAthlete(nome, tessera);
+    res.json({ atletaId });
+  } catch (error) {
+    console.error(`Error resolving historical athlete ${nome}:`, error);
+    res.json({ atletaId: null });
+  }
+});
+app.get("/api/societa/team/:teamId", async (req, res) => {
+  const { teamId } = req.params;
+  const cam = req.query.cam ? parseInt(req.query.cam, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  if (!/^\d+$/.test(teamId)) {
+    return res.status(400).json({ found: false, error: "ID squadra non valido" });
+  }
+  try {
+    const result = await societyService.lookupByTeamId(teamId, cam, anno);
+    res.json(result);
+  } catch (error) {
+    console.error(`Error resolving society for team ${teamId}:`, error);
+    res.status(500).json({ found: false, error: "Errore nella risoluzione della societ\xE0" });
+  }
+});
+app.get("/api/societa/:societyId/stagione/:anno", async (req, res) => {
+  const { societyId, anno } = req.params;
+  const annoNum = parseInt(anno, 10);
+  const forceRefresh = isForceRefreshRequest(req);
+  if (!/^\d+$/.test(societyId) || !Number.isFinite(annoNum)) {
+    return res.status(400).json({ error: "Parametri societ\xE0/stagione non validi" });
+  }
+  try {
+    const stagione = await societyService.getSocietySeason(societyId, annoNum, forceRefresh);
+    res.json(stagione);
+  } catch (error) {
+    console.error(`Error fetching society ${societyId} season ${anno}:`, error);
+    res.status(500).json({ error: "Errore nel recupero della stagione", details: error.message });
+  }
+});
+app.get("/api/societa/:societyId", async (req, res) => {
+  const { societyId } = req.params;
+  const anno = req.query.anno ? parseInt(req.query.anno, 10) : DEFAULT_ANNO_ID;
+  const forceRefresh = isForceRefreshRequest(req);
+  if (!/^\d+$/.test(societyId)) {
+    return res.status(400).json({ error: "ID societ\xE0 non valido" });
+  }
+  try {
+    const dettaglio = await societyService.getSociety(societyId, anno, forceRefresh);
+    res.json(dettaglio);
+  } catch (error) {
+    console.error(`Error fetching society ${societyId}:`, error);
+    res.status(500).json({ error: "Errore nel recupero della societ\xE0", details: error.message });
+  }
+});
+app.get("/api/atleta-campionato-partite", async (req, res) => {
+  let atletaId = req.query.atletaId;
+  let cam = req.query.cam;
+  let squadraId = req.query.squadraId;
+  let atletaNome = req.query.atletaNome;
+  let regione = req.query.regione;
+  if (!atletaId) {
+    return res.json({ matches: [], squadra: null });
+  }
+  if (!/^\d+$/.test(atletaId)) {
+    let cleanName = atletaId;
+    try {
+      cleanName = decodeURIComponent(atletaId);
+    } catch {
+    }
+    cleanName = cleanName.trim();
+    if (!atletaNome) atletaNome = cleanName;
+    const resolved = await athleteResolver.resolveAthleteId(cleanName);
+    if (resolved) {
+      atletaId = resolved;
+    }
+  }
+  const cachedAtleta = cacheService.get(`atleta_${atletaId}`);
+  if (!atletaNome && cachedAtleta?.anagrafica?.nome) {
+    atletaNome = cachedAtleta.anagrafica.nome;
+  }
+  if (!regione && cachedAtleta?.anagrafica?.regione) {
+    regione = cachedAtleta.anagrafica.regione;
+  }
+  if (!atletaNome && /^\d+$/.test(atletaId)) {
+    const mapping = athleteResolver.getMapping();
+    for (const [name, id] of Object.entries(mapping)) {
+      if (String(id) === String(atletaId)) {
+        atletaNome = name;
+        break;
+      }
+    }
+  }
+  let resolvedCampNome;
+  if (!cam || cam === "auto" || cam === "null" || cam === "undefined") {
+    let autoSesso;
+    const cachedCampMatches = cachedAtleta?.partiteRanking?.campionato || [];
+    for (const m of cachedCampMatches) {
+      const campSesso = normalizeChampionshipGender(m?.sesso);
+      if (campSesso) {
+        autoSesso = campSesso;
+        break;
+      }
+    }
+    const autoCamp = await championshipCatalog.findAthleteChampionship(
+      atletaId,
+      atletaNome,
+      regione,
+      autoSesso,
+      { maxDurationMs: 6e3 }
+    );
+    if (autoCamp) {
+      cam = String(autoCamp.id);
+      resolvedCampNome = autoCamp.nome;
+      if (cachedAtleta && (!cachedAtleta.campionatiGiocati || cachedAtleta.campionatiGiocati.length === 0)) {
+        const campEntry = {
+          camId: autoCamp.id,
+          nome: autoCamp.nome,
+          categoria: autoCamp.categoria,
+          regione: autoCamp.regione,
+          squadra: autoCamp.squadra
+        };
+        cachedAtleta.campionatoAttuale = campEntry;
+        cachedAtleta.campionatiGiocati = [campEntry];
+        cacheService.set(`atleta_${atletaId}`, cachedAtleta, TTL_ATLETA);
+      }
+    } else {
+      return res.json({ matches: [], squadra: null });
+    }
+  }
+  const force = isForceRefreshRequest(req);
+  const cacheKey = `atleta_camp_partite_${cam}_${atletaId}_${squadraId || "auto"}_v3`;
+  const cached = cacheService.get(cacheKey);
+  if (cached && !force && !cached.error && cached.matches && cached.matches.length > 0) {
+    return res.json(cached);
+  }
+  try {
+    let squadraNome;
+    const mapping = athleteResolver.getMapping();
+    if (!squadraId) {
+      try {
+        const statHtml = await FitetClient.fetchStatisticheAtleti(cam);
+        const stats = parseStatisticheAtleti(statHtml, mapping);
+        const normName = (s) => (s || "").toUpperCase().replace(/[^A-Z]/g, "");
+        const targetNorm = normName(atletaNome);
+        const found = stats.find(
+          (s) => s.atletaId && String(s.atletaId) === String(atletaId) || targetNorm && normName(s.atleta) === targetNorm || targetNorm && (normName(s.atleta).includes(targetNorm) || targetNorm.includes(normName(s.atleta)))
+        );
+        if (found) {
+          squadraNome = found.squadra;
+          const classHtml = await FitetClient.fetchClassifica(cam);
+          const $c = cheerio15.load(classHtml);
+          const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+          const foundNorm = norm(found.squadra);
+          $c('a[href*="SQUADRA="]').each((_, el) => {
+            const text = $c(el).text().trim();
+            const textNorm = norm(text);
+            if (textNorm.length >= 3 && (textNorm === foundNorm || textNorm.includes(foundNorm) || foundNorm.includes(textNorm))) {
+              const href = $c(el).attr("href") || "";
+              const m = href.match(/SQUADRA=(\d+)/i);
+              if (m && !squadraId) {
+                squadraId = m[1];
+                squadraNome = text;
+              }
+            }
+          });
+        }
+      } catch (statErr) {
+        console.warn("[PartiteCampionato] Statistiche look-up error:", statErr);
+      }
+      if (!squadraId) {
+        try {
+          const classHtml = await FitetClient.fetchClassifica(cam);
+          const $c = cheerio15.load(classHtml);
+          const candidateTeams = [];
+          $c('a[href*="SQUADRA="]').each((_, el) => {
+            const href = $c(el).attr("href") || "";
+            const m = href.match(/SQUADRA=(\d+)/i);
+            const text = $c(el).text().trim();
+            if (m && !candidateTeams.some((t) => t.id === m[1])) {
+              candidateTeams.push({ id: m[1], name: text });
+            }
+          });
+          for (const team of candidateTeams) {
+            try {
+              const testUrl = `https://portale.fitet.org/risultati/campionati/percentuali.php?SQUADRA=${team.id}&CAM=${cam}`;
+              const testHtml = await FitetClient.fetchHtml(testUrl);
+              const normName = (s) => (s || "").toUpperCase().replace(/[^A-Z]/g, "");
+              const targetNorm = normName(atletaNome);
+              if (testHtml.includes(`IDA=${atletaId}`) || targetNorm && normName(testHtml).includes(targetNorm)) {
+                squadraId = team.id;
+                squadraNome = team.name || squadraNome;
+                break;
+              }
+            } catch {
+            }
+          }
+        } catch {
+        }
+      }
+    }
+    if (!squadraId) {
+      const responsePayload2 = {
+        camId: cam,
+        matches: [],
+        error: "Atleta non presente tra le squadre o le statistiche del campionato selezionato"
+      };
+      cacheService.set(cacheKey, responsePayload2, 15 * 1e3);
+      return res.json(responsePayload2);
+    }
+    const url = `https://portale.fitet.org/risultati/campionati/dettaglio_percentuali.php?IDA=${atletaId}&CAM=${cam}&SQUADRA=${squadraId}`;
+    const html = await FitetClient.fetchHtml(url);
+    const $p = cheerio15.load(html);
+    const matches = [];
+    const headerText = $p("table tr").first().text();
+    if (!squadraNome) {
+      const sqMatch = headerText.match(/Squadra:\s*([^\n\t\-]+)/i);
+      if (sqMatch) {
+        squadraNome = sqMatch[1].trim();
+      }
+    }
+    let targetAthleteName = atletaNome;
+    const atMatch = headerText.match(/Atleta:\s*([^\n\t\-]+)/i);
+    if (atMatch) {
+      targetAthleteName = atMatch[1].trim();
+    }
+    const normTarget = (targetAthleteName || "").toUpperCase().replace(/[^A-Z]/g, "");
+    $p("table tr").each((i, tr) => {
+      if (i < 2) return;
+      const cells = $p(tr).find("td").map((_, td) => $p(td).text().trim()).get();
+      if (cells.length < 15) return;
+      const giornata = parseInt(cells[0], 10) || 0;
+      const atleta1 = cells[1].trim();
+      const atleta2 = cells[2].trim();
+      const setsRaw = [];
+      for (let s = 0; s < 5; s++) {
+        const a = parseInt(cells[3 + s * 2], 10);
+        const b = parseInt(cells[4 + s * 2], 10);
+        if ((a > 0 || b > 0) && !isNaN(a) && !isNaN(b)) {
+          setsRaw.push(`${a}-${b}`);
+        }
+      }
+      const set1 = parseInt(cells[13], 10) || 0;
+      const set2 = parseInt(cells[14], 10) || 0;
+      const norm1 = atleta1.toUpperCase().replace(/[^A-Z]/g, "");
+      const norm2 = atleta2.toUpperCase().replace(/[^A-Z]/g, "");
+      let isPlayer1 = true;
+      if (normTarget) {
+        if (norm1 === normTarget || norm1.includes(normTarget) || normTarget.includes(norm1)) {
+          isPlayer1 = true;
+        } else if (norm2 === normTarget || norm2.includes(normTarget) || normTarget.includes(norm2)) {
+          isPlayer1 = false;
+        }
+      }
+      const avversario = isPlayer1 ? atleta2 : atleta1;
+      const setVinti = isPlayer1 ? set1 : set2;
+      const setPersi = isPlayer1 ? set2 : set1;
+      const isVittoria = setVinti > setPersi;
+      const setsFormatted = setsRaw.map((s) => {
+        const [a, b] = s.split("-").map(Number);
+        return isPlayer1 ? `${a}-${b}` : `${b}-${a}`;
+      });
+      matches.push({
+        giornata,
+        avversario,
+        squadra: squadraNome || "",
+        setVinti,
+        setPersi,
+        risultatoSet: `${setVinti}-${setPersi}`,
+        sets: setsFormatted,
+        isVittoria
+      });
+    });
+    if (!resolvedCampNome && /^\d+$/.test(cam)) {
+      const campMeta = await championshipCatalog.getChampionship(Number(cam));
+      if (campMeta?.nome) resolvedCampNome = campMeta.nome;
+    }
+    const responsePayload = {
+      camId: cam,
+      campionatoNome: resolvedCampNome,
+      squadra: squadraNome,
+      matches
+    };
+    cacheService.set(cacheKey, responsePayload, 30 * 60 * 1e3);
+    res.json(responsePayload);
+  } catch (err) {
+    console.error("Errore nel recupero partite campionato per atleta:", err);
+    res.status(500).json({ error: "Errore durante la lettura delle partite dal portale FITeT", details: err.message });
+  }
+});
+app.post("/api/refresh", async (req, res) => {
+  const cam = req.query.cam || req.body?.cam ? parseInt(req.query.cam || req.body?.cam, 10) : DEFAULT_CAM_ID;
+  const anno = req.query.anno || req.body?.anno ? parseInt(req.query.anno || req.body?.anno, 10) : DEFAULT_ANNO_ID;
+  try {
+    cacheService.clear();
+    athleteResolver.reloadMapping();
+    const [rawClassifica, calendario, statisticheAtleti, champMeta] = await Promise.all([
+      getClassifica(cam, anno, true),
+      getCalendario(cam, anno, true),
+      getStatistiche(cam, true),
+      championshipCatalog.getChampionship(cam).catch(() => void 0)
+    ]);
+    const classifica = computeTeamForm(rawClassifica, calendario);
+    const enrichedCalendario = await enrichCalendarioWithVideos(calendario, cam, champMeta?.nome, true);
+    notifyObservedChampionshipIfNeeded({
+      camId: cam,
+      annoId: anno,
+      championshipName: champMeta?.nome || `Campionato ${cam}`,
+      classifica,
+      calendario: enrichedCalendario,
+      statisticheAtleti
+    }).catch((err) => {
+      console.warn(`[CampionatoNotifier] Errore controllo passivo refresh cam=${cam}:`, err);
+    });
+    res.json({ success: true, timestamp: (/* @__PURE__ */ new Date()).toISOString(), classifica, calendario: enrichedCalendario, statisticheAtleti });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+function isPushCronAuthorized(req) {
+  const secret = process.env.CRON_SECRET || process.env.PUSH_CRON_SECRET;
+  if (!secret) return true;
+  const authHeader = req.headers.authorization || "";
+  const querySecret = typeof req.query.secret === "string" ? req.query.secret : "";
+  return authHeader === `Bearer ${secret}` || querySecret === secret;
+}
+app.get("/api/push/public-key", (_req, res) => {
+  const publicKey = pushService.getPublicKey();
+  if (!publicKey) {
+    return res.status(503).json({ error: "Notifiche push non configurate sul server." });
+  }
+  res.setHeader("Cache-Control", "public, max-age=300");
+  res.json({ publicKey });
+});
+app.post("/api/push/subscribe", async (req, res) => {
+  const body = req.body?.subscription || req.body || {};
+  const silent = Boolean(req.body?.silent);
+  const subscription = {
+    endpoint: body.endpoint,
+    expirationTime: body.expirationTime ?? null,
+    keys: {
+      p256dh: body?.keys?.p256dh,
+      auth: body?.keys?.auth
+    }
+  };
+  if (!pushService.isSupabaseConfigured()) {
+    return res.status(503).json({
+      error: "Database push non configurato (SUPABASE_SERVICE_ROLE_KEY mancante)."
+    });
+  }
+  if (!pushService.isVapidConfigured()) {
+    return res.status(503).json({
+      error: "Notifiche push non configurate (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY mancanti)."
+    });
+  }
+  try {
+    const saved = await pushService.saveSubscription(
+      subscription,
+      req.headers["user-agent"] || null
+    );
+    const rawCtx = req.body?.context || {};
+    const playerId = typeof rawCtx.playerId === "string" && rawCtx.playerId.trim() ? rawCtx.playerId.trim() : typeof req.body?.playerId === "string" && req.body.playerId.trim() ? req.body.playerId.trim() : void 0;
+    const playerName = typeof rawCtx.playerName === "string" && rawCtx.playerName.trim() ? rawCtx.playerName.trim() : typeof req.body?.playerName === "string" && req.body.playerName.trim() ? req.body.playerName.trim() : void 0;
+    const rawPrimaryCam = rawCtx.primaryCamId ?? req.body?.primaryCamId ?? req.body?.camId;
+    const primaryCamId = typeof rawPrimaryCam === "number" && Number.isFinite(rawPrimaryCam) && rawPrimaryCam > 0 ? rawPrimaryCam : typeof rawPrimaryCam === "string" && /^\d+$/.test(rawPrimaryCam) ? parseInt(rawPrimaryCam, 10) : void 0;
+    const rawCamIds = Array.isArray(rawCtx.camIds) ? rawCtx.camIds : Array.isArray(req.body?.camIds) ? req.body.camIds : [];
+    const parsedCamIds = rawCamIds.map((v) => typeof v === "number" ? v : typeof v === "string" && /^\d+$/.test(v) ? parseInt(v, 10) : 0).filter((n) => Number.isFinite(n) && n > 0);
+    if (primaryCamId && !parsedCamIds.includes(primaryCamId)) {
+      parsedCamIds.unshift(primaryCamId);
+    }
+    if (playerId && parsedCamIds.length === 0) {
+      const cachedAthlete = cacheService.get(`atleta_${playerId}`);
+      if (cachedAthlete?.campionatiGiocati?.length) {
+        for (const c of cachedAthlete.campionatiGiocati) {
+          if (c.camId && !parsedCamIds.includes(c.camId)) {
+            parsedCamIds.push(c.camId);
+          }
+        }
+      } else if (cachedAthlete?.campionatoAttuale?.camId) {
+        parsedCamIds.push(cachedAthlete.campionatoAttuale.camId);
+      }
+    }
+    if (playerId !== void 0 || playerName !== void 0 || parsedCamIds.length > 0 || primaryCamId !== void 0) {
+      const contextToSave = {
+        playerId,
+        playerName,
+        primaryCamId: primaryCamId ?? parsedCamIds[0] ?? void 0,
+        camIds: parsedCamIds
+      };
+      await pushService.saveSubscriptionContext(subscription.endpoint, contextToSave);
+      invalidateSubscribedChampionshipsCache();
+      for (const cId of parsedCamIds) {
+        ensureChampionshipBaseline(cId).catch(() => void 0);
+      }
+    }
+    if (silent) {
+      return res.status(200).json({
+        success: true,
+        welcomeSent: false,
+        subscriptionId: saved.id ?? null
+      });
+    }
+    const welcome = await pushService.sendToSubscription(saved, {
+      title: "Notifiche attivate!",
+      body: "Da questo momento in poi riceverai notifiche su nuovi match del tuo campionato, classifiche e nuovi tornei FITeT!",
+      icon: "/icon.png",
+      badge: "/icon.png",
+      tag: `fitet-welcome-${Date.now()}`,
+      renotify: true
+    });
+    if (!welcome.sent && welcome.removed) {
+      return res.status(410).json({ error: "Subscription non pi\xF9 valida." });
+    }
+    return res.status(201).json({
+      success: true,
+      welcomeSent: welcome.sent,
+      subscriptionId: saved.id ?? null,
+      warning: welcome.sent ? void 0 : welcome.error
+    });
+  } catch (error) {
+    console.error("[PushService] Errore salvataggio subscription:", error);
+    return res.status(400).json({
+      error: error.message || "Errore durante il salvataggio della subscription."
+    });
+  }
+});
+app.delete("/api/push/subscribe", async (req, res) => {
+  const endpoint = req.body?.endpoint || req.query.endpoint;
+  if (!endpoint || typeof endpoint !== "string") {
+    return res.status(400).json({ error: "Endpoint subscription mancante." });
+  }
+  try {
+    await pushService.removeSubscription(endpoint);
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("[PushService] Errore rimozione subscription:", error);
+    return res.status(500).json({ error: "Errore durante la rimozione della subscription." });
+  }
+});
+app.post("/api/push/championship-subscription", async (req, res) => {
+  const { endpoint, camId, enabled } = req.body || {};
+  if (!endpoint || typeof endpoint !== "string" || typeof camId !== "number" || typeof enabled !== "boolean") {
+    return res.status(400).json({ error: "Parametri endpoint, camId ed enabled obbligatori." });
+  }
+  try {
+    const result = await pushService.toggleChampionshipSubscription(endpoint, camId, enabled);
+    invalidateSubscribedChampionshipsCache();
+    if (enabled) {
+      ensureChampionshipBaseline(camId).catch((err) => {
+        console.warn(`[PushService] Errore inizializzazione baseline cam=${camId}:`, err);
+      });
+    }
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error("[PushService] Errore toggle campionato:", error);
+    return res.status(500).json({
+      error: error.message || "Errore durante l'aggiornamento delle notifiche per il campionato."
+    });
+  }
+});
+app.get("/api/push/championship-subscription", async (req, res) => {
+  const endpoint = typeof req.query.endpoint === "string" ? req.query.endpoint : "";
+  if (!endpoint) {
+    return res.status(400).json({ error: "Endpoint mancante." });
+  }
+  try {
+    const result = await pushService.getSubscriptionChampionships(endpoint);
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+app.get("/api/push/check-ranking", async (req, res) => {
+  if (!isPushCronAuthorized(req)) {
+    return res.status(401).json({ error: "Non autorizzato." });
+  }
+  try {
+    const result = await runRankingCheck();
+    return res.json({
+      success: true,
+      ...result.ranking,
+      idClass: result.idClass,
+      championships: result.championships,
+      matchday: result.matchday
+    });
+  } catch (error) {
+    console.error("[PushService] Errore controllo cambio ranking:", error);
+    return res.status(500).json({
+      error: "Errore durante il controllo del cambio classifica.",
+      details: error.message
+    });
+  }
+});
+app.get("/api/push/check-campionati", async (req, res) => {
+  if (!isPushCronAuthorized(req)) {
+    return res.status(401).json({ error: "Non autorizzato." });
+  }
+  const dryRun = req.query.dryRun === "true";
+  const init = req.query.init === "true";
+  const rawCam = typeof req.query.cam === "string" ? req.query.cam : "";
+  const camIds = rawCam ? rawCam.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isFinite(n) && n > 0) : void 0;
+  try {
+    const result = await runChampionshipsCheck({ camIds, dryRun, init });
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error("[PushService] Errore controllo campionati:", error);
+    return res.status(500).json({
+      error: "Errore durante il controllo dei campionati.",
+      details: error.message
+    });
+  }
+});
+app.get("/api/push/check-matchday", async (req, res) => {
+  if (!isPushCronAuthorized(req)) {
+    return res.status(401).json({ error: "Non autorizzato." });
+  }
+  const dryRun = req.query.dryRun === "true";
+  const force = req.query.force === "true";
+  const date = typeof req.query.date === "string" ? req.query.date : void 0;
+  const rawCam = typeof req.query.cam === "string" ? req.query.cam : "";
+  const camIds = rawCam ? rawCam.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isFinite(n) && n > 0) : void 0;
+  try {
+    const result = await runMatchdayCheck({ camIds, date, dryRun, force });
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error("[PushService] Errore controllo matchday:", error);
+    return res.status(500).json({
+      error: "Errore durante il controllo del matchday.",
+      details: error.message
+    });
+  }
+});
+app.get("/api/push/check-tornei", async (req, res) => {
+  if (!isPushCronAuthorized(req)) {
+    return res.status(401).json({ error: "Non autorizzato." });
+  }
+  const dryRun = req.query.dryRun === "true";
+  const init = req.query.init === "true";
+  const concurrency = req.query.concurrency ? parseInt(req.query.concurrency, 10) : void 0;
+  try {
+    const result = await runTorneiCheck({ dryRun, init, concurrency });
+    return res.json({ success: true, ...result });
+  } catch (error) {
+    console.error("[PushService] Errore controllo nuovi tornei:", error);
+    return res.status(500).json({
+      error: "Errore durante il controllo dei nuovi tornei.",
+      details: error.message
+    });
+  }
+});
+app.all(["/api/videos/sync", "/api/sync-youtube"], async (req, res) => {
+  if (!isPushCronAuthorized(req)) {
+    return res.status(401).json({ error: "Non autorizzato." });
+  }
+  try {
+    const result = await runVideoSync();
+    return res.json({
+      success: true,
+      totalFetched: result.total,
+      upserted: result.upserted,
+      videosCount: result.videos.length,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  } catch (error) {
+    console.error("Error in YouTube sync endpoint:", error);
+    return res.status(500).json({ error: error.message || "Errore durante la sincronizzazione video YouTube" });
+  }
+});
+app.get("/api/videos", async (req, res) => {
+  const forceRefresh = isForceRefreshRequest(req);
+  const league = typeof req.query.league === "string" ? req.query.league.toUpperCase() : void 0;
+  const day = req.query.day ? parseInt(req.query.day, 10) : void 0;
+  try {
+    let videos = await youtubeSyncService.getAllVideos(forceRefresh);
+    if (league) {
+      videos = videos.filter((v) => v.league && v.league.toUpperCase().startsWith(league));
+    }
+    if (day !== void 0 && !isNaN(day)) {
+      videos = videos.filter((v) => v.match_day === day);
+    }
+    const formatted = videos.map((v) => ({
+      videoId: v.video_id,
+      channelName: v.channel_name,
+      channelId: v.channel_id,
+      channelUrl: v.channel_url,
+      title: v.title,
+      publishedAt: v.published_at,
+      league: v.league,
+      matchDay: v.match_day,
+      teamHome: v.team_home,
+      teamAway: v.team_away,
+      videoUrl: v.video_url,
+      video_id: v.video_id,
+      channel_name: v.channel_name,
+      channel_id: v.channel_id,
+      channel_url: v.channel_url,
+      published_at: v.published_at,
+      match_day: v.match_day,
+      team_home: v.team_home,
+      team_away: v.team_away,
+      video_url: v.video_url
+    }));
+    return res.json({
+      success: true,
+      count: formatted.length,
+      videos: formatted
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+async function getOrFetchAthlete(id) {
+  const cacheKey = `atleta_${id}`;
+  const cached = cacheService.get(cacheKey);
+  const isHollow = !cached || !cached.anagrafica || cached.anagrafica.nome?.startsWith("Atleta ") || cached.anagrafica.punti === 0 && (!cached.storicoClassifica || cached.storicoClassifica.length === 0);
+  if (cached && !isHollow) return cached;
+  try {
+    let resolvedIdClass = await getLatestIdClass();
+    const html = await FitetClient.fetchSchedaAtleta(id, resolvedIdClass);
+    let partiteRanking = void 0;
+    let iframeUrl = extractRankingIframeUrl(html);
+    if (iframeUrl) {
+      try {
+        const iframeHtml = await FitetClient.fetchHtml(iframeUrl, false);
+        partiteRanking = parsePartiteRanking(iframeHtml, id);
+      } catch {
+      }
+    }
+    const atleta = parseDettaglioAtleta(html, id, partiteRanking);
+    if (atleta && atleta.anagrafica && atleta.anagrafica.nome) {
+      cacheService.set(cacheKey, atleta, TTL_ATLETA);
+      return atleta;
+    }
+    return atleta;
+  } catch {
+    return cached || null;
+  }
+}
+function escapeHtmlMeta(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+var MAX_OG_CARD_CACHE_ENTRIES = 25;
+var ogCardCache = /* @__PURE__ */ new Map();
+function setOgCardCache(id, entry) {
+  ogCardCache.delete(id);
+  ogCardCache.set(id, entry);
+  while (ogCardCache.size > MAX_OG_CARD_CACHE_ENTRIES) {
+    const oldest = ogCardCache.keys().next().value;
+    if (oldest !== void 0) {
+      ogCardCache.delete(oldest);
+    } else {
+      break;
+    }
+  }
+}
+app.get(["/api/og/player/:id.png", "/api/og/player/:id", "/api/og-player"], async (req, res) => {
+  let id = req.params.id || req.query.id;
+  if (!id) return res.status(400).send("Missing player ID");
+  id = id.replace(/\.png$/i, "");
+  if (!/^\d+$/.test(id)) {
+    const resolved = await athleteResolver.resolveAthleteId(decodeURIComponent(id).trim());
+    if (resolved) id = resolved;
+  }
+  const cachedEntry = ogCardCache.get(id);
+  if (cachedEntry) {
+    if (Date.now() < cachedEntry.expiresAt) {
+      ogCardCache.delete(id);
+      ogCardCache.set(id, cachedEntry);
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Vercel-CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+      res.setHeader("CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+      res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800");
+      return res.send(cachedEntry.buffer);
+    }
+    ogCardCache.delete(id);
+  }
+  const athlete = await getOrFetchAthlete(id);
+  if (!athlete) {
+    return res.status(404).send("Athlete not found");
+  }
+  try {
+    const pngBuffer = await generateAthleteOgCard(athlete);
+    setOgCardCache(id, { buffer: pngBuffer, expiresAt: Date.now() + 24 * 60 * 60 * 1e3 });
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Vercel-CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+    res.setHeader("CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800");
+    return res.send(pngBuffer);
+  } catch (err) {
+    console.error("Error generating OG image for athlete", id, err);
+    return res.status(500).send("Error generating card image");
+  }
+});
+app.post("/api/story/render", async (req, res) => {
+  const { athlete, theme, campionatoPartite, campionatoNome, viewsCount } = req.body || {};
+  if (!athlete) return res.status(400).send("Missing athlete data");
+  try {
+    const pngBuffer = await generateAthleteStoryCard(athlete, theme || "panoramica", {
+      campionatoPartite: Array.isArray(campionatoPartite) ? campionatoPartite : null,
+      campionatoNome: typeof campionatoNome === "string" ? campionatoNome : null,
+      viewsCount: typeof viewsCount === "number" ? viewsCount : void 0
+    });
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800");
+    return res.send(pngBuffer);
+  } catch (err) {
+    console.error("Error rendering Story image from payload:", err);
+    return res.status(500).send("Error generating story image");
+  }
+});
+app.get(["/api/story/player/:id.png", "/api/story/player/:id", "/api/story-player"], async (req, res) => {
+  let id = req.params.id || req.query.id;
+  const theme = req.query.theme || "panoramica";
+  if (!id) return res.status(400).send("Missing player ID");
+  id = id.replace(/\.png$/i, "");
+  if (!/^\d+$/.test(id)) {
+    const resolved = await athleteResolver.resolveAthleteId(decodeURIComponent(id).trim());
+    if (resolved) id = resolved;
+  }
+  const athlete = await getOrFetchAthlete(id);
+  if (!athlete) {
+    return res.status(404).send("Athlete not found");
+  }
+  try {
+    const pngBuffer = await generateAthleteStoryCard(athlete, theme);
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800");
+    return res.send(pngBuffer);
+  } catch (err) {
+    console.error("Error generating Story image for athlete", id, err);
+    return res.status(500).send("Error generating story image");
+  }
+});
+var cachedBaseHtml = null;
+async function getCachedBaseHtml() {
+  if (cachedBaseHtml) return cachedBaseHtml;
+  const distPath = path7.resolve(process.cwd(), "dist");
+  const indexFile = path7.join(distPath, "index.html");
+  if (fs6.existsSync(indexFile)) {
+    try {
+      cachedBaseHtml = await fs6.promises.readFile(indexFile, "utf8");
+      return cachedBaseHtml;
+    } catch {
+    }
+  }
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8" /><title>Portale Risultati FITeT</title></head><body><div id="root"></div></body></html>';
+}
+app.get(["/player/:id", "/atleta/:id"], async (req, res, next) => {
+  let { id } = req.params;
+  if (!id) return next();
+  id = id.replace(/\.png$/i, "");
+  if (!/^\d+$/.test(id)) {
+    const resolved = await athleteResolver.resolveAthleteId(decodeURIComponent(id).trim());
+    if (resolved) id = resolved;
+  }
+  const baseHtml = await getCachedBaseHtml();
+  try {
+    let athleteName = `Atleta #${id}`;
+    let description = "Visualizza la scheda atleta, ranking e storico incontri sul Portale Risultati FITeT.";
+    const athlete = await getOrFetchAthlete(id);
+    if (athlete?.anagrafica?.nome) {
+      athleteName = athlete.anagrafica.nome;
+      const societa = athlete.anagrafica.societa ? ` (${athlete.anagrafica.societa})` : "";
+      const rankText = athlete.anagrafica.punti ? ` - ${athlete.anagrafica.punti.toLocaleString("it-IT")} pt` : "";
+      description = `${athleteName}${societa}${rankText} \u2022 Scheda ranking, risultati e statistiche sul Portale Risultati FITeT.`;
+    }
+    const title = `${athleteName} | Scheda Ranking Portale Risultati FITeT`;
+    const host = req.get("host") || "portale-risultati-tt.it";
+    const protocol = req.protocol === "http" && host.includes("localhost") ? "http" : "https";
+    const currentUrl = `${protocol}://${host}/player/${encodeURIComponent(id)}`;
+    const ogImageUrl = `${protocol}://${host}/api/og/player/${encodeURIComponent(id)}.png`;
+    const ogMeta = `
+  <title>${escapeHtmlMeta(title)}</title>
+  <meta name="description" content="${escapeHtmlMeta(description)}" />
+  <meta property="og:title" content="${escapeHtmlMeta(title)}" />
+  <meta property="og:description" content="${escapeHtmlMeta(description)}" />
+  <meta property="og:image" content="${ogImageUrl}" />
+  <meta property="og:image:secure_url" content="${ogImageUrl}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:url" content="${currentUrl}" />
+  <meta property="og:type" content="profile" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtmlMeta(title)}" />
+  <meta name="twitter:description" content="${escapeHtmlMeta(description)}" />
+  <meta name="twitter:image" content="${ogImageUrl}" />
+`;
+    let html = baseHtml.replace(/<title>.*?<\/title>/gi, "").replace(/<meta\s+property=["']og:[^"']*["'][^>]*>/gi, "").replace(/<meta\s+name=["']twitter:[^"']*["'][^>]*>/gi, "").replace(/<meta\s+name=["']description["'][^>]*>/gi, "");
+    html = html.replace(/<head>/i, `<head>${ogMeta}`);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Vercel-CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+    res.setHeader("CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+    res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=604800");
+    return res.send(html);
+  } catch {
+    return next();
+  }
+});
+var safeTimingEqual = (a, b) => {
+  const hashA = crypto2.createHash("sha256").update(a, "utf8").digest();
+  const hashB = crypto2.createHash("sha256").update(b, "utf8").digest();
+  return crypto2.timingSafeEqual(hashA, hashB);
+};
+var ANALYTICS_AUTH_WINDOW_MS = 15 * 60 * 1e3;
+var ANALYTICS_AUTH_MAX_FAILURES = 5;
+var ANALYTICS_AUTH_MAX_ENTRIES = 1e3;
+var EPHEMERAL_AUTH_HMAC_KEY = crypto2.randomBytes(32);
+var analyticsAuthFailures = /* @__PURE__ */ new Map();
+var getEphemeralAuthClientKey = (req) => {
+  const forwarded = typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"].split(",")[0].trim() : "";
+  const remote = forwarded || req.socket?.remoteAddress || "unknown";
+  return crypto2.createHmac("sha256", EPHEMERAL_AUTH_HMAC_KEY).update(remote).digest("hex");
+};
+var pruneAuthFailureMap = (now) => {
+  for (const [key, state] of analyticsAuthFailures.entries()) {
+    if (now - state.firstFailureAt > ANALYTICS_AUTH_WINDOW_MS && now >= state.blockedUntil) {
+      analyticsAuthFailures.delete(key);
+    }
+  }
+  while (analyticsAuthFailures.size >= ANALYTICS_AUTH_MAX_ENTRIES) {
+    const oldestKey = analyticsAuthFailures.keys().next().value;
+    if (!oldestKey) break;
+    analyticsAuthFailures.delete(oldestKey);
+  }
+};
+var recordAuthFailure = async (clientKey, now) => {
+  pruneAuthFailureMap(now);
+  const existing = analyticsAuthFailures.get(clientKey);
+  const state = existing && now - existing.firstFailureAt <= ANALYTICS_AUTH_WINDOW_MS ? existing : { failures: 0, firstFailureAt: now, blockedUntil: 0 };
+  state.failures += 1;
+  if (state.failures >= ANALYTICS_AUTH_MAX_FAILURES) {
+    state.blockedUntil = now + ANALYTICS_AUTH_WINDOW_MS;
+  }
+  analyticsAuthFailures.set(clientKey, state);
+  const delayMs = Math.min(1500, state.failures * 250);
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+};
+var requireAnalyticsBasicAuth = async (req, res, next) => {
+  const expectedPass = process.env.ANALYTICS_ADMIN_PASS || process.env.ADMIN_PASSWORD || "";
+  const expectedUser = process.env.ANALYTICS_ADMIN_USER || process.env.ADMIN_USER || "admin";
+  if (!expectedPass) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(503).json({
+      error: "Analytics admin non configurato. Imposta ANALYTICS_ADMIN_PASS nelle variabili d'ambiente."
+    });
+  }
+  const now = Date.now();
+  const clientKey = getEphemeralAuthClientKey(req);
+  const failureState = analyticsAuthFailures.get(clientKey);
+  if (failureState && now < failureState.blockedUntil) {
+    const retryAfterSec = Math.max(1, Math.ceil((failureState.blockedUntil - now) / 1e3));
+    res.setHeader("Retry-After", String(retryAfterSec));
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(429).send("Troppi tentativi falliti. Riprova tra qualche minuto.");
+  }
+  const authHeader = req.headers.authorization || "";
+  if (!authHeader.startsWith("Basic ")) {
+    res.setHeader("WWW-Authenticate", 'Basic realm="FITeT Analytics Admin", charset="UTF-8"');
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(401).send("Autenticazione richiesta");
+  }
+  let decoded = "";
+  try {
+    decoded = Buffer.from(authHeader.slice(6).trim(), "base64").toString("utf8");
+  } catch {
+    await recordAuthFailure(clientKey, now);
+    res.setHeader("WWW-Authenticate", 'Basic realm="FITeT Analytics Admin", charset="UTF-8"');
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(401).send("Credenziali non valide");
+  }
+  const sepIdx = decoded.indexOf(":");
+  const providedUser = sepIdx >= 0 ? decoded.slice(0, sepIdx) : "";
+  const providedPass = sepIdx >= 0 ? decoded.slice(sepIdx + 1) : "";
+  if (!safeTimingEqual(providedUser, expectedUser) || !safeTimingEqual(providedPass, expectedPass)) {
+    await recordAuthFailure(clientKey, now);
+    res.setHeader("WWW-Authenticate", 'Basic realm="FITeT Analytics Admin", charset="UTF-8"');
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(401).send("Credenziali non valide");
+  }
+  analyticsAuthFailures.delete(clientKey);
+  return next();
+};
+app.post("/api/visit", express.text({ type: "text/plain" }), async (req, res) => {
+  let payload = {};
+  if (typeof req.body === "string") {
+    try {
+      const parsed = JSON.parse(req.body);
+      if (parsed && typeof parsed === "object") payload = parsed;
+    } catch {
+      payload = {};
+    }
+  } else if (req.body && typeof req.body === "object") {
+    payload = req.body;
+  }
+  const userAgent = req.headers["user-agent"] || "";
+  const purpose = String(req.headers["purpose"] || req.headers["sec-purpose"] || "").toLowerCase();
+  const isBot = BOT_USER_AGENT_REGEX.test(userAgent) || purpose.includes("prefetch");
+  const rawPath = typeof payload.path === "string" ? payload.path.trim() : "";
+  const isPwa = payload.pwa === true || String(payload.mode || "").toLowerCase() === "pwa";
+  const tasks = [trackRequestDailyVisitor(req, isPwa ? "PWA" : "Browser")];
+  if (!isBot && rawPath && !rawPath.startsWith("/admin") && !rawPath.startsWith("/api")) {
+    tasks.push(analyticsService.incrementMetric("page", normalizeAnalyticsPagePath(rawPath)));
+  }
+  await Promise.all(tasks);
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(200).json({ ok: true });
+});
+app.post("/api/track-source", express.text({ type: "text/plain" }), async (req, res) => {
+  let payload = {};
+  if (typeof req.body === "string") {
+    try {
+      const parsed = JSON.parse(req.body);
+      if (parsed && typeof parsed === "object") payload = parsed;
+    } catch {
+      return res.status(400).json({ error: "Payload JSON non valido" });
+    }
+  } else if (req.body && typeof req.body === "object") {
+    payload = req.body;
+  }
+  const headerUa = req.headers["user-agent"] || "";
+  const payloadUa = typeof payload.userAgent === "string" ? payload.userAgent : "";
+  const effectiveUa = headerUa || payloadUa;
+  const purpose = String(req.headers["purpose"] || req.headers["sec-purpose"] || "").toLowerCase();
+  if (BOT_USER_AGENT_REGEX.test(effectiveUa) || purpose.includes("prefetch")) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json({ ok: true, ignored: "bot" });
+  }
+  const landingPath = sanitizeLandingPath(payload.landingPath);
+  if (landingPath.startsWith("/admin") || landingPath.startsWith("/api")) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.status(200).json({ ok: true, ignored: "internal" });
+  }
+  const source = sanitizeSource(payload.source);
+  const utmMedium = sanitizeUtmMedium(payload.utmMedium);
+  const referrer = sanitizeReferrer(payload.referrer);
+  const deviceType = detectDeviceType(effectiveUa);
+  await trafficSourceService.recordTrafficSource({
+    source,
+    utmMedium,
+    referrer,
+    landingPath,
+    deviceType
+  });
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(200).json({ ok: true });
+});
+app.post("/api/click", express.text({ type: "text/plain" }), async (req, res) => {
+  let payload = {};
+  if (typeof req.body === "string") {
+    try {
+      const parsed = JSON.parse(req.body);
+      if (parsed && typeof parsed === "object") payload = parsed;
+    } catch {
+      return res.status(400).json({ error: "Payload JSON non valido" });
+    }
+  } else if (req.body && typeof req.body === "object") {
+    payload = req.body;
+  }
+  const target = typeof payload.target === "string" ? payload.target.trim() : "";
+  const from = typeof payload.from === "string" ? payload.from.trim() : null;
+  const metricType = payload.type === "page" ? "page" : "click";
+  if (!target) {
+    return res.status(400).json({ error: 'Campo "target" obbligatorio' });
+  }
+  await Promise.all([
+    analyticsService.recordClick(target, from, metricType),
+    trackRequestDailyVisitor(req)
+  ]);
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(200).json({ ok: true });
+});
+app.get("/api/analytics", requireAnalyticsBasicAuth, async (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Vercel-CDN-Cache-Control", "no-store");
+  res.setHeader("CDN-Cache-Control", "no-store");
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  try {
+    const requestedDays = Number(req.query.days);
+    const days = requestedDays === 7 ? 7 : 30;
+    const summary = await analyticsService.getAnalytics(days);
+    return res.json(summary);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Errore caricamento analytics";
+    return res.status(500).json({ error: message });
+  }
+});
+app.get("/admin/analytics", requireAnalyticsBasicAuth, (_req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Vercel-CDN-Cache-Control", "no-store");
+  res.setHeader("CDN-Cache-Control", "no-store");
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  return res.type("html").send(renderAnalyticsAdminHtml());
+});
+if (!process.env.VERCEL) {
+  const distPath = path7.resolve(process.cwd(), "dist");
+  app.use(express.static(distPath));
+  app.get(["/regioni/:slug", "/regione/:slug"], async (req, res, next) => {
+    const { slug } = req.params;
+    const preRenderedFile = path7.join(distPath, "regioni", slug.toLowerCase(), "index.html");
+    if (fs6.existsSync(preRenderedFile)) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.sendFile(preRenderedFile);
+    }
+    return next();
+  });
+  app.get(["/campionato/:id", "/cam/:id"], async (req, res, next) => {
+    const { id } = req.params;
+    const indexFile = path7.join(distPath, "index.html");
+    if (!fs6.existsSync(indexFile)) return next();
+    try {
+      let html = await fs6.promises.readFile(indexFile, "utf8");
+      const champ = await championshipCatalog.getChampionship(parseInt(id, 10));
+      const champName = champ ? champ.nome : `Campionato #${id}`;
+      const region = champ?.regione || "Nazionale";
+      const title = `${champName} (${region}) | Portale Risultati FITeT`;
+      const description = `Consulta classifica, calendario andata/ritorno e risultati di ${champName} sul Portale Risultati FITeT.`;
+      const currentUrl = `${req.protocol}://${req.get("host")}/campionato/${id}`;
+      const ogMeta = `
+  <title>${title}</title>
+  <meta name="description" content="${description}" />
+  <meta property="og:title" content="${title}" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="/fitetun.png" />
+  <meta property="og:url" content="${currentUrl}" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${title}" />
+  <meta name="twitter:description" content="${description}" />
+  <meta name="twitter:image" content="/fitetun.png" />
+`;
+      html = html.replace(/<title>.*?<\/title>/i, ogMeta);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.send(html);
+    } catch {
+      return next();
+    }
+  });
+  app.get("/sitemap.xml", (req, res) => {
+    const sitemapFile = path7.resolve(process.cwd(), "public", "sitemap.xml");
+    if (fs6.existsSync(sitemapFile)) {
+      res.setHeader("Content-Type", "application/xml; charset=utf-8");
+      return res.sendFile(sitemapFile);
+    }
+    res.status(404).send("Not Found");
+  });
+  app.get("/robots.txt", (req, res) => {
+    const robotsFile = path7.resolve(process.cwd(), "public", "robots.txt");
+    if (fs6.existsSync(robotsFile)) {
+      res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      return res.sendFile(robotsFile);
+    }
+    res.status(404).send("Not Found");
+  });
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api")) return next();
+    const indexFile = path7.join(distPath, "index.html");
+    res.sendFile(indexFile, (err) => {
+      if (err) res.status(404).send("Not Found");
+    });
+  });
+}
+var app_default = app;
+
+// server/services/cronScheduler.ts
+import cron from "node-cron";
+var CRON_TIMEZONE = "Europe/Rome";
+var CRON_JOBS = [
+  {
+    name: "check-ranking",
+    schedule: "0 9 * * *",
+    description: "Rileva il nuovo ID_CLASS FITeT e controlla campionati/matchday",
+    isRunning: false,
+    run: () => runRankingCheck()
+  },
+  {
+    name: "check-tornei",
+    schedule: "0 9 * * *",
+    description: "Scansiona i tornei nazionali/regionali e notifica i nuovi",
+    isRunning: false,
+    run: () => runTorneiCheck()
+  },
+  {
+    name: "check-campionati",
+    schedule: "0 19 * * *",
+    description: "Controlla i campionati seguiti dagli iscritti alle push",
+    isRunning: false,
+    run: () => runChampionshipsCheck()
+  },
+  {
+    name: "check-matchday",
+    schedule: "0 8 * * *",
+    description: "Notifica gli utenti se oggi \xE8 giorno di campionato",
+    isRunning: false,
+    run: () => runMatchdayCheck()
+  },
+  {
+    name: "videos-sync",
+    schedule: "0 7 * * *",
+    description: "Sincronizza i video dei canali YouTube",
+    isRunning: false,
+    run: () => runVideoSync()
+  }
+];
+var scheduledTasks = /* @__PURE__ */ new Map();
+var GLOBAL_FLAG = "__fitetCronSchedulerStarted__";
+function isAlreadyStarted() {
+  return Boolean(globalThis[GLOBAL_FLAG]);
+}
+function markStarted(started) {
+  globalThis[GLOBAL_FLAG] = started;
+}
+function shouldStartScheduler() {
+  if (process.env.CRON_DISABLED === "true") return false;
+  if (process.env.FORCE_CRON_SCHEDULER === "true") return true;
+  if (process.env.NODE_ENV === "production") return true;
+  const isRailway = Boolean(
+    process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID || process.env.RAILWAY_SERVICE_ID
+  );
+  return isRailway && process.env.NODE_ENV !== "development";
+}
+function formatDuration(ms) {
+  return ms >= 1e3 ? `${(ms / 1e3).toFixed(1)}s` : `${ms}ms`;
+}
+async function runJob(job) {
+  if (job.isRunning) {
+    console.warn(`[Cron] "${job.name}" saltato: esecuzione precedente ancora in corso.`);
+    return;
+  }
+  job.isRunning = true;
+  const startedAt = Date.now();
+  console.log(`[Cron] \u25B6 "${job.name}" avviato (${job.description})`);
+  try {
+    await job.run();
+    console.log(`[Cron] \u2713 "${job.name}" completato in ${formatDuration(Date.now() - startedAt)}.`);
+  } catch (err) {
+    console.error(
+      `[Cron] \u2717 "${job.name}" fallito dopo ${formatDuration(Date.now() - startedAt)}:`,
+      err
+    );
+  } finally {
+    job.isRunning = false;
+  }
+}
+function startCronScheduler() {
+  if (isAlreadyStarted()) {
+    console.log("[Cron] Scheduler gi\xE0 inizializzato, nessuna nuova registrazione.");
+    return;
+  }
+  if (!shouldStartScheduler()) {
+    console.log(
+      `[Cron] Scheduler non avviato (NODE_ENV=${process.env.NODE_ENV ?? "undefined"}). Imposta NODE_ENV=production o FORCE_CRON_SCHEDULER=true per attivarlo.`
+    );
+    return;
+  }
+  markStarted(true);
+  for (const job of CRON_JOBS) {
+    if (!cron.validate(job.schedule)) {
+      console.error(`[Cron] Espressione non valida per "${job.name}": ${job.schedule}`);
+      continue;
+    }
+    const task = cron.schedule(
+      job.schedule,
+      () => {
+        void runJob(job);
+      },
+      {
+        timezone: CRON_TIMEZONE,
+        name: `fitet-${job.name}`
+      }
+    );
+    scheduledTasks.set(job.name, task);
+    const nextRun = task.getNextRun();
+    console.log(
+      `[Cron] Programmato "${job.name}" (${job.schedule} ${CRON_TIMEZONE})` + (nextRun ? ` \u2014 prossima esecuzione: ${nextRun.toISOString()}` : "")
+    );
+  }
+}
+
+// server/index.ts
+var PORT = process.env.PORT || 3001;
+app_default.listen(PORT, () => {
+  console.log(`\u{1F680} FITeT Backend Server running at http://localhost:${PORT}`);
+  startCronScheduler();
+});

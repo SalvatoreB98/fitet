@@ -2698,8 +2698,22 @@ function escapeHtmlMeta(str: string): string {
         .replace(/"/g, '&quot;');
 }
 
-// In-memory cache per i buffer PNG dei social card (evita di ricalcolare Resvg a ogni hit)
+// In-memory cache per i buffer PNG dei social card (limitata con LRU per non saturare la RAM)
+const MAX_OG_CARD_CACHE_ENTRIES = 25;
 const ogCardCache = new Map<string, { buffer: Buffer; expiresAt: number }>();
+
+function setOgCardCache(id: string, entry: { buffer: Buffer; expiresAt: number }): void {
+    ogCardCache.delete(id);
+    ogCardCache.set(id, entry);
+    while (ogCardCache.size > MAX_OG_CARD_CACHE_ENTRIES) {
+        const oldest = ogCardCache.keys().next().value;
+        if (oldest !== undefined) {
+            ogCardCache.delete(oldest);
+        } else {
+            break;
+        }
+    }
+}
 
 // 1. Dynamic Open Graph Social Card (1200 x 630 PNG)
 app.get(['/api/og/player/:id.png', '/api/og/player/:id', '/api/og-player'], async (req, res) => {
@@ -2714,11 +2728,16 @@ app.get(['/api/og/player/:id.png', '/api/og/player/:id', '/api/og-player'], asyn
     }
 
     const cachedEntry = ogCardCache.get(id);
+
     if (cachedEntry && Date.now() < cachedEntry.expiresAt) {
+        ogCardCache.delete(id);
+        ogCardCache.set(id, cachedEntry);
         res.setHeader('Content-Type', 'image/png');
         res.setHeader('CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
         res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');
+        ogCardCache.delete(id);
         return res.send(cachedEntry.buffer);
+        
     }
 
     const athlete = await getOrFetchAthlete(id);
@@ -2728,7 +2747,7 @@ app.get(['/api/og/player/:id.png', '/api/og/player/:id', '/api/og-player'], asyn
 
     try {
         const pngBuffer = await generateAthleteOgCard(athlete);
-        ogCardCache.set(id, { buffer: pngBuffer, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
+        setOgCardCache(id, { buffer: pngBuffer, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
         res.setHeader('Content-Type', 'image/png');
         res.setHeader('CDN-Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
         res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800');

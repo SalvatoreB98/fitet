@@ -36,7 +36,7 @@ function getResvgOptions(width: number) {
   return {
     fitTo: { mode: 'width' as const, value: width },
     font: {
-      loadSystemFonts: true,
+      loadSystemFonts: false,
       fontFiles,
       defaultFontFamily: 'Inter',
       sansSerifFamily: 'Inter',
