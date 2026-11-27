@@ -1470,12 +1470,7 @@ app.get('/api/atleta/:id', async (req, res) => {
                 }
                 if (cached.anagrafica?.societa) {
                     cached.anagrafica.societa = formatSocietyName(cached.anagrafica.societa);
-                    if (!cached.anagrafica.logoUrl) {
-                        const resolvedLogo = teamResolver.getLogo(cached.anagrafica.societa);
-                        if (resolvedLogo) {
-                            cached.anagrafica.logoUrl = resolvedLogo;
-                        }
-                    }
+                    cached.anagrafica.logoUrl = teamResolver.getLogo(cached.anagrafica.societa) || undefined;
                 }
                 return res.json(cached);
             }

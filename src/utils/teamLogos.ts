@@ -102,9 +102,17 @@ export function getTeamLogoUrl(teamName?: string, directLogoUrl?: string): strin
   // 3. Normalized core name match (strips A.S.D., T.T., Tennistavolo, trailing "A"/"B")
   const coreQuery = normalizeCoreSocietyName(norm);
   if (coreQuery.length >= 3) {
+    const hasWholePhrase = (haystack: string, needle: string) =>
+      haystack === needle || ` ${haystack} `.includes(` ${needle} `);
     for (const [k, url] of Object.entries(dynamicTeamLogos)) {
       const coreKey = normalizeCoreSocietyName(k);
-      if (coreKey && (coreKey === coreQuery || (coreKey.length >= 4 && coreQuery.length >= 4 && (coreKey.includes(coreQuery) || coreQuery.includes(coreKey))))) {
+      if (
+        coreKey &&
+        (coreKey === coreQuery ||
+          (coreKey.length >= 4 &&
+            coreQuery.length >= 4 &&
+            (hasWholePhrase(coreKey, coreQuery) || hasWholePhrase(coreQuery, coreKey))))
+      ) {
         return url;
       }
     }

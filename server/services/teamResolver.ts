@@ -147,6 +147,13 @@ export class TeamResolver {
     let bestSubstringUrl: string | undefined;
     let bestSubstringDiff = Infinity;
 
+    const hasWholePhrase = (haystack: string, needle: string): boolean => {
+      if (haystack === needle) return true;
+      const paddedH = ` ${haystack} `;
+      const paddedN = ` ${needle} `;
+      return paddedH.includes(paddedN);
+    };
+
     for (const [k, url] of Object.entries(this.logos)) {
       const coreKey = normalizeCoreTeamName(k);
       if (!coreKey || coreKey.length < 3) continue;
@@ -154,7 +161,7 @@ export class TeamResolver {
         return url;
       }
       if (coreKey.length >= 4 && coreQuery.length >= 4) {
-        if (coreKey.includes(coreQuery) || coreQuery.includes(coreKey)) {
+        if (hasWholePhrase(coreKey, coreQuery) || hasWholePhrase(coreQuery, coreKey)) {
           const diff = Math.abs(coreKey.length - coreQuery.length);
           if (diff < bestSubstringDiff) {
             bestSubstringDiff = diff;
@@ -166,7 +173,7 @@ export class TeamResolver {
 
     if (bestSubstringUrl) return bestSubstringUrl;
 
-    // 3. Token overlap match on distinctive tokens (>= 4 chars)
+    // 3. Token overlap match on distinctive tokens (>= 4 chars, exact token match only)
     const queryTokens = extractCoreTokens(norm).filter((t) => t.length >= 4);
     if (queryTokens.length === 0) return undefined;
 
@@ -177,22 +184,20 @@ export class TeamResolver {
       const keyTokens = extractCoreTokens(k).filter((t) => t.length >= 4);
       if (keyTokens.length === 0) continue;
 
-      const matchedCount = queryTokens.filter((qt) =>
-        keyTokens.some((kt) => kt === qt || (kt.length >= 5 && qt.length >= 5 && (kt.includes(qt) || qt.includes(kt))))
-      ).length;
-
+      const matchedCount = queryTokens.filter((qt) => keyTokens.includes(qt)).length;
       if (matchedCount === 0) continue;
 
-      // All query tokens matched or all key tokens matched
       const allQueryMatched = matchedCount === queryTokens.length;
       const allKeyMatched = matchedCount === keyTokens.length;
+      const maxTokens = Math.max(queryTokens.length, keyTokens.length);
+      const coverageOk = matchedCount >= 2 || (allQueryMatched && allKeyMatched) || matchedCount / maxTokens >= 0.5;
       const score =
         matchedCount * 10 +
         (allQueryMatched ? 5 : 0) +
         (allKeyMatched ? 5 : 0) -
         Math.abs(keyTokens.length - queryTokens.length);
 
-      if ((allQueryMatched || allKeyMatched || matchedCount >= 2) && score > bestTokenScore) {
+      if (coverageOk && score > bestTokenScore) {
         bestTokenScore = score;
         bestTokenUrl = url;
       }
