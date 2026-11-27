@@ -45,7 +45,7 @@ interface MatchDetailModalProps {
   onClose: () => void;
   onOpenHeadToHead: (opponent: { id?: string; name: string }) => void;
   onOpenOpponentProfile?: (idOrName: string, name: string) => void;
-  onNavigateToGiornata?: (camId?: number, giornata?: number) => void;
+  onNavigateToGiornata?: (camId?: number, giornata?: number, tab?: 'classifica' | 'calendario') => void;
 }
 
 function parseSetScores(setStr: string): { a: number; b: number; wonByAthlete: boolean | null } | null {
@@ -150,17 +150,27 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
   const [isRefertoModalOpen, setIsRefertoModalOpen] = useState(false);
   const [teamIdsByName, setTeamIdsByName] = useState<Record<string, string>>({});
   const [selectedTeamModal, setSelectedTeamModal] = useState<{ id: string; name: string } | null>(null);
+  const [confirmNavTarget, setConfirmNavTarget] = useState<{
+    camId: number;
+    tab: 'classifica' | 'calendario';
+    giornata?: number;
+    label: string;
+  } | null>(null);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isTopModal && !isRefertoModalOpen && !selectedTeamModal) {
         e.stopPropagation();
-        requestClose();
+        if (confirmNavTarget) {
+          setConfirmNavTarget(null);
+        } else {
+          requestClose();
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [requestClose, isTopModal, isRefertoModalOpen, selectedTeamModal]);
+  }, [requestClose, isTopModal, isRefertoModalOpen, selectedTeamModal, confirmNavTarget]);
 
   // Carica in background i dettagli dell'avversario (foto, ID reale, rank, punti, società)
   useEffect(() => {
@@ -414,13 +424,51 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
             <p className="match-detail-kicker">{kickerLabel}</p>
             <div className="match-detail-meta-row">
               {(resolvedChampInfo.displayTitle || match.titolo) && (
-                <span className="match-detail-meta-pill">
-                  <i className="bi bi-trophy-fill" style={{ fontSize: '10px', opacity: 0.75 }} />
-                  <span>{resolvedChampInfo.displayTitle || match.titolo}</span>
-                </span>
+                resolvedChampInfo.effectiveCamId && onNavigateToGiornata ? (
+                  <button
+                    type="button"
+                    className="match-detail-meta-pill is-clickable"
+                    onClick={() =>
+                      setConfirmNavTarget({
+                        camId: resolvedChampInfo.effectiveCamId!,
+                        tab: 'classifica',
+                        label: resolvedChampInfo.displayTitle || match.titolo,
+                      })
+                    }
+                    title="Vai al campionato / classifica"
+                  >
+                    <i className="bi bi-trophy-fill" style={{ fontSize: '10px', opacity: 0.75 }} />
+                    <span>{resolvedChampInfo.displayTitle || match.titolo}</span>
+                    <i className="bi bi-box-arrow-up-right" style={{ fontSize: '9px', opacity: 0.7 }} />
+                  </button>
+                ) : (
+                  <span className="match-detail-meta-pill">
+                    <i className="bi bi-trophy-fill" style={{ fontSize: '10px', opacity: 0.75 }} />
+                    <span>{resolvedChampInfo.displayTitle || match.titolo}</span>
+                  </span>
+                )
               )}
               {match.giornata !== undefined && (
-                <span className="match-detail-meta-pill">Giornata {match.giornata}</span>
+                resolvedChampInfo.effectiveCamId && onNavigateToGiornata ? (
+                  <button
+                    type="button"
+                    className="match-detail-meta-pill is-clickable"
+                    onClick={() =>
+                      setConfirmNavTarget({
+                        camId: resolvedChampInfo.effectiveCamId!,
+                        tab: 'calendario',
+                        giornata: match.giornata,
+                        label: `${resolvedChampInfo.displayTitle || match.titolo} · Giornata ${match.giornata}`,
+                      })
+                    }
+                    title={`Vai alla Giornata ${match.giornata} nel Calendario`}
+                  >
+                    <span>Giornata {match.giornata}</span>
+                    <i className="bi bi-box-arrow-up-right" style={{ fontSize: '9px', opacity: 0.7 }} />
+                  </button>
+                ) : (
+                  <span className="match-detail-meta-pill">Giornata {match.giornata}</span>
+                )
               )}
               {match.fase && (
                 <span className="match-detail-meta-pill">{match.fase}</span>
@@ -737,26 +785,56 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
               {showOtherDayMatches && (
                 <div className="match-detail-card" style={{ padding: '6px 10px', marginTop: '8px' }}>
                   <div className="match-detail-referto-list">
-                    {otherDayMatches.map((om) => (
-                      <div key={om.id} className="match-detail-referto-row">
-                        <div className="match-detail-day-teams" title={`${om.squadraCasa} vs ${om.squadraOspite}`}>
-                          <span className="match-detail-day-team">
-                            <TeamLogo teamName={om.squadraCasa} size={18} />
-                            <span className="match-detail-day-team-name">{om.squadraCasa}</span>
-                          </span>
-                          <span className="match-detail-day-vs">vs</span>
-                          <span className="match-detail-day-team">
-                            <TeamLogo teamName={om.squadraOspite} size={18} />
-                            <span className="match-detail-day-team-name">{om.squadraOspite}</span>
-                          </span>
+                    {otherDayMatches.map((om) => {
+                      const omCasaId = teamIdsByName[normTeam(om.squadraCasa)];
+                      const omOspiteId = teamIdsByName[normTeam(om.squadraOspite)];
+                      const canOpenTeams = Boolean(resolvedChampInfo.effectiveCamId);
+
+                      return (
+                        <div key={om.id} className="match-detail-referto-row">
+                          <div className="match-detail-day-teams" title={`${om.squadraCasa} vs ${om.squadraOspite}`}>
+                            {omCasaId && canOpenTeams ? (
+                              <button
+                                type="button"
+                                className="match-detail-day-team match-detail-day-team-btn"
+                                onClick={() => setSelectedTeamModal({ id: omCasaId, name: om.squadraCasa })}
+                                title={`Apri scheda squadra ${om.squadraCasa}`}
+                              >
+                                <TeamLogo teamName={om.squadraCasa} size={18} />
+                                <span className="match-detail-day-team-name">{om.squadraCasa}</span>
+                              </button>
+                            ) : (
+                              <span className="match-detail-day-team">
+                                <TeamLogo teamName={om.squadraCasa} size={18} />
+                                <span className="match-detail-day-team-name">{om.squadraCasa}</span>
+                              </span>
+                            )}
+                            <span className="match-detail-day-vs">vs</span>
+                            {omOspiteId && canOpenTeams ? (
+                              <button
+                                type="button"
+                                className="match-detail-day-team match-detail-day-team-btn"
+                                onClick={() => setSelectedTeamModal({ id: omOspiteId, name: om.squadraOspite })}
+                                title={`Apri scheda squadra ${om.squadraOspite}`}
+                              >
+                                <TeamLogo teamName={om.squadraOspite} size={18} />
+                                <span className="match-detail-day-team-name">{om.squadraOspite}</span>
+                              </button>
+                            ) : (
+                              <span className="match-detail-day-team">
+                                <TeamLogo teamName={om.squadraOspite} size={18} />
+                                <span className="match-detail-day-team-name">{om.squadraOspite}</span>
+                              </span>
+                            )}
+                          </div>
+                          <div className="match-detail-referto-score">
+                            {om.disputato && om.puntiCasa !== null && om.puntiOspite !== null
+                              ? `${om.puntiCasa} - ${om.puntiOspite}`
+                              : om.data || '-'}
+                          </div>
                         </div>
-                        <div className="match-detail-referto-score">
-                          {om.disputato && om.puntiCasa !== null && om.puntiOspite !== null
-                            ? `${om.puntiCasa} - ${om.puntiOspite}`
-                            : om.data || '-'}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -769,6 +847,45 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
             Chiudi
           </button>
         </div>
+
+        {/* Modale di conferma abbandono scheda atleta */}
+        {confirmNavTarget && (
+          <div
+            className="match-detail-confirm-overlay"
+            onClick={() => setConfirmNavTarget(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Conferma navigazione campionato"
+          >
+            <div className="match-detail-confirm-box" onClick={(e) => e.stopPropagation()}>
+              <h4 className="match-detail-confirm-title">Abbandonare la scheda atleta?</h4>
+              <p className="match-detail-confirm-text">
+                Sei sicuro di voler abbandonare la scheda atleta e andare a{' '}
+                <strong>{confirmNavTarget.label}</strong>?
+              </p>
+              <div className="match-detail-confirm-actions">
+                <button
+                  type="button"
+                  className="match-detail-confirm-btn"
+                  onClick={() => setConfirmNavTarget(null)}
+                >
+                  No
+                </button>
+                <button
+                  type="button"
+                  className="match-detail-confirm-btn is-yes"
+                  onClick={() => {
+                    const target = confirmNavTarget;
+                    setConfirmNavTarget(null);
+                    onNavigateToGiornata?.(target.camId, target.giornata, target.tab);
+                  }}
+                >
+                  Sì
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {isRefertoModalOpen && teamMatch?.incontroId && (

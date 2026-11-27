@@ -153,6 +153,21 @@
   border: 1px solid var(--border-color, #e2e8f0);
 }
 
+button.match-detail-meta-pill.is-clickable {
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+button.match-detail-meta-pill.is-clickable:hover {
+  background: var(--color-primary-light, #eff6ff);
+  border-color: var(--color-primary-500, #4e7a9c);
+  color: var(--color-primary-700, #163d6b);
+}
+
+[data-theme="dark"] button.match-detail-meta-pill.is-clickable:hover {
+  color: #7dd3fc;
+}
+
 .match-detail-meta-pill.is-points-pos {
   background: var(--color-success-bg, #ecfdf5);
   color: var(--color-success-text, #047857);
@@ -573,6 +588,80 @@
   gap: 5px;
   min-width: 0;
   max-width: 100%;
+}
+
+.match-detail-day-team-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.match-detail-day-team-btn:hover .match-detail-day-team-name {
+  color: var(--color-primary-600, #26699c);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.match-detail-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: rgba(8, 18, 36, 0.62);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.match-detail-confirm-box {
+  width: 100%;
+  max-width: 360px;
+  background: var(--bg-container, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+}
+
+.match-detail-confirm-title {
+  margin: 0 0 8px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+}
+
+.match-detail-confirm-text {
+  margin: 0 0 16px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-main, #1e293b);
+}
+
+.match-detail-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.match-detail-confirm-btn {
+  padding: 7px 16px;
+  border-radius: 9px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-th, #f1f5f9);
+  color: var(--text-dark, #0f172a);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.match-detail-confirm-btn.is-yes {
+  background: var(--color-primary-700, #163d6b);
+  border-color: var(--color-primary-700, #163d6b);
+  color: #ffffff;
 }
 
 .match-detail-day-team-name {

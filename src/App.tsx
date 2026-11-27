@@ -1609,14 +1609,14 @@ export const App: React.FC = () => {
           onPromoteToFull={(resolvedId, resolvedName) => promotePreviewAthlete(a.key, resolvedId, resolvedName)}
           onResolveAthlete={handleResolveAthlete}
           onOpenSociety={handleOpenSocietyByName}
-          onNavigateToGiornata={(targetCamId, giornata) => {
+          onNavigateToGiornata={(targetCamId, giornata, tab) => {
             setAthleteStack([]);
             if (targetCamId && targetCamId !== camId) {
               handleSelectChampionship(targetCamId, annoId);
             }
             setSelectedGiornataFilter(typeof giornata === 'number' ? giornata : null);
             setMainView('campionato');
-            setChampionshipTab('calendario');
+            setChampionshipTab(tab || (typeof giornata === 'number' ? 'calendario' : 'classifica'));
           }}
         />
       ))}

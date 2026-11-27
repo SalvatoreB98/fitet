@@ -45,7 +45,7 @@ interface AtletaModalProps {
   onPromoteToFull?: (resolvedId: string, resolvedName: string) => void;
   onResolveAthlete?: (resolvedId: string, resolvedName: string) => void;
   onOpenSociety?: (societyName: string, context?: SocietaLookupContext) => void;
-  onNavigateToGiornata?: (camId?: number, giornata?: number) => void;
+  onNavigateToGiornata?: (camId?: number, giornata?: number, tab?: 'classifica' | 'calendario') => void;
   isTopModal?: boolean;
 }
 
