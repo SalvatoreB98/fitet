@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
 import { fetchAtleta, fetchAtletaCampionatoPartite } from '../services/api';
 import {
   buildMyProfileSnapshot,
@@ -13,8 +13,9 @@ import {
 import type { MyProfileSnapshot, MyProfileFormMatch } from '../utils/myProfile';
 import { aggregateAthleteMatchStats } from '../utils/aggregateAthleteStats';
 import type { PartitaCampionatoAtleta } from '../types/fitet';
-import { SearchAtletaModal } from './SearchAtletaModal';
 import './MyProfileHero.css';
+
+const SearchAtletaModal = lazy(() => import('./SearchAtletaModal').then((m) => ({ default: m.SearchAtletaModal })));
 
 export interface PlayerChampionshipStatus {
   playerId: string | null;
@@ -623,13 +624,17 @@ export const MyProfileHero: React.FC<MyProfileHeroProps> = ({
         </article>
       )}
 
-      <SearchAtletaModal
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-        title="Imposta il tuo profilo"
-        subtitle="Cerca il tuo nome tra gli atleti tesserati FITeT"
-        onSelectAthlete={handleSelectProfile}
-      />
+      {isSearchOpen && (
+        <Suspense fallback={null}>
+          <SearchAtletaModal
+            isOpen={isSearchOpen}
+            onClose={() => setIsSearchOpen(false)}
+            title="Imposta il tuo profilo"
+            subtitle="Cerca il tuo nome tra gli atleti tesserati FITeT"
+            onSelectAthlete={handleSelectProfile}
+          />
+        </Suspense>
+      )}
     </section>
   );
 };

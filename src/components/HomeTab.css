@@ -356,7 +356,11 @@
   font-family: var(--font-sans, sans-serif);
   font-size: 12px;
   font-weight: 700;
-  color: var(--text-muted, #475569);
+  color: #334155;
+}
+
+[data-theme="dark"] .home-section-count {
+  color: #94a3b8;
 }
 
 .home-section-btn {

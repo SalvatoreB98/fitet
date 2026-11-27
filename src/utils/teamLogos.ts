@@ -83,7 +83,7 @@ export function extractSocietyIdFromLogo(logoUrl?: string | null): string | null
 
 export function getTeamLogoUrl(teamName?: string, directLogoUrl?: string): string {
   if (directLogoUrl) return directLogoUrl;
-  if (!teamName) return '/generica.png';
+  if (!teamName) return '/generica.webp';
 
   const norm = teamName.toUpperCase().trim();
 
@@ -126,7 +126,7 @@ export function getTeamLogoUrl(teamName?: string, directLogoUrl?: string): strin
   }
 
   // Immagine generica ufficiale federale FITeT
-  return '/generica.png';
+  return '/generica.webp';
 }
 
 export function resolveCachedSocietyId(
