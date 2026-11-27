@@ -171,8 +171,10 @@
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  box-shadow: none;
+  F box-shadow: none;
   overflow: hidden;
+  box-shadow: 0 1px 4px rgba(10, 25, 47, 0.12);
+
 }
 
 [data-theme="dark"] .home-hero {
@@ -238,6 +240,10 @@
   font-size: 13px;
   line-height: 1.45;
   margin: 4px 0 0 0;
+}
+
+.home-hero-sub {
+  box-shadow: 0 1px 4px rgba(10, 25, 47, 0.12);
 }
 
 .home-hero-actions {

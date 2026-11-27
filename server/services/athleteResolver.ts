@@ -20,12 +20,12 @@ export class AthleteResolver {
 
   private loadMapping() {
     try {
-      if (fs.existsSync(this.staticMappingFile)) {
-        const content = fs.readFileSync(this.staticMappingFile, 'utf8');
-        this.mapping = { ...this.mapping, ...JSON.parse(content) };
-      }
       if (fs.existsSync(this.runtimeMappingFile)) {
         const content = fs.readFileSync(this.runtimeMappingFile, 'utf8');
+        this.mapping = { ...this.mapping, ...JSON.parse(content) };
+      }
+      if (fs.existsSync(this.staticMappingFile)) {
+        const content = fs.readFileSync(this.staticMappingFile, 'utf8');
         this.mapping = { ...this.mapping, ...JSON.parse(content) };
       }
     } catch {
@@ -68,18 +68,17 @@ export class AthleteResolver {
       
       const norm = (s: string) => s.replace(/[^a-zA-Z]/g, '').toUpperCase();
       const target = norm(cleanName);
+      const findBestMatch = (list: typeof results) =>
+        list.find((r) => norm(r.value) === target) ||
+        list.find((r) => norm(r.value).includes(target) || target.includes(norm(r.value)));
 
-      let exact = results.find(
-        (r) => norm(r.value) === target || norm(r.value).includes(target) || target.includes(norm(r.value))
-      );
+      let exact = findBestMatch(results);
 
       // If not found, try with first word (surname)
       if (!exact && cleanName.includes(' ')) {
         const surname = cleanName.split(' ')[0];
         results = await FitetClient.searchAtleta(surname);
-        exact = results.find(
-          (r) => norm(r.value) === target || norm(r.value).includes(target) || target.includes(norm(r.value))
-        );
+        exact = findBestMatch(results);
       }
 
       if (exact) {
