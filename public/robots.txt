@@ -3,6 +3,6 @@ Allow: /
 Disallow: /api/
 Disallow: /undefined
 
-Agentmap: https://portale-risultati-tt.it/.well-known/ard.json
-
+# Agentmap: https://portale-risultati-tt.it/.well-known/ard.json
 Sitemap: https://portale-risultati-tt.it/sitemap.xml
+
