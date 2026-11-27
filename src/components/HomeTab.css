@@ -356,11 +356,11 @@
   font-family: var(--font-sans, sans-serif);
   font-size: 12px;
   font-weight: 700;
-  opacity: 0.75;
+  opacity: 0.9;
 }
 
 [data-theme="dark"] .home-section-count {
-  opacity: 0.75;
+  opacity: 0.9;
 }
 
 .home-section-btn {
