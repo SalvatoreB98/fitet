@@ -560,6 +560,12 @@ async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squa
 
 // ======================== API ROUTES ========================
 
+// Health check endpoint (smoke tests, monitoring, uptime)
+app.get('/api/health', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ status: 'ok', uptime: process.uptime() });
+});
+
 // 0. All Championships Catalog
 app.get('/api/campionati', async (req, res) => {
     const forceRefresh = isForceRefreshRequest(req);

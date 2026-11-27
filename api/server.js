@@ -11451,6 +11451,10 @@ async function getStatistiche(camId = DEFAULT_CAM_ID, forceRefresh = false, squa
   cacheService.set(cacheKey, data, TTL_STATISTICHE);
   return data;
 }
+app.get("/api/health", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ status: "ok", uptime: process.uptime() });
+});
 app.get("/api/campionati", async (req, res) => {
   const forceRefresh = isForceRefreshRequest(req);
   try {
@@ -13620,7 +13624,129 @@ app.get(["/ai-catalog.json", "/.well-known/ard.json", "/.well-known/ai-catalog.j
   });
 }
 var app_default = app;
+
+// server/services/cronScheduler.ts
+import cron from "node-cron";
+var CRON_TIMEZONE = "Europe/Rome";
+var CRON_JOBS = [
+  {
+    name: "check-ranking",
+    schedule: "0 9 * * *",
+    description: "Rileva il nuovo ID_CLASS FITeT e controlla campionati/matchday",
+    isRunning: false,
+    run: () => runRankingCheck()
+  },
+  {
+    name: "check-tornei",
+    schedule: "0 9 * * *",
+    description: "Scansiona i tornei nazionali/regionali e notifica i nuovi",
+    isRunning: false,
+    run: () => runTorneiCheck()
+  },
+  {
+    name: "check-campionati",
+    schedule: "0 19 * * *",
+    description: "Controlla i campionati seguiti dagli iscritti alle push",
+    isRunning: false,
+    run: () => runChampionshipsCheck()
+  },
+  {
+    name: "check-matchday",
+    schedule: "0 8 * * *",
+    description: "Notifica gli utenti se oggi \xE8 giorno di campionato",
+    isRunning: false,
+    run: () => runMatchdayCheck()
+  },
+  {
+    name: "videos-sync",
+    schedule: "0 7 * * *",
+    description: "Sincronizza i video dei canali YouTube",
+    isRunning: false,
+    run: () => runVideoSync()
+  }
+];
+var scheduledTasks = /* @__PURE__ */ new Map();
+var GLOBAL_FLAG = "__fitetCronSchedulerStarted__";
+function isAlreadyStarted() {
+  return Boolean(globalThis[GLOBAL_FLAG]);
+}
+function markStarted(started) {
+  globalThis[GLOBAL_FLAG] = started;
+}
+function shouldStartScheduler() {
+  if (process.env.CRON_DISABLED === "true") return false;
+  if (process.env.FORCE_CRON_SCHEDULER === "true") return true;
+  if (process.env.NODE_ENV === "production") return true;
+  const isRailway = Boolean(
+    process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID || process.env.RAILWAY_SERVICE_ID
+  );
+  return isRailway && process.env.NODE_ENV !== "development";
+}
+function formatDuration(ms) {
+  return ms >= 1e3 ? `${(ms / 1e3).toFixed(1)}s` : `${ms}ms`;
+}
+async function runJob(job) {
+  if (job.isRunning) {
+    console.warn(`[Cron] "${job.name}" saltato: esecuzione precedente ancora in corso.`);
+    return;
+  }
+  job.isRunning = true;
+  const startedAt = Date.now();
+  console.log(`[Cron] \u25B6 "${job.name}" avviato (${job.description})`);
+  try {
+    await job.run();
+    console.log(`[Cron] \u2713 "${job.name}" completato in ${formatDuration(Date.now() - startedAt)}.`);
+  } catch (err) {
+    console.error(
+      `[Cron] \u2717 "${job.name}" fallito dopo ${formatDuration(Date.now() - startedAt)}:`,
+      err
+    );
+  } finally {
+    job.isRunning = false;
+  }
+}
+function startCronScheduler() {
+  if (isAlreadyStarted()) {
+    console.log("[Cron] Scheduler gi\xE0 inizializzato, nessuna nuova registrazione.");
+    return;
+  }
+  if (!shouldStartScheduler()) {
+    console.log(
+      `[Cron] Scheduler non avviato (NODE_ENV=${process.env.NODE_ENV ?? "undefined"}). Imposta NODE_ENV=production o FORCE_CRON_SCHEDULER=true per attivarlo.`
+    );
+    return;
+  }
+  markStarted(true);
+  for (const job of CRON_JOBS) {
+    if (!cron.validate(job.schedule)) {
+      console.error(`[Cron] Espressione non valida per "${job.name}": ${job.schedule}`);
+      continue;
+    }
+    const task = cron.schedule(
+      job.schedule,
+      () => {
+        void runJob(job);
+      },
+      {
+        timezone: CRON_TIMEZONE,
+        name: `fitet-${job.name}`
+      }
+    );
+    scheduledTasks.set(job.name, task);
+    const nextRun = task.getNextRun();
+    console.log(
+      `[Cron] Programmato "${job.name}" (${job.schedule} ${CRON_TIMEZONE})` + (nextRun ? ` \u2014 prossima esecuzione: ${nextRun.toISOString()}` : "")
+    );
+  }
+}
+
+// server/index.ts
+var PORT = process.env.PORT || 3001;
+app_default.listen(PORT, () => {
+  console.log(`\u{1F680} FITeT Backend Server running at http://localhost:${PORT}`);
+  startCronScheduler();
+});
+var index_default = app_default;
 export {
-  app,
-  app_default as default
+  index_default as default
 };

@@ -7,3 +7,5 @@ app.listen(PORT, () => {
   console.log(`🚀 FITeT Backend Server running at http://localhost:${PORT}`);
   startCronScheduler();
 });
+
+export default app;
