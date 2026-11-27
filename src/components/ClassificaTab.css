@@ -1,0 +1,271 @@
+/* ==========================================================================
+   MATHEMATICAL CSS GRID SYSTEM (Replaces HTML table, tr, td)
+   Uniform 40px Row Heights â€¢ Symmetrical Grid â€¢ 100% Responsive
+   ========================================================================== */
+
+.grid-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg-container);
+}
+
+.grid-table {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Header Row */
+.grid-header-row {
+  display: grid;
+  align-items: center;
+  height: 38px;
+  width: 100%;
+  background: var(--bg-th);
+  border-bottom: 2px solid #cbd5e1;
+  user-select: none;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #334155;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.grid-th {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 4px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.grid-th:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Data Row - Exactly 40px Uniform Height */
+.grid-data-row {
+  display: grid;
+  align-items: center;
+  height: 40px;
+  width: 100%;
+  border-bottom: 1px solid var(--border-light);
+  transition: background-color 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Alternating Row Tint (Zebra Striping) - Light Theme */
+.grid-table .grid-data-row:nth-child(even) {
+  background-color: var(--bg-container);
+}
+
+.grid-table .grid-data-row:nth-child(odd) {
+  background-color: #e5eaee;
+}
+
+.grid-table .grid-data-row:hover {}
+
+.grid-cell {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 4px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-main);
+}
+
+.grid-cell:nth-child(1) {
+  padding: 0 4px;
+}
+
+/* Alignment utilities */
+.text-center {
+  justify-content: center;
+  text-align: center;
+}
+
+.text-left {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.text-right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+/* Specific Grid Columns Layouts */
+
+/* 1. Classifica Grid: Master 10-column table */
+.classifica-grid {
+  min-width: 900px;
+  width: max-content;
+}
+
+.classifica-grid .grid-header-row,
+.classifica-grid .grid-data-row {
+  grid-template-columns: 46px minmax(220px, 1fr) 58px 46px 46px 46px 115px 105px 95px 105px;
+}
+
+/* 1b. Responsive Classifica Sections (Zero Horizontal Scroll on any screen) */
+.classifica-ufficiale-grid,
+.classifica-bilancio-grid,
+.classifica-differenziali-grid {
+  width: 100%;
+  min-width: 0;
+}
+
+.classifica-ufficiale-grid .grid-header-row,
+.classifica-ufficiale-grid .grid-data-row {
+  grid-template-columns: 42px minmax(130px, 1fr) 46px 60px;
+}
+
+.classifica-bilancio-grid .grid-header-row,
+.classifica-bilancio-grid .grid-data-row {
+  grid-template-columns: 38px minmax(120px, 1fr) 48px 48px 125px;
+}
+
+.classifica-differenziali-grid .grid-header-row,
+.classifica-differenziali-grid .grid-data-row {
+  grid-template-columns: 38px minmax(120px, 1fr) 90px 78px 64px;
+}
+
+/* Mobile Sticky Team Column - ONLY for Tabellone 10 Colonne (.classifica-grid) */
+@media (max-width: 768px) {
+  .classifica-grid {
+    min-width: 760px;
+  }
+
+  .classifica-grid .grid-header-row,
+  .classifica-grid .grid-data-row {
+    grid-template-columns: 40px minmax(135px, 160px) 52px 42px 42px 42px 95px 85px 80px 95px;
+  }
+
+  /* Sticky positioning for Team on mobile (Tabellone only) */
+  .classifica-grid .grid-th-team,
+  .classifica-grid .grid-cell-team {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    border-right: 1px solid var(--border-color);
+  }
+
+  /* Header sticky team must stay above scrolling data rows */
+  .classifica-grid .grid-th.grid-th-team {
+    z-index: 6;
+    background: var(--bg-th);
+  }
+
+  /* Sticky data cell matching zebra striping and hover */
+  .classifica-grid .grid-data-row:nth-child(even) .grid-cell-team {
+    background-color: var(--bg-container);
+  }
+
+  .classifica-grid .grid-data-row:nth-child(odd) .grid-cell-team {
+    background-color: #e5eaee;
+  }
+
+  .classifica-grid .grid-data-row:hover .grid-cell-team {
+    background-color: #edf4ff;
+  }
+}
+
+.btn.btn-primary {
+  background: var(--color-primary-600);
+  border: none;
+  font-size: 12px;
+}
+
+
+/* ==========================================================================
+   STANDINGS TEAM PHOTO & POSITION OVERLAY (Classifica Squadre)
+   ========================================================================== */
+.standings-team-photo-wrapper {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 100%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.standings-team-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 100%;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  padding: 1px;
+  display: block;
+}
+
+[data-theme="dark"] .standings-team-logo {
+  background: #0f1c38;
+  border-color: #1e3563;
+}
+
+
+.referto-matches-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.referto-grid-table {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-container);
+  overflow-x: auto;
+}
+
+
+/* ==========================================================================
+   Expandable Search Control in Tabs (ClassificaTab & StatisticheTab)
+   ========================================================================== */
+.search-expandable-box {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+
+.btn-search-trigger {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px solid var(--border-input);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 13.5px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.btn-search-trigger:hover,
+.btn-search-trigger.active {
+  background: var(--bg-hover, #f1f5f9);
+  border-color: var(--color-primary-600);
+  color: var(--color-primary-600);
+  transform: translateY(-1px);
+}

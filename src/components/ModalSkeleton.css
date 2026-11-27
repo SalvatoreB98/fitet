@@ -1,0 +1,204 @@
+/* ==========================================================================
+   Universal Modal Skeleton Primitives & Layout Stability (Anti-CLS)
+   ========================================================================== */
+.skel {
+  display: block;
+  background: linear-gradient(90deg,
+      rgba(148, 163, 184, 0.14) 25%,
+      rgba(148, 163, 184, 0.28) 50%,
+      rgba(148, 163, 184, 0.14) 75%) !important;
+  background-size: 200% 100% !important;
+  animation: modalSkeletonShimmer 1.4s ease-in-out infinite;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .skel {
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.06) 25%,
+      rgba(255, 255, 255, 0.14) 50%,
+      rgba(255, 255, 255, 0.06) 75%) !important;
+  background-size: 200% 100% !important;
+}
+
+.skel-wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  pointer-events: none;
+  user-select: none;
+}
+
+.skel-caption {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  text-align: center;
+}
+
+.skel-caption-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary-500, #0284c7);
+  animation: modalSkeletonPulse 1.1s ease-in-out infinite;
+}
+
+.skel-versus {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.skel-versus-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.skel-versus-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.skel-versus-side.is-right {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.skel-versus-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+
+.skel-versus-side.is-right .skel-versus-meta {
+  align-items: flex-end;
+}
+
+.skel-versus-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 0 8px;
+}
+
+.skel-versus-bar {
+  margin-top: 2px;
+}
+
+.skel-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.skel-table {
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-card, #ffffff);
+}
+
+.skel-table-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-card-header, rgba(148, 163, 184, 0.08));
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.skel-table-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color, #f1f5f9);
+}
+
+.skel-table-row:last-child {
+  border-bottom: none;
+}
+
+.skel-table-cell-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.skel-table-cell-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.skel-table-cols {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.skel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skel-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+}
+
+.skel-list-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Dimensioni stabili modali per azzeramento CLS */
+.referto-modal-card:not(.is-compact-state),
+.squadra-modal-card:not(.is-compact-state) {
+  height: min(840px, 92vh);
+  height: min(840px, 92dvh);
+}
+
+.h2h-modal-card:not(.is-compact-state) {
+  height: min(680px, 90vh);
+  height: min(680px, 90dvh);
+}
+
+.modal-torneo-detail-card:not(.is-fullscreen):not(.is-compact-state) {
+  min-height: min(620px, 85vh);
+  min-height: min(620px, 85dvh);
+}

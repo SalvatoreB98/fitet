@@ -1,0 +1,781 @@
+/* 2. Calendario Match Cards System */
+.calendario-cards-container {
+  width: 100%;
+}
+
+.giornata-section {
+  margin-bottom: 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.giornata-section:last-child {
+  border-bottom: none;
+  margin-bottom: 12px;
+  padding-bottom: 0;
+}
+
+.giornata-header-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.giornata-header-banner:hover {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.02));
+}
+
+[data-theme="dark"] .giornata-header-banner:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.giornata-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.giornata-badge-pill {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: #01579b;
+  color: #ffffff;
+  padding: 3px 10px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .giornata-badge-pill {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #f1f5f9;
+}
+
+.giornata-meta-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-card, #ffffff);
+  padding: 3px 9px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+/* Minimal Expansion Panel Hint & Controls */
+.miei-torneo-expand-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-primary-600, #01579b);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border: none;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  line-height: 1.2;
+}
+
+.miei-torneo-expand-hint:hover {
+  background: rgba(1, 87, 155, 0.08);
+  color: var(--color-primary-700, #0369a1);
+}
+
+[data-theme="dark"] .miei-torneo-expand-hint {
+  color: var(--color-primary-400, #38bdf8);
+}
+
+[data-theme="dark"] .miei-torneo-expand-hint:hover {
+  background: rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+}
+
+.miei-torneo-expand-hint i {
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.filter-btn--expand-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  padding: 5px 10px;
+}
+
+/* Responsive Grid of Match Cards */
+.match-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.match-cards-grid--animated {
+  animation: matchCardsFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes matchCardsFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .giornata-section {
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+  }
+
+  .giornata-header-banner {
+    padding: 8px 12px;
+  }
+
+  .match-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 8px;
+  }
+}
+
+/* Individual Match Card */
+/* ==========================================================================
+   MINIMALIST "LESS IS MORE" MATCH CARD
+   Typography & Weight-Driven Hierarchy (No Artificial Badges/Borders)
+   ========================================================================== */
+.match-card {
+  background: var(--bg-container, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  padding: 13px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .match-card {
+    padding: 10px 12px;
+    gap: 7px;
+    border-radius: 8px;
+  }
+}
+
+.match-card:hover {
+  border-color: var(--border-input, #cbd5e1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.match-card.has-referto {
+  cursor: pointer;
+}
+
+/* Match Card Top: Meta line */
+.match-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  line-height: 1.2;
+}
+
+.match-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted, #526174);
+  font-size: 11.5px;
+}
+
+.match-meta-datetime {
+  font-weight: 500;
+  color: var(--text-muted, #526174);
+}
+
+.match-meta-dot {
+  opacity: 0.4;
+  font-size: 10px;
+}
+
+.match-meta-phase {
+  font-weight: 500;
+  color: var(--text-muted, #526174);
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.match-card-status {
+  font-size: 11px;
+}
+
+.match-status-label {
+  font-size: 11px;
+}
+
+.match-status-label.status-disputato {
+  font-weight: 600;
+  color: var(--text-muted, #526174);
+  letter-spacing: 0.02em;
+}
+
+.match-status-label.status-programmato {
+  font-weight: 400;
+  color: var(--text-muted, #cbd5e1);
+}
+
+.match-status-label.status-in-corso {
+  font-weight: 700;
+  color: #16a34a;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.match-status-label.status-in-corso::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #16a34a;
+  box-shadow: 0 0 6px rgba(22, 163, 74, 0.6);
+  animation: pulseInCorso 1.5s infinite;
+}
+
+@keyframes pulseInCorso {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+}
+
+[data-theme="dark"] .match-status-label.status-in-corso {
+  color: #4ade80;
+}
+
+[data-theme="dark"] .match-status-label.status-in-corso::before {
+  background-color: #4ade80;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.8);
+}
+
+/* Teams Container */
+.match-card-teams {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 2px 0;
+}
+
+.match-card-team-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 0;
+  cursor: pointer;
+}
+
+.match-card-team-row:hover .team-name-text {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.match-card-team-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.match-card-name-wrapper {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Weight-driven typography hierarchy for team names */
+.team-name-text {
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+
+.team-name-text.name-winner,
+.team-name-text.name-winner .marquee-text-content {
+  color: var(--text-dark, #0f172a);
+}
+
+.team-name-text.name-loser,
+.team-name-text.name-loser .marquee-text-content {
+  font-weight: 400;
+  color: var(--text-muted, #526174);
+  opacity: 1;
+}
+
+.team-name-text.name-neutral,
+.team-name-text.name-neutral .marquee-text-content {
+  font-weight: 400;
+  color: var(--text-muted, #526174);
+  opacity: 1;
+}
+
+/* Pure tabular score digits - No box, no border, no background */
+.match-card-score-digit {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 18px;
+  flex-shrink: 0;
+}
+
+.match-card-score-digit.score-winner {
+  font-weight: 800;
+  color: var(--text-dark, #0f172a);
+}
+
+.match-card-score-digit.score-loser {
+  font-weight: 400;
+  color: var(--text-muted, #526174);
+  opacity: 0.85;
+}
+
+.match-card-score-digit.score-pending {
+  font-weight: 400;
+  font-size: 15px;
+  color: var(--text-muted, #cbd5e1);
+  opacity: 0.6;
+}
+
+/* Card Bottom: Minimal and subtle */
+.match-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-light, #f1f5f9);
+  margin-top: 2px;
+}
+
+.match-card-draw-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #526174);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.btn-referto-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--text-muted, #526174);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  margin-left: auto;
+  box-shadow: none !important;
+}
+
+.btn-referto-link:hover {
+  color: var(--text-dark, #0f172a);
+  background: transparent;
+  border-color: transparent;
+}
+
+.btn-referto-link i {
+  font-size: 10px;
+  transition: transform 0.15s ease;
+}
+
+.btn-referto-link:hover i {
+  transform: translateX(2px);
+}
+
+.match-card-bottom-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-video-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(220, 38, 38, 0.06);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  padding: 2px 8px 2px 3px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: none !important;
+}
+
+.btn-video-link:hover {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25) !important;
+}
+
+.btn-video-thumb-wrap {
+  position: relative;
+  display: inline-flex;
+  width: 32px;
+  height: 18px;
+  border-radius: 4px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #0f172a;
+}
+
+.btn-video-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.btn-video-thumb-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.35);
+  color: #ffffff;
+  font-size: 10px;
+}
+
+.giornata-video-preview {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 24px;
+  padding: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  background: #0f172a;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: none !important;
+}
+
+.giornata-video-preview:hover {
+  transform: scale(1.04);
+  border-color: #dc2626;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25) !important;
+}
+
+.giornata-video-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.giornata-video-preview-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.38);
+  color: #ffffff;
+  font-size: 12px;
+  transition: background 0.15s ease;
+}
+
+.giornata-video-preview:hover .giornata-video-preview-play {
+  background: rgba(220, 38, 38, 0.65);
+}
+
+.match-video-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  padding: 1px 7px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: all 0.15s ease;
+}
+
+.match-video-badge:hover {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+}
+
+.match-video-badge:hover i {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .btn-video-link {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+[data-theme="dark"] .btn-video-link:hover {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #dc2626;
+}
+
+[data-theme="dark"] .match-video-badge {
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+[data-theme="dark"] .match-video-badge:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+/* Empty State */
+.no-matches-found {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--bg-container);
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+
+.giornata-section.giornata-prossima {
+  border-radius: 14px;
+  padding: 10px 10px 14px;
+  margin-bottom: 24px;
+  background: rgba(59, 130, 246, 0.03);
+}
+
+[data-theme="dark"] .giornata-section.giornata-prossima {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+@media (max-width: 640px) {
+  .giornata-section.giornata-prossima {
+    padding: 8px 8px 12px;
+    margin-bottom: 18px;
+    border-radius: 12px;
+  }
+}
+
+.actual-giornata-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.giornata-date-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-muted, #526174);
+  background: var(--bg-hover, rgba(0, 0, 0, 0.03));
+  border: 1px solid var(--border-color, #e2e8f0);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+[data-theme="dark"] .giornata-date-badge {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+.badge-in-corso-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #15803d;
+  background: #dcfce7;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid #bbf7d0;
+}
+
+[data-theme="dark"] .badge-in-corso-live {
+  color: #86efac;
+  background: rgba(22, 163, 74, 0.2);
+  border-color: rgba(74, 222, 128, 0.3);
+}
+
+.badge-in-corso-live .live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16a34a;
+  animation: pulseInCorso 1.4s infinite;
+}
+
+[data-theme="dark"] .badge-in-corso-live .live-dot {
+  background: #4ade80;
+}
+
+.badge-prossima-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #1d4ed8;
+  background: #dbeafe;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid #bfdbfe;
+}
+
+[data-theme="dark"] .badge-prossima-pill {
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
+.calendario-past-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  background: var(--bg-card, #f8fafc);
+  border: 1px dashed var(--border-color, #e2e8f0);
+  font-size: 0.82rem;
+  color: var(--text-muted, #526174);
+}
+
+.btn-show-past-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-primary-600, #01579b);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.btn-show-past-toggle:hover {
+  background: rgba(1, 87, 155, 0.08);
+}
+
+.badge-filter-count {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  background: var(--color-primary-100, #e0f2fe);
+  color: var(--color-primary-700, #0369a1);
+  margin-left: 4px;
+}
+
+[data-theme="dark"] .badge-filter-count {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+.filter-btn--hide-past.active {
+  background: var(--color-primary-600, #01579b);
+  color: #ffffff;
+  border-color: var(--color-primary-600, #01579b);
+}
+
+.filter-btn--hide-past.active .badge-filter-count {
+  background: #ffffff;
+  color: var(--color-primary-600, #01579b);
+}
+
+.giornata-section.giornata-prossima .actual-giornata-badge-pill {
+  background-color: #3b82f6;
+  color: #ffffff;
+}
+
+.scrolldown {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5000;
+  bottom: 100px;
+  width: 3em;
+  height: 3em;
+}
+
+.scrolldown button {
+  width: 100%;
+  height: 100%;
+  box-shadow: var(--shadow-container);
+}

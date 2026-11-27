@@ -1,3 +1,4 @@
+import './AtletaModal.css';
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { DettaglioAtleta, PartitaCampionatoAtleta } from '../types/fitet';

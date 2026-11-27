@@ -1,3 +1,4 @@
+import './ClassificaTab.css';
 import React, { useState, useMemo, useRef } from 'react';
 import { SquadraClassifica } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';

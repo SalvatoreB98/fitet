@@ -1,3 +1,4 @@
+import './PingPongLoader.css';
 import React from 'react';
 import { ChampionshipItem } from '../types/fitet';
 

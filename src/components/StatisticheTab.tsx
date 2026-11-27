@@ -1,3 +1,4 @@
+import './StatisticheTab.css';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { StatisticaAtleta } from '../types/fitet';
 import { MarqueeText } from './MarqueeText';

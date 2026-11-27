@@ -1,0 +1,413 @@
+/* --- Squadra Modal Components --- */
+.squadra-header-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.squadra-header-filter-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+[data-theme="dark"] .squadra-header-filter-btn {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+[data-theme="dark"] .squadra-header-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+.squadra-error-banner {
+  padding: 16px;
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+  border: 1px solid #fca5a5;
+}
+
+.squadra-roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.squadra-roster-thead-tr {
+  background: var(--bg-th, #f1f5f9);
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.squadra-doppio-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 5px;
+  background: var(--bg-th, #e2e8f0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+
+/* --- Additional Squadra & Atleta Modal Classes --- */
+.squadra-modal-card {
+  max-width: 880px;
+  width: 95%;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.squadra-header-logo-box {
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .squadra-header-logo-box {
+  background: #0f172a;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.squadra-header-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--text-dark, #0f172a);
+  letter-spacing: -0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .squadra-header-title {
+  color: #f8fafc;
+}
+
+.squadra-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.squadra-roster-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-th, #f1f5f9);
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.squadra-table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-container, #ffffff);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.squadra-mobile-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.squadra-mobile-filter-pills {
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-th);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.squadra-mobile-filter-pill {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.squadra-mobile-filter-pill.is-active {
+  background: var(--bg-card);
+  color: var(--text-dark);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.squadra-mobile-record-pill {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-th);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
+.squadra-mobile-carousel-wrap {
+  display: block;
+}
+
+.squadra-mobile-carousel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 2px 0 6px;
+}
+
+
+@media (max-width: 359px) {
+  .squadra-mobile-carousel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 800px) {
+  .squadra-mobile-carousel {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.squadra-mobile-card {
+  width: 100%;
+  min-width: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 10px 7px 9px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
+}
+
+.squadra-mobile-card.is-clickable {
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.squadra-mobile-card.is-clickable:active {
+  transform: scale(0.98);
+  border-color: var(--color-primary-500);
+}
+
+.squadra-mobile-card.is-clickable:hover {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+.squadra-mobile-card-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  opacity: 0.9;
+}
+
+.squadra-mobile-ring-wrap {
+  position: relative;
+  width: 86px;
+  height: 86px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.squadra-mobile-ring-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.squadra-mobile-ring-track {
+  fill: none;
+  stroke: var(--border-color, #e2e8f0);
+  stroke-width: 3;
+}
+
+.squadra-mobile-ring-fill {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.squadra-mobile-ring-avatar {
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.squadra-mobile-doppio-circles {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 68px;
+}
+
+.squadra-doppio-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--bg-th);
+  border: 2px solid var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: var(--text-dark);
+}
+
+.squadra-doppio-circle.is-icon {
+  font-size: 16px;
+  color: var(--text-muted);
+  z-index: 1;
+}
+
+.squadra-doppio-circle.is-initials {
+  margin-left: -10px;
+  font-size: 11px;
+  background: var(--bg-hover);
+  z-index: 2;
+}
+
+.squadra-mobile-card-name {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--text-dark);
+  text-transform: uppercase;
+  line-height: 1.2;
+  width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 25px;
+}
+
+.squadra-mobile-rank-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-th);
+  border: 1px solid var(--border-color);
+}
+
+.squadra-mobile-card-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-light);
+  font-variant-numeric: tabular-nums;
+}
+
+.squadra-mobile-stat-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.squadra-mobile-stat-lbl {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.squadra-mobile-vp-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+
+.squadra-mobile-pct-val {
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.progress-win-rate-track {
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-color, #e2e8f0);
+  overflow: hidden;
+}
+
+.progress-win-rate-bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+
+.mini-progress-track {
+  width: 36px;
+  height: 5px;
+  background: var(--border-color, #e2e8f0);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.modal-empty-notice {
+  padding: 14px;
+  text-align: center;
+  background: var(--bg-th);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+

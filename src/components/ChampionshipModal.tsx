@@ -1,3 +1,4 @@
+import './ChampionshipModal.css';
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChampionshipItem } from '../types/fitet';

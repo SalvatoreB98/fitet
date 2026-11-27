@@ -1,3 +1,4 @@
+import './VenueConnectionBanner.css';
 import React, { useState, useEffect } from 'react';
 import { useNetworkStatus } from '../utils/useNetworkStatus';
 import { getVenueCacheSummary, clearAllVenueCache } from '../utils/venueCache';

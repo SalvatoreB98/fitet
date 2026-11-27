@@ -1,0 +1,1144 @@
+/* ==========================================================================
+   REFERTO MODAL STYLES (Light & Dark Mode)
+   ========================================================================== */
+/* ==========================================================================
+   REFERTO MODAL STYLES (Editorial / Typographic Hierarchy & Animations)
+   ========================================================================== */
+@keyframes refertoModalEnter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes refertoContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes refertoRowEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.referto-modal-card {
+  border-radius: 16px !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 24px 54px -14px rgba(10, 25, 47, 0.28) !important;
+  overflow: hidden;
+  animation: refertoModalEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.referto-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 22px;
+  background: var(--bg-container);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.referto-header-title-group {
+  min-width: 0;
+}
+
+.referto-modal-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text-dark);
+  line-height: 1.25;
+}
+
+.referto-modal-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.referto-dot-sep {
+  opacity: 0.45;
+}
+
+.referto-id-mono {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.referto-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.referto-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+
+.referto-icon-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-dark);
+  border-color: var(--text-muted);
+}
+
+.referto-icon-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.referto-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.referto-modal-body {
+  padding: 20px 22px 22px 22px;
+  background: var(--bg-container);
+}
+
+.referto-content-enter {
+  animation: refertoContentIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.referto-hero-card {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 8px 22px 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.referto-team-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  transition: opacity 0.2s ease;
+}
+
+.referto-team-box.ospite-box {
+  justify-content: flex-end;
+}
+
+.referto-team-box.is-non-winner {
+  opacity: 0.72;
+}
+
+.referto-logo-wrapper {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  padding: 4px;
+}
+
+.referto-club-logo {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.referto-team-name-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.referto-team-name-group.ospite-name-group {
+  text-align: right;
+  align-items: flex-end;
+}
+
+.referto-team-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.referto-role-label {
+  font-weight: 500;
+}
+
+.referto-winner-dot {
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.referto-team-name {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 1.02rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text-dark);
+  line-height: 1.25;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.referto-team-box.is-winner .referto-team-name {
+  font-weight: 700;
+}
+
+.referto-score-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  flex-shrink: 0;
+}
+
+.referto-main-score {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 2.55rem;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-digit {
+  min-width: 26px;
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.score-digit.digit-winner {
+  font-weight: 800;
+  color: var(--text-dark);
+}
+
+.score-digit.digit-loser {
+  font-weight: 300;
+  color: var(--text-muted);
+}
+
+.score-divider {
+  color: var(--text-muted);
+  font-weight: 300;
+  opacity: 0.45;
+  font-size: 2rem;
+}
+
+.referto-substats-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.referto-substat-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 11.5px;
+}
+
+.substat-label {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.substat-value {
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+.referto-substat-sep {
+  color: var(--text-muted);
+  opacity: 0.45;
+  font-size: 11px;
+}
+
+.referto-pareggio-pill {
+  margin-top: 6px;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.referto-meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 4px 2px 4px;
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.referto-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.referto-meta-item strong {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.meta-icon {
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+
+/* Common Grid Definition for Header & Summary Rows */
+.referto-grid-header,
+.referto-match-summary {
+  display: grid;
+  grid-template-columns: 32px minmax(130px, 1fr) 56px minmax(130px, 1fr) 204px 72px;
+  align-items: center;
+  column-gap: 10px;
+  min-width: 640px;
+}
+
+.referto-grid-header {
+  padding: 10px 16px;
+  background: var(--bg-th);
+  border-bottom: 1px solid var(--border-color);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.r-th.r-th-num {
+  text-align: center;
+}
+
+.r-th.r-th-casa {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.r-th.r-th-score {
+  text-align: center;
+}
+
+.r-th.r-th-ospite {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.r-th.r-th-partials {
+  text-align: center;
+}
+
+.r-th.r-th-action {
+  text-align: right;
+}
+
+.r-th-team-text {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 190px;
+}
+
+.referto-match-row {
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-container);
+  transition: background-color 0.16s ease;
+  animation: refertoRowEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: calc(var(--row-index, 0) * 35ms);
+}
+
+.referto-match-row:last-child {
+  border-bottom: none;
+}
+
+.referto-match-row:hover {
+  background: var(--bg-hover);
+}
+
+.referto-match-row.is-expanded {
+  background: var(--bg-hover);
+}
+
+.referto-match-summary {
+  padding: 12px 16px;
+  cursor: pointer;
+  user-select: none;
+  outline: none;
+}
+
+.referto-match-summary:focus-visible {
+  box-shadow: inset 2px 0 0 var(--text-dark);
+}
+
+.match-num-badge {
+  font-size: 11.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  text-align: center;
+  opacity: 0.7;
+}
+
+.match-player {
+  font-size: 13.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  transition: color 0.15s ease;
+}
+
+.match-player .player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match-player.casa-player {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.match-player.ospite-player {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.match-player.is-winner {
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.match-player.is-non-winner {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.match-sets-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 3px 0;
+  width: 100%;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sets-digit.winner-digit {
+  font-weight: 800;
+  color: var(--text-dark);
+}
+
+.sets-digit.loser-digit {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.sets-divider {
+  color: var(--text-muted);
+  font-weight: 300;
+  opacity: 0.5;
+}
+
+/* 5 fixed partial set slots (monochrome typographic weight hierarchy) */
+.match-partials-slots {
+  display: grid;
+  grid-template-columns: repeat(5, 38px);
+  gap: 4px;
+  justify-content: center;
+  align-items: center;
+}
+
+.set-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  height: 24px;
+  font-size: 11px;
+  border-radius: 6px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.set-slot.filled {
+  background: var(--bg-th);
+  border: 1px solid var(--border-color);
+  padding: 0 3px;
+}
+
+.set-pt-win {
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.set-pt-lose {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.set-pt-sep {
+  color: var(--text-muted);
+  opacity: 0.45;
+  font-weight: 400;
+}
+
+.set-slot.empty {
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0.25;
+  font-weight: 400;
+}
+
+.match-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: color 0.16s ease;
+  width: 100%;
+}
+
+.referto-match-row:hover .match-expand-btn,
+.referto-match-row.is-expanded .match-expand-btn {
+  color: var(--text-dark);
+  font-weight: 600;
+}
+
+.expand-chevron {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  flex-shrink: 0;
+}
+
+.referto-match-row.is-expanded .expand-chevron {
+  transform: rotate(180deg);
+}
+
+/* Smooth CSS Grid Accordion */
+.referto-accordion-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease;
+}
+
+.referto-accordion-wrap.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.referto-accordion-inner {
+  overflow: hidden;
+}
+
+.referto-expanded-panel {
+  position: relative;
+  padding: 12px 16px 16px 16px;
+  background: var(--bg-th);
+  border-top: 1px solid var(--border-color);
+}
+
+.referto-detail-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.expanded-detail-grid {
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.sets-table-box {
+  background: var(--bg-container);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 10px 16px;
+  width: 100%;
+  max-width: 440px;
+}
+
+.sets-progression-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.sets-progression-table th {
+  padding: 4px 6px 8px 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-dark);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sets-th-center {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted) !important;
+  width: 46px;
+}
+
+.referto-athlete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  max-width: 100%;
+  border-radius: 6px;
+  transition: background-color 0.15s ease;
+}
+
+.referto-athlete-btn.is-clickable {
+  cursor: pointer;
+}
+
+.referto-athlete-btn.is-clickable:hover {
+  background: var(--bg-hover);
+}
+
+.sets-progression-table td {
+  padding: 5px 6px;
+}
+
+.set-pts.set-winner-pts {
+  color: var(--text-dark);
+  font-weight: 700;
+}
+
+.set-pts.set-loser-pts {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.set-label {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.total-pts-row {
+  border-top: 1px solid var(--border-color);
+  padding-top: 7px !important;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.total-pts-row strong {
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.athlete-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+[data-theme="dark"] .referto-modal-card {
+  box-shadow: 0 24px 54px -14px rgba(0, 0, 0, 0.65) !important;
+}
+
+[data-theme="dark"] .referto-logo-wrapper {
+  background: #111f3d;
+  border-color: #1e3563;
+}
+
+[data-theme="dark"] .referto-grid-table {
+  background: #091224;
+  border-color: #1a2d52;
+}
+
+[data-theme="dark"] .referto-grid-header {
+  background: #0d1933;
+  border-color: #1a2d52;
+}
+
+[data-theme="dark"] .referto-match-row {
+  background: var(--bg-container);
+  border-color: #1a2d52;
+}
+
+[data-theme="dark"] .referto-match-row:hover,
+[data-theme="dark"] .referto-match-row.is-expanded {
+  background: #101c38;
+}
+
+[data-theme="dark"] .set-slot.filled {
+  background: #0f1c38;
+  border-color: #1e3563;
+}
+
+[data-theme="dark"] .referto-expanded-panel {
+  background: #080f1d;
+  border-color: #1a2d52;
+}
+
+[data-theme="dark"] .sets-table-box {
+  background: var(--bg-container);
+  border-color: #1a2d52;
+}
+
+
+/* ==========================================================================
+   MOBILE RESPONSIVENESS FOR REFERTO MODAL (Zero Horizontal Scroll)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .portal-header {
+    padding: 8px 12px;
+    gap: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .portal-header-logo .logo-fitet {
+    max-height: 38px;
+    width: auto;
+    max-width: 76px;
+    padding: 0;
+    object-fit: contain;
+  }
+
+  .portal-header-sponsor .logo-stag {
+    max-height: 22px;
+    width: auto;
+    max-width: 44px;
+    padding: 0;
+    object-fit: contain;
+    opacity: 0.9;
+  }
+
+  .portal-title-btn {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: calc(100% - 110px);
+    margin: 0 4px;
+    padding: 5px 8px;
+    background: none;
+    border: none;
+    border-radius: 9px;
+  }
+
+  .portal-title-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+
+  .portal-title-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 100%;
+    min-width: 0;
+    text-align: center;
+  }
+
+  .portal-title-heading-row {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .portal-title-block h1 {
+    font-size: clamp(0.9rem, 3.8vw, 1.12rem);
+    font-weight: 700;
+    line-height: 1.22;
+    text-align: center;
+    margin: 0;
+    color: #ffffff;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    letter-spacing: -0.01em;
+  }
+
+  .championship-switcher-badge {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    min-height: 18px;
+    font-size: 9px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.22);
+  }
+
+  .portal-title-block small {
+    display: none;
+  }
+
+  @media (max-width: 500px) {
+    .portal-header-sponsor {
+      display: none;
+    }
+
+    .portal-title-btn {
+      max-width: calc(100% - 90px);
+    }
+  }
+
+  .modal-backdrop-simple.modal-referto-backdrop {
+    padding: 6px;
+  }
+
+  .referto-modal-card {
+    max-height: 96vh;
+    border-radius: 14px !important;
+  }
+
+  .referto-modal-header {
+    padding: 13px 14px;
+  }
+
+  .referto-modal-card .modal-body-simple,
+  .referto-modal-body {
+    padding: 12px 12px 16px 12px !important;
+  }
+
+  .referto-hero-card {
+    grid-template-columns: 1fr auto 1fr;
+    gap: 10px;
+    padding: 10px 2px 16px 2px;
+    margin-bottom: 12px;
+  }
+
+  .referto-substats-group,
+  .referto-winner-dot {
+    display: none;
+  }
+
+  .referto-team-box {
+    flex-direction: column;
+    text-align: center;
+    gap: 6px;
+  }
+
+  .referto-team-box.ospite-box {
+    flex-direction: column-reverse;
+    justify-content: center;
+  }
+
+  .referto-logo-wrapper {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+  }
+
+  .referto-team-name-group,
+  .referto-team-name-group.ospite-name-group {
+    align-items: center;
+    text-align: center;
+  }
+
+  .referto-team-eyebrow,
+  .referto-team-eyebrow.ospite-eyebrow {
+    justify-content: center;
+  }
+
+  .referto-team-name {
+    font-size: 0.88rem;
+  }
+
+  .referto-main-score {
+    font-size: 2rem;
+    gap: 5px;
+  }
+
+  .referto-meta-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 10px 2px 0 2px;
+    font-size: 11px;
+  }
+
+  /* Grid Table Container: Switch to Vertical Cards List (Zero Horizontal Scroll) */
+  .referto-grid-table {
+    border: none;
+    background: transparent;
+    overflow-x: hidden !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Hide Desktop Table Header */
+  .referto-grid-header {
+    display: none !important;
+  }
+
+  .referto-matches-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Each Match Row is an Independent Card */
+  .referto-match-row {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-container);
+    overflow: hidden;
+    margin-bottom: 0;
+    transition: border-color 0.16s ease;
+  }
+
+  .referto-match-row.is-expanded {
+    border-color: var(--text-muted);
+  }
+
+  /* Match Summary Vertical Grid Layout */
+  .referto-match-summary {
+    display: grid !important;
+    grid-template-columns: auto 1fr auto auto;
+    grid-template-areas:
+      "num . score action"
+      "casa casa casa casa"
+      "ospite ospite ospite ospite"
+      "partials partials partials partials";
+    min-width: 0 !important;
+    width: 100% !important;
+    box-sizing: border-box;
+    padding: 12px 13px;
+    row-gap: 6px;
+    column-gap: 8px;
+    align-items: center;
+  }
+
+  .match-num-badge {
+    grid-area: num;
+    justify-self: start;
+    font-size: 11px;
+    text-align: left;
+  }
+
+  .match-sets-badge {
+    grid-area: score;
+    justify-self: end;
+    width: auto;
+    padding: 0;
+    font-size: 14.5px;
+  }
+
+  .match-expand-btn {
+    grid-area: action;
+    width: auto;
+    justify-content: flex-end;
+    padding: 2px 0 2px 4px;
+  }
+
+  .match-expand-btn .expand-label {
+    display: none;
+  }
+
+  .match-player {
+    font-size: 13.5px;
+    padding: 1px 0;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .match-player.casa-player {
+    grid-area: casa;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .match-player.ospite-player {
+    grid-area: ospite;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .match-player .player-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Partial Set Slots */
+  .match-partials-slots {
+    grid-area: partials;
+    display: flex !important;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 5px;
+    padding-top: 6px;
+    margin-top: 2px;
+    border-top: 1px solid var(--border-color);
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .set-slot {
+    height: 22px;
+    min-width: 34px;
+    padding: 0 5px;
+    font-size: 11px;
+  }
+
+  .set-slot.empty {
+    display: none;
+  }
+
+  /* Expanded Detail Panel */
+  .referto-expanded-panel {
+    padding: 10px 12px 12px 12px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .sets-table-box {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+    padding: 8px 10px;
+  }
+
+  .sets-progression-table {
+    width: 100%;
+    font-size: 11.5px;
+    table-layout: fixed;
+  }
+
+  .sets-progression-table th,
+  .sets-progression-table td {
+    padding: 4px 4px;
+  }
+}
+
+/* Dark Mode Additions for Referto Mobile */
+@media (max-width: 768px) {
+  [data-theme="dark"] .referto-match-row.is-expanded {
+    border-color: #3b5998;
+  }
+
+  [data-theme="dark"] .sets-table-box {
+    background: var(--bg-container);
+    border-color: #1a2d52;
+  }
+}
+
+
+/* --- Part 2: Referto Team Names Row --- */
+
+@keyframes spin-icon-anim {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin-icon {
+  display: inline-block;
+  animation: spin-icon-anim 0.8s linear infinite;
+}
+

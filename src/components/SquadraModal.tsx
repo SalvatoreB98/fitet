@@ -1,3 +1,4 @@
+import './SquadraModal.css';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { DettaglioSquadra, AtletaSquadraDettaglio, SquadraClassifica } from '../types/fitet';

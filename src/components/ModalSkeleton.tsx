@@ -1,3 +1,4 @@
+import './ModalSkeleton.css';
 import React from 'react';
 
 /**

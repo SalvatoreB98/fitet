@@ -1,3 +1,4 @@
+import './RefertoModal.css';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { RefertoIncontro, DettaglioPartitaIndividuale, PartitaRefertoIndividuale } from '../types/fitet';
