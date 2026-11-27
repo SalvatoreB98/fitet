@@ -164,6 +164,8 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [showToast, setShowToast] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string>('');
+  const [starBurstKey, setStarBurstKey] = useState<number>(0);
+  const toastTimerRef = useRef<number | null>(null);
   const shareMenuRef = useRef<HTMLDivElement>(null);
 
   // Format category badge: e.g. "6" or "6ª Categoria" -> "6^"
@@ -277,6 +279,7 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
   const isFav = isFavorite(currentAtletaId) || isFavorite(currentAthleteName);
 
   const handleToggleFavorite = () => {
+    const wasFav = isFav;
     const storico = atleta?.storicoClassifica || [];
     const ultimoSnapshot = storico.length > 0 ? storico[storico.length - 1] : null;
 
@@ -290,6 +293,27 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
       dataNascita: atleta?.anagrafica?.dataNascita ?? undefined,
       fotoUrl: atleta?.anagrafica?.fotoUrl ?? undefined,
     });
+
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+
+    if (!wasFav) {
+      setStarBurstKey((k) => k + 1);
+      setToastMessage('Aggiunto alla Home');
+      setShowToast(true);
+      toastTimerRef.current = window.setTimeout(() => {
+        setShowToast(false);
+        toastTimerRef.current = null;
+      }, 2400);
+    } else {
+      setToastMessage('Rimosso dai preferiti');
+      setShowToast(true);
+      toastTimerRef.current = window.setTimeout(() => {
+        setShowToast(false);
+        toastTimerRef.current = null;
+      }, 2000);
+    }
   };
 
   useEffect(() => {
@@ -1151,13 +1175,25 @@ export const AtletaModal: React.FC<AtletaModalProps> = ({
                   {/* Star */}
                   <button
                     type="button"
-                    className={`athlete-spotlight-action-btn btn-star ${isFav ? 'is-favorited' : ''}`}
+                    className={`athlete-spotlight-action-btn btn-star ${isFav ? 'is-favorited' : ''}${starBurstKey > 0 && isFav ? ' is-bursting' : ''}`}
                     onClick={handleToggleFavorite}
                     title={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
                     aria-label={isFav ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
                     disabled={loading && !atleta}
                   >
                     <i className={isFav ? 'bi bi-star-fill' : 'bi bi-star'}></i>
+                    {starBurstKey > 0 && isFav && (
+                      <span key={starBurstKey} className="star-burst-particles" aria-hidden="true">
+                        <span className="star-particle p-1">✦</span>
+                        <span className="star-particle p-2">✦</span>
+                        <span className="star-particle p-3">✦</span>
+                        <span className="star-particle p-4">✦</span>
+                        <span className="star-particle p-5">✦</span>
+                        <span className="star-particle p-6">✦</span>
+                        <span className="star-particle p-7">✦</span>
+                        <span className="star-particle p-8">✦</span>
+                      </span>
+                    )}
                   </button>
 
                   {/* Copy Link */}

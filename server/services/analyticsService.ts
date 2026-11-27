@@ -20,6 +20,25 @@ export interface TargetCountItem {
   count: number;
 }
 
+export type HourlyMetricKey = 'pages' | 'visitors' | 'clicks';
+
+/**
+ * Aggregazione giorno/ora (fuso Europe/Rome) per capire quando gli utenti
+ * visitano il portale e quando aprono più pagine.
+ * `heatmap` ha 168 valori: indice = giornoSettimana (0 = lunedì) * 24 + ora.
+ */
+export interface HourlySchedule {
+  available: boolean;
+  tableMissing: boolean;
+  timezone: string;
+  days: number;
+  /** Quante volte ogni giorno della settimana (0 = lunedì) compare nel periodo. */
+  weekdayDayCounts: number[];
+  heatmap: Record<HourlyMetricKey, number[]>;
+  byHour: Record<HourlyMetricKey, number[]>;
+  byWeekday: Record<HourlyMetricKey, number[]>;
+}
+
 /**
  * Dimensioni aggregate di un visitatore, calcolate lato server.
  * `mode` distingue l'uso come PWA installata dall'uso nel browser.
@@ -88,6 +107,7 @@ export interface AnalyticsSummary {
   };
   topPaths: MultiStepJourney[];
   trafficSources: TrafficSourcesSummary;
+  hourlySchedule: HourlySchedule;
 }
 
 interface DailyAnalyticsRow {
@@ -96,6 +116,16 @@ interface DailyAnalyticsRow {
   target: string;
   count: number;
 }
+
+interface HourlyAnalyticsRow {
+  date: string;
+  hour: number;
+  pages: number;
+  visitors: number;
+  clicks: number;
+}
+
+const HOURLY_METRIC_KEYS = ['pages', 'visitors', 'clicks'] as const;
 
 const MAX_TYPE_LEN = 32;
 const MAX_TARGET_LEN = 200;
@@ -125,6 +155,40 @@ function getUtcDateString(offsetDays = 0): string {
   d.setUTCHours(0, 0, 0, 0);
   d.setUTCDate(d.getUTCDate() + offsetDays);
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Data e ora locali Europe/Rome, usate per collocare gli eventi nella fascia oraria
+ * corretta indipendentemente dal fuso del server (Railway gira in UTC).
+ */
+function getRomeDateHour(now = new Date()): { date: string; hour: number } {
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Rome',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(now);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value || '';
+    const year = get('year');
+    const month = get('month');
+    const day = get('day');
+    const hour = Math.min(23, Math.max(0, parseInt(get('hour'), 10) || 0));
+    if (!year || !month || !day) throw new Error('data non valida');
+    return { date: `${year}-${month}-${day}`, hour };
+  } catch {
+    return { date: getUtcDateString(0), hour: now.getUTCHours() };
+  }
+}
+
+/** Indice giorno settimana con lunedì = 0 (coerente con l'heatmap). */
+function weekdayIndexFromIso(dateStr: string): number {
+  const iso = String(dateStr || '').slice(0, 10);
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return 0;
+  return (d.getUTCDay() + 6) % 7;
 }
 
 function enumerateUtcDates(startDate: string, endDate: string): string[] {
@@ -174,6 +238,7 @@ class AnalyticsService {
   // Fallback in-memory solo per ambiente locale privo di credenziali Supabase
   private memoryFallback = new Map<string, DailyAnalyticsRow>();
   private memoryVisitors = new Set<string>();
+  private memoryHourly = new Map<string, HourlyAnalyticsRow>();
   private ephemeralVisitorSalt = crypto.randomBytes(32).toString('hex');
 
   constructor() {
@@ -217,6 +282,28 @@ class AnalyticsService {
     }
   }
 
+  /** Fallback locale dell'aggregazione oraria (solo senza credenziali Supabase). */
+  private incrementMemoryHourly(kind: 'page' | 'visitor' | 'click'): void {
+    const { date, hour } = getRomeDateHour();
+    const key = `${date}|${hour}`;
+    let row = this.memoryHourly.get(key);
+    if (!row) {
+      row = { date, hour, pages: 0, visitors: 0, clicks: 0 };
+      this.memoryHourly.set(key, row);
+    }
+    if (kind === 'page') row.pages += 1;
+    else if (kind === 'visitor') row.visitors += 1;
+    else row.clicks += 1;
+
+    // Pulizia occasionale delle righe più vecchie per non far crescere la mappa.
+    if (this.memoryHourly.size > 5000) {
+      const cutoff = getUtcDateString(-60);
+      for (const [k, value] of this.memoryHourly) {
+        if (value.date < cutoff) this.memoryHourly.delete(k);
+      }
+    }
+  }
+
   /**
    * Chiama la RPC Postgres `increment_metric(p_type, p_target)` senza mai lanciare eccezioni bloccanti.
    */
@@ -227,6 +314,9 @@ class AnalyticsService {
 
     if (!this.supabase) {
       this.incrementMemoryFallback(cleanType, cleanTarget);
+      if (cleanType === 'page' || cleanType === 'click') {
+        this.incrementMemoryHourly(cleanType);
+      }
       return;
     }
 
@@ -283,6 +373,7 @@ class AnalyticsService {
     if (!this.supabase) {
       this.memoryVisitors.add(dedupKey);
       this.incrementMemoryFallback('visitor', 'unique');
+      this.incrementMemoryHourly('visitor');
       return;
     }
 
@@ -426,6 +517,107 @@ class AnalyticsService {
   }
 
   /**
+   * Legge le righe dell'aggregazione oraria. Se la migrazione
+   * `supabase/hourly_analytics.sql` non è ancora stata applicata la tabella
+   * manca: in quel caso non blocchiamo la dashboard ma segnaliamo `tableMissing`.
+   */
+  private async fetchAllHourlyRows(
+    startDate: string,
+    endDate: string
+  ): Promise<{ rows: HourlyAnalyticsRow[]; tableMissing: boolean }> {
+    if (!this.supabase) return { rows: [], tableMissing: false };
+
+    const pageSize = 1000;
+    const maxPages = 200;
+    const allRows: HourlyAnalyticsRow[] = [];
+
+    for (let page = 0; page < maxPages; page += 1) {
+      const from = page * pageSize;
+      const { data, error } = await this.supabase
+        .from('hourly_analytics')
+        .select('date, hour, pages, visitors, clicks')
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: true })
+        .order('hour', { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (error) {
+        if (
+          error.code === '42P01' ||
+          error.code === 'PGRST205' ||
+          /could not find the table|does not exist|schema cache/i.test(error.message)
+        ) {
+          return { rows: allRows, tableMissing: true };
+        }
+        throw new Error(`Lettura hourly_analytics fallita: ${error.message}`);
+      }
+
+      const batch = (data || []) as unknown as HourlyAnalyticsRow[];
+      allRows.push(...batch);
+
+      if (batch.length < pageSize) break;
+    }
+
+    return { rows: allRows, tableMissing: false };
+  }
+
+  /** Costruisce le matrici giorno × ora usate dalla heatmap della dashboard. */
+  private buildHourlySchedule(
+    rows: HourlyAnalyticsRow[],
+    startDate: string,
+    endDate: string,
+    tableMissing: boolean
+  ): HourlySchedule {
+    const dates = enumerateUtcDates(startDate, endDate);
+    const weekdayDayCounts = new Array<number>(7).fill(0);
+    for (const dateStr of dates) {
+      weekdayDayCounts[weekdayIndexFromIso(dateStr)] += 1;
+    }
+
+    const heatmap: Record<HourlyMetricKey, number[]> = {
+      pages: new Array<number>(168).fill(0),
+      visitors: new Array<number>(168).fill(0),
+      clicks: new Array<number>(168).fill(0),
+    };
+    const byHour: Record<HourlyMetricKey, number[]> = {
+      pages: new Array<number>(24).fill(0),
+      visitors: new Array<number>(24).fill(0),
+      clicks: new Array<number>(24).fill(0),
+    };
+    const byWeekday: Record<HourlyMetricKey, number[]> = {
+      pages: new Array<number>(7).fill(0),
+      visitors: new Array<number>(7).fill(0),
+      clicks: new Array<number>(7).fill(0),
+    };
+
+    for (const row of rows) {
+      const hour = Math.min(23, Math.max(0, Math.trunc(Number(row.hour) || 0)));
+      const weekday = weekdayIndexFromIso(row.date);
+      const heatmapIndex = weekday * 24 + hour;
+
+      for (const key of HOURLY_METRIC_KEYS) {
+        const value = Math.max(0, Math.trunc(Number(row[key]) || 0));
+        if (value === 0) continue;
+        heatmap[key][heatmapIndex] += value;
+        byHour[key][hour] += value;
+        byWeekday[key][weekday] += value;
+      }
+    }
+
+    return {
+      available: rows.length > 0,
+      tableMissing,
+      timezone: 'Europe/Rome',
+      days: dates.length,
+      weekdayDayCounts,
+      heatmap,
+      byHour,
+      byWeekday,
+    };
+  }
+
+  /**
    * Restituisce i dati aggregati degli ultimi N giorni (default 30, supporta 7 o 30)
    * inclusi grafici giornalieri, top pagine, top click e flusso di navigazione utenti.
    */
@@ -437,6 +629,8 @@ class AnalyticsService {
     const startDate = clampedStartDate > endDate ? endDate : clampedStartDate;
 
     let rows: DailyAnalyticsRow[] = [];
+    let hourlyRows: HourlyAnalyticsRow[] = [];
+    let hourlyTableMissing = false;
     const trafficSourcesPromise = trafficSourceService.getTrafficSources(startDate, endDate);
 
     if (this.supabase) {
@@ -444,9 +638,23 @@ class AnalyticsService {
       // Con una singola select senza range i giorni più recenti (in coda all'ordinamento)
       // sparivano silenziosamente: la dashboard mostrava 0 click sull'ultimo giorno.
       // Paginiamo quindi l'intero intervallo con un ordinamento stabile (PK date+type+target).
-      rows = await this.fetchAllDailyRows(startDate, endDate);
+      // L'aggregazione oraria è opzionale: se la migrazione non è applicata la
+      // dashboard continua a funzionare e mostra un avviso dedicato.
+      const [dailyRows, hourlyResult] = await Promise.all([
+        this.fetchAllDailyRows(startDate, endDate),
+        this.fetchAllHourlyRows(startDate, endDate).catch((err: any) => {
+          console.warn('[AnalyticsService] Aggregazione oraria non disponibile:', err?.message || err);
+          return { rows: [] as HourlyAnalyticsRow[], tableMissing: true };
+        }),
+      ]);
+      rows = dailyRows;
+      hourlyRows = hourlyResult.rows;
+      hourlyTableMissing = hourlyResult.tableMissing;
     } else {
       rows = Array.from(this.memoryFallback.values()).filter(
+        (r) => r.date >= startDate && r.date <= endDate
+      );
+      hourlyRows = Array.from(this.memoryHourly.values()).filter(
         (r) => r.date >= startDate && r.date <= endDate
       );
     }
@@ -640,6 +848,12 @@ class AnalyticsService {
       },
       topPaths,
       trafficSources,
+      hourlySchedule: this.buildHourlySchedule(
+        hourlyRows,
+        startDate,
+        endDate,
+        hourlyTableMissing
+      ),
     };
   }
 }

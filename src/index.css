@@ -9954,6 +9954,8 @@ body.modal-open {
 
 /* Star Button */
 .athlete-spotlight-action-btn.btn-star {
+  position: relative;
+  overflow: visible;
   background: rgba(245, 158, 11, 0.08);
   border-color: rgba(245, 158, 11, 0.3);
   color: #f59e0b;
@@ -9970,6 +9972,59 @@ body.modal-open {
   border-color: rgba(245, 158, 11, 0.55);
   color: #f59e0b;
   box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+}
+
+.athlete-spotlight-action-btn.btn-star.is-bursting i {
+  animation: starPop 0.42s cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+
+.star-burst-particles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.star-particle {
+  position: absolute;
+  font-size: 9px;
+  line-height: 1;
+  color: #fbbf24;
+  text-shadow: 0 0 6px rgba(245, 158, 11, 0.7);
+  opacity: 0;
+  animation: starParticleBurst 0.58s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.star-particle.p-1 { --tx: 0px; --ty: -24px; }
+.star-particle.p-2 { --tx: 17px; --ty: -17px; font-size: 7px; animation-delay: 0.02s; }
+.star-particle.p-3 { --tx: 24px; --ty: 0px; }
+.star-particle.p-4 { --tx: 17px; --ty: 17px; font-size: 7px; animation-delay: 0.03s; }
+.star-particle.p-5 { --tx: 0px; --ty: 24px; }
+.star-particle.p-6 { --tx: -17px; --ty: 17px; font-size: 7px; animation-delay: 0.02s; }
+.star-particle.p-7 { --tx: -24px; --ty: 0px; }
+.star-particle.p-8 { --tx: -17px; --ty: -17px; font-size: 7px; animation-delay: 0.03s; }
+
+@keyframes starPop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.42) rotate(12deg); }
+  75% { transform: scale(0.92) rotate(-4deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+@keyframes starParticleBurst {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+  }
+  65% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty)) scale(1.1) rotate(45deg);
+  }
 }
 
 /* Copy Link Button */

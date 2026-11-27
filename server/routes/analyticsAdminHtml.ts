@@ -448,6 +448,122 @@ export function renderAnalyticsAdminHtml(): string {
         grid-template-columns: 1fr;
       }
     }
+    .schedule-card {
+      margin-bottom: 16px;
+    }
+    .heatmap-scroll {
+      overflow-x: auto;
+      padding: 16px 16px 8px;
+    }
+    .heatmap {
+      display: grid;
+      grid-template-columns: 52px repeat(24, minmax(22px, 1fr));
+      gap: 3px;
+      min-width: 720px;
+    }
+    .heatmap-corner,
+    .heatmap-hour-label {
+      font-size: 0.62rem;
+      color: var(--muted);
+      text-align: center;
+      padding: 2px 0;
+      font-variant-numeric: tabular-nums;
+      user-select: none;
+    }
+    .heatmap-hour-label.major {
+      color: #a3a3a3;
+    }
+    .heatmap-day-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      padding-right: 6px;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .heatmap-day-label.is-peak {
+      color: var(--text);
+      font-weight: 600;
+    }
+    .heatmap-cell {
+      position: relative;
+      aspect-ratio: 1 / 1;
+      min-height: 22px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.035);
+      cursor: default;
+      transition: outline-color 0.12s ease, transform 0.12s ease;
+    }
+    .heatmap-cell:hover {
+      outline: 1px solid rgba(255, 255, 255, 0.6);
+      outline-offset: -1px;
+      transform: scale(1.06);
+      z-index: 1;
+    }
+    .heatmap-cell-value {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.56rem;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      color: #ffffff;
+      opacity: 0.9;
+      pointer-events: none;
+    }
+    @media (max-width: 860px) {
+      .heatmap-cell-value {
+        display: none;
+      }
+    }
+    .heatmap-legend {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 0 16px 14px;
+      font-size: 0.68rem;
+      color: var(--muted);
+    }
+    .heatmap-legend-swatches {
+      display: flex;
+      gap: 2px;
+    }
+    .heatmap-legend-swatch {
+      width: 16px;
+      height: 8px;
+      border-radius: 2px;
+    }
+    .schedule-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .schedule-chip {
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .schedule-chip strong {
+      color: var(--text);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    @media (max-width: 640px) {
+      .schedule-meta {
+        display: none;
+      }
+    }
   </style>
 </head>
 <body>
@@ -511,6 +627,37 @@ export function renderAnalyticsAdminHtml(): string {
       </div>
       <div class="chart-wrap">
         <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+
+    <div class="dim-section">
+      <div class="section-heading">
+        <h2>Orari e giorni</h2>
+        <span class="section-hint">Quando gli utenti visitano e aprono più pagine · fuso Europe/Rome</span>
+      </div>
+      <div class="card schedule-card">
+        <div class="panel-header">
+          <div class="panel-tabs">
+            <button class="panel-tab active" type="button" data-schedule-metric="pages" id="schedTabPages">Pagine viste</button>
+            <button class="panel-tab" type="button" data-schedule-metric="visitors" id="schedTabVisitors">Visitatori</button>
+            <button class="panel-tab" type="button" data-schedule-metric="clicks" id="schedTabClicks">Click</button>
+          </div>
+          <div class="schedule-meta">
+            <span class="schedule-chip" id="schedPeakHour">Ora di punta <strong>-</strong></span>
+            <span class="schedule-chip" id="schedPeakDay">Giorno di punta <strong>-</strong></span>
+          </div>
+        </div>
+        <div class="heatmap-scroll">
+          <div class="heatmap" id="scheduleHeatmap">
+            <div class="empty-state">Caricamento...</div>
+          </div>
+        </div>
+        <div class="heatmap-legend">
+          <span>Meno</span>
+          <div class="heatmap-legend-swatches" id="scheduleLegend"></div>
+          <span>Più</span>
+          <span id="scheduleLegendLabel" style="margin-left: 8px;"></span>
+        </div>
       </div>
     </div>
 
@@ -642,6 +789,15 @@ export function renderAnalyticsAdminHtml(): string {
       pages: { label: 'Pagine Viste', color: '#38bdf8', fillTop: 'rgba(56, 189, 248, 0.18)', fillMultiTop: 'rgba(56, 189, 248, 0.10)' },
       clicks: { label: 'Click Utenti', color: '#10b981', fillTop: 'rgba(16, 185, 129, 0.18)', fillMultiTop: 'rgba(16, 185, 129, 0.10)' },
     };
+
+    let activeScheduleMetric = 'pages';
+    const SCHEDULE_CONFIGS = {
+      pages: { label: 'Pagine viste', rgb: '56, 189, 248' },
+      visitors: { label: 'Visitatori', rgb: '0, 112, 243' },
+      clicks: { label: 'Click', rgb: '16, 185, 129' },
+    };
+    const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+    const WEEKDAY_FULL = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
 
     function syncMetricTabsUI() {
       document.querySelectorAll('.metric-tab').forEach((el) => {
@@ -871,6 +1027,115 @@ export function renderAnalyticsAdminHtml(): string {
       hint.textContent = text;
     }
 
+    function compactNumber(value) {
+      const n = Number(value) || 0;
+      if (n >= 10000) return Math.round(n / 1000) + 'k';
+      if (n >= 1000) return (n / 1000).toFixed(1).replace('.', ',') + 'k';
+      return String(n);
+    }
+
+    function setScheduleHint(text) {
+      const hint = document.getElementById('scheduleLegendLabel');
+      if (hint) hint.textContent = text;
+    }
+
+    function renderSchedule() {
+      const host = document.getElementById('scheduleHeatmap');
+      if (!host || !lastData || !lastData.hourlySchedule) return;
+
+      const sched = lastData.hourlySchedule;
+      const cfg = SCHEDULE_CONFIGS[activeScheduleMetric] || SCHEDULE_CONFIGS.pages;
+      const values = (sched.heatmap && sched.heatmap[activeScheduleMetric]) || new Array(168).fill(0);
+      const byHour = (sched.byHour && sched.byHour[activeScheduleMetric]) || [];
+      const byWeekday = (sched.byWeekday && sched.byWeekday[activeScheduleMetric]) || [];
+
+      document.querySelectorAll('[data-schedule-metric]').forEach((el) => {
+        el.classList.toggle('active', el.dataset.scheduleMetric === activeScheduleMetric);
+      });
+
+      const total = values.reduce((sum, value) => sum + (Number(value) || 0), 0);
+      const max = Math.max.apply(null, values.concat([1]));
+
+      let peakHour = 0;
+      let peakHourValue = 0;
+      byHour.forEach((value, hour) => {
+        if (Number(value) > peakHourValue) {
+          peakHourValue = Number(value);
+          peakHour = hour;
+        }
+      });
+      let peakDay = 0;
+      let peakDayValue = 0;
+      byWeekday.forEach((value, weekday) => {
+        if (Number(value) > peakDayValue) {
+          peakDayValue = Number(value);
+          peakDay = weekday;
+        }
+      });
+
+      const peakHourEl = document.getElementById('schedPeakHour');
+      const peakDayEl = document.getElementById('schedPeakDay');
+      if (total <= 0) {
+        if (peakHourEl) peakHourEl.innerHTML = 'Ora di punta <strong>-</strong>';
+        if (peakDayEl) peakDayEl.innerHTML = 'Giorno di punta <strong>-</strong>';
+      } else {
+        const hourLabel = String(peakHour).padStart(2, '0') + ':00';
+        if (peakHourEl) peakHourEl.innerHTML = 'Ora di punta <strong>' + hourLabel + '</strong>';
+        if (peakDayEl) peakDayEl.innerHTML = 'Giorno di punta <strong>' + WEEKDAY_LABELS[peakDay] + '</strong>';
+      }
+
+      if (sched.tableMissing) {
+        setScheduleHint('Tabella oraria non attiva: esegui supabase/hourly_analytics.sql su Supabase.');
+      } else if (!sched.available) {
+        setScheduleHint('Nessun dato orario ancora: i conteggi iniziano con la migrazione oraria.');
+      } else if (total <= 0) {
+        setScheduleHint('Nessun ' + cfg.label.toLowerCase() + ' registrato nel periodo selezionato.');
+      } else {
+        const days = Math.max(1, Number(sched.days) || 1);
+        const weekdayCount = Math.max(
+          1,
+          Number((sched.weekdayDayCounts && sched.weekdayDayCounts[peakDay]) || 1)
+        );
+        const avgHour = peakHourValue / days;
+        const avgDay = peakDayValue / weekdayCount;
+        setScheduleHint(
+          'Europe/Rome · media ' + cfg.label.toLowerCase() + ': ' +
+          avgHour.toFixed(1).replace('.', ',') + '/ora alle ' + String(peakHour).padStart(2, '0') + ':00 · ' +
+          avgDay.toFixed(1).replace('.', ',') + '/' + WEEKDAY_LABELS[peakDay].toLowerCase()
+        );
+      }
+
+      const legend = document.getElementById('scheduleLegend');
+      if (legend) {
+        legend.innerHTML = [0.08, 0.24, 0.44, 0.64, 0.9].map(function (alpha) {
+          return '<span class="heatmap-legend-swatch" style="background: rgba(' + cfg.rgb + ', ' + alpha + ')"></span>';
+        }).join('');
+      }
+
+      let html = '<div class="heatmap-corner"></div>';
+      for (let hour = 0; hour < 24; hour += 1) {
+        html += '<div class="heatmap-hour-label' + (hour % 6 === 0 ? ' major' : '') + '">' +
+          String(hour).padStart(2, '0') + '</div>';
+      }
+      for (let weekday = 0; weekday < 7; weekday += 1) {
+        html += '<div class="heatmap-day-label' + (weekday === peakDay && total > 0 ? ' is-peak' : '') + '">' +
+          WEEKDAY_LABELS[weekday] + '</div>';
+        for (let hour = 0; hour < 24; hour += 1) {
+          const value = Number(values[weekday * 24 + hour]) || 0;
+          const alpha = value > 0 ? 0.14 + 0.78 * Math.pow(value / max, 0.6) : 0;
+          const style = value > 0 ? ' style="background: rgba(' + cfg.rgb + ', ' + alpha.toFixed(3) + ')"' : '';
+          const hourLabel = String(hour).padStart(2, '0') + ':00-' + String(hour).padStart(2, '0') + ':59';
+          const label = WEEKDAY_FULL[weekday] + ' ' + hourLabel + ' — ' +
+            value.toLocaleString('it-IT') + ' ' + cfg.label.toLowerCase();
+          html += '<div class="heatmap-cell" role="img" aria-label="' + escapeHtml(label) + '"' +
+            ' title="' + escapeHtml(label) + '"' + style + '>' +
+            (value > 0 ? '<span class="heatmap-cell-value">' + compactNumber(value) + '</span>' : '') +
+            '</div>';
+        }
+      }
+      host.innerHTML = html;
+    }
+
     function formatSourceLabel(src) {
       const s = String(src || '').toLowerCase();
       if (s === 'direct') return 'Diretto / Segnalibri';
@@ -961,6 +1226,7 @@ export function renderAnalyticsAdminHtml(): string {
       document.getElementById('kpiClicksAvg').textContent = (data.totals.avgClicksPerDay || 0) + '/g';
 
       renderTrendChart();
+      renderSchedule();
 
       const pageItems = (data.topPages || []).map((p) => ({ label: p.target, count: p.count }));
       renderBarList('pagesList', pageItems, 'Nessuna pagina registrata nel periodo.');
@@ -989,7 +1255,7 @@ export function renderAnalyticsAdminHtml(): string {
         const warnEl = document.getElementById('configWarn');
         if (!lastData.configured) {
           warnEl.style.display = 'block';
-          warnEl.textContent = 'Modalità fallback in memoria: configura SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY e applica supabase/daily_analytics.sql per la persistenza su Postgres.';
+          warnEl.textContent = 'Modalità fallback in memoria: configura SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY e applica supabase/daily_analytics.sql + supabase/hourly_analytics.sql per la persistenza su Postgres.';
         } else {
           warnEl.style.display = 'none';
         }
@@ -1063,6 +1329,13 @@ export function renderAnalyticsAdminHtml(): string {
     document.getElementById('btn7').addEventListener('click', () => loadAnalytics(7));
     document.getElementById('btn30').addEventListener('click', () => loadAnalytics(30));
     document.getElementById('btnRefresh').addEventListener('click', () => loadAnalytics(currentDays));
+
+    document.querySelectorAll('[data-schedule-metric]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        activeScheduleMetric = btn.dataset.scheduleMetric || 'pages';
+        renderSchedule();
+      });
+    });
 
     loadAnalytics(30);
   </script>
