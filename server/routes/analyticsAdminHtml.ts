@@ -840,7 +840,7 @@ export function renderAnalyticsAdminHtml(): string {
     }
 
     function renderTrendChart() {
-      if (!lastData) return;
+      if (!lastData || typeof Chart === 'undefined') return;
       const series = lastData.dailySeries || [];
       const canvas = document.getElementById('trendChart');
       const ctx2d = canvas.getContext('2d');
